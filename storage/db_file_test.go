@@ -1,6 +1,8 @@
 package storage
 
-import "testing"
+import (
+	"testing"
+)
 
 const (
 	path1            = "/Users/roseduan/resources/rosedb"
@@ -53,7 +55,7 @@ func TestDBFile_Read_FileIO(t *testing.T) {
 
 	readEntry := func(offset, n int64) *Entry {
 		if e, err := df.Read(offset, n); err != nil {
-			t.Error("read db file error ", err)
+			t.Error("read db File error ", err)
 		} else {
 			return e
 		}

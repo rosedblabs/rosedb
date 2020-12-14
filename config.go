@@ -25,28 +25,33 @@ const (
 
 	//默认的value最大值 1MB
 	DefaultMaxValueSize = uint32(1 * 1024 * 1024)
+
+	//默认回收磁盘空间的阈值 32MB
+	DefaultReclaimThreshold = uint64(32 * 1024 * 1024)
 )
 
 //数据库配置
 type Config struct {
-	dirPath      string               //数据库数据存储目录
-	blockSize    int64                //每个数据块文件的大小
-	rwMethod     storage.FileRWMethod //数据读写模式
-	idxMode      DataIndexMode        //数据索引模式
-	MaxKeySize   uint32
-	MaxValueSize uint32
-	Sync         bool //数据是否持久化
+	DirPath          string               `json:"dir_path"`   //数据库数据存储目录
+	BlockSize        int64                `json:"block_size"` //每个数据块文件的大小
+	RwMethod         storage.FileRWMethod `json:"rw_method"`  //数据读写模式
+	IdxMode          DataIndexMode        `json:"idx_mode"`   //数据索引模式
+	MaxKeySize       uint32               `json:"max_key_size"`
+	MaxValueSize     uint32               `json:"max_value_size"`
+	Sync             bool                 `json:"sync"`              //每次写数据是否持久化
+	ReclaimThreshold uint64               `json:"reclaim_threshold"` //回收磁盘空间的阈值
 }
 
 //获取默认配置
-func DefaultConfig() *Config {
-	return &Config{
-		dirPath:      os.TempDir(),
-		blockSize:    DefaultBlockSize,
-		rwMethod:     storage.FileIO,
-		idxMode:      KeyValueRamMode,
-		MaxKeySize:   DefaultMaxKeySize,
-		MaxValueSize: DefaultMaxValueSize,
-		Sync:         true,
+func DefaultConfig() Config {
+	return Config{
+		DirPath:          os.TempDir(),
+		BlockSize:        DefaultBlockSize,
+		RwMethod:         storage.FileIO,
+		IdxMode:          KeyValueRamMode,
+		MaxKeySize:       DefaultMaxKeySize,
+		MaxValueSize:     DefaultMaxValueSize,
+		Sync:             false,
+		ReclaimThreshold: DefaultReclaimThreshold,
 	}
 }
