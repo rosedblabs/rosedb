@@ -10,6 +10,29 @@ import (
 	"time"
 )
 
+var dbPath = "/Users/roseduan/resources/rosedb/db7"
+
+func InitDb() *RoseDB {
+	config := DefaultConfig()
+	config.DirPath = dbPath
+
+	db, err := Open(config)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return db
+}
+
+func ReopenDb() *RoseDB {
+	db, err := Reopen(dbPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return db
+}
+
 func TestOpen(t *testing.T) {
 	config := DefaultConfig()
 	config.IdxMode = KeyOnlyRamMode
@@ -74,10 +97,7 @@ func Test_SaveInfo(t *testing.T) {
 //批量数据测试
 func TestRoseDB_Add(t *testing.T) {
 	config := DefaultConfig()
-
-	config.IdxMode = KeyOnlyRamMode
-	config.DirPath = "/Users/roseduan/resources/rosedb/db0"
-	config.BlockSize = 4 * 1024 * 1024
+	config.DirPath = "/Users/roseduan/resources/rosedb/db3"
 
 	db, err := Open(config)
 	if err != nil {
@@ -89,17 +109,22 @@ func TestRoseDB_Add(t *testing.T) {
 
 	rand.Seed(time.Now().Unix())
 
-	for i := 0; i < 300000; i++ {
+	for i := 0; i < 100000; i++ {
 		key := keyPrefix + strconv.Itoa(rand.Intn(1000000))
 		val := valPrefix + strconv.Itoa(rand.Intn(1000000))
 
-		err := db.Set([]byte(key), []byte(val))
+		err := db.LPush([]byte(key), []byte(val))
 		if err != nil {
 			t.Error("数据写入发生错误 ", err)
 		}
 	}
 
-	t.Log(db.idxList.Size)
+	_ = db.Set([]byte(keyPrefix+"0012"), []byte(valPrefix+"0012"))
+	t.Log(db.idxList.Len)
+
+	val, _ := db.Get([]byte(keyPrefix + "0012"))
+	t.Log(string(val))
+
 	defer db.Close()
 }
 
@@ -137,14 +162,15 @@ func BenchmarkRoseDB_Set(b *testing.B) {
 }
 
 func TestReopen(t *testing.T) {
-	path := "/Users/roseduan/resources/rosedb/db0"
+	path := "/Users/roseduan/resources/rosedb/db3"
 	db, err := Reopen(path)
 	if err != nil {
 		t.Error("reopen db error ", err)
 	}
 
-	key := []byte("test_key_34915")
-	val, _ := db.Get(key)
+	//test_value_227957
+	key := []byte("test_key_481522")
+	val, _ := db.LPop(key)
 	t.Log(string(val))
 }
 
@@ -155,7 +181,7 @@ func TestRoseDB_Reclaim(t *testing.T) {
 		t.Error("reopen db error ", err)
 	}
 
-	t.Log(db.idxList.Size)
+	t.Log(db.idxList.Len)
 	db.meta.UnusedSpace = 19993333333
 
 	e, _ := db.Get([]byte("test_key_916257"))

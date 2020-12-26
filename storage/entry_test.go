@@ -7,16 +7,26 @@ import (
 	"testing"
 )
 
+func TestNewEntry(t *testing.T) {
+	key, val := []byte("test_key"), []byte("test_val")
+	extra := []byte("extar val")
+	e := NewEntry(key, val, extra, String, 0)
+
+	t.Logf("%+v", e)
+}
+
 func TestEntry_Encode(t *testing.T) {
 	//正常key和value的情况
 	t.Run("test1", func(t *testing.T) {
 		e := &Entry{
-			Key:   []byte("test_key_0001"),
-			Value: []byte("test_value_0001"),
+			Meta: &Meta{
+				Key:   []byte("test_key_0001"),
+				Value: []byte("test_value_0001"),
+			},
 		}
 
-		e.keySize = uint32(len(e.Key))
-		e.valueSize = uint32(len(e.Value))
+		e.Meta.KeySize = uint32(len(e.Meta.Key))
+		e.Meta.ValueSize = uint32(len(e.Meta.Value))
 
 		encVal, err := e.Encode()
 		if err != nil {
@@ -35,11 +45,13 @@ func TestEntry_Encode(t *testing.T) {
 	//value为空的情况
 	t.Run("test2", func(t *testing.T) {
 		e := &Entry{
-			Key: []byte("test_key_0001"),
+			Meta: &Meta{
+				Key: []byte("test_key_0001"),
+			},
 		}
 
-		e.keySize = uint32(len(e.Key))
-		e.valueSize = uint32(len(e.Value))
+		e.Meta.KeySize = uint32(len(e.Meta.Key))
+		e.Meta.ValueSize = uint32(len(e.Meta.Value))
 
 		encVal, err := e.Encode()
 		if err != nil {
@@ -52,12 +64,14 @@ func TestEntry_Encode(t *testing.T) {
 	//key为空的情况
 	t.Run("test3", func(t *testing.T) {
 		e := &Entry{
-			Key:   []byte(""),
-			Value: []byte("val_001"),
+			Meta: &Meta{
+				Key:   []byte(""),
+				Value: []byte("val_001"),
+			},
 		}
 
-		e.keySize = uint32(len(e.Key))
-		e.valueSize = uint32(len(e.Value))
+		e.Meta.KeySize = uint32(len(e.Meta.Key))
+		e.Meta.ValueSize = uint32(len(e.Meta.Value))
 
 		if encode, err := e.Encode(); err != nil {
 			t.Error(err)
@@ -72,18 +86,36 @@ func TestDecode(t *testing.T) {
 	if file, err := os.OpenFile("/Users/roseduan/resources/rosedb/test.dat", os.O_RDONLY, os.ModePerm); err != nil {
 		t.Error("open File err ", err)
 	} else {
-		buf := make([]byte, 40)
-		if n, err := file.ReadAt(buf, 0); err != nil {
+		buf := make([]byte, entryHeaderSize)
+		var offset int64 = 0
+		if n, err := file.ReadAt(buf, offset); err != nil {
 			t.Error("read data err ", err)
 		} else {
 			t.Log("success read ", n)
 
 			t.Log(buf)
 			e, _ := Decode(buf)
-			t.Logf("Key = %s, Value = %s, keySize = %d, valueSize = %d\n",
-				string(e.Key), string(e.Value), e.keySize, e.valueSize)
 
-			checkCrc := crc32.ChecksumIEEE(e.Value)
+			//read key
+			offset += entryHeaderSize
+			if e.Meta.KeySize > 0 {
+				key := make([]byte, e.Meta.KeySize)
+				file.ReadAt(key, offset)
+				e.Meta.Key = key
+			}
+
+			//read value
+			offset += int64(e.Meta.KeySize)
+			if e.Meta.ValueSize > 0 {
+				val := make([]byte, e.Meta.ValueSize)
+				file.ReadAt(val, offset)
+				e.Meta.Value = val
+			}
+
+			t.Logf("Key = %s, Value = %s, KeySize = %d, ValueSize = %d\n",
+				string(e.Meta.Key), string(e.Meta.Value), e.Meta.KeySize, e.Meta.ValueSize)
+
+			checkCrc := crc32.ChecksumIEEE(e.Meta.Value)
 			t.Log(checkCrc, e.crc32)
 		}
 	}

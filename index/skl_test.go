@@ -1,4 +1,4 @@
-package skiplist
+package index
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ type Employee struct {
 }
 
 func TestSkipList_Put(t *testing.T) {
-	list := New()
+	list := NewSkipList()
 	val := []byte("test_val")
 
 	list.Put([]byte("ec"), val)
@@ -34,7 +34,7 @@ func TestSkipList_Put(t *testing.T) {
 }
 
 func TestSkipList_Get(t *testing.T) {
-	list := New()
+	list := NewSkipList()
 	val := []byte("test_val")
 
 	list.Put([]byte("ec"), val)
@@ -49,22 +49,22 @@ func TestSkipList_Get(t *testing.T) {
 }
 
 func TestSkipList_Remove(t *testing.T) {
-	list := New()
+	list := NewSkipList()
 	val := []byte("test_val")
 
 	list.Put([]byte("ec"), val)
 	list.Put([]byte("dc"), 123)
 	list.Put([]byte("ac"), val)
 
-	t.Log(list.Size)
+	t.Log(list.Len)
 	list.Remove([]byte("dc"))
 	list.Remove([]byte("ec"))
 	list.Remove([]byte("ac"))
-	t.Log(list.Size)
+	t.Log(list.Len)
 }
 
 func TestSkipList_Foreach(t *testing.T) {
-	list := New()
+	list := NewSkipList()
 	val1 := []byte("test_val1")
 	val2 := []byte("test_val2")
 	val3 := []byte("test_val3")
@@ -91,7 +91,7 @@ func TestSkipList_Foreach(t *testing.T) {
 }
 
 func TestSkipList_Foreach2(t *testing.T) {
-	list := New()
+	list := NewSkipList()
 	val := []byte("test_val")
 
 	list.Put([]byte("ec"), val)
@@ -107,4 +107,14 @@ func TestSkipList_Foreach2(t *testing.T) {
 	for p := list.Front(); p != nil; p = p.Next() {
 		fmt.Printf("%s %s \n", string(p.Key()), string(p.Value().([]byte)))
 	}
+}
+
+func TestElement_SetValue(t *testing.T) {
+	list := NewSkipList()
+	list.Put([]byte("a"), []byte("13"))
+	list.Put([]byte("a"), []byte("19"))
+
+	t.Log(list.Len)
+	val := list.Get([]byte("a")).Value().([]byte)
+	t.Log(string(val))
 }

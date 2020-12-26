@@ -1,4 +1,4 @@
-package skiplist
+package index
 
 //SkipList是跳表的实现，跳表是一个高效的可替代平衡二叉搜索树的数据结构
 //它能够在O(log(n))的时间复杂度下进行插入、删除、查找操作
@@ -36,7 +36,7 @@ type (
 	SkipList struct {
 		Node
 		maxLevel       int
-		Size           int
+		Len            int
 		randSource     rand.Source
 		probability    float64
 		probTable      []float64
@@ -45,7 +45,7 @@ type (
 )
 
 //初始化一个空的跳表
-func New() *SkipList {
+func NewSkipList() *SkipList {
 	return &SkipList{
 		Node:           Node{next: make([]*Element, maxLevel)},
 		prevNodesCache: make([]*Node, maxLevel),
@@ -68,7 +68,7 @@ func (e *Element) SetValue(val interface{}) {
 	e.value = val
 }
 
-//跳表的第一层索引是原始数据，有序排列，可根据Next方法获取一个链表
+//跳表的第一层索引是原始数据，有序排列，可根据Next方法获取一个串联所有数据的链表
 func (e *Element) Next() *Element {
 	return e.next[0]
 }
@@ -86,7 +86,7 @@ func (t *SkipList) Front() *Element {
 //因此此跳表的实现暂不支持相同的key
 func (t *SkipList) Put(key []byte, value interface{}) *Element {
 	var element *Element
-	prev := t.getPrevNodes(key)
+	prev := t.backNodes(key)
 
 	if element = prev[0].next[0]; element != nil && bytes.Compare(element.key, key) <= 0 {
 		element.value = value
@@ -106,7 +106,7 @@ func (t *SkipList) Put(key []byte, value interface{}) *Element {
 		prev[i].next[i] = element
 	}
 
-	t.Size++
+	t.Len++
 	return element
 }
 
@@ -139,14 +139,14 @@ func (t *SkipList) Exist(key []byte) bool {
 
 //Remove方法根据key删除跳表中的元素，返回删除后的元素指针
 func (t *SkipList) Remove(key []byte) *Element {
-	prev := t.getPrevNodes(key)
+	prev := t.backNodes(key)
 
 	if element := prev[0].next[0]; element != nil && bytes.Compare(element.key, key) <= 0 {
 		for k, v := range element.next {
 			prev[k].next[k] = v
 		}
 
-		t.Size--
+		t.Len--
 		return element
 	}
 
@@ -163,7 +163,7 @@ func (t *SkipList) Foreach(fun handleEle) {
 }
 
 //找到key对应的前一个节点索引的信息
-func (t *SkipList) getPrevNodes(key []byte) []*Node {
+func (t *SkipList) backNodes(key []byte) []*Node {
 	var prev = &t.Node
 	var next *Element
 

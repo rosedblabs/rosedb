@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"log"
 	"testing"
 )
 
@@ -12,6 +13,38 @@ const (
 	defaultBlockSize = 8 * 1024 * 1024
 )
 
+func TestNewDBFile(t *testing.T) {
+
+	newOne := func(method FileRWMethod) {
+		file, err := NewDBFile(path1, fileId1, method, defaultBlockSize)
+		if err != nil {
+			t.Error("new db file error ", err)
+		}
+
+		t.Logf("%+v \n", file)
+		t.Log(file.File == nil)
+	}
+
+	t.Run("new db file file io", func(t *testing.T) {
+		newOne(FileIO)
+	})
+
+	t.Run("new db file mmap", func(t *testing.T) {
+		newOne(MMap)
+	})
+}
+
+func TestBuild(t *testing.T) {
+	path := "/Users/roseduan/resources/rosedb/db2/"
+	files, u, err := Build(path, FileIO, defaultBlockSize)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	t.Log(files)
+	t.Log(u)
+}
+
 func TestDBFile_Write_FileIO(t *testing.T) {
 	df, err := NewDBFile(path1, fileId1, FileIO, defaultBlockSize)
 
@@ -19,21 +52,26 @@ func TestDBFile_Write_FileIO(t *testing.T) {
 		t.Error(err)
 	}
 
-	entry := &Entry{
-		Key:   []byte("test001"),
-		Value: []byte("test001"),
+	entry1 := &Entry{
+		Meta: &Meta{
+			Key:   []byte("test001"),
+			Value: []byte("test001"),
+		},
 	}
-	entry.keySize = uint32(len(entry.Key))
-	entry.valueSize = uint32(len(entry.Value))
+	entry1.Meta.KeySize = uint32(len(entry1.Meta.Key))
+	entry1.Meta.ValueSize = uint32(len(entry1.Meta.Value))
 
 	entry2 := &Entry{
-		Key:   []byte("test_key_002"),
-		Value: []byte("test_val_002"),
+		Meta: &Meta{
+			Key:   []byte("test_key_002"),
+			Value: []byte("test_val_002"),
+		},
 	}
-	entry2.keySize = uint32(len(entry2.Key))
-	entry2.valueSize = uint32(len(entry2.Value))
 
-	err = df.Write(entry)
+	entry2.Meta.KeySize = uint32(len(entry2.Meta.Key))
+	entry2.Meta.ValueSize = uint32(len(entry2.Meta.Value))
+
+	err = df.Write(entry1)
 
 	t.Log(df.Offset)
 
@@ -53,8 +91,8 @@ func TestDBFile_Write_FileIO(t *testing.T) {
 func TestDBFile_Read_FileIO(t *testing.T) {
 	df, _ := NewDBFile(path1, fileId1, FileIO, defaultBlockSize)
 
-	readEntry := func(offset, n int64) *Entry {
-		if e, err := df.Read(offset, n); err != nil {
+	readEntry := func(offset int64) *Entry {
+		if e, err := df.Read(offset); err != nil {
 			t.Error("read db File error ", err)
 		} else {
 			return e
@@ -62,12 +100,12 @@ func TestDBFile_Read_FileIO(t *testing.T) {
 		return nil
 	}
 
-	e1 := readEntry(0, 26)
+	e1 := readEntry(0)
 	t.Log(e1)
-	t.Log(string(e1.Key), e1.keySize, string(e1.Value), e1.valueSize, e1.crc32)
-	e2 := readEntry(26, 62-26)
+	t.Log(string(e1.Meta.Key), e1.Meta.KeySize, string(e1.Meta.Value), e1.Meta.ValueSize, e1.crc32)
+	e2 := readEntry(30)
 	t.Log(e2)
-	t.Log(string(e2.Key), e2.keySize, string(e2.Value), e2.valueSize, e2.crc32)
+	t.Log(string(e2.Meta.Key), e2.Meta.KeySize, string(e2.Meta.Value), e2.Meta.ValueSize, e2.crc32)
 
 	defer df.Close(false)
 }
@@ -78,12 +116,14 @@ func TestDBFile_Write_MMap(t *testing.T) {
 	writeEntry := func(key, value []byte) {
 		defer df.Sync()
 		e := &Entry{
-			Key:   key,
-			Value: value,
+			Meta: &Meta{
+				Key:   key,
+				Value: value,
+			},
 		}
 
-		e.keySize = uint32(len(e.Key))
-		e.valueSize = uint32(len(e.Value))
+		e.Meta.KeySize = uint32(len(e.Meta.Key))
+		e.Meta.ValueSize = uint32(len(e.Meta.Value))
 
 		if err := df.Write(e); err != nil {
 			t.Error("数据写入错误", err)
@@ -97,15 +137,15 @@ func TestDBFile_Write_MMap(t *testing.T) {
 }
 
 func TestDBFile_Read_MMap(t *testing.T) {
-	readEntry := func(offset, n int64) {
-		if e, err := df.Read(offset, n); err != nil {
+	readEntry := func(offset int64) {
+		if e, err := df.Read(offset); err != nil {
 			t.Error("数据读取失败", err)
 		} else {
 			t.Log(e)
-			t.Log(string(e.Key), e.keySize, string(e.Value), e.valueSize, e.crc32)
+			t.Log(string(e.Meta.Key), e.Meta.KeySize, string(e.Meta.Value), e.Meta.ValueSize, e.crc32)
 		}
 	}
 
-	readEntry(0, 36)
-	readEntry(36, 72-36)
+	readEntry(0)
+	readEntry(40)
 }
