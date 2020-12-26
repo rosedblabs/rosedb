@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/roseduan/mmap-go"
+	"hash/crc32"
 	"io/ioutil"
 	"os"
 	"sort"
@@ -74,30 +75,73 @@ func NewDBFile(path string, fileId uint32, method FileRWMethod, blockSize int64)
 	return df, nil
 }
 
-//从数据文件中读数据 offset是读的起始位置，n表示读取多少字节
-func (df *DBFile) Read(offset int64, n int64) (e *Entry, err error) {
-	buf := make([]byte, n)
+//从数据文件中读数据，offset是读的起始位置
+func (df *DBFile) Read(offset int64) (e *Entry, err error) {
 
-	if df.method == FileIO {
-		_, err = df.File.ReadAt(buf, offset)
-	}
-	if df.method == MMap {
-		copy(buf, df.mmap[offset:offset+n])
-	}
-
-	if err != nil {
+	var buf []byte
+	if buf, err = df.readBuf(offset, int64(entryHeaderSize)); err != nil {
 		return
 	}
 
 	if e, err = Decode(buf); err != nil {
-		return nil, err
+		return
 	}
-	return e, nil
+
+	offset += entryHeaderSize
+	if e.Meta.KeySize > 0 {
+		var key []byte
+		if key, err = df.readBuf(offset, int64(e.Meta.KeySize)); err != nil {
+			return
+		}
+		e.Meta.Key = key
+	}
+
+	offset += int64(e.Meta.KeySize)
+	if e.Meta.ValueSize > 0 {
+		var val []byte
+		if val, err = df.readBuf(offset, int64(e.Meta.ValueSize)); err != nil {
+			return
+		}
+		e.Meta.Value = val
+	}
+
+	offset += int64(e.Meta.ValueSize)
+	if e.Meta.ExtraSize > 0 {
+		var val []byte
+		if val, err = df.readBuf(offset, int64(e.Meta.ExtraSize)); err != nil {
+			return
+		}
+		e.Meta.Extra = val
+	}
+
+	checkCrc := crc32.ChecksumIEEE(e.Meta.Value)
+	if checkCrc != e.crc32 {
+		return nil, ErrInvalidCrc
+	}
+
+	return
+}
+
+func (df *DBFile) readBuf(offset int64, n int64) ([]byte, error) {
+	buf := make([]byte, n)
+
+	if df.method == FileIO {
+		_, err := df.File.ReadAt(buf, offset)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if df.method == MMap {
+		copy(buf, df.mmap[offset:])
+	}
+
+	return buf, nil
 }
 
 //从文件的offset处开始写数据
 func (df *DBFile) Write(e *Entry) error {
-	if e == nil || e.keySize == 0 {
+	if e == nil || e.Meta.KeySize == 0 {
 		return ErrEmptyEntry
 	}
 

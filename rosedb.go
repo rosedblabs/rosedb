@@ -5,9 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
-	"rosedb/ds/skiplist"
+	"rosedb/ds/list"
 	"rosedb/index"
 	"rosedb/storage"
 	"rosedb/utils"
@@ -27,7 +26,9 @@ var (
 
 	ErrCfgNotExist = errors.New("rosedb: the config file not exist")
 
-	ErrReclaimUnreached = errors.New("unused space not reach the threshold")
+	ErrReclaimUnreached = errors.New("rosedb: unused space not reach the threshold")
+
+	ErrExtraContainsSeparator = errors.New("rosedb: extra contains separator \\0")
 )
 
 const (
@@ -43,13 +44,17 @@ const (
 
 	//回收磁盘空间时的临时目录
 	reclaimPath = string(os.PathSeparator) + "rosedb_reclaim"
+
+	//额外信息的分隔符，用于存储一些额外的信息（因此一些操作的value中不能包含此分隔符）
+	ExtraSeparator = "\\0"
 )
 
 type (
 	RoseDB struct {
 		activeFile   *storage.DBFile
 		archFiles    ArchivedFiles
-		idxList      *skiplist.SkipList
+		idxList      *index.SkipList
+		listIndex    *list.List
 		config       Config
 		activeFileId uint32
 		mu           sync.RWMutex
@@ -71,11 +76,11 @@ func Open(config Config) (*RoseDB, error) {
 	}
 
 	//如果存在索引文件，则加载索引状态
-	skipList := skiplist.New()
+	skipList := index.NewSkipList()
 	if utils.Exist(config.DirPath + indexSaveFile) {
 		err := index.Build(skipList, config.DirPath+indexSaveFile)
 		if err != nil {
-			log.Println("load index error ", err)
+			return nil, err
 		}
 	}
 
@@ -94,14 +99,22 @@ func Open(config Config) (*RoseDB, error) {
 	meta := storage.LoadMeta(config.DirPath + dbMetaSaveFile)
 	activeFile.Offset = meta.ActiveWriteOff
 
-	return &RoseDB{
+	db := &RoseDB{
 		activeFile:   activeFile,
 		archFiles:    archFiles,
 		config:       config,
 		activeFileId: activeFileId,
 		idxList:      skipList,
 		meta:         meta,
-	}, nil
+		listIndex:    list.New(),
+	}
+
+	//再加载List、Hash、Set、ZSet索引
+	if err := db.loadIdxFromFiles(); err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
 
 //根据配置重新打开数据库
@@ -156,141 +169,6 @@ func (db *RoseDB) Sync() error {
 	return db.activeFile.Sync()
 }
 
-//新增数据，如果存在则更新
-func (db *RoseDB) Set(key, value []byte) error {
-
-	if err := db.checkKeyValue(key, value); err != nil {
-		return err
-	}
-
-	db.mu.Lock()
-	defer db.mu.Unlock()
-
-	e := storage.NewEntry(key, value)
-
-	//如果数据文件空间不够，则关闭该文件，并新打开一个文件
-	config := db.config
-	if db.activeFile.Offset+int64(e.Size()) > config.BlockSize {
-		if err := db.activeFile.Close(true); err != nil {
-			return err
-		}
-
-		//保存旧的文件
-		db.archFiles[db.activeFileId] = db.activeFile
-
-		activeFileId := db.activeFileId + 1
-		if dbFile, err := storage.NewDBFile(config.DirPath, activeFileId, config.RwMethod, config.BlockSize); err != nil {
-			return err
-		} else {
-			db.activeFile = dbFile
-			db.activeFileId = activeFileId
-			db.meta.ActiveWriteOff = 0
-		}
-	}
-
-	//如果key已经存在，则原来的值被舍弃，所以需要新增可回收的磁盘空间值
-	if e := db.idxList.Get(key); e != nil {
-		item := e.Value().(*index.Indexer)
-		if item != nil {
-			db.meta.UnusedSpace += uint64(item.EntrySize)
-		}
-	}
-
-	//数据索引
-	idx := &index.Indexer{
-		Key:       key,
-		FileId:    db.activeFileId,
-		EntrySize: e.Size(),
-		Offset:    db.activeFile.Offset,
-		KeySize:   uint32(len(key)),
-	}
-
-	//写入数据至文件中
-	if err := db.activeFile.Write(e); err != nil {
-		return err
-	}
-	db.meta.ActiveWriteOff = db.activeFile.Offset
-
-	//数据持久化
-	if config.Sync {
-		if err := db.activeFile.Sync(); err != nil {
-			return err
-		}
-	}
-
-	if config.IdxMode == KeyValueRamMode {
-		idx.Value = value
-		idx.ValueSize = uint32(len(value))
-	}
-
-	//存储索引至内存中
-	db.idxList.Put(key, idx)
-	return nil
-}
-
-//如果key存在，则将value追加至原来的value末尾
-//如果key不存在，则相当于Set方法
-func (db *RoseDB) Append(key, value []byte) error {
-
-	if err := db.checkKeyValue(key, value); err != nil {
-		return err
-	}
-
-	e, err := db.Get(key)
-	if err != nil {
-		return err
-	}
-
-	if e != nil {
-		e = append(e, value...)
-	} else {
-		e = value
-	}
-
-	return db.Set(key, e)
-}
-
-func (db *RoseDB) Get(key []byte) ([]byte, error) {
-	keySize := uint32(len(key))
-	if keySize == 0 {
-		return nil, ErrEmptyKey
-	}
-
-	node := db.idxList.Get(key)
-	if node == nil {
-		return nil, ErrKeyNotExist
-	}
-
-	idx := node.Value().(*index.Indexer)
-	if idx == nil {
-		return nil, ErrNilIndexer
-	}
-
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-
-	//如果key和value均在内存中，则取内存中的value
-	if db.config.IdxMode == KeyValueRamMode {
-		return idx.Value, nil
-	}
-
-	//如果只有key在内存中，那么需要从db file中获取value
-	if db.config.IdxMode == KeyOnlyRamMode {
-		df := db.activeFile
-		if idx.FileId != db.activeFileId {
-			df = db.archFiles[idx.FileId]
-		}
-
-		if e, err := df.Read(idx.Offset, int64(idx.EntrySize)); err != nil {
-			return nil, err
-		} else {
-			return e.Value, nil
-		}
-	}
-
-	return nil, ErrKeyNotExist
-}
-
 //删除数据
 func (db *RoseDB) Remove(key []byte) error {
 
@@ -321,7 +199,7 @@ func (db *RoseDB) Reclaim() error {
 		return ErrReclaimUnreached
 	}
 
-	if db.idxList.Size <= 0 {
+	if db.idxList.Len <= 0 {
 		return nil
 	}
 
@@ -341,7 +219,7 @@ func (db *RoseDB) Reclaim() error {
 	)
 
 	//遍历所有的key，将数据写入到临时文件中
-	db.idxList.Foreach(func(e *skiplist.Element) bool {
+	db.idxList.Foreach(func(e *index.Element) bool {
 		idx := e.Value().(*index.Indexer)
 
 		if idx != nil && db.archFiles[idx.FileId] != nil {
@@ -358,7 +236,7 @@ func (db *RoseDB) Reclaim() error {
 				newArchFiles[activeFileId] = df
 			}
 
-			entry, err := db.archFiles[idx.FileId].Read(idx.Offset, int64(idx.EntrySize))
+			entry, err := db.archFiles[idx.FileId].Read(idx.Offset)
 			if err != nil {
 				success = false
 				return false
@@ -416,7 +294,7 @@ func (db *RoseDB) Backup(dir string) (err error) {
 	return err
 }
 
-func (db *RoseDB) checkKeyValue(key, value []byte) error {
+func (db *RoseDB) checkKeyValue(key []byte, value ...[]byte) error {
 	keySize := uint32(len(key))
 	if keySize == 0 {
 		return ErrEmptyKey
@@ -427,9 +305,10 @@ func (db *RoseDB) checkKeyValue(key, value []byte) error {
 		return ErrKeyTooLarge
 	}
 
-	valueSize := uint32(len(value))
-	if valueSize > config.MaxValueSize {
-		return ErrValueTooLarge
+	for _, v := range value {
+		if uint32(len(v)) > config.MaxValueSize {
+			return ErrValueTooLarge
+		}
 	}
 
 	return nil
@@ -457,4 +336,84 @@ func (db *RoseDB) saveIndexes() error {
 func (db *RoseDB) saveMeta() error {
 	metaPath := db.config.DirPath + dbMetaSaveFile
 	return db.meta.Store(metaPath)
+}
+
+//建立索引
+func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
+
+	if db.config.IdxMode == KeyValueRamMode {
+		idx.Meta.Value = e.Meta.Value
+		idx.Meta.ValueSize = uint32(len(e.Meta.Value))
+	}
+
+	if e.Type == storage.String {
+		db.idxList.Put(idx.Meta.Key, idx)
+	}
+
+	if e.Type == storage.List {
+		db.buildListIndex(idx, e.Mark)
+	}
+
+	return nil
+}
+
+//写数据
+func (db *RoseDB) store(e *storage.Entry) (idx *index.Indexer, err error) {
+
+	//如果数据文件空间不够，则关闭该文件，并新打开一个文件
+	config := db.config
+	if db.activeFile.Offset+int64(e.Size()) > config.BlockSize {
+		if err = db.activeFile.Close(true); err != nil {
+			return
+		}
+
+		//保存旧的文件
+		db.archFiles[db.activeFileId] = db.activeFile
+
+		activeFileId := db.activeFileId + 1
+		var dbFile *storage.DBFile
+
+		if dbFile, err = storage.NewDBFile(config.DirPath, activeFileId, config.RwMethod, config.BlockSize); err != nil {
+			return
+		} else {
+			db.activeFile = dbFile
+			db.activeFileId = activeFileId
+			db.meta.ActiveWriteOff = 0
+		}
+	}
+
+	//如果key已经存在，则原来的值被舍弃，所以需要新增可回收的磁盘空间值
+	if e := db.idxList.Get(e.Meta.Key); e != nil {
+		item := e.Value().(*index.Indexer)
+		if item != nil {
+			db.meta.UnusedSpace += uint64(item.EntrySize)
+		}
+	}
+
+	//数据索引
+	idx = &index.Indexer{
+		Meta: &storage.Meta{
+			KeySize: uint32(len(e.Meta.Key)),
+			Key:     e.Meta.Key,
+		},
+		FileId:    db.activeFileId,
+		EntrySize: e.Size(),
+		Offset:    db.activeFile.Offset,
+	}
+
+	//写入数据至文件中
+	if err = db.activeFile.Write(e); err != nil {
+		return
+	}
+
+	db.meta.ActiveWriteOff = db.activeFile.Offset
+
+	//数据持久化
+	if config.Sync {
+		if err = db.activeFile.Sync(); err != nil {
+			return
+		}
+	}
+
+	return
 }
