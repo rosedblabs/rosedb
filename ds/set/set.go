@@ -12,20 +12,16 @@ func New() *Set {
 	return &Set{make(Record)}
 }
 
-//添加元素，返回添加后的集合中的元素个数
-func (s *Set) SAdd(key string, members ...[]byte) int {
+func (s *Set) SAdd(key string, member []byte) int {
 	if !s.exist(key) {
 		s.record[key] = make(map[string]bool)
 	}
 
-	for _, val := range members {
-		s.record[key][string(val)] = true
-	}
+	s.record[key][string(member)] = true
 
 	return len(s.record[key])
 }
 
-//随机移除并返回集合中的count个元素
 func (s *Set) SPop(key string, count int) [][]byte {
 	var val [][]byte
 	if !s.exist(key) || count <= 0 {
@@ -45,7 +41,6 @@ func (s *Set) SPop(key string, count int) [][]byte {
 	return val
 }
 
-//判断 member 元素是不是集合 key 的成员
 func (s *Set) SIsMember(key string, member []byte) bool {
 	if !s.exist(key) {
 		return false
@@ -54,10 +49,6 @@ func (s *Set) SIsMember(key string, member []byte) bool {
 	return s.record[key][string(member)]
 }
 
-//从集合中返回随机元素，count的可选值如下：
-//如果 count 为正数，且小于集合元素数量，则返回一个包含 count 个元素的数组，数组中的元素各不相同
-//如果 count 大于等于集合元素数量，那么返回整个集合
-//如果 count 为负数，则返回一个数组，数组中的元素可能会重复出现多次，而数组的长度为 count 的绝对值
 func (s *Set) SRandMember(key string, count int) [][]byte {
 	var val [][]byte
 	if !s.exist(key) || count == 0 {
@@ -89,24 +80,19 @@ func (s *Set) SRandMember(key string, count int) [][]byte {
 	return val
 }
 
-//移除集合 key 中的一个或多个 member 元素，不存在的 member 元素会被忽略
-//被成功移除的元素的数量，不包括被忽略的元素
-func (s *Set) SRem(key string, members ...[]byte) (res int) {
+func (s *Set) SRem(key string, member []byte) bool {
 	if !s.exist(key) {
-		return 0
+		return false
 	}
 
-	for _, val := range members {
-		if ok := s.record[key][string(val)]; ok {
-			delete(s.record[key], string(val))
-			res++
-		}
+	if ok := s.record[key][string(member)]; ok {
+		delete(s.record[key], string(member))
+		return true
 	}
 
-	return
+	return false
 }
 
-//将 member 元素从 src 集合移动到 dst 集合
 func (s *Set) SMove(src, dst string, member []byte) bool {
 	if !s.exist(src) {
 		return false
@@ -122,7 +108,6 @@ func (s *Set) SMove(src, dst string, member []byte) bool {
 	return true
 }
 
-//返回集合中的元素个数
 func (s *Set) SCard(key string) int {
 	if !s.exist(key) {
 		return 0
@@ -131,7 +116,6 @@ func (s *Set) SCard(key string) int {
 	return len(s.record[key])
 }
 
-//返回集合中的所有元素
 func (s *Set) SMembers(key string) (val [][]byte) {
 	if !s.exist(key) {
 		return
@@ -144,7 +128,6 @@ func (s *Set) SMembers(key string) (val [][]byte) {
 	return
 }
 
-//返回给定全部集合数据的并集
 func (s *Set) SUnion(keys ...string) (val [][]byte) {
 
 	m := make(map[string]bool)
@@ -163,7 +146,6 @@ func (s *Set) SUnion(keys ...string) (val [][]byte) {
 	return
 }
 
-//返回给定集合数据的差集
 func (s *Set) SDiff(keys ...string) (val [][]byte) {
 
 	if len(keys) < 2 || !s.exist(keys[0]) {

@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"rosedb/ds/hash"
 	"rosedb/ds/list"
+	"rosedb/ds/set"
+	"rosedb/ds/zset"
 	"rosedb/index"
 	"rosedb/storage"
 	"rosedb/utils"
@@ -55,6 +58,9 @@ type (
 		archFiles    ArchivedFiles
 		idxList      *index.SkipList
 		listIndex    *list.List
+		hashIndex    *hash.Hash
+		setIndex     *set.Set
+		zsetIndex    *zset.SortedSet
 		config       Config
 		activeFileId uint32
 		mu           sync.RWMutex
@@ -107,6 +113,9 @@ func Open(config Config) (*RoseDB, error) {
 		idxList:      skipList,
 		meta:         meta,
 		listIndex:    list.New(),
+		hashIndex:    hash.New(),
+		setIndex:     set.New(),
+		zsetIndex:    zset.New(),
 	}
 
 	//再加载List、Hash、Set、ZSet索引
@@ -346,35 +355,39 @@ func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
 		idx.Meta.ValueSize = uint32(len(e.Meta.Value))
 	}
 
-	if e.Type == storage.String {
+	switch e.Type {
+	case storage.String:
 		db.idxList.Put(idx.Meta.Key, idx)
-	}
-
-	if e.Type == storage.List {
+	case storage.List:
 		db.buildListIndex(idx, e.Mark)
+	case storage.Hash:
+		db.buildHashIndex(idx, e.Mark)
+	case storage.Set:
+		db.buildSetIndex(idx, e.Mark)
+	case storage.ZSet:
+		db.buildZsetIndex(idx, e.Mark)
 	}
 
 	return nil
 }
 
 //写数据
-func (db *RoseDB) store(e *storage.Entry) (idx *index.Indexer, err error) {
+func (db *RoseDB) store(e *storage.Entry) error {
 
 	//如果数据文件空间不够，则关闭该文件，并新打开一个文件
 	config := db.config
 	if db.activeFile.Offset+int64(e.Size()) > config.BlockSize {
-		if err = db.activeFile.Close(true); err != nil {
-			return
+		if err := db.activeFile.Close(true); err != nil {
+			return err
 		}
 
 		//保存旧的文件
 		db.archFiles[db.activeFileId] = db.activeFile
 
 		activeFileId := db.activeFileId + 1
-		var dbFile *storage.DBFile
 
-		if dbFile, err = storage.NewDBFile(config.DirPath, activeFileId, config.RwMethod, config.BlockSize); err != nil {
-			return
+		if dbFile, err := storage.NewDBFile(config.DirPath, activeFileId, config.RwMethod, config.BlockSize); err != nil {
+			return err
 		} else {
 			db.activeFile = dbFile
 			db.activeFileId = activeFileId
@@ -390,30 +403,19 @@ func (db *RoseDB) store(e *storage.Entry) (idx *index.Indexer, err error) {
 		}
 	}
 
-	//数据索引
-	idx = &index.Indexer{
-		Meta: &storage.Meta{
-			KeySize: uint32(len(e.Meta.Key)),
-			Key:     e.Meta.Key,
-		},
-		FileId:    db.activeFileId,
-		EntrySize: e.Size(),
-		Offset:    db.activeFile.Offset,
-	}
-
 	//写入数据至文件中
-	if err = db.activeFile.Write(e); err != nil {
-		return
+	if err := db.activeFile.Write(e); err != nil {
+		return err
 	}
 
 	db.meta.ActiveWriteOff = db.activeFile.Offset
 
 	//数据持久化
 	if config.Sync {
-		if err = db.activeFile.Sync(); err != nil {
-			return
+		if err := db.activeFile.Sync(); err != nil {
+			return err
 		}
 	}
 
-	return
+	return nil
 }

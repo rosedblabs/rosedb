@@ -1,7 +1,6 @@
 package rosedb
 
 import (
-	"encoding/json"
 	"log"
 	"math/rand"
 	"strconv"
@@ -153,16 +152,4 @@ func writeLargeData(db *RoseDB, t *testing.T) {
 	t.Log("time spent : ", time.Since(start).Milliseconds())
 
 	t.Log("写入的有效数据量 : ", db.idxList.Len)
-}
-
-func TestRoseDB_IncrBy(t *testing.T) {
-	a := 34
-	b, _ := json.Marshal(a)
-
-	var val int
-	err := json.Unmarshal(b, &val)
-	if err != nil {
-		t.Log(err)
-	}
-	t.Log(val)
 }

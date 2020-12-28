@@ -205,6 +205,8 @@ func (z *SortedSet) ZRevGetByRank(key string, rank int) (val []interface{}) {
 	return
 }
 
+//返回有序集 key 中，所有 score 值介于 min 和 max 之间(包括等于 min 或 max )的成员
+//有序集成员按 score 值递增(从小到大)次序排列
 func (z *SortedSet) ZScoreRange(key string, min, max float64) (val []interface{}) {
 	if !z.exist(key) || min > max {
 		return
@@ -241,6 +243,8 @@ func (z *SortedSet) ZScoreRange(key string, min, max float64) (val []interface{}
 	return
 }
 
+//返回有序集 key 中， score 值介于 max 和 min 之间(默认包括等于 max 或 min )的所有的成员
+//有序集成员按 score 值递减(从大到小)的次序排列
 func (z *SortedSet) ZRevScoreRange(key string, max, min float64) (val []interface{}) {
 	if !z.exist(key) || max < min {
 		return

@@ -24,6 +24,21 @@ func (h *Hash) HSet(key string, field string, value []byte) int {
 	return len(h.record[key])
 }
 
+//当且仅当域 field 尚未存在于哈希表的情况下， 将它的值设置为 value
+//如果给定域已经存在于哈希表当中， 那么命令将放弃执行设置操作
+func (h *Hash) HSetNx(key string, field string, value []byte) bool {
+	if !h.exist(key) {
+		h.record[key] = make(map[string][]byte)
+	}
+
+	if _, exist := h.record[key][field]; !exist {
+		h.record[key][field] = value
+		return true
+	}
+
+	return false
+}
+
 //返回哈希表中给定域的值
 func (h *Hash) HGet(key, field string) []byte {
 	if !h.exist(key) {
@@ -47,20 +62,18 @@ func (h *Hash) HGetAll(key string) (res [][]byte) {
 }
 
 //删除哈希表 key 中的一个或多个指定域，不存在的域将被忽略
-//返回被成功移除的元素个数
-func (h *Hash) HDel(key string, fields ...string) (res int) {
+//返回是否被成功移除
+func (h *Hash) HDel(key, field string) bool {
 	if !h.exist(key) {
-		return 0
+		return false
 	}
 
-	for _, field := range fields {
-		if _, exist := h.record[key][field]; exist {
-			delete(h.record[key], field)
-			res++
-		}
+	if _, exist := h.record[key][field]; exist {
+		delete(h.record[key], field)
+		return true
 	}
 
-	return
+	return false
 }
 
 //检查给定域 field 是否存在于key对应的哈希表中
@@ -80,6 +93,33 @@ func (h *Hash) HLen(key string) int {
 	}
 
 	return len(h.record[key])
+}
+
+//返回哈希表 key 中的所有域
+func (h *Hash) HKeys(key string) (val []string) {
+	if !h.exist(key) {
+		return
+	}
+
+	for k := range h.record[key] {
+		val = append(val, k)
+	}
+
+	return
+}
+
+//返回哈希表 key 中的所有域对应的值
+func (h *Hash) HValues(key string) (val [][]byte) {
+
+	if !h.exist(key) {
+		return
+	}
+
+	for _, v := range h.record[key] {
+		val = append(val, v)
+	}
+
+	return
 }
 
 func (h *Hash) exist(key string) bool {

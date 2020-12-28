@@ -10,8 +10,12 @@ var key string = "my_set"
 func InitSet() *Set {
 	set := New()
 
-	set.SAdd(key, []byte("a"), []byte("b"), []byte("c"))
-	set.SAdd(key, []byte("d"), []byte("e"), []byte("f"))
+	set.SAdd(key, []byte("a"))
+	set.SAdd(key, []byte("b"))
+	set.SAdd(key, []byte("c"))
+	set.SAdd(key, []byte("d"))
+	set.SAdd(key, []byte("e"))
+	set.SAdd(key, []byte("f"))
 
 	return set
 }
@@ -89,15 +93,19 @@ func TestSet_SRandMember(t *testing.T) {
 func TestSet_SRem(t *testing.T) {
 	set := InitSet()
 
-	n := set.SRem(key, []byte("a"), []byte("a"), []byte("a"))
+	n := set.SRem(key, []byte("a"))
+	n = set.SRem(key, []byte("a"))
+	n = set.SRem(key, []byte("c"))
 	t.Log(n)
 	PrintSetData(set)
 
-	n = set.SRem(key, []byte("ss"), []byte("d"))
+	n = set.SRem(key, []byte("ss"))
+	n = set.SRem(key, []byte("d"))
 	t.Log(n)
 	PrintSetData(set)
 
-	n = set.SRem(key, []byte("e"), []byte("c"))
+	n = set.SRem(key, []byte("e"))
+	n = set.SRem(key, []byte("x"))
 	t.Log(n)
 	PrintSetData(set)
 }
@@ -136,7 +144,9 @@ func TestSet_SMembers(t *testing.T) {
 func TestSet_SUnion(t *testing.T) {
 	set := InitSet()
 
-	set.SAdd("set2", []byte("h"), []byte("f"), []byte("g"))
+	set.SAdd("set2", []byte("h"))
+	set.SAdd("set2", []byte("f"))
+	set.SAdd("set2", []byte("g"))
 	members := set.SUnion(key, "set2")
 
 	for _, m := range members {
@@ -146,7 +156,9 @@ func TestSet_SUnion(t *testing.T) {
 
 func TestSet_SDiff(t *testing.T) {
 	set := InitSet()
-	set.SAdd("set2", []byte("a"), []byte("f"), []byte("g"))
+	set.SAdd("set2", []byte("a"))
+	set.SAdd("set2", []byte("f"))
+	set.SAdd("set2", []byte("g"))
 
 	members := set.SDiff(key, "set2")
 	for _, m := range members {

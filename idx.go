@@ -4,6 +4,7 @@ import (
 	"io"
 	"rosedb/ds/list"
 	"rosedb/index"
+	"rosedb/utils"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,6 +36,26 @@ const (
 	ListLInsert
 	ListLSet
 	ListLTrim
+)
+
+//哈希相关操作标识
+const (
+	HashHSet uint16 = iota
+	HashHDel
+)
+
+//集合相关操作标识
+const (
+	SetSAdd uint16 = iota
+	SetSRem
+	SetSMove
+)
+
+//有序集合相关操作标识
+const (
+	ZSetZAdd uint16 = iota
+	ZSetZIncrBy
+	ZSetZRem
 )
 
 //建立列表索引
@@ -79,6 +100,64 @@ func (db *RoseDB) buildListIndex(idx *index.Indexer, opt uint16) {
 
 			db.listIndex.LTrim(string(idx.Meta.Key), start, end)
 		}
+	}
+}
+
+//建立哈希索引
+func (db *RoseDB) buildHashIndex(idx *index.Indexer, opt uint16) {
+
+	if db.hashIndex == nil || idx == nil {
+		return
+	}
+
+	key := string(idx.Meta.Key)
+	switch opt {
+	case HashHSet:
+		db.hashIndex.HSet(key, string(idx.Meta.Extra), idx.Meta.Value)
+	case HashHDel:
+		db.hashIndex.HDel(key, string(idx.Meta.Extra))
+	}
+}
+
+//建立集合索引
+func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
+
+	if db.hashIndex == nil || idx == nil {
+		return
+	}
+
+	key := string(idx.Meta.Key)
+	switch opt {
+	case SetSAdd:
+		db.setIndex.SAdd(key, idx.Meta.Value)
+	case SetSRem:
+		db.setIndex.SRem(key, idx.Meta.Value)
+	case SetSMove:
+		extra := idx.Meta.Extra
+		db.setIndex.SMove(key, string(extra), idx.Meta.Value)
+	}
+}
+
+//建立有序集合索引
+func (db *RoseDB) buildZsetIndex(idx *index.Indexer, opt uint16) {
+
+	if db.hashIndex == nil || idx == nil {
+		return
+	}
+
+	key := string(idx.Meta.Key)
+	switch opt {
+	case ZSetZAdd:
+		if score, err := utils.StrToFloat64(string(idx.Meta.Extra)); err == nil {
+			db.zsetIndex.ZAdd(key, score, string(idx.Meta.Value))
+		}
+	case ZSetZIncrBy:
+		extra := string(idx.Meta.Extra)
+		if increment, err := utils.StrToFloat64(extra); err == nil {
+			db.zsetIndex.ZIncrBy(key, increment, string(idx.Meta.Value))
+		}
+	case ZSetZRem:
+		db.zsetIndex.ZRem(key, string(idx.Meta.Value))
 	}
 }
 

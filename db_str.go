@@ -19,9 +19,19 @@ func (db *RoseDB) Set(key, value []byte) error {
 	defer db.mu.Unlock()
 
 	e := storage.NewEntryNoExtra(key, value, String, StringSet)
-	idx, err := db.store(e)
-	if err != nil {
+	if err := db.store(e); err != nil {
 		return err
+	}
+
+	//数据索引
+	idx := &index.Indexer{
+		Meta: &storage.Meta{
+			KeySize: uint32(len(e.Meta.Key)),
+			Key:     e.Meta.Key,
+		},
+		FileId:    db.activeFileId,
+		EntrySize: e.Size(),
+		Offset:    db.activeFile.Offset,
 	}
 
 	if err := db.buildIndex(e, idx); err != nil {
