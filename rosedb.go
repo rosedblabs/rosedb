@@ -39,9 +39,6 @@ const (
 	//保存配置的文件名称
 	configSaveFile = string(os.PathSeparator) + "db.cfg"
 
-	//保存索引状态的文件名称
-	indexSaveFile = string(os.PathSeparator) + "db.idx"
-
 	//保存数据库相关信息的文件名称
 	dbMetaSaveFile = string(os.PathSeparator) + "db.meta"
 
@@ -81,15 +78,6 @@ func Open(config Config) (*RoseDB, error) {
 		}
 	}
 
-	//如果存在索引文件，则加载索引状态
-	skipList := index.NewSkipList()
-	if utils.Exist(config.DirPath + indexSaveFile) {
-		err := index.Build(skipList, config.DirPath+indexSaveFile)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	//加载数据文件
 	archFiles, activeFileId, err := storage.Build(config.DirPath, config.RwMethod, config.BlockSize)
 	if err != nil {
@@ -110,7 +98,7 @@ func Open(config Config) (*RoseDB, error) {
 		archFiles:    archFiles,
 		config:       config,
 		activeFileId: activeFileId,
-		idxList:      skipList,
+		idxList:      index.NewSkipList(),
 		meta:         meta,
 		listIndex:    list.New(),
 		hashIndex:    hash.New(),
@@ -118,7 +106,7 @@ func Open(config Config) (*RoseDB, error) {
 		zsetIndex:    zset.New(),
 	}
 
-	//再加载List、Hash、Set、ZSet索引
+	//加载索引信息
 	if err := db.loadIdxFromFiles(); err != nil {
 		return nil, err
 	}
@@ -147,6 +135,7 @@ func Reopen(path string) (*RoseDB, error) {
 
 //关闭数据库，保存相关配置
 func (db *RoseDB) Close() error {
+
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -154,16 +143,14 @@ func (db *RoseDB) Close() error {
 		return err
 	}
 
-	if err := db.saveIndexes(); err != nil {
-		return err
-	}
-
 	if err := db.saveMeta(); err != nil {
 		return err
 	}
 
-	db.activeFile = nil
-	db.idxList = nil
+	if err := db.activeFile.Close(true); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -175,6 +162,7 @@ func (db *RoseDB) Sync() error {
 
 	db.mu.RLock()
 	defer db.mu.RUnlock()
+
 	return db.activeFile.Sync()
 }
 
@@ -185,26 +173,20 @@ func (db *RoseDB) Remove(key []byte) error {
 		return err
 	}
 
-	//增加可回收的磁盘空间
-	e := db.idxList.Get(key)
-	if e != nil {
-		idx := e.Value().(*index.Indexer)
-		if idx != nil {
-			db.meta.UnusedSpace += uint64(idx.EntrySize)
-		}
-	}
-
 	//删除其在内存中的索引
+	e := db.idxList.Get(key)
 	if e != nil {
 		db.idxList.Remove(key)
 	}
+
 	return nil
 }
 
 //重新组织磁盘中的数据，回收磁盘空间
+//TODO
 func (db *RoseDB) Reclaim() error {
 
-	if db.meta.UnusedSpace < db.config.ReclaimThreshold {
+	if len(db.archFiles) < db.config.ReclaimThreshold {
 		return ErrReclaimUnreached
 	}
 
@@ -269,9 +251,9 @@ func (db *RoseDB) Reclaim() error {
 	defer db.mu.Unlock()
 
 	//重新保存索引
-	if err := db.saveIndexes(); err != nil {
-		return err
-	}
+	//if err := db.saveIndexes(); err != nil {
+	//	return err
+	//}
 
 	if success {
 
@@ -286,7 +268,6 @@ func (db *RoseDB) Reclaim() error {
 		}
 
 		//更新数据库相关信息
-		db.meta.UnusedSpace = 0
 		db.archFiles = newArchFiles
 	}
 
@@ -334,12 +315,6 @@ func (db *RoseDB) saveConfig() (err error) {
 	err = file.Close()
 
 	return
-}
-
-//保存索引状态
-func (db *RoseDB) saveIndexes() error {
-	idxPath := db.config.DirPath + indexSaveFile
-	return index.Store(db.idxList, idxPath)
 }
 
 func (db *RoseDB) saveMeta() error {
@@ -392,14 +367,6 @@ func (db *RoseDB) store(e *storage.Entry) error {
 			db.activeFile = dbFile
 			db.activeFileId = activeFileId
 			db.meta.ActiveWriteOff = 0
-		}
-	}
-
-	//如果key已经存在，则原来的值被舍弃，所以需要新增可回收的磁盘空间值
-	if e := db.idxList.Get(e.Meta.Key); e != nil {
-		item := e.Value().(*index.Indexer)
-		if item != nil {
-			db.meta.UnusedSpace += uint64(item.EntrySize)
 		}
 	}
 

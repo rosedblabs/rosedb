@@ -39,26 +39,20 @@ func TestRoseDB_Set(t *testing.T) {
 func TestRoseDB_Get(t *testing.T) {
 
 	t.Run("normal situation", func(t *testing.T) {
-		db := InitDb()
+		db := ReopenDb()
 		defer db.Close()
 
-		db.Set([]byte("test_key_001"), []byte("test_val_001"))
-		db.Set([]byte("test_key_002"), []byte("test_val_002"))
-		db.Set([]byte("test_key_003"), []byte("test_val_003"))
-		db.Set([]byte("test_key_004"), []byte("test_val_004"))
-		db.Set([]byte("test_key_005"), []byte("test_val_005"))
-
-		val, err := db.Get([]byte("test_key_001"))
+		val, err := db.Get([]byte("test_key001"))
 		if err != nil {
 			log.Fatal("get val error : ", err)
 		}
 
 		t.Log(string(val))
 
-		val, _ = db.Get([]byte("test_key_002"))
+		val, _ = db.Get([]byte("test_key002"))
 		t.Log(string(val))
 
-		val, _ = db.Get([]byte("test_key_003"))
+		val, _ = db.Get([]byte("test_key"))
 		t.Log(string(val))
 	})
 
@@ -66,17 +60,19 @@ func TestRoseDB_Get(t *testing.T) {
 		db := ReopenDb()
 		t.Log("reopen db...")
 
-		val, err := db.Get([]byte("test_key_001"))
+		val, err := db.Get([]byte("test_key_924252"))
 		if err != nil {
 			log.Fatal("get val error : ", err)
 		}
 
 		t.Log(string(val))
 
-		val, _ = db.Get([]byte("test_key_002"))
+		val, _ = db.Get([]byte("test_key_470054"))
+		//test_value_135824
 		t.Log(string(val))
 
-		val, _ = db.Get([]byte("test_key_003"))
+		//test_value_63214
+		val, _ = db.Get([]byte("test_key_648543"))
 		t.Log(string(val))
 	})
 
@@ -102,13 +98,13 @@ func TestRoseDB_GetSet(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
-	val, err := db.GetSet([]byte("test_key_001"), []byte("test_new_val_001"))
+	val, err := db.GetSet([]byte("test_key001"), []byte("test_new_val_001"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	t.Log("original val : ", string(val))
 
-	val, _ = db.Get([]byte("test_key_001"))
+	val, _ = db.Get([]byte("test_key001"))
 	t.Log("new val : ", string(val))
 }
 
@@ -116,12 +112,13 @@ func TestRoseDB_Append(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
-	err := db.Append([]byte("test_key_26385"), []byte("_abcd"))
+	//test_value_398667
+	err := db.Append([]byte("test_key_584025"), []byte("_abcd"))
 	if err != nil {
 		t.Log(err)
 	}
 
-	val, _ := db.Get([]byte("test_key_26385"))
+	val, _ := db.Get([]byte("test_key_584025"))
 	t.Log(string(val))
 }
 

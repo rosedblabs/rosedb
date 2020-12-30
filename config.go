@@ -26,8 +26,8 @@ const (
 	//默认的value最大值 1MB
 	DefaultMaxValueSize = uint32(1 * 1024 * 1024)
 
-	//默认回收磁盘空间的阈值 32MB
-	DefaultReclaimThreshold = uint64(32 * 1024 * 1024)
+	//默认回收磁盘空间的阈值，当已封存文件个数到达 4 时，可进行回收
+	DefaultReclaimThreshold = 4
 )
 
 //数据库配置
@@ -39,7 +39,7 @@ type Config struct {
 	MaxKeySize       uint32               `json:"max_key_size"`
 	MaxValueSize     uint32               `json:"max_value_size"`
 	Sync             bool                 `json:"sync"`              //每次写数据是否持久化
-	ReclaimThreshold uint64               `json:"reclaim_threshold"` //回收磁盘空间的阈值
+	ReclaimThreshold int                  `json:"reclaim_threshold"` //回收磁盘空间的阈值
 }
 
 //获取默认配置

@@ -8,8 +8,7 @@ import (
 
 //保存数据库的一些信息
 type DBMeta struct {
-	ActiveWriteOff int64  `json:"active_write_off"` //当前数据文件的写偏移
-	UnusedSpace    uint64 `json:"unused_space"`     //未使用可回收的磁盘空间
+	ActiveWriteOff int64 `json:"active_write_off"` //当前数据文件的写偏移
 }
 
 func LoadMeta(path string) (m *DBMeta) {
@@ -22,16 +21,9 @@ func LoadMeta(path string) (m *DBMeta) {
 
 	defer file.Close()
 
-	b, err := ioutil.ReadAll(file)
-	if err != nil {
-		return
-	}
+	b, _ := ioutil.ReadAll(file)
 
-	err = json.Unmarshal(b, m)
-	if err != nil {
-		return
-	}
-
+	_ = json.Unmarshal(b, m)
 	return
 }
 
@@ -43,10 +35,7 @@ func (m *DBMeta) Store(path string) error {
 
 	defer file.Close()
 
-	b, err := json.Marshal(m)
-	if err != nil {
-		return err
-	}
+	b, _ := json.Marshal(m)
 
 	_, err = file.Write(b)
 	return err

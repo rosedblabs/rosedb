@@ -161,7 +161,7 @@ func (db *RoseDB) buildZsetIndex(idx *index.Indexer, opt uint16) {
 	}
 }
 
-//从文件中加载List、Set、Hash、ZSet索引
+//从文件中加载String、List、Hash、Set、ZSet索引
 func (db *RoseDB) loadIdxFromFiles() error {
 	if db.archFiles == nil && db.activeFile == nil {
 		return nil
