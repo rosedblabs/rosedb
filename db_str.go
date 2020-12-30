@@ -132,6 +132,14 @@ func (db *RoseDB) Append(key, value []byte) error {
 
 //返回key存储的字符串值的长度
 func (db *RoseDB) StrLen(key []byte) int {
+
+	if err := db.checkKeyValue(key, nil); err != nil {
+		return 0
+	}
+
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
 	e := db.idxList.Get(key)
 	if e != nil {
 		idx := e.Value().(*index.Indexer)
@@ -139,4 +147,36 @@ func (db *RoseDB) StrLen(key []byte) int {
 	}
 
 	return 0
+}
+
+//判断key是否存在
+func (db *RoseDB) StrExists(key []byte) bool {
+
+	if err := db.checkKeyValue(key, nil); err != nil {
+		return false
+	}
+
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	return db.idxList.Exist(key)
+}
+
+//删除key及其数据
+func (db *RoseDB) StrRem(key []byte) error {
+	if err := db.checkKeyValue(key, nil); err != nil {
+		return err
+	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if ele := db.idxList.Remove(key); ele != nil {
+		e := storage.NewEntryNoExtra(key, nil, String, StringRem)
+		if err := db.store(e); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

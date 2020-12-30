@@ -84,13 +84,14 @@ func (db *RoseDB) ZIncrBy(key []byte, increment float64, member []byte) (float64
 	db.mu.Lock()
 	db.mu.Unlock()
 
+	increment = db.zsetIndex.ZIncrBy(string(key), increment, string(member))
+
 	extra := utils.Float64ToStr(increment)
-	e := storage.NewEntry(key, member, []byte(extra), ZSet, ZSetZIncrBy)
+	e := storage.NewEntry(key, member, []byte(extra), ZSet, ZSetZAdd)
 	if err := db.store(e); err != nil {
 		return increment, err
 	}
 
-	increment = db.zsetIndex.ZIncrBy(string(key), increment, string(member))
 	return increment, nil
 }
 

@@ -24,6 +24,7 @@ const (
 //字符串相关操作标识
 const (
 	StringSet uint16 = iota
+	StringRem
 )
 
 //列表相关操作标识
@@ -54,9 +55,22 @@ const (
 //有序集合相关操作标识
 const (
 	ZSetZAdd uint16 = iota
-	ZSetZIncrBy
 	ZSetZRem
 )
+
+//建立字符串索引
+func (db *RoseDB) buildStringIndex(idx *index.Indexer, opt uint16) {
+	if db.listIndex == nil || idx == nil {
+		return
+	}
+
+	switch opt {
+	case StringSet:
+		db.idxList.Put(idx.Meta.Key, idx)
+	case StringRem:
+		db.idxList.Remove(idx.Meta.Key)
+	}
+}
 
 //建立列表索引
 func (db *RoseDB) buildListIndex(idx *index.Indexer, opt uint16) {
@@ -150,11 +164,6 @@ func (db *RoseDB) buildZsetIndex(idx *index.Indexer, opt uint16) {
 	case ZSetZAdd:
 		if score, err := utils.StrToFloat64(string(idx.Meta.Extra)); err == nil {
 			db.zsetIndex.ZAdd(key, score, string(idx.Meta.Value))
-		}
-	case ZSetZIncrBy:
-		extra := string(idx.Meta.Extra)
-		if increment, err := utils.StrToFloat64(extra); err == nil {
-			db.zsetIndex.ZIncrBy(key, increment, string(idx.Meta.Value))
 		}
 	case ZSetZRem:
 		db.zsetIndex.ZRem(key, string(idx.Meta.Value))

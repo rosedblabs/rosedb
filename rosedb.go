@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"rosedb/ds/hash"
@@ -166,32 +167,11 @@ func (db *RoseDB) Sync() error {
 	return db.activeFile.Sync()
 }
 
-//删除数据
-func (db *RoseDB) Remove(key []byte) error {
-
-	if err := db.checkKeyValue(key, nil); err != nil {
-		return err
-	}
-
-	//删除其在内存中的索引
-	e := db.idxList.Get(key)
-	if e != nil {
-		db.idxList.Remove(key)
-	}
-
-	return nil
-}
-
 //重新组织磁盘中的数据，回收磁盘空间
-//TODO
-func (db *RoseDB) Reclaim() error {
+func (db *RoseDB) Reclaim() (err error) {
 
 	if len(db.archFiles) < db.config.ReclaimThreshold {
 		return ErrReclaimUnreached
-	}
-
-	if db.idxList.Len <= 0 {
-		return nil
 	}
 
 	//新建临时目录，用于暂存新的数据文件
@@ -203,75 +183,72 @@ func (db *RoseDB) Reclaim() error {
 	defer os.RemoveAll(reclaimPath)
 
 	var (
-		success             = true
 		activeFileId uint32 = 0
 		newArchFiles        = make(ArchivedFiles)
 		df           *storage.DBFile
 	)
 
-	//遍历所有的key，将数据写入到临时文件中
-	db.idxList.Foreach(func(e *index.Element) bool {
-		idx := e.Value().(*index.Indexer)
+	for _, file := range db.archFiles {
+		var offset int64 = 0
+		var mergeEntries []*storage.Entry
 
-		if idx != nil && db.archFiles[idx.FileId] != nil {
-			if df == nil {
-				df, _ = storage.NewDBFile(reclaimPath, activeFileId, db.config.RwMethod, db.config.BlockSize)
-				newArchFiles[activeFileId] = df
-			}
+		for {
+			if e, err := file.Read(offset); err == nil {
+				//判断是否为有效的entry
+				if db.validEntry(e) {
+					mergeEntries = append(mergeEntries, e)
+				}
 
-			if int64(idx.EntrySize)+df.Offset > db.config.BlockSize {
-				df.Close(true)
-				activeFileId += 1
+				offset += int64(e.Size())
+			} else {
+				if err == io.EOF {
+					break
+				}
 
-				df, _ = storage.NewDBFile(reclaimPath, activeFileId, db.config.RwMethod, db.config.BlockSize)
-				newArchFiles[activeFileId] = df
-			}
-
-			entry, err := db.archFiles[idx.FileId].Read(idx.Offset)
-			if err != nil {
-				success = false
-				return false
-			}
-
-			//更新索引
-			idx.FileId = df.Id
-			idx.Offset = df.Offset
-			e.SetValue(idx)
-
-			if err := df.Write(entry); err != nil {
-				success = false
-				return false
+				return err
 			}
 		}
 
-		return true
-	})
+		//重新将entry写入到文件中
+		if len(mergeEntries) > 0 {
+			for _, entry := range mergeEntries {
+				if df == nil || int64(entry.Size())+df.Offset > db.config.BlockSize {
+					df, err = storage.NewDBFile(reclaimPath, activeFileId, db.config.RwMethod, db.config.BlockSize)
+					if err != nil {
+						return
+					}
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+					newArchFiles[activeFileId] = df
+					activeFileId++
+				}
 
-	//重新保存索引
-	//if err := db.saveIndexes(); err != nil {
-	//	return err
-	//}
+				item := db.idxList.Get(entry.Meta.Key)
+				idx := item.Value().(*index.Indexer)
+				idx.Offset = df.Offset
 
-	if success {
+				if err = df.Write(entry); err != nil {
+					return
+				}
 
-		//旧数据删除，临时目录拷贝为新的数据文件
-		for _, v := range db.archFiles {
-			os.Remove(v.File.Name())
+				//更新字符串索引
+				db.idxList.Put(idx.Meta.Key, idx)
+			}
 		}
-
-		for _, v := range newArchFiles {
-			name := storage.PathSeparator + fmt.Sprintf(storage.DBFileFormatName, v.Id)
-			os.Rename(reclaimPath+name, db.config.DirPath+name)
-		}
-
-		//更新数据库相关信息
-		db.archFiles = newArchFiles
 	}
 
-	return nil
+	//旧数据删除，临时目录拷贝为新的数据文件
+	for _, v := range db.archFiles {
+		_ = os.Remove(v.File.Name())
+	}
+
+	for _, v := range newArchFiles {
+		name := storage.PathSeparator + fmt.Sprintf(storage.DBFileFormatName, v.Id)
+		os.Rename(reclaimPath+name, db.config.DirPath+name)
+	}
+
+	db.archFiles = newArchFiles
+
+	return
 }
 
 //复制数据库目录，用于备份
@@ -332,7 +309,7 @@ func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
 
 	switch e.Type {
 	case storage.String:
-		db.idxList.Put(idx.Meta.Key, idx)
+		db.buildStringIndex(idx, e.Mark)
 	case storage.List:
 		db.buildListIndex(idx, e.Mark)
 	case storage.Hash:
@@ -385,4 +362,57 @@ func (db *RoseDB) store(e *storage.Entry) error {
 	}
 
 	return nil
+}
+
+//判断entry所属的操作标识(增、改类型的操作)，以及val是否是有效的
+func (db *RoseDB) validEntry(e *storage.Entry) bool {
+
+	if e == nil {
+		return false
+	}
+
+	mark := e.Mark
+	switch e.Type {
+	case String:
+		if mark == StringSet {
+			if val, err := db.Get(e.Meta.Key); err == nil && string(val) == string(e.Meta.Value) {
+				return true
+			}
+		}
+	case List:
+		if mark == ListLPush || mark == ListRPush || mark == ListLInsert || mark == ListLSet {
+			//由于List是链表结构，无法有效的进行检索，取出全部数据依次比较的开销太大
+			//因此暂时不参与reclaim，后续再想想其他的解决方案
+			return true
+		}
+	case Hash:
+		if mark == HashHSet {
+			if val := db.HGet(e.Meta.Key, e.Meta.Extra); string(val) == string(e.Meta.Value) {
+				return true
+			}
+		}
+	case Set:
+		if mark == SetSMove {
+			if db.SIsMember(e.Meta.Extra, e.Meta.Value) {
+				return true
+			}
+		}
+
+		if mark == SetSAdd {
+			if db.SIsMember(e.Meta.Key, e.Meta.Value) {
+				return true
+			}
+		}
+	case ZSet:
+		if mark == ZSetZAdd {
+			if val, err := utils.StrToFloat64(string(e.Meta.Extra)); err == nil {
+				score := db.ZScore(e.Meta.Key, e.Meta.Value)
+				if score == val {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
