@@ -190,13 +190,13 @@ func (db *RoseDB) Reclaim() (err error) {
 
 	for _, file := range db.archFiles {
 		var offset int64 = 0
-		var mergeEntries []*storage.Entry
+		var reclaimEntries []*storage.Entry
 
 		for {
 			if e, err := file.Read(offset); err == nil {
 				//判断是否为有效的entry
 				if db.validEntry(e) {
-					mergeEntries = append(mergeEntries, e)
+					reclaimEntries = append(reclaimEntries, e)
 				}
 
 				offset += int64(e.Size())
@@ -210,8 +210,8 @@ func (db *RoseDB) Reclaim() (err error) {
 		}
 
 		//重新将entry写入到文件中
-		if len(mergeEntries) > 0 {
-			for _, entry := range mergeEntries {
+		if len(reclaimEntries) > 0 {
+			for _, entry := range reclaimEntries {
 				if df == nil || int64(entry.Size())+df.Offset > db.config.BlockSize {
 					df, err = storage.NewDBFile(reclaimPath, activeFileId, db.config.RwMethod, db.config.BlockSize)
 					if err != nil {
@@ -222,16 +222,18 @@ func (db *RoseDB) Reclaim() (err error) {
 					activeFileId++
 				}
 
-				item := db.idxList.Get(entry.Meta.Key)
-				idx := item.Value().(*index.Indexer)
-				idx.Offset = df.Offset
-
 				if err = df.Write(entry); err != nil {
 					return
 				}
 
 				//更新字符串索引
-				db.idxList.Put(idx.Meta.Key, idx)
+				if entry.Type == String {
+					item := db.idxList.Get(entry.Meta.Key)
+					idx := item.Value().(*index.Indexer)
+					idx.Offset = df.Offset - int64(entry.Size())
+					idx.FileId = activeFileId
+					db.idxList.Put(idx.Meta.Key, idx)
+				}
 			}
 		}
 	}

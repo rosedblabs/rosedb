@@ -29,7 +29,7 @@ rosedb 是一个简单、高效的 K-V 数据库，使用 Golang 实现，支持
 
 ```go
 import (
-		github.com/roseduan/rosedb
+	github.com/roseduan/rosedb
 )
 ```
 
