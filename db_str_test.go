@@ -131,6 +131,38 @@ func TestRoseDB_StrLen(t *testing.T) {
 	t.Log(len([]byte("test_value_121294_abcd")))
 }
 
+func TestRoseDB_PrefixScan(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	db.Set([]byte("ac"), []byte("3"))
+	db.Set([]byte("aa"), []byte("1"))
+	db.Set([]byte("ae"), []byte("4"))
+	db.Set([]byte("ar"), []byte("6"))
+	db.Set([]byte("ba"), []byte("7"))
+	db.Set([]byte("ab"), []byte("2"))
+	db.Set([]byte("af"), []byte("5"))
+
+	findPrefix := func(limit, offset int) {
+		values, err := db.PrefixScan("a", limit, offset)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if len(values) > 0 {
+			for _, v := range values {
+				t.Log(string(v))
+			}
+		}
+	}
+
+	//findPrefix(-1, 0)
+	//findPrefix(2, 0)
+	//findPrefix(2, 2)
+	//findPrefix(1, 3)
+	findPrefix(1, 20)
+}
+
 func writeLargeData(db *RoseDB, t *testing.T) {
 	keyPrefix := "test_key_"
 	valPrefix := "test_value_"

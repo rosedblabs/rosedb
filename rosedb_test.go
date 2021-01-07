@@ -5,17 +5,18 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"rosedb/storage"
 	"strconv"
 	"testing"
 	"time"
 )
 
-var dbPath = "/Users/roseduan/resources/rosedb/db1"
+var dbPath = "/Users/roseduan/resources/rosedb/db0"
 
 func InitDb() *RoseDB {
 	config := DefaultConfig()
-	config.BlockSize = 1 * 1024 * 1024
 	config.DirPath = dbPath
+	config.RwMethod = storage.MMap
 
 	db, err := Open(config)
 	if err != nil {
@@ -35,17 +36,27 @@ func ReopenDb() *RoseDB {
 }
 
 func TestOpen(t *testing.T) {
-	config := DefaultConfig()
-	config.IdxMode = KeyOnlyRamMode
-	config.ReclaimThreshold = 1
 
-	config.DirPath = "/Users/roseduan/resources/rosedb/db6"
-	db, err := Open(config)
-	if err != nil {
-		t.Error("数据库打开失败 ", err)
+	opendb := func(method storage.FileRWMethod) {
+		config := DefaultConfig()
+		config.RwMethod = method
+
+		config.DirPath = "/Users/roseduan/resources/rosedb/db1"
+		db, err := Open(config)
+		if err != nil {
+			t.Error("数据库打开失败 ", err)
+		}
+
+		defer db.Close()
 	}
 
-	defer db.Close()
+	t.Run("FileIO", func(t *testing.T) {
+		opendb(storage.FileIO)
+	})
+
+	t.Run("MMap", func(t *testing.T) {
+		opendb(storage.MMap)
+	})
 }
 
 func TestDifferentTypeData(t *testing.T) {

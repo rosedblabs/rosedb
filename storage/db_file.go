@@ -132,7 +132,7 @@ func (df *DBFile) readBuf(offset int64, n int64) ([]byte, error) {
 		}
 	}
 
-	if df.method == MMap {
+	if df.method == MMap && offset <= int64(len(df.mmap)) {
 		copy(buf, df.mmap[offset:])
 	}
 

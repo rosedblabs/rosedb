@@ -192,7 +192,7 @@ func (db *RoseDB) loadIdxFromFiles() error {
 		df := dbFile[fid]
 		var offset int64 = 0
 
-		for {
+		for offset <= db.config.BlockSize {
 			if e, err := df.Read(offset); err == nil {
 				idx := &index.Indexer{
 					Meta:      e.Meta,

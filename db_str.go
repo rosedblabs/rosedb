@@ -3,6 +3,7 @@ package rosedb
 import (
 	"rosedb/index"
 	"rosedb/storage"
+	"strings"
 )
 
 //---------字符串相关操作接口-----------
@@ -179,4 +180,53 @@ func (db *RoseDB) StrRem(key []byte) error {
 	}
 
 	return nil
+}
+
+//根据前缀查找所有匹配的value
+//参数 limit 和 offset 控制取数据的范围，类似关系型数据库中的分页操作
+//如果 limit 为负数，则返回所有满足条件的结果
+func (db *RoseDB) PrefixScan(prefix string, limit, offset int) (val [][]byte, err error) {
+
+	if limit == 0 {
+		return
+	}
+
+	if offset < 0 {
+		offset = 0
+	}
+
+	if err = db.checkKeyValue([]byte(prefix), nil); err != nil {
+		return
+	}
+
+	e := db.idxList.FindPrefix([]byte(prefix))
+	if limit > 0 {
+		for i := 0; i < offset && e != nil && strings.HasPrefix(string(e.Key()), prefix); i++ {
+			e = e.Next()
+		}
+	}
+
+	for e != nil && strings.HasPrefix(string(e.Key()), prefix) && limit != 0 {
+		item := e.Value().(*index.Indexer)
+		var value []byte
+
+		if db.config.IdxMode == KeyOnlyRamMode {
+			value, err = db.Get(e.Key())
+			if err != nil {
+				return
+			}
+		} else {
+			if item != nil {
+				value = item.Meta.Value
+			}
+		}
+
+		val = append(val, value)
+		e = e.Next()
+
+		if limit > 0 {
+			limit--
+		}
+	}
+	return
 }

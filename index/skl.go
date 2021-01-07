@@ -183,6 +183,27 @@ func (t *SkipList) backNodes(key []byte) []*Node {
 	return prevs
 }
 
+//找到第一个和前缀匹配的Element
+func (t *SkipList) FindPrefix(prefix []byte) *Element {
+	var prev = &t.Node
+	var next *Element
+
+	for i := t.maxLevel - 1; i >= 0; i-- {
+		next = prev.next[i]
+
+		for next != nil && bytes.Compare(prefix, next.key) > 0 {
+			prev = &next.Node
+			next = next.next[i]
+		}
+	}
+
+	if next == nil {
+		next = t.Front()
+	}
+
+	return next
+}
+
 //生成索引随机层数
 func (t *SkipList) randomLevel() (level int) {
 	r := float64(t.randSource.Int63()) / (1 << 63)

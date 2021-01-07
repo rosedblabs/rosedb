@@ -118,3 +118,20 @@ func TestElement_SetValue(t *testing.T) {
 	val := list.Get([]byte("a")).Value().([]byte)
 	t.Log(string(val))
 }
+
+func TestSkipList_PrefixScan(t *testing.T) {
+	list := NewSkipList()
+	list.Put([]byte("acccbf"), 132)
+	list.Put([]byte("acceew"), 44)
+	list.Put([]byte("acadef"), 124)
+	list.Put([]byte("accdef"), 232)
+
+	e1 := list.FindPrefix([]byte("eee"))
+	t.Logf("%+v", e1)
+
+	e2 := list.FindPrefix([]byte("acc"))
+	t.Logf("%+v", e2)
+
+	e3 := list.FindPrefix([]byte("accc"))
+	t.Logf("%+v", e3)
+}
