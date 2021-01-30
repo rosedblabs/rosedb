@@ -36,6 +36,20 @@ func TestRoseDB_Set(t *testing.T) {
 	})
 }
 
+func TestRoseDB_SetNx(t *testing.T) {
+	db := ReopenDb()
+	defer db.Close()
+
+	_ = db.Set([]byte("test_key"), []byte("test_value"))
+	_ = db.SetNx([]byte("test_key"), []byte("value_001"))
+	_ = db.SetNx([]byte("test_key_new"), []byte("value_002"))
+
+	val1, _ := db.Get([]byte("test_key"))
+	val2, _ := db.Get([]byte("test_key_new"))
+	t.Log(string(val1))
+	t.Log(string(val2))
+}
+
 func TestRoseDB_Get(t *testing.T) {
 
 	t.Run("normal situation", func(t *testing.T) {
@@ -112,13 +126,13 @@ func TestRoseDB_Append(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
-	//test_value_398667
-	err := db.Append([]byte("test_key_584025"), []byte("_abcd"))
+	//test_value_746656
+	err := db.Append([]byte("test_key_747172"), []byte(" some bug"))
 	if err != nil {
 		t.Log(err)
 	}
 
-	val, _ := db.Get([]byte("test_key_584025"))
+	val, _ := db.Get([]byte("test_key_747172"))
 	t.Log(string(val))
 }
 
@@ -161,6 +175,29 @@ func TestRoseDB_PrefixScan(t *testing.T) {
 	//findPrefix(2, 2)
 	//findPrefix(1, 3)
 	findPrefix(1, 20)
+}
+
+func TestRoseDB_RangeScan(t *testing.T) {
+	db := ReopenDb()
+	defer db.Close()
+
+	_ = db.Set([]byte("100054"), []byte("ddfd"))
+	_ = db.Set([]byte("100009"), []byte("dfad"))
+	_ = db.Set([]byte("100007"), []byte("rrwe"))
+	_ = db.Set([]byte("100011"), []byte("eeda"))
+	_ = db.Set([]byte("100023"), []byte("ghtr"))
+	_ = db.Set([]byte("100056"), []byte("yhtb"))
+
+	val, err := db.RangeScan([]byte("100007"), []byte("100030"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if len(val) > 0 {
+		for _, v := range val {
+			t.Log(string(v))
+		}
+	}
 }
 
 func writeLargeData(db *RoseDB, t *testing.T) {
