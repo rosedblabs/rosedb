@@ -1,5 +1,5 @@
 # rosedb
-rosedb 是一个简单、高效的 K-V 数据库，使用 Golang 实现，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`，接口名称风格和 Redis 类似。
+rosedb 是一个简单、高效的 k-v 数据库，使用 `Golang` 实现，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`，接口名称风格和 Redis 类似，如果你对 redis 比较熟悉，那么使用起来会毫无违和感。
 
 ## 为什么会做这个项目
 
@@ -7,7 +7,7 @@ rosedb 是一个简单、高效的 K-V 数据库，使用 Golang 实现，支持
 
 一个偶然的机会，我在网上看到了一篇介绍数据库模型的文章，文章很简单，理解起来也很容易，加上我对于数据库还是比较感兴趣的，因此想着可以自己实现一个，造个轮子来玩玩，借此巩固自己的一些基础知识。
 
-因此这个项目也是学习并巩固相关知识的不错的素材，通过实践这个项目，你至少可以学到：
+因此这个项目也是学习并巩固 Go 相关知识的不错的素材，通过实践这个项目，你至少可以学到：
 
 * Golang 大多数基础语法，以及一些高级特性
 * 数据结构及算法相关知识，链表，哈希表，跳表等
@@ -23,15 +23,15 @@ rosedb 是一个简单、高效的 K-V 数据库，使用 Golang 实现，支持
 
 所以整个数据库实例就是这样的：
 
-![](/Users/roseduan/Downloads/db_instance.png)
+![](https://github.com/roseduan/rosedb/blob/main/resource/img/db_instance.png)
 
 在每一个文件中，写数据的操作只会追加到文件的末尾，这保证了写操作不会进行额外的磁盘寻址。写入的数据是以一个个被称为 Entry 的结构组织起来的，Entry 的主要数据结构如下：
 
-![](/Users/roseduan/Downloads/entry.png)
+![](https://github.com/roseduan/rosedb/blob/main/resource/img/entry.png)
 
 因此一个数据文件可以看做是多个 Entry 的集合：
 
-![](/Users/roseduan/Downloads/db_file.png)
+![](https://github.com/roseduan/rosedb/blob/main/resource/img/db_file.png)
 
 当写入数据时，如果是 String 类型，为了支持 string 类型的 key 前缀扫描，我将 key 存放到了跳表中，如果是其他类型的数据，则直接存放至对应的数据结构中。然后将 key、value 等信息，封装成 Entry 持久化到数据文件中。
 
@@ -49,7 +49,7 @@ reclaim 方法的执行流程也比较的简单，首先建立一个临时的文
 
 ```go
 import (
-  github.com/roseduan/rosedb
+    github.com/roseduan/rosedb
 )
 ```
 
@@ -57,7 +57,65 @@ import (
 
 ### 初始化
 
+初始化默认配置数据库：
+
+```go
+package main
+
+import (
+	"github.com/roseduan/rosedb"
+	"log"
+)
+
+func main() {
+	config := rosedb.DefaultConfig()
+	db, err := rosedb.Open(config)
+	
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	defer db.Close()
+	
+	//...
+}
+```
+
+可配置的选项如下：
+
+```go
+type Config struct {
+   DirPath          string               `json:"dir_path"`   				//数据库数据存储目录
+   BlockSize        int64                `json:"block_size"` 				//每个数据块文件的大小
+   RwMethod         storage.FileRWMethod `json:"rw_method"`  				//数据读写模式
+   IdxMode          DataIndexMode        `json:"idx_mode"`   				//数据索引模式
+   MaxKeySize       uint32               `json:"max_key_size"`			//key的最大size
+   MaxValueSize     uint32               `json:"max_value_size"`		//value的最大size
+   Sync             bool                 `json:"sync"`              //每次写数据是否持久化
+   ReclaimThreshold int                  `json:"reclaim_threshold"` //回收磁盘空间的阈值
+}
+```
+
+默认配置如下：
+
+```go
+func DefaultConfig() Config {
+   return Config{
+      DirPath:          os.TempDir(),							//操作系统临时目录，这个配置最好自定义
+      BlockSize:        DefaultBlockSize,					//16MB
+      RwMethod:         storage.FileIO,
+      IdxMode:          KeyValueRamMode,
+      MaxKeySize:       DefaultMaxKeySize,				//128字节
+      MaxValueSize:     DefaultMaxValueSize,			//1MB
+      Sync:             false,
+      ReclaimThreshold: DefaultReclaimThreshold,	//4 当已封存文件个数到达 4 时，可进行回收
+   }
+}
+```
+
 ### String
+
+
 
 ### List
 
