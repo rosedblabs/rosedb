@@ -249,11 +249,217 @@ if len(val) > 0 {
 
 ### List
 
+#### LPush
+
+在列表的头部添加元素，返回添加后的列表长度。
+
+#### RPush
+
+在列表的尾部添加元素，返回添加后的列表长度。
+
+#### LPop
+
+取出列表头部的元素。
+
+#### RPop
+
+取出列表尾部的元素。
+
+```go
+key := []byte("my_list")
+db.LPush(key, []byte("list_data_001"), []byte("list_data_002"))
+db.RPush(key, []byte("list_data_003"), []byte("list_data_004"))
+
+val1, _ := db.LPop(key)
+t.Log(string(val1))
+
+val2, _ := db.RPop(key)
+t.Log(string(val2))
+```
+
+#### LInsert
+
+将值 val 插入到列表 key 当中，位于值 pivot 之前或之后。
+
+```go
+key := []byte("my_list")
+db.LInsert(string(key), 0, []byte("new val"), []byte("list_data_003"))
+```
+
+#### LSet
+
+将列表 key 下标为 index 的元素的值设置为 val。
+
+```go
+key := []byte("my_list")
+ok, err := db.LSet(key, 0, []byte("new val"))
+```
+
+#### LRem
+
+移除列表中与参数 value 相等的元素。
+
+```go
+key := []byte("my_list")
+
+printAll := func() {
+   vals, _ := db.LRange(key, 0, -1)
+   for _, v := range vals {
+      t.Logf("%s ", string(v))
+   }
+   t.Log()
+}
+
+db.LPush(key, []byte("11"), []byte("12"), []byte("23"), []byte("11"))
+printAll()
+db.LRem(key, []byte("11"), 0)
+printAll()
+```
+
+#### LTrim
+
+对一个列表进行修剪(trim)，让列表只保留指定区间内的元素，不在指定区间之内的元素都将被删除。
+
+```go
+db.LTrim(key, 3, 5)
+```
+
+#### LRange
+
+返回列表 key 中指定区间内的元素，区间以偏移量 start 和 end 指定。
+
 ### Hash
+
+#### HSet
+
+将哈希表 hash 中域 field 的值设置为 value。
+
+#### HSetNx
+
+当且仅当域 field 尚未存在于哈希表的情况下， 将它的值设置为 value。
+
+#### HGet
+
+返回哈希表中给定域的值。
+
+#### HGetAll
+
+返回哈希表 key 中，所有的域和值。
+
+#### HLen
+
+返回哈希表 key 中域的数量。
+
+```go
+key := []byte("my_set")
+db.HSet(key, []byte("name"), []byte("roseduan"))
+db.HSet(key, []byte("age"), []byte("24"))
+db.HSet(key, []byte("hobbies"), []byte("coding writing football"))
+db.HSet(key, []byte("dream"), []byte("be better"))
+
+db.HSetNx(key, []byte("dream"), []byte("dream at day"))
+db.HSetNx(key, []byte("height"), []byte("1.75"))
+
+dream := db.HGet(key, []byte("dream"))
+t.Log("my dream is ", string(dream))
+
+l := db.HLen(key)
+t.Log(l)
+
+all := db.HGetAll(key)
+for _, v := range all {
+   t.Log(string(v))
+}
+```
+
+#### HExists
+
+检查给定域 field 是否存在于 key 对应的哈希表中。
+
+#### HKeys
+
+返回哈希表 key 中的所有域。
+
+#### HValues
+
+返回哈希表 key 中的所有域对应的值。
+
+```go
+key := []byte("my_set")
+keys := db.HKeys(key)
+values := db.HValues(key)
+```
 
 ### Set
 
+#### SAdd
+
+添加元素，返回添加后的集合中的元素个数。
+
+#### SPop
+
+随机移除并返回集合中的 count 个元素。
+
+#### SIsMember
+
+判断 member 元素是不是集合 key 的成员。
+
+```go
+key := []byte("my_set")
+db.SAdd(key, []byte("set_data_001"), []byte("set_data_002"), []byte("set_data_003"))
+values, _ := db.SPop(key, 2)
+
+t.Log(len(values))
+for _, v := range values {
+   t.Log(string(v))
+}
+
+ok := db.SIsMember(key, []byte("set_data_001"))
+ok = db.SIsMember(key, []byte("set_data_003"))
+t.Log(ok)
+```
+
+#### SRandMember
+
+从集合中返回随机元素。
+
+```go
+key := []byte("my_set")
+members := db.SRandMember(key, 5)
+for _, m := range members {
+   t.Log(string(m))
+}
+```
+
+#### SRem
+
+移除集合 key 中的一个或多个 member 元素，不存在的 member 元素会被忽略。
+
+#### SMove
+
+#### SCard
+
+#### SMembers
+
+#### SUnion
+
+#### SDiff
+
 ### Sorted Set
+
+#### ZAdd
+
+#### ZScore
+
+#### ZCard
+
+#### ZRank
+
+#### ZRevRank
+
+#### ZIncrBy
+
+#### ZRange
 
 ## 待办
 
@@ -266,4 +472,6 @@ if len(val) > 0 {
 + [ ] 完善相关文档
 
 ## License
+
+rosedb 根据 MIT License 许可证授权，有关完整许可证文本，请参阅 [LICENSE](https://github.com/roseduan/rosedb/blob/main/LICENSE)。
 
