@@ -2,7 +2,7 @@
 
 # rosedb
 
-rosedb 是一个简单、高效的 k-v 数据库，使用 `Golang` 实现，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`，接口名称风格和 Redis 类似，如果你对 redis 比较熟悉，那么使用起来会毫无违和感。
+rosedb 是一个简单、内嵌的 k-v 数据库，使用 `Golang` 实现，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`，接口名称风格和 Redis 类似，如果你对 redis 比较熟悉，那么使用起来会毫无违和感。
 
 ## 为什么会做这个项目
 
@@ -24,25 +24,25 @@ rosedb 是一个简单、高效的 k-v 数据库，使用 `Golang` 实现，支�
 
 其余的文件，我称之为已归档文件，这些文件都是已经被关闭，不能在上面进行写操作，但是可以进行读操作。
 
-所以整个数据库实例就是这样的：
+所以整个数据库实例就是当前活跃文件、已归档文件、其他配置的一个集合：
 
-![](https://github.com/roseduan/rosedb/blob/main/resource/img/db_instance.png)
+![db_instance.png](https://i.loli.net/2021/03/14/2WpobcYO43x1FHR.png)
 
 在每一个文件中，写数据的操作只会追加到文件的末尾，这保证了写操作不会进行额外的磁盘寻址。写入的数据是以一个个被称为 Entry 的结构组织起来的，Entry 的主要数据结构如下：
 
-![](https://github.com/roseduan/rosedb/blob/main/resource/img/entry.png)
+![entry.png](https://i.loli.net/2021/03/14/cVIGPa14feKloJ2.png)
 
 因此一个数据文件可以看做是多个 Entry 的集合：
 
-![](https://github.com/roseduan/rosedb/blob/main/resource/img/db_file.png)
+![db_file.png](https://i.loli.net/2021/03/14/f3KOnNgEhmbetxa.png)
 
 当写入数据时，如果是 String 类型，为了支持 string 类型的 key 前缀扫描和范围扫描，我将 key 存放到了跳表中，如果是其他类型的数据，则直接存放至对应的数据结构中。然后将 key、value 等信息，封装成 Entry 持久化到数据文件中。
 
-如果是删除操作，那么也会被封装成一个 Entry，标记其是一个删除操作，然后也需要持久化到数据文件中，这样的话就会带来一个问题，数据文件中可能会存在大量的冗余数据，占用不必要的磁盘空间。为了解决这个问题，我写了一个 reclaim 方法，你可以将其理解为对数据文件进行重新整理，使其变得更加的紧凑。
+如果是删除操作，那么也会被封装成一个 Entry，标记其是一个删除操作，然后持久化到数据文件中，这样的话就会带来一个问题，数据文件中可能会存在大量的冗余数据，造成不必要的磁盘空间浪费。为了解决这个问题，我写了一个 reclaim 方法，你可以将其理解为对数据文件进行重新整理，使其变得更加的紧凑。
 
 reclaim 方法的执行流程也比较的简单，首先建立一个临时的文件夹，用于存放临时数据文件。然后遍历整个数据库实例中的所有已归档文件，依次遍历数据文件中的每个 Entry，将有效的 Entry 写到新的临时数据文件中，最后将临时文件拷贝为新的数据文件，原数据文件则删除。
 
-这样便使得数据文件的内容更加紧凑，并且去除了无用的 Entry，避免占据空间。
+这样便使得数据文件的内容更加紧凑，并且去除了无用的 Entry，避免占据额外的磁盘空间。
 
 ## 安装
 
@@ -246,6 +246,12 @@ if len(val) > 0 {
    }
 }
 ```
+
+#### Expire
+
+#### TTL
+
+#### Persist
 
 ### List
 
@@ -465,7 +471,7 @@ for _, m := range members {
 
 + [ ] 支持 TTL
 + [ ] 支持事务，ACID 特性
-+ [ ] 数据压缩
++ [ ] 文件数据压缩存储
 + [x] String 类型 key 加入前缀扫描
 + [ ] 缓存淘汰策略
 + [ ] 写一个简单的客户端，支持命令行操作

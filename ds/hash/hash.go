@@ -1,5 +1,7 @@
 package hash
 
+//哈希hash实现
+
 type (
 	Hash struct {
 		record Record

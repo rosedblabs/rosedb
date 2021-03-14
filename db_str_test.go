@@ -200,6 +200,61 @@ func TestRoseDB_RangeScan(t *testing.T) {
 	}
 }
 
+func TestRoseDB_Expire(t *testing.T) {
+	db := ReopenDb()
+	defer db.Close()
+
+	//_ = db.Set([]byte("test_key_004"), []byte("test_val_004"))
+	//_ = db.Set([]byte("test_key_005"), []byte("test_val_005"))
+	//_ = db.Set([]byte("test_key_006"), []byte("test_val_006"))
+	//
+	//if err := db.Expire([]byte("test_key_005"), 50); err != nil {
+	//	log.Println("set expire err : ", err)
+	//}
+
+	key := []byte("test_key_005")
+	desc := func() {
+		ttl := db.TTL(key)
+		t.Log(ttl)
+	}
+
+	val, _ := db.Get(key)
+	t.Log("val = ", string(val))
+
+	desc()
+
+	time.Sleep(2 * time.Second)
+	desc()
+
+	time.Sleep(2 * time.Second)
+	desc()
+
+	time.Sleep(2 * time.Second)
+	desc()
+}
+
+func TestRoseDB_Persist(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("my_name4")
+	_ = db.Append(key, []byte("I am roseduan "))
+
+	db.Expire(key, 10)
+
+	time.Sleep(3 * time.Second)
+	t.Log(db.TTL(key))
+
+	time.Sleep(3 * time.Second)
+	t.Log(db.TTL(key))
+
+	val, err := db.Get(key)
+	t.Log(err)
+	t.Log("val = ", string(val))
+
+	db.Persist(key)
+}
+
 func writeLargeData(db *RoseDB, t *testing.T) {
 	keyPrefix := "test_key_"
 	valPrefix := "test_value_"

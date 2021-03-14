@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-//List是列表的实现，由于Golang中已经存在对列表的支持，因此只做一层简单的封装
+//List是双向链表的实现
 
 type InsertOption uint8
 

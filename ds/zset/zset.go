@@ -5,6 +5,8 @@ import (
 	"math/rand"
 )
 
+//有序集合sorted set实现
+
 const (
 	maxLevel    = 32
 	probability = 0.25

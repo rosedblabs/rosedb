@@ -1,5 +1,7 @@
 package set
 
+//集合set实现
+
 type (
 	Set struct {
 		record Record

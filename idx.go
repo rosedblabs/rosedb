@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //数据类型定义
@@ -64,6 +65,10 @@ func (db *RoseDB) buildStringIndex(idx *index.Indexer, opt uint16) {
 		return
 	}
 
+	now := uint32(time.Now().Unix())
+	if deadline, exist := db.expires[string(idx.Meta.Key)]; exist && deadline <= now {
+		return
+	}
 	switch opt {
 	case StringSet:
 		db.idxList.Put(idx.Meta.Key, idx)
@@ -214,6 +219,5 @@ func (db *RoseDB) loadIdxFromFiles() error {
 			}
 		}
 	}
-
 	return nil
 }
