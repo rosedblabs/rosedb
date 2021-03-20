@@ -15,6 +15,7 @@ import (
 	"rosedb/storage"
 	"rosedb/utils"
 	"sync"
+	"time"
 )
 
 var (
@@ -183,7 +184,6 @@ func (db *RoseDB) Sync() error {
 
 //重新组织磁盘中的数据，回收磁盘空间
 func (db *RoseDB) Reclaim() (err error) {
-
 	if len(db.archFiles) < db.config.ReclaimThreshold {
 		return ErrReclaimUnreached
 	}
@@ -193,7 +193,6 @@ func (db *RoseDB) Reclaim() (err error) {
 	if err := os.MkdirAll(reclaimPath, os.ModePerm); err != nil {
 		return err
 	}
-
 	defer os.RemoveAll(reclaimPath)
 
 	var (
@@ -212,13 +211,11 @@ func (db *RoseDB) Reclaim() (err error) {
 				if db.validEntry(e) {
 					reclaimEntries = append(reclaimEntries, e)
 				}
-
 				offset += int64(e.Size())
 			} else {
 				if err == io.EOF {
 					break
 				}
-
 				return err
 			}
 		}
@@ -263,7 +260,6 @@ func (db *RoseDB) Reclaim() (err error) {
 	}
 
 	db.archFiles = newArchFiles
-
 	return
 }
 
@@ -382,7 +378,6 @@ func (db *RoseDB) store(e *storage.Entry) error {
 
 //判断entry所属的操作标识(增、改类型的操作)，以及val是否是有效的
 func (db *RoseDB) validEntry(e *storage.Entry) bool {
-
 	if e == nil {
 		return false
 	}
@@ -391,6 +386,10 @@ func (db *RoseDB) validEntry(e *storage.Entry) bool {
 	switch e.Type {
 	case String:
 		if mark == StringSet {
+			now := uint32(time.Now().Unix())
+			if deadline, exist := db.expires[string(e.Meta.Key)]; exist && deadline <= now {
+				return false
+			}
 			if val, err := db.Get(e.Meta.Key); err == nil && string(val) == string(e.Meta.Value) {
 				return true
 			}

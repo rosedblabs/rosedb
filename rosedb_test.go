@@ -4,20 +4,18 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"rosedb/storage"
-	"strconv"
 	"testing"
-	"time"
 )
 
-var dbPath = "/Users/roseduan/resources/rosedb/db2"
+var dbPath = "/Users/roseduan/resources/rosedb/db0"
 
 func InitDb() *RoseDB {
 	config := DefaultConfig()
 	config.DirPath = dbPath
 	config.IdxMode = KeyOnlyRamMode
 	config.RwMethod = storage.FileIO
+	config.BlockSize = 4 * 1024 * 1024
 
 	db, err := Open(config)
 	if err != nil {
@@ -165,32 +163,13 @@ func TestReopen(t *testing.T) {
 }
 
 func TestRoseDB_Reclaim(t *testing.T) {
-	db := InitDb()
+	db := ReopenDb()
 	defer db.Close()
 
-	t.Run("string reclaim", func(t *testing.T) {
-		keyPrefix := "test_key_"
-		valPrefix := "test_value_"
-		rand.Seed(time.Now().Unix())
-
-		start := time.Now()
-		for i := 0; i < 100000; i++ {
-			key := keyPrefix + strconv.Itoa(rand.Intn(10000))
-			val := valPrefix + strconv.Itoa(rand.Intn(10000))
-
-			err := db.Set([]byte(key), []byte(val))
-			if err != nil {
-				t.Error("数据写入发生错误 ", err)
-			}
-		}
-		t.Log("time spent : ", time.Since(start).Milliseconds())
-
-		t.Log("写入的有效数据量 : ", db.idxList.Len)
-	})
-
-	t.Run("list reclaim", func(t *testing.T) {
-
-	})
+	err := db.Reclaim()
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func TestRoseDB_Backup(t *testing.T) {

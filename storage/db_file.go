@@ -77,7 +77,6 @@ func NewDBFile(path string, fileId uint32, method FileRWMethod, blockSize int64)
 
 //从数据文件中读数据，offset是读的起始位置
 func (df *DBFile) Read(offset int64) (e *Entry, err error) {
-
 	var buf []byte
 	if buf, err = df.readBuf(offset, int64(entryHeaderSize)); err != nil {
 		return

@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"strconv"
@@ -255,15 +256,39 @@ func TestRoseDB_Persist(t *testing.T) {
 	db.Persist(key)
 }
 
+func TestAgain(t *testing.T) {
+	db := ReopenDb()
+	defer db.Close()
+
+	getVal := func(key []byte) {
+		val, err := db.Get(key)
+		if err != nil {
+			log.Println(err)
+		}
+		fmt.Println("val = ", string(val))
+	}
+
+	key := []byte("test_key_719")
+	getVal(key)
+	//
+	//db.Expire(key, 4)
+	//
+	//time.Sleep(3 * time.Second)
+	//getVal(key)
+	//
+	//time.Sleep(2 * time.Second)
+	//getVal(key)
+}
+
 func writeLargeData(db *RoseDB, t *testing.T) {
 	keyPrefix := "test_key_"
 	valPrefix := "test_value_"
 	rand.Seed(time.Now().Unix())
 
 	start := time.Now()
-	for i := 0; i < 100000; i++ {
-		key := keyPrefix + strconv.Itoa(rand.Intn(1000000))
-		val := valPrefix + strconv.Itoa(rand.Intn(1000000))
+	for i := 0; i < 500000; i++ {
+		key := keyPrefix + strconv.Itoa(rand.Intn(10000))
+		val := valPrefix + strconv.Itoa(rand.Intn(10000))
 
 		err := db.Set([]byte(key), []byte(val))
 		if err != nil {
