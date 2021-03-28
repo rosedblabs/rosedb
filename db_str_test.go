@@ -280,6 +280,25 @@ func TestAgain(t *testing.T) {
 	//getVal(key)
 }
 
+func TestDoSet(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("str key")
+	err := db.Set(key, []byte("Jack And Me"))
+	if err != nil {
+		log.Println(err)
+	}
+
+	db.Append(key, []byte(" append some val"))
+
+	val, err := db.Get(key)
+	if err != nil {
+		log.Println(err)
+	}
+	fmt.Println("val = ", string(val))
+}
+
 func writeLargeData(db *RoseDB, t *testing.T) {
 	keyPrefix := "test_key_"
 	valPrefix := "test_value_"

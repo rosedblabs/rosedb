@@ -30,15 +30,15 @@ const (
 type (
 	Entry struct {
 		Meta  *Meta
-		Type  uint16
-		Mark  uint16
-		crc32 uint32
+		Type  uint16 //数据类型
+		Mark  uint16 //数据操作类型
+		crc32 uint32 //校验和
 	}
 
 	Meta struct {
 		Key       []byte
 		Value     []byte
-		Extra     []byte
+		Extra     []byte //操作Entry所需的额外信息
 		KeySize   uint32
 		ValueSize uint32
 		ExtraSize uint32
