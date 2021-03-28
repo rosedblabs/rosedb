@@ -1,6 +1,4 @@
-[toc]
-
-# rosedb
+# rosedb ![](https://img.shields.io/github/license/roseduan/rosedb)[![Go Report Card](https://goreportcard.com/badge/github.com/roseduan/rosedb)](https://goreportcard.com/report/github.com/roseduan/rosedb)![GitHub top language](https://img.shields.io/github/languages/top/roseduan/rosedb)[![GitHub stars](https://img.shields.io/github/stars/roseduan/rosedb)](https://github.com/roseduan/rosedb/stargazers)
 
 rosedb 是一个简单、内嵌的 k-v 数据库，使用 `Golang` 实现，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`，接口名称风格和 Redis 类似，如果你对 redis 比较熟悉，那么使用起来会毫无违和感。
 
@@ -469,7 +467,7 @@ for _, m := range members {
 
 ## 待办
 
-+ [ ] 支持 TTL
++ [x] 支持 TTL
 + [ ] 支持事务，ACID 特性
 + [ ] 文件数据压缩存储
 + [x] String 类型 key 加入前缀扫描
