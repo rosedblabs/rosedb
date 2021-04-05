@@ -155,16 +155,13 @@ func (db *RoseDB) Close() error {
 	if err := db.saveConfig(); err != nil {
 		return err
 	}
-
 	if err := db.saveMeta(); err != nil {
 		return err
 	}
-
-	if err := db.activeFile.Close(true); err != nil {
+	if err := db.expires.SaveExpires(db.config.DirPath + expireFile); err != nil {
 		return err
 	}
-
-	if err := db.expires.SaveExpires(db.config.DirPath + expireFile); err != nil {
+	if err := db.activeFile.Close(true); err != nil {
 		return err
 	}
 	return nil
@@ -266,11 +263,9 @@ func (db *RoseDB) Reclaim() (err error) {
 //复制数据库目录，用于备份
 func (db *RoseDB) Backup(dir string) (err error) {
 	if utils.Exist(db.config.DirPath) {
-
 		err = utils.CopyDir(db.config.DirPath, dir)
 	}
-
-	return err
+	return
 }
 
 func (db *RoseDB) checkKeyValue(key []byte, value ...[]byte) error {
