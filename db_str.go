@@ -11,7 +11,7 @@ import (
 
 //---------字符串相关操作接口-----------
 
-//将字符串值 value 关联到 key
+// Set 将字符串值 value 关联到 key
 //如果 key 已经持有其他值，SET 就覆写旧值
 func (db *RoseDB) Set(key, value []byte) error {
 	if err := db.doSet(key, value); err != nil {
@@ -78,7 +78,7 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	return nil, ErrKeyNotExist
 }
 
-//将键 key 的值设为 value ， 并返回键 key 在被设置之前的旧值。
+// GetSet 将键 key 的值设为 value ， 并返回键 key 在被设置之前的旧值。
 func (db *RoseDB) GetSet(key, val []byte) (res []byte, err error) {
 	if res, err = db.Get(key); err != nil {
 		return
@@ -89,7 +89,7 @@ func (db *RoseDB) GetSet(key, val []byte) (res []byte, err error) {
 	return
 }
 
-//如果key存在，则将value追加至原来的value末尾
+// Append 如果key存在，则将value追加至原来的value末尾
 //如果key不存在，则相当于Set方法
 func (db *RoseDB) Append(key, value []byte) error {
 	if err := db.checkKeyValue(key, value); err != nil {
@@ -120,7 +120,7 @@ func (db *RoseDB) Append(key, value []byte) error {
 	return nil
 }
 
-//返回key存储的字符串值的长度
+// StrLen 返回key存储的字符串值的长度
 func (db *RoseDB) StrLen(key []byte) int {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return 0
@@ -141,7 +141,7 @@ func (db *RoseDB) StrLen(key []byte) int {
 	return 0
 }
 
-//判断key是否存在
+// StrExists 判断key是否存在
 func (db *RoseDB) StrExists(key []byte) bool {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return false
@@ -157,7 +157,7 @@ func (db *RoseDB) StrExists(key []byte) bool {
 	return false
 }
 
-//删除key及其数据
+// StrRem 删除key及其数据
 func (db *RoseDB) StrRem(key []byte) error {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return err
@@ -177,7 +177,7 @@ func (db *RoseDB) StrRem(key []byte) error {
 	return nil
 }
 
-//根据前缀查找所有匹配的 key 对应的 value
+// PrefixScan 根据前缀查找所有匹配的 key 对应的 value
 //参数 limit 和 offset 控制取数据的范围，类似关系型数据库中的分页操作
 //如果 limit 为负数，则返回所有满足条件的结果
 func (db *RoseDB) PrefixScan(prefix string, limit, offset int) (val [][]byte, err error) {
@@ -226,7 +226,7 @@ func (db *RoseDB) PrefixScan(prefix string, limit, offset int) (val [][]byte, er
 	return
 }
 
-//范围扫描，查找 key 从 start 到 end 之间的数据
+// RangeScan 范围扫描，查找 key 从 start 到 end 之间的数据
 func (db *RoseDB) RangeScan(start, end []byte) (val [][]byte, err error) {
 	node := db.idxList.Get(start)
 	if node == nil {
@@ -258,7 +258,7 @@ func (db *RoseDB) RangeScan(start, end []byte) (val [][]byte, err error) {
 	return
 }
 
-//设置key的过期时间
+// Expire 设置key的过期时间
 func (db *RoseDB) Expire(key []byte, seconds uint32) (err error) {
 	if exist := db.StrExists(key); !exist {
 		return ErrKeyNotExist
@@ -275,7 +275,7 @@ func (db *RoseDB) Expire(key []byte, seconds uint32) (err error) {
 	return
 }
 
-//清除key的过期时间
+// Persist 清除key的过期时间
 func (db *RoseDB) Persist(key []byte) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -283,7 +283,7 @@ func (db *RoseDB) Persist(key []byte) {
 	delete(db.expires, string(key))
 }
 
-//获取key的过期时间
+// TTL 获取key的过期时间
 func (db *RoseDB) TTL(key []byte) (ttl uint32) {
 	db.mu.Lock()
 	defer db.mu.Unlock()

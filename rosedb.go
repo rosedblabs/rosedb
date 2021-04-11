@@ -78,7 +78,7 @@ type (
 	ArchivedFiles map[uint32]*storage.DBFile
 )
 
-//打开一个数据库实例
+// Open 打开一个数据库实例
 func Open(config Config) (*RoseDB, error) {
 
 	//如果目录不存在则创建
@@ -128,7 +128,7 @@ func Open(config Config) (*RoseDB, error) {
 	return db, nil
 }
 
-//根据配置重新打开数据库
+// Reopen 根据配置重新打开数据库
 func Reopen(path string) (*RoseDB, error) {
 	if exist := utils.Exist(path + configSaveFile); !exist {
 		return nil, ErrCfgNotExist
@@ -147,7 +147,7 @@ func Reopen(path string) (*RoseDB, error) {
 	return Open(config)
 }
 
-//关闭数据库，保存相关配置
+// Close 关闭数据库，保存相关配置
 func (db *RoseDB) Close() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -167,7 +167,7 @@ func (db *RoseDB) Close() error {
 	return nil
 }
 
-//数据持久化
+// Sync 数据持久化
 func (db *RoseDB) Sync() error {
 	if db == nil || db.activeFile == nil {
 		return nil
@@ -179,7 +179,7 @@ func (db *RoseDB) Sync() error {
 	return db.activeFile.Sync()
 }
 
-//重新组织磁盘中的数据，回收磁盘空间
+// Reclaim 重新组织磁盘中的数据，回收磁盘空间
 func (db *RoseDB) Reclaim() (err error) {
 	if len(db.archFiles) < db.config.ReclaimThreshold {
 		return ErrReclaimUnreached
@@ -260,7 +260,7 @@ func (db *RoseDB) Reclaim() (err error) {
 	return
 }
 
-//复制数据库目录，用于备份
+// Backup 复制数据库目录，用于备份
 func (db *RoseDB) Backup(dir string) (err error) {
 	if utils.Exist(db.config.DirPath) {
 		err = utils.CopyDir(db.config.DirPath, dir)

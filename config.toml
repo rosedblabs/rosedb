@@ -1,0 +1,26 @@
+# 服务器监听的地址
+addr = "127.0.0.1:5200"
+
+# 数据库文件路径
+dir_path = "/tmp/rosedb_server"
+
+# 默认数据文件大小16MB
+block_size = 16777216
+
+# 读写模式 0:FileIO 1:MMap
+rw_method = 0
+
+# 数据索引模式 0:键和值均存于内存中 1:只有键存于内存中
+idx_mode = 0
+
+# key的最大值
+max_key_size = 128
+
+# value的最大值
+max_value_size = 1048576
+
+# 是否数据同步
+sync = false
+
+# reclaim的阈值
+reclaim_threshold = 4
