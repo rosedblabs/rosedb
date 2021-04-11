@@ -94,7 +94,10 @@ func (s *Server) handleConn(conn net.Conn) {
 			cmdAndArgs := reg.FindAllString(string(data), -1)
 			reply := s.handleCmd(cmdAndArgs[0], cmdAndArgs[1:])
 			info := wrapReplyInfo(reply)
-			conn.Write(info)
+			_, err = conn.Write(info)
+			if err != nil {
+				log.Printf("write reply err: %+v\n", err)
+			}
 		}
 	}
 }
