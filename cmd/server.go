@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"regexp"
@@ -78,7 +79,9 @@ func (s *Server) handleConn(conn net.Conn) {
 		b := make([]byte, 4)
 		_, err := bufReader.Read(b)
 		if err != nil {
-			log.Printf("read cmd size err: %+v\n", err)
+			if err != io.EOF {
+				log.Printf("read cmd size err: %+v\n", err)
+			}
 			break
 		}
 
@@ -102,7 +105,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 }
 
-func (s *Server) handleCmd(cmd string, args []string) string {
+func (s *Server) handleCmd(cmd string, args []string) (res string) {
 	if cmd == "quit" {
 		s.Stop()
 		return ""
@@ -113,7 +116,12 @@ func (s *Server) handleCmd(cmd string, args []string) string {
 		return "command not found"
 	}
 
-	return exec(s.db, args)
+	if val, err := exec(s.db, args); err != nil {
+		res = fmt.Sprintf("err: %+v", err.Error())
+	} else {
+		res = val
+	}
+	return
 }
 
 func wrapReplyInfo(reply string) []byte {

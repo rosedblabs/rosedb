@@ -4,7 +4,7 @@ import (
 	"rosedb/storage"
 )
 
-//数据索引定义
+// Indexer 数据索引定义
 type Indexer struct {
 	Meta      *storage.Meta //元数据信息
 	FileId    uint32        //存储数据的文件id

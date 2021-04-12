@@ -18,7 +18,7 @@ var commandList = [][]string{
 	{"SETNX", "key value", "STRING"},
 	{"GETSET", "key value", "STRING"},
 	{"APPEND", "key value", "STRING"},
-	{"STRLEN", "key value", "STRING"},
+	{"STRLEN", "key", "STRING"},
 	{"STREXISTS", "key", "STRING"},
 	{"STRREM", "key", "STRING"},
 	{"PREFIXSCAN", "prefix limit offset", "STRING"},

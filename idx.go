@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-//数据类型定义
+// DataType 数据类型定义
 type DataType = uint16
 
 const (
@@ -214,7 +214,6 @@ func (db *RoseDB) loadIdxFromFiles() error {
 				if err == io.EOF {
 					break
 				}
-
 				return err
 			}
 		}

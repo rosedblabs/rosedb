@@ -74,7 +74,7 @@ type (
 		expires      storage.Expires //过期字典
 	}
 
-	//已封存的文件定义
+	// ArchivedFiles 已封存的文件定义
 	ArchivedFiles map[uint32]*storage.DBFile
 )
 

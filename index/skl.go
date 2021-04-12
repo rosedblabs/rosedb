@@ -25,14 +25,14 @@ type (
 		next []*Element
 	}
 
-	//跳表存储元素定义
+	// Element 跳表存储元素定义
 	Element struct {
 		Node
 		key   []byte
 		value interface{}
 	}
 
-	//跳表定义
+	// SkipList 跳表定义
 	SkipList struct {
 		Node
 		maxLevel       int
@@ -44,7 +44,7 @@ type (
 	}
 )
 
-//初始化一个空的跳表
+// NewSkipList 初始化一个空的跳表
 func NewSkipList() *SkipList {
 	return &SkipList{
 		Node:           Node{next: make([]*Element, maxLevel)},
@@ -68,12 +68,12 @@ func (e *Element) SetValue(val interface{}) {
 	e.value = val
 }
 
-//跳表的第一层索引是原始数据，有序排列，可根据Next方法获取一个串联所有数据的链表
+// Next 跳表的第一层索引是原始数据，有序排列，可根据Next方法获取一个串联所有数据的链表
 func (e *Element) Next() *Element {
 	return e.next[0]
 }
 
-//获取跳表头元素，获取到之后，可向后遍历得到所有的数据
+// Front 获取跳表头元素，获取到之后，可向后遍历得到所有的数据
 //	e := list.Front()
 //	for p := e; p != nil; p = p.Next() {
 //		//do something with Element p
@@ -82,7 +82,7 @@ func (t *SkipList) Front() *Element {
 	return t.next[0]
 }
 
-//Put方法存储一个元素至跳表中，如果key已经存在，则会更新其对应的value
+// Put 方法存储一个元素至跳表中，如果key已经存在，则会更新其对应的value
 //因此此跳表的实现暂不支持相同的key
 func (t *SkipList) Put(key []byte, value interface{}) *Element {
 	var element *Element
@@ -110,7 +110,7 @@ func (t *SkipList) Put(key []byte, value interface{}) *Element {
 	return element
 }
 
-//Get方法根据 key 查找对应的 Element 元素
+// Get 方法根据 key 查找对应的 Element 元素
 //未找到则返回nil
 func (t *SkipList) Get(key []byte) *Element {
 	var prev = &t.Node
@@ -132,12 +132,12 @@ func (t *SkipList) Get(key []byte) *Element {
 	return nil
 }
 
-//判断跳表是否存在对应的key
+// Exist 判断跳表是否存在对应的key
 func (t *SkipList) Exist(key []byte) bool {
 	return t.Get(key) != nil
 }
 
-//Remove方法根据key删除跳表中的元素，返回删除后的元素指针
+// Remove Remove方法根据key删除跳表中的元素，返回删除后的元素指针
 func (t *SkipList) Remove(key []byte) *Element {
 	prev := t.backNodes(key)
 
@@ -153,7 +153,7 @@ func (t *SkipList) Remove(key []byte) *Element {
 	return nil
 }
 
-//遍历跳表中的每个元素
+// Foreach 遍历跳表中的每个元素
 func (t *SkipList) Foreach(fun handleEle) {
 	for p := t.Front(); p != nil; p = p.Next() {
 		if ok := fun(p); !ok {
@@ -183,7 +183,7 @@ func (t *SkipList) backNodes(key []byte) []*Node {
 	return prevs
 }
 
-//找到第一个和前缀匹配的Element
+// FindPrefix 找到第一个和前缀匹配的Element
 func (t *SkipList) FindPrefix(prefix []byte) *Element {
 	var prev = &t.Node
 	var next *Element
