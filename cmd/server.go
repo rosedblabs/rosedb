@@ -9,6 +9,7 @@ import (
 	"net"
 	"regexp"
 	"rosedb"
+	"strings"
 	"sync"
 	"time"
 )
@@ -16,6 +17,14 @@ import (
 var reg, _ = regexp.Compile(`'.*?'|".*?"|\S+`)
 
 const connInterval = 8
+
+type ExecCmdFunc func(*rosedb.RoseDB, []string) (string, error)
+
+var ExecCmd = make(map[string]ExecCmdFunc)
+
+func addExecCommand(cmd string, cmdFunc ExecCmdFunc) {
+	ExecCmd[strings.ToLower(cmd)] = cmdFunc
+}
 
 type Server struct {
 	db       *rosedb.RoseDB
@@ -106,10 +115,11 @@ func (s *Server) handleConn(conn net.Conn) {
 }
 
 func (s *Server) handleCmd(cmd string, args []string) (res string) {
-	if cmd == "quit" {
-		s.Stop()
-		return ""
-	}
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("panic when handle the cmd: %+v", r)
+		}
+	}()
 
 	exec, exist := ExecCmd[cmd]
 	if !exist {

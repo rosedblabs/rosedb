@@ -135,12 +135,29 @@ func main() {
 			continue
 		}
 		cmd = strings.ToLower(cmd)
+
+		c := strings.Split(cmd, " ")
 		if cmd == "help" {
 			printCmdHelp()
+		} else if cmd == "quit" {
+			break
+		} else if c[0] == "help" && len(c) == 2 {
+			helpCmd := c[1]
+			if !commandSet[helpCmd] {
+				fmt.Println("command not found")
+				continue
+			}
+
+			for _, command := range commandList {
+				if strings.ToLower(command[0]) == helpCmd {
+					fmt.Println()
+					fmt.Println(" --usage: " + helpCmd + " " + command[1])
+					fmt.Println(" --group: " + command[2] + "\n")
+				}
+			}
 		} else {
 			line.AppendHistory(cmd)
 
-			c := strings.Split(cmd, " ")
 			if !commandSet[c[0]] && c[0] != "quit" {
 				fmt.Println("command not found")
 				continue
@@ -160,11 +177,11 @@ func main() {
 
 func printCmdHelp() {
 	help := `
-Thanks for using RoseDB
-rosedb-cli
-To get help about command:
+ Thanks for using RoseDB
+ rosedb-cli
+ To get help about command:
 	Type: "help <command>" for help on command
-To quit:
+ To quit:
 	<ctrl+c> or <quit>`
 	fmt.Println(help)
 }

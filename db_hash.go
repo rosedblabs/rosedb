@@ -4,7 +4,7 @@ import "rosedb/storage"
 
 // 哈希相关操作接口
 
-// 将哈希表 hash 中域 field 的值设置为 value
+// HSet 将哈希表 hash 中域 field 的值设置为 value
 // 如果给定的哈希表并不存在， 那么一个新的哈希表将被创建并执行 HSet 操作
 // 如果域 field 已经存在于哈希表中， 那么它的旧值将被新值 value 覆盖
 // 返回操作后key所属哈希表中的元素个数
@@ -26,7 +26,7 @@ func (db *RoseDB) HSet(key, field, value []byte) (res int, err error) {
 	return
 }
 
-// 当且仅当域 field 尚未存在于哈希表的情况下， 将它的值设置为 value
+// HSetNx 当且仅当域 field 尚未存在于哈希表的情况下， 将它的值设置为 value
 // 如果给定域已经存在于哈希表当中， 那么命令将放弃执行设置操作
 // 返回操作是否成功
 func (db *RoseDB) HSetNx(key, field, value []byte) (res bool, err error) {
@@ -48,7 +48,7 @@ func (db *RoseDB) HSetNx(key, field, value []byte) (res bool, err error) {
 	return
 }
 
-// 返回哈希表中给定域的值
+// HGet 返回哈希表中给定域的值
 func (db *RoseDB) HGet(key, field []byte) []byte {
 
 	db.mu.RLock()
@@ -57,7 +57,7 @@ func (db *RoseDB) HGet(key, field []byte) []byte {
 	return db.hashIndex.HGet(string(key), string(field))
 }
 
-// 返回哈希表 key 中，所有的域和值
+// HGetAll 返回哈希表 key 中，所有的域和值
 func (db *RoseDB) HGetAll(key []byte) [][]byte {
 
 	db.mu.RLock()
@@ -66,7 +66,7 @@ func (db *RoseDB) HGetAll(key []byte) [][]byte {
 	return db.hashIndex.HGetAll(string(key))
 }
 
-// 删除哈希表 key 中的一个或多个指定域，不存在的域将被忽略
+// HDel 删除哈希表 key 中的一个或多个指定域，不存在的域将被忽略
 // 返回被成功移除的元素个数
 func (db *RoseDB) HDel(key []byte, field ...[]byte) (res int, err error) {
 
@@ -89,7 +89,7 @@ func (db *RoseDB) HDel(key []byte, field ...[]byte) (res int, err error) {
 	return
 }
 
-// 检查给定域 field 是否存在于key对应的哈希表中
+// HExists 检查给定域 field 是否存在于key对应的哈希表中
 func (db *RoseDB) HExists(key, field []byte) bool {
 
 	if err := db.checkKeyValue(key, nil); err != nil {
@@ -102,7 +102,7 @@ func (db *RoseDB) HExists(key, field []byte) bool {
 	return db.hashIndex.HExists(string(key), string(field))
 }
 
-// 返回哈希表 key 中域的数量
+// HLen 返回哈希表 key 中域的数量
 func (db *RoseDB) HLen(key []byte) int {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return 0
@@ -114,7 +114,7 @@ func (db *RoseDB) HLen(key []byte) int {
 	return db.hashIndex.HLen(string(key))
 }
 
-// 返回哈希表 key 中的所有域
+// HKeys 返回哈希表 key 中的所有域
 func (db *RoseDB) HKeys(key []byte) (val []string) {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return
@@ -126,7 +126,7 @@ func (db *RoseDB) HKeys(key []byte) (val []string) {
 	return db.hashIndex.HKeys(string(key))
 }
 
-// 返回哈希表 key 中的所有域对应的值
+// HValues 返回哈希表 key 中的所有域对应的值
 func (db *RoseDB) HValues(key []byte) (val [][]byte) {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return

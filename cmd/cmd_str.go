@@ -4,18 +4,9 @@ import (
 	"errors"
 	"rosedb"
 	"strconv"
-	"strings"
 )
 
 var SyntaxErr = errors.New("syntax err")
-
-type ExecCmdFunc func(*rosedb.RoseDB, []string) (string, error)
-
-var ExecCmd = make(map[string]ExecCmdFunc)
-
-func addExecCommand(cmd string, cmdFunc ExecCmdFunc) {
-	ExecCmd[strings.ToLower(cmd)] = cmdFunc
-}
 
 func set(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {

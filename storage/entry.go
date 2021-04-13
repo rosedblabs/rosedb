@@ -68,7 +68,7 @@ func (e *Entry) Size() uint32 {
 	return entryHeaderSize + e.Meta.KeySize + e.Meta.ValueSize + e.Meta.ExtraSize
 }
 
-//对Entry进行编码，返回字节数组
+// Encode 对Entry进行编码，返回字节数组
 func (e *Entry) Encode() ([]byte, error) {
 	if e == nil || e.Meta.KeySize == 0 {
 		return nil, ErrInvalidEntry
@@ -95,7 +95,7 @@ func (e *Entry) Encode() ([]byte, error) {
 	return buf, nil
 }
 
-//解码字节数组，返回Entry
+// Decode 解码字节数组，返回Entry
 func Decode(buf []byte) (*Entry, error) {
 	ks := binary.BigEndian.Uint32(buf[4:8])
 	vs := binary.BigEndian.Uint32(buf[8:12])
