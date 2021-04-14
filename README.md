@@ -18,11 +18,120 @@ rosedb is in pure `Go`, simple and easy to understand for use or learning.
 
 ### Cli example
 
+Change the directory to rosedb/cmd/server.
 
+Run the `main.go`
+
+![Xnip2021-04-14_14-33-11.png](https://i.loli.net/2021/04/14/EsMFv48YB3P9j7k.png)
+
+Open a new shell, and change the directory to rosedb/cmd/cli, and run the `main.go`：
+
+![Xnip2021-04-14_14-35-50.png](https://i.loli.net/2021/04/14/9uh1ElVF3C4D6dM.png)
 
 ### Embedded example
 
+Import rosedb in the application:
 
+```go
+import "github.com/roseduan/rosedb"
+```
+
+And open an database:
+
+```go
+package main
+
+import (
+	"github.com/roseduan/rosedb"
+	"log"
+)
+
+func main() {
+	config := rosedb.DefaultConfig()
+	db, err := rosedb.Open(config)
+	
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	defer db.Close()
+	
+	//...
+}
+```
+
+## Command
+
+#### String
+
+* Set
+* SetNx
+* Get
+* GetSet
+* Append
+* StrLen
+* StrExists
+* StrRem
+* PrefixScan
+* RangeScan
+* Expire
+* Persist
+* TTL
+
+### List
+
+* LPush
+* RPush
+* LPop
+* RPop
+* LIndex
+* LRem
+* LInsert
+* LSet
+* LTrim
+* LRange
+* LLen
+
+### Hash
+
+* HSet
+* HSetNx
+* HGet
+* HGetAll
+* HDel
+* HExists
+* HLen
+* HKeys
+* HValues
+
+### Set
+
+* SAdd
+* SPop
+* SIsMember
+* SRandMember
+* SRem
+* SMove
+* SCard
+* SMembers
+* SUnion
+* SDiff
+
+### Zset
+
+* ZAdd
+* ZScore
+* ZCard
+* ZRank
+* ZRevRank
+* ZIncrBy
+* ZRange
+* ZRevRange
+* ZRem
+* ZGetByRank
+* ZRevGetByRank
+* ZScoreRange
+* ZRevScoreRange
 
 ## TODO
 
