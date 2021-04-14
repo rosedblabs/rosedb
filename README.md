@@ -1,6 +1,6 @@
 # rosedb ![](https://img.shields.io/github/license/roseduan/rosedb)&nbsp;[![Go Report Card](https://goreportcard.com/badge/github.com/roseduan/rosedb)&nbsp;](https://goreportcard.com/report/github.com/roseduan/rosedb)![GitHub top language](https://img.shields.io/github/languages/top/roseduan/rosedb)&nbsp;[![GitHub stars](https://img.shields.io/github/stars/roseduan/rosedb)&nbsp;](https://github.com/roseduan/rosedb/stargazers)
 
-[English](https://github.com/roseduan/rosedb#rosedb) | [简体中文](https://github.com/roseduan/rosedb/blob/main/README.md)
+[English](https://github.com/roseduan/rosedb#rosedb) | [简体中文](https://github.com/roseduan/rosedb/blob/main/README-CN.md)
 
 rosedb is an embedded k-v database based on LSM+WAL, so it has good write performance and high throughput. It also supports many kinds of data structures such as `string`, `list`, `hash`, `set`, `zset`，and the API name style is similar to Redis.
 
@@ -139,7 +139,7 @@ func main() {
 + [ ] Support transaction, ACID features
 + [ ] Compress the written data
 + [x] Add prefix scan and range scan for string type
-+ [ ] Add elimination strategy (LRU)
++ [ ] Add cache elimination strategy (LRU, LFU, Random)
 + [x] Cli for command line use.
 + [ ] Improve related documents
 
