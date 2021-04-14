@@ -7,9 +7,19 @@ import (
 	"rosedb/storage"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 //---------列表相关操作接口-----------
+
+type ListIdx struct {
+	mu      sync.RWMutex
+	indexes *list.List
+}
+
+func newListIdx() *ListIdx {
+	return &ListIdx{indexes: list.New()}
+}
 
 // LPush 在列表的头部添加元素，返回添加后的列表长度
 func (db *RoseDB) LPush(key []byte, values ...[]byte) (res int, err error) {
@@ -17,8 +27,8 @@ func (db *RoseDB) LPush(key []byte, values ...[]byte) (res int, err error) {
 		return
 	}
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
 
 	for _, val := range values {
 		e := storage.NewEntryNoExtra(key, val, List, ListLPush)
@@ -26,7 +36,7 @@ func (db *RoseDB) LPush(key []byte, values ...[]byte) (res int, err error) {
 			return
 		}
 
-		res = db.listIndex.LPush(string(key), val)
+		res = db.listIndex.indexes.LPush(string(key), val)
 	}
 	return
 }
@@ -37,8 +47,8 @@ func (db *RoseDB) RPush(key []byte, values ...[]byte) (res int, err error) {
 		return
 	}
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
 
 	for _, val := range values {
 		e := storage.NewEntryNoExtra(key, val, List, ListRPush)
@@ -46,7 +56,7 @@ func (db *RoseDB) RPush(key []byte, values ...[]byte) (res int, err error) {
 			return
 		}
 
-		res = db.listIndex.RPush(string(key), val)
+		res = db.listIndex.indexes.RPush(string(key), val)
 	}
 
 	return
@@ -55,10 +65,10 @@ func (db *RoseDB) RPush(key []byte, values ...[]byte) (res int, err error) {
 // LPop 取出列表头部的元素
 func (db *RoseDB) LPop(key []byte) ([]byte, error) {
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
 
-	val := db.listIndex.LPop(string(key))
+	val := db.listIndex.indexes.LPop(string(key))
 
 	if val != nil {
 		e := storage.NewEntryNoExtra(key, val, List, ListLPop)
@@ -73,10 +83,10 @@ func (db *RoseDB) LPop(key []byte) ([]byte, error) {
 // RPop 取出列表尾部的元素
 func (db *RoseDB) RPop(key []byte) ([]byte, error) {
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
 
-	val := db.listIndex.RPop(string(key))
+	val := db.listIndex.indexes.RPop(string(key))
 
 	if val != nil {
 		e := storage.NewEntryNoExtra(key, val, List, ListRPop)
@@ -91,10 +101,10 @@ func (db *RoseDB) RPop(key []byte) ([]byte, error) {
 // LIndex 返回列表在index处的值，如果不存在则返回nil
 func (db *RoseDB) LIndex(key []byte, idx int) []byte {
 
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+	db.listIndex.mu.RLock()
+	defer db.listIndex.mu.RUnlock()
 
-	return db.listIndex.LIndex(string(key), idx)
+	return db.listIndex.indexes.LIndex(string(key), idx)
 }
 
 // LRem 根据参数 count 的值，移除列表中与参数 value 相等的元素
@@ -104,10 +114,10 @@ func (db *RoseDB) LIndex(key []byte, idx int) []byte {
 //返回成功删除的元素个数
 func (db *RoseDB) LRem(key, value []byte, count int) (int, error) {
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
 
-	res := db.listIndex.LRem(string(key), value, count)
+	res := db.listIndex.indexes.LRem(string(key), value, count)
 
 	if res > 0 {
 		c := strconv.Itoa(count)
@@ -132,10 +142,10 @@ func (db *RoseDB) LInsert(key string, option list.InsertOption, pivot, val []byt
 		return 0, ErrExtraContainsSeparator
 	}
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
 
-	count = db.listIndex.LInsert(key, option, pivot, val)
+	count = db.listIndex.indexes.LInsert(key, option, pivot, val)
 	if count != -1 {
 		var buf bytes.Buffer
 		buf.Write(pivot)
@@ -159,8 +169,8 @@ func (db *RoseDB) LSet(key []byte, idx int, val []byte) (bool, error) {
 		return false, err
 	}
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
 
 	i := strconv.Itoa(idx)
 	e := storage.NewEntry(key, val, []byte(i), List, ListLSet)
@@ -168,17 +178,17 @@ func (db *RoseDB) LSet(key []byte, idx int, val []byte) (bool, error) {
 		return false, err
 	}
 
-	res := db.listIndex.LSet(string(key), idx, val)
+	res := db.listIndex.indexes.LSet(string(key), idx, val)
 	return res, nil
 }
 
 // LTrim 对一个列表进行修剪(trim)，让列表只保留指定区间内的元素，不在指定区间之内的元素都将被删除
 func (db *RoseDB) LTrim(key []byte, start, end int) error {
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
 
-	if res := db.listIndex.LTrim(string(key), start, end); res {
+	if res := db.listIndex.indexes.LTrim(string(key), start, end); res {
 		var buf bytes.Buffer
 		buf.Write([]byte(strconv.Itoa(start)))
 		buf.Write([]byte(ExtraSeparator))
@@ -197,21 +207,21 @@ func (db *RoseDB) LTrim(key []byte, start, end int) error {
 //如果 start 下标比列表的最大下标(len-1)还要大，那么 LRange 返回一个空列表
 //如果 end 下标比 len 还要大，则将 end 的值设置为 len - 1
 func (db *RoseDB) LRange(key []byte, start, end int) ([][]byte, error) {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+	db.listIndex.mu.RLock()
+	defer db.listIndex.mu.RUnlock()
 
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return nil, err
 	}
 
-	return db.listIndex.LRange(string(key), start, end), nil
+	return db.listIndex.indexes.LRange(string(key), start, end), nil
 }
 
 // LLen 返回指定key的列表中的元素个数
 func (db *RoseDB) LLen(key []byte) int {
 
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+	db.listIndex.mu.RLock()
+	defer db.listIndex.mu.RUnlock()
 
-	return db.listIndex.LLen(string(key))
+	return db.listIndex.indexes.LLen(string(key))
 }

@@ -7,10 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"rosedb/ds/hash"
-	"rosedb/ds/list"
-	"rosedb/ds/set"
-	"rosedb/ds/zset"
 	"rosedb/index"
 	"rosedb/storage"
 	"rosedb/utils"
@@ -63,11 +59,11 @@ type (
 		activeFile   *storage.DBFile //当前活跃文件
 		activeFileId uint32          //活跃文件id
 		archFiles    ArchivedFiles   //已封存文件
-		idxList      *index.SkipList //字符串索引列表
-		listIndex    *list.List      //list索引列表
-		hashIndex    *hash.Hash      //hash索引列表
-		setIndex     *set.Set        //集合索引列表
-		zsetIndex    *zset.SortedSet //有序集合索引列表
+		strIndex     *StrIdx         //字符串索引列表
+		listIndex    *ListIdx        //list索引列表
+		hashIndex    *HashIdx        //hash索引列表
+		setIndex     *SetIdx         //集合索引列表
+		zsetIndex    *ZsetIdx        //有序集合索引列表
 		config       Config          //数据库配置
 		mu           sync.RWMutex    //mutex
 		meta         *storage.DBMeta //数据库配置额外信息
@@ -111,12 +107,12 @@ func Open(config Config) (*RoseDB, error) {
 		activeFileId: activeFileId,
 		archFiles:    archFiles,
 		config:       config,
-		idxList:      index.NewSkipList(),
+		strIndex:     newStrIdx(),
 		meta:         meta,
-		listIndex:    list.New(),
-		hashIndex:    hash.New(),
-		setIndex:     set.New(),
-		zsetIndex:    zset.New(),
+		listIndex:    newListIdx(),
+		hashIndex:    newHashIdx(),
+		setIndex:     newSetIdx(),
+		zsetIndex:    newZsetIdx(),
 		expires:      expires,
 	}
 
@@ -236,11 +232,11 @@ func (db *RoseDB) Reclaim() (err error) {
 
 				//字符串类型的索引需要在这里更新
 				if entry.Type == String {
-					item := db.idxList.Get(entry.Meta.Key)
+					item := db.strIndex.idxList.Get(entry.Meta.Key)
 					idx := item.Value().(*index.Indexer)
 					idx.Offset = df.Offset - int64(entry.Size())
 					idx.FileId = activeFileId
-					db.idxList.Put(idx.Meta.Key, idx)
+					db.strIndex.idxList.Put(idx.Meta.Key, idx)
 				}
 			}
 		}

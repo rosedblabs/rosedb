@@ -1,8 +1,21 @@
 package rosedb
 
-import "rosedb/storage"
+import (
+	"rosedb/ds/hash"
+	"rosedb/storage"
+	"sync"
+)
 
 // 哈希相关操作接口
+
+type HashIdx struct {
+	mu      sync.RWMutex
+	indexes *hash.Hash
+}
+
+func newHashIdx() *HashIdx {
+	return &HashIdx{indexes: hash.New()}
+}
 
 // HSet 将哈希表 hash 中域 field 的值设置为 value
 // 如果给定的哈希表并不存在， 那么一个新的哈希表将被创建并执行 HSet 操作
@@ -14,15 +27,15 @@ func (db *RoseDB) HSet(key, field, value []byte) (res int, err error) {
 		return
 	}
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.hashIndex.mu.Lock()
+	defer db.hashIndex.mu.Unlock()
 
 	e := storage.NewEntry(key, value, field, Hash, HashHSet)
 	if err = db.store(e); err != nil {
 		return
 	}
 
-	res = db.hashIndex.HSet(string(key), string(field), value)
+	res = db.hashIndex.indexes.HSet(string(key), string(field), value)
 	return
 }
 
@@ -35,10 +48,10 @@ func (db *RoseDB) HSetNx(key, field, value []byte) (res bool, err error) {
 		return
 	}
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.hashIndex.mu.Lock()
+	defer db.hashIndex.mu.Unlock()
 
-	if res = db.hashIndex.HSetNx(string(key), string(field), value); res {
+	if res = db.hashIndex.indexes.HSetNx(string(key), string(field), value); res {
 		e := storage.NewEntry(key, value, field, Hash, HashHSet)
 		if err = db.store(e); err != nil {
 			return
@@ -51,19 +64,19 @@ func (db *RoseDB) HSetNx(key, field, value []byte) (res bool, err error) {
 // HGet 返回哈希表中给定域的值
 func (db *RoseDB) HGet(key, field []byte) []byte {
 
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
 
-	return db.hashIndex.HGet(string(key), string(field))
+	return db.hashIndex.indexes.HGet(string(key), string(field))
 }
 
 // HGetAll 返回哈希表 key 中，所有的域和值
 func (db *RoseDB) HGetAll(key []byte) [][]byte {
 
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
 
-	return db.hashIndex.HGetAll(string(key))
+	return db.hashIndex.indexes.HGetAll(string(key))
 }
 
 // HDel 删除哈希表 key 中的一个或多个指定域，不存在的域将被忽略
@@ -74,11 +87,11 @@ func (db *RoseDB) HDel(key []byte, field ...[]byte) (res int, err error) {
 		return
 	}
 
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.hashIndex.mu.Lock()
+	defer db.hashIndex.mu.Unlock()
 
 	for _, f := range field {
-		if ok := db.hashIndex.HDel(string(key), string(f)); ok {
+		if ok := db.hashIndex.indexes.HDel(string(key), string(f)); ok {
 			e := storage.NewEntry(key, nil, f, Hash, HashHDel)
 			if err = db.store(e); err != nil {
 				return
@@ -96,10 +109,10 @@ func (db *RoseDB) HExists(key, field []byte) bool {
 		return false
 	}
 
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
 
-	return db.hashIndex.HExists(string(key), string(field))
+	return db.hashIndex.indexes.HExists(string(key), string(field))
 }
 
 // HLen 返回哈希表 key 中域的数量
@@ -108,10 +121,10 @@ func (db *RoseDB) HLen(key []byte) int {
 		return 0
 	}
 
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
 
-	return db.hashIndex.HLen(string(key))
+	return db.hashIndex.indexes.HLen(string(key))
 }
 
 // HKeys 返回哈希表 key 中的所有域
@@ -120,10 +133,10 @@ func (db *RoseDB) HKeys(key []byte) (val []string) {
 		return
 	}
 
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
 
-	return db.hashIndex.HKeys(string(key))
+	return db.hashIndex.indexes.HKeys(string(key))
 }
 
 // HValues 返回哈希表 key 中的所有域对应的值
@@ -132,8 +145,8 @@ func (db *RoseDB) HValues(key []byte) (val [][]byte) {
 		return
 	}
 
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
 
-	return db.hashIndex.HValues(string(key))
+	return db.hashIndex.indexes.HValues(string(key))
 }
