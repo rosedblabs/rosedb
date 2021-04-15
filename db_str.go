@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-//---------字符串相关操作接口-----------
-
 type StrIdx struct {
 	mu      sync.RWMutex
 	idxList *index.SkipList

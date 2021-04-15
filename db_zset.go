@@ -7,8 +7,6 @@ import (
 	"sync"
 )
 
-//有序集合相关操作接口
-
 type ZsetIdx struct {
 	mu      sync.RWMutex
 	indexes *zset.SortedSet

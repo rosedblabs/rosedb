@@ -6,8 +6,6 @@ import (
 	"sync"
 )
 
-// 集合的相关操作接口
-
 type SetIdx struct {
 	mu      sync.RWMutex
 	indexes *set.Set

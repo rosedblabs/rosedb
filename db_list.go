@@ -10,8 +10,6 @@ import (
 	"sync"
 )
 
-//---------列表相关操作接口-----------
-
 type ListIdx struct {
 	mu      sync.RWMutex
 	indexes *list.List

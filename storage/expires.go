@@ -7,8 +7,6 @@ import (
 	"os"
 )
 
-//保存和加载过期字典
-
 const expireHeadSize = 12
 
 type Expires map[string]uint32

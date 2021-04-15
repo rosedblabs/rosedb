@@ -7,9 +7,7 @@ import (
 	"path"
 )
 
-//文件操作工具
-
-//校验目录或文件是否存在
+// Exist 校验目录或文件是否存在
 func Exist(path string) bool {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return false
@@ -18,7 +16,7 @@ func Exist(path string) bool {
 	return true
 }
 
-//拷贝目录
+// CopyDir 拷贝目录
 func CopyDir(src string, dst string) error {
 	var (
 		err     error
@@ -54,7 +52,7 @@ func CopyDir(src string, dst string) error {
 	return nil
 }
 
-//拷贝文件
+// CopyFile 拷贝文件
 func CopyFile(src, dst string) error {
 	var (
 		err     error

@@ -50,7 +50,7 @@ const (
 	//保存过期字典的文件名称
 	expireFile = string(os.PathSeparator) + "db.expires"
 
-	//额外信息的分隔符，用于存储一些额外的信息（因此一些操作的value中不能包含此分隔符）
+	// ExtraSeparator 额外信息的分隔符，用于存储一些额外的信息（因此一些操作的value中不能包含此分隔符）
 	ExtraSeparator = "\\0"
 )
 
@@ -284,7 +284,7 @@ func (db *RoseDB) checkKeyValue(key []byte, value ...[]byte) error {
 	return nil
 }
 
-//关闭数据库之前保存配置
+// saveConfig 关闭数据库之前保存配置
 func (db *RoseDB) saveConfig() (err error) {
 	//保存配置
 	path := db.config.DirPath + configSaveFile
@@ -302,7 +302,7 @@ func (db *RoseDB) saveMeta() error {
 	return db.meta.Store(metaPath)
 }
 
-//建立索引
+// buildIndex 建立索引
 func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
 
 	if db.config.IdxMode == KeyValueRamMode {
@@ -326,7 +326,7 @@ func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
 	return nil
 }
 
-//写数据
+// store 写数据
 func (db *RoseDB) store(e *storage.Entry) error {
 
 	//如果数据文件空间不够，则关闭该文件，并新打开一个文件
@@ -367,7 +367,7 @@ func (db *RoseDB) store(e *storage.Entry) error {
 	return nil
 }
 
-//判断entry所属的操作标识(增、改类型的操作)，以及val是否是有效的
+// validEntry 判断entry所属的操作标识(增、改类型的操作)，以及val是否是有效的
 func (db *RoseDB) validEntry(e *storage.Entry) bool {
 	if e == nil {
 		return false
