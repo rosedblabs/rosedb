@@ -172,7 +172,7 @@ func (s *Set) SDiff(keys ...string) (val [][]byte) {
 	return
 }
 
-//key对应的集合是否存在
+// exist key对应的集合是否存在
 func (s *Set) exist(key string) bool {
 	_, exist := s.record[key]
 	return exist

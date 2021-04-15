@@ -14,7 +14,7 @@ func New() *Hash {
 	return &Hash{make(Record)}
 }
 
-//将哈希表 hash 中域 field 的值设置为 value
+// HSet 将哈希表 hash 中域 field 的值设置为 value
 //如果给定的哈希表并不存在， 那么一个新的哈希表将被创建并执行 HSet 操作
 //如果域 field 已经存在于哈希表中， 那么它的旧值将被新值 value 覆盖
 func (h *Hash) HSet(key string, field string, value []byte) int {
@@ -26,7 +26,7 @@ func (h *Hash) HSet(key string, field string, value []byte) int {
 	return len(h.record[key])
 }
 
-//当且仅当域 field 尚未存在于哈希表的情况下， 将它的值设置为 value
+// HSetNx 当且仅当域 field 尚未存在于哈希表的情况下， 将它的值设置为 value
 //如果给定域已经存在于哈希表当中， 那么命令将放弃执行设置操作
 func (h *Hash) HSetNx(key string, field string, value []byte) bool {
 	if !h.exist(key) {
@@ -41,7 +41,7 @@ func (h *Hash) HSetNx(key string, field string, value []byte) bool {
 	return false
 }
 
-//返回哈希表中给定域的值
+// HGet 返回哈希表中给定域的值
 func (h *Hash) HGet(key, field string) []byte {
 	if !h.exist(key) {
 		return nil
@@ -50,7 +50,7 @@ func (h *Hash) HGet(key, field string) []byte {
 	return h.record[key][field]
 }
 
-//返回哈希表 key 中，所有的域和值
+// HGetAll 返回哈希表 key 中，所有的域和值
 func (h *Hash) HGetAll(key string) (res [][]byte) {
 	if !h.exist(key) {
 		return
@@ -63,7 +63,7 @@ func (h *Hash) HGetAll(key string) (res [][]byte) {
 	return
 }
 
-//删除哈希表 key 中的一个或多个指定域，不存在的域将被忽略
+// HDel 删除哈希表 key 中的一个或多个指定域，不存在的域将被忽略
 //返回是否被成功移除
 func (h *Hash) HDel(key, field string) bool {
 	if !h.exist(key) {
@@ -78,7 +78,7 @@ func (h *Hash) HDel(key, field string) bool {
 	return false
 }
 
-//检查给定域 field 是否存在于key对应的哈希表中
+// HExists 检查给定域 field 是否存在于key对应的哈希表中
 func (h *Hash) HExists(key, field string) bool {
 	if !h.exist(key) {
 		return false
@@ -88,7 +88,7 @@ func (h *Hash) HExists(key, field string) bool {
 	return exist
 }
 
-//返回哈希表 key 中域的数量
+// HLen 返回哈希表 key 中域的数量
 func (h *Hash) HLen(key string) int {
 	if !h.exist(key) {
 		return 0
@@ -97,7 +97,7 @@ func (h *Hash) HLen(key string) int {
 	return len(h.record[key])
 }
 
-//返回哈希表 key 中的所有域
+// HKeys 返回哈希表 key 中的所有域
 func (h *Hash) HKeys(key string) (val []string) {
 	if !h.exist(key) {
 		return
@@ -110,7 +110,7 @@ func (h *Hash) HKeys(key string) (val []string) {
 	return
 }
 
-//返回哈希表 key 中的所有域对应的值
+// HValues 返回哈希表 key 中的所有域对应的值
 func (h *Hash) HValues(key string) (val [][]byte) {
 
 	if !h.exist(key) {
