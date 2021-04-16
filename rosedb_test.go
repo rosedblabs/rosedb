@@ -2,9 +2,9 @@ package rosedb
 
 import (
 	"encoding/json"
+	"github.com/roseduan/rosedb/storage"
 	"io/ioutil"
 	"log"
-	"rosedb/storage"
 	"testing"
 )
 
