@@ -1,4 +1,4 @@
-module rosedb
+module github.com/roseduan/rosedb
 
 go 1.14
 
