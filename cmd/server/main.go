@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/roseduan/go-toml"
 	"github.com/roseduan/rosedb"
 	"github.com/roseduan/rosedb/cmd"
 	"io/ioutil"
@@ -69,9 +68,10 @@ func newConfigFromFile(config string) (*rosedb.Config, error) {
 	}
 
 	var cfg = new(rosedb.Config)
-	err = toml.Unmarshal(data, &cfg)
-	if err != nil {
-		return nil, err
-	}
+	fmt.Println(data)
+	//err = toml.Unmarshal(data, &cfg)
+	//if err != nil {
+	//	return nil, err
+	//}
 	return cfg, nil
 }
