@@ -1,7 +1,7 @@
 package index
 
 import (
-	"rosedb/storage"
+	"github.com/roseduan/rosedb/storage"
 )
 
 // Indexer 数据索引定义

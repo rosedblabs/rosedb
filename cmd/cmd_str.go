@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"errors"
-	"rosedb"
+	"github.com/roseduan/rosedb"
 	"strconv"
 )
 

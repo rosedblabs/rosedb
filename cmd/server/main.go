@@ -3,13 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/roseduan/go-toml"
+	"github.com/pelletier/go-toml"
+	"github.com/roseduan/rosedb"
+	"github.com/roseduan/rosedb/cmd"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
-	"rosedb"
-	"rosedb/cmd"
 	"syscall"
 )
 

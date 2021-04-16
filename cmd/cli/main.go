@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"github.com/roseduan/liner"
+	"github.com/peterh/liner"
 	"log"
 	"net"
 	"os"

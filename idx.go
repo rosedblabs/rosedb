@@ -1,10 +1,10 @@
 package rosedb
 
 import (
+	"github.com/roseduan/rosedb/ds/list"
+	"github.com/roseduan/rosedb/index"
+	"github.com/roseduan/rosedb/utils"
 	"io"
-	"rosedb/ds/list"
-	"rosedb/index"
-	"rosedb/utils"
 	"sort"
 	"strconv"
 	"strings"

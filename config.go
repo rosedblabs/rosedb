@@ -1,7 +1,7 @@
 package rosedb
 
 import (
-	"rosedb/storage"
+	"github.com/roseduan/rosedb/storage"
 )
 
 // DataIndexMode 数据索引的模式

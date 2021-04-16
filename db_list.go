@@ -2,9 +2,9 @@ package rosedb
 
 import (
 	"bytes"
+	"github.com/roseduan/rosedb/ds/list"
+	"github.com/roseduan/rosedb/storage"
 	"log"
-	"rosedb/ds/list"
-	"rosedb/storage"
 	"strconv"
 	"strings"
 	"sync"

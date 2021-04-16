@@ -1,8 +1,8 @@
 package rosedb
 
 import (
-	"rosedb/ds/set"
-	"rosedb/storage"
+	"github.com/roseduan/rosedb/ds/set"
+	"github.com/roseduan/rosedb/storage"
 	"sync"
 )
 

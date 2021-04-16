@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"rosedb"
-	"rosedb/utils"
+	"github.com/roseduan/rosedb"
+	"github.com/roseduan/rosedb/utils"
 	"strconv"
 )
 

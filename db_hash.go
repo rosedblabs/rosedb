@@ -1,8 +1,8 @@
 package rosedb
 
 import (
-	"rosedb/ds/hash"
-	"rosedb/storage"
+	"github.com/roseduan/rosedb/ds/hash"
+	"github.com/roseduan/rosedb/storage"
 	"sync"
 )
 

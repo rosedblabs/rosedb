@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"rosedb"
-	"rosedb/ds/list"
+	"github.com/roseduan/rosedb"
+	"github.com/roseduan/rosedb/ds/list"
 	"strconv"
 )
 
