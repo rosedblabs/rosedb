@@ -58,7 +58,7 @@ func TestRoseDB_LPush(t *testing.T) {
 			}
 		}
 
-		t.Log(db.listIndex.LLen(string(key)))
+		t.Log(db.listIndex.indexes.LLen(string(key)))
 	})
 }
 
@@ -133,7 +133,7 @@ func TestRoseDB_RPush(t *testing.T) {
 			}
 		}
 
-		t.Log(db.listIndex.LLen(string(key)))
+		t.Log(db.listIndex.indexes.LLen(string(key)))
 	})
 }
 
@@ -242,10 +242,11 @@ func TestRoseDB_LInsert(t *testing.T) {
 	defer db.Close()
 
 	key := []byte("mylist")
-	err := db.LInsert(string(key), list.Before, []byte("list_data_0011"), []byte("I am roseduan"))
+	count, err := db.LInsert(string(key), list.Before, []byte("list_data_0011"), []byte("I am roseduan"))
 	if err != nil {
 		log.Fatal(err)
 	}
+	t.Log(count)
 
 	vals, _ := db.LRange(key, 0, -1)
 	for _, v := range vals {

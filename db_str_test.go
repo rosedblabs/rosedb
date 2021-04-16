@@ -316,5 +316,5 @@ func writeLargeData(db *RoseDB, t *testing.T) {
 	}
 	t.Log("time spent : ", time.Since(start).Milliseconds())
 
-	t.Log("写入的有效数据量 : ", db.idxList.Len)
+	t.Log("写入的有效数据量 : ", db.strIndex.idxList.Len)
 }
