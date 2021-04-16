@@ -11,6 +11,7 @@ type DBMeta struct {
 	ActiveWriteOff int64 `json:"active_write_off"` //当前数据文件的写偏移
 }
 
+// LoadMeta 加载数据信息
 func LoadMeta(path string) (m *DBMeta) {
 	m = &DBMeta{}
 
@@ -25,6 +26,7 @@ func LoadMeta(path string) (m *DBMeta) {
 	return
 }
 
+// Store 存储数据信息
 func (m *DBMeta) Store(path string) error {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {

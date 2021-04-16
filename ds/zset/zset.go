@@ -5,7 +5,7 @@ import (
 	"math/rand"
 )
 
-//有序集合sorted set实现
+// 有序集合sorted set实现
 
 const (
 	maxLevel    = 32
@@ -13,10 +13,12 @@ const (
 )
 
 type (
+	// SortedSet sorted set struct
 	SortedSet struct {
 		record map[string]*SortedSetNode
 	}
 
+	// SortedSetNode node of sorted set
 	SortedSetNode struct {
 		dict map[string]*sklNode
 		skl  *skipList
@@ -42,13 +44,14 @@ type (
 	}
 )
 
+// New new a sorted set
 func New() *SortedSet {
 	return &SortedSet{
 		make(map[string]*SortedSetNode),
 	}
 }
 
-//将 member 元素及其 score 值加入到有序集 key 当中
+// ZAdd 将 member 元素及其 score 值加入到有序集 key 当中
 func (z *SortedSet) ZAdd(key string, score float64, member string) {
 	if !z.exist(key) {
 
@@ -77,7 +80,7 @@ func (z *SortedSet) ZAdd(key string, score float64, member string) {
 	}
 }
 
-//返回集合key中对应member的score值，如果不存在则返回负无穷
+// ZScore 返回集合key中对应member的score值，如果不存在则返回负无穷
 func (z *SortedSet) ZScore(key string, member string) float64 {
 	if !z.exist(key) {
 		return math.MinInt64
@@ -91,7 +94,7 @@ func (z *SortedSet) ZScore(key string, member string) float64 {
 	return node.score
 }
 
-//返回指定集合key中的元素个数
+// ZCard 返回指定集合key中的元素个数
 func (z *SortedSet) ZCard(key string) int {
 	if !z.exist(key) {
 		return 0
@@ -100,7 +103,7 @@ func (z *SortedSet) ZCard(key string) int {
 	return len(z.record[key].dict)
 }
 
-//返回有序集 key 中成员 member 的排名。其中有序集成员按 score 值递增(从小到大)顺序排列
+// ZRank 返回有序集 key 中成员 member 的排名。其中有序集成员按 score 值递增(从小到大)顺序排列
 //排名以 0 为底，也就是说， score 值最小的成员排名为 0
 func (z *SortedSet) ZRank(key, member string) int64 {
 	if !z.exist(key) {
@@ -118,7 +121,7 @@ func (z *SortedSet) ZRank(key, member string) int64 {
 	return rank
 }
 
-//返回有序集 key 中成员 member 的排名。其中有序集成员按 score 值递减(从大到小)排序
+// ZRevRank 返回有序集 key 中成员 member 的排名。其中有序集成员按 score 值递减(从大到小)排序
 //排名以 0 为底，也就是说， score 值最大的成员排名为 0
 func (z *SortedSet) ZRevRank(key, member string) int64 {
 	if !z.exist(key) {
@@ -135,7 +138,7 @@ func (z *SortedSet) ZRevRank(key, member string) int64 {
 	return z.record[key].skl.length - rank
 }
 
-//为有序集 key 的成员 member 的 score 值加上增量 increment
+// ZIncrBy 为有序集 key 的成员 member 的 score 值加上增量 increment
 //当 key 不存在，或 member 不是 key 的成员时，ZIncrBy 等同于 ZAdd
 func (z *SortedSet) ZIncrBy(key string, increment float64, member string) float64 {
 	if z.exist(key) {
@@ -149,7 +152,7 @@ func (z *SortedSet) ZIncrBy(key string, increment float64, member string) float6
 	return increment
 }
 
-//返回有序集 key 中，指定区间内的成员，其中成员的位置按 score 值递增(从小到大)来排序
+// ZRange 返回有序集 key 中，指定区间内的成员，其中成员的位置按 score 值递增(从小到大)来排序
 //具有相同 score 值的成员按字典序(lexicographical order )来排列
 func (z *SortedSet) ZRange(key string, start, stop int) []interface{} {
 	if !z.exist(key) {
@@ -159,7 +162,7 @@ func (z *SortedSet) ZRange(key string, start, stop int) []interface{} {
 	return z.findRange(key, int64(start), int64(stop), false)
 }
 
-//返回有序集 key 中，指定区间内的成员，其中成员的位置按 score 值递减(从大到小)来排列
+// ZRevRange 返回有序集 key 中，指定区间内的成员，其中成员的位置按 score 值递减(从大到小)来排列
 //具有相同 score 值的成员按字典序的逆序(reverse lexicographical order)排列
 func (z *SortedSet) ZRevRange(key string, start, stop int) []interface{} {
 	if !z.exist(key) {
@@ -169,7 +172,7 @@ func (z *SortedSet) ZRevRange(key string, start, stop int) []interface{} {
 	return z.findRange(key, int64(start), int64(stop), true)
 }
 
-//移除有序集 key 中的 member 成员，不存在则将被忽略
+// ZRem 移除有序集 key 中的 member 成员，不存在则将被忽略
 func (z *SortedSet) ZRem(key, member string) bool {
 	if !z.exist(key) {
 		return false
@@ -185,7 +188,7 @@ func (z *SortedSet) ZRem(key, member string) bool {
 	return false
 }
 
-//根据排名获取member及分值信息，从小到大排列遍历，即分值最低排名为0，依次类推
+// ZGetByRank 根据排名获取member及分值信息，从小到大排列遍历，即分值最低排名为0，依次类推
 func (z *SortedSet) ZGetByRank(key string, rank int) (val []interface{}) {
 	if !z.exist(key) {
 		return
@@ -196,7 +199,7 @@ func (z *SortedSet) ZGetByRank(key string, rank int) (val []interface{}) {
 	return
 }
 
-//根据排名获取member及分值信息，从大到小排列遍历，即分值最高排名为0，依次类推
+// ZRevGetByRank 根据排名获取member及分值信息，从大到小排列遍历，即分值最高排名为0，依次类推
 func (z *SortedSet) ZRevGetByRank(key string, rank int) (val []interface{}) {
 	if !z.exist(key) {
 		return
@@ -207,7 +210,7 @@ func (z *SortedSet) ZRevGetByRank(key string, rank int) (val []interface{}) {
 	return
 }
 
-//返回有序集 key 中，所有 score 值介于 min 和 max 之间(包括等于 min 或 max )的成员
+// ZScoreRange 返回有序集 key 中，所有 score 值介于 min 和 max 之间(包括等于 min 或 max )的成员
 //有序集成员按 score 值递增(从小到大)次序排列
 func (z *SortedSet) ZScoreRange(key string, min, max float64) (val []interface{}) {
 	if !z.exist(key) || min > max {
@@ -245,7 +248,7 @@ func (z *SortedSet) ZScoreRange(key string, min, max float64) (val []interface{}
 	return
 }
 
-//返回有序集 key 中， score 值介于 max 和 min 之间(默认包括等于 max 或 min )的所有的成员
+// ZRevScoreRange 返回有序集 key 中， score 值介于 max 和 min 之间(默认包括等于 max 或 min )的所有的成员
 //有序集成员按 score 值递减(从大到小)的次序排列
 func (z *SortedSet) ZRevScoreRange(key string, max, min float64) (val []interface{}) {
 	if !z.exist(key) || max < min {

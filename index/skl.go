@@ -21,6 +21,7 @@ const (
 type handleEle func(e *Element) bool
 
 type (
+	// Node 跳表节点
 	Node struct {
 		next []*Element
 	}
@@ -56,14 +57,17 @@ func NewSkipList() *SkipList {
 	}
 }
 
+// Key 跳表元素 key
 func (e *Element) Key() []byte {
 	return e.key
 }
 
+// Value 跳表元素 value
 func (e *Element) Value() interface{} {
 	return e.value
 }
 
+// SetValue set the elem val
 func (e *Element) SetValue(val interface{}) {
 	e.value = val
 }

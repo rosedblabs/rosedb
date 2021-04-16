@@ -7,16 +7,16 @@ import (
 
 const (
 	path1            = "/Users/roseduan/resources/rosedb"
-	fileId1          = 0
+	fileID1          = 0
 	path2            = "/Users/roseduan/resources/rosedb"
-	fileId2          = 1
+	fileID2          = 1
 	defaultBlockSize = 8 * 1024 * 1024
 )
 
 func TestNewDBFile(t *testing.T) {
 
 	newOne := func(method FileRWMethod) {
-		file, err := NewDBFile(path1, fileId1, method, defaultBlockSize)
+		file, err := NewDBFile(path1, fileID1, method, defaultBlockSize)
 		if err != nil {
 			t.Error("new db file error ", err)
 		}
@@ -46,7 +46,7 @@ func TestBuild(t *testing.T) {
 }
 
 func TestDBFile_Write_FileIO(t *testing.T) {
-	df, err := NewDBFile(path1, fileId1, FileIO, defaultBlockSize)
+	df, err := NewDBFile(path1, fileID1, FileIO, defaultBlockSize)
 
 	if err != nil {
 		t.Error(err)
@@ -89,7 +89,7 @@ func TestDBFile_Write_FileIO(t *testing.T) {
 }
 
 func TestDBFile_Read_FileIO(t *testing.T) {
-	df, _ := NewDBFile(path1, fileId1, FileIO, defaultBlockSize)
+	df, _ := NewDBFile(path1, fileID1, FileIO, defaultBlockSize)
 
 	readEntry := func(offset int64) *Entry {
 		if e, err := df.Read(offset); err != nil {
@@ -110,7 +110,7 @@ func TestDBFile_Read_FileIO(t *testing.T) {
 	defer df.Close(false)
 }
 
-var df, _ = NewDBFile(path2, fileId2, MMap, defaultBlockSize)
+var df, _ = NewDBFile(path2, fileID2, MMap, defaultBlockSize)
 
 func TestDBFile_Write_MMap(t *testing.T) {
 	writeEntry := func(key, value []byte) {

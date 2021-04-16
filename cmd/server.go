@@ -18,14 +18,17 @@ var reg, _ = regexp.Compile(`'.*?'|".*?"|\S+`)
 
 const connInterval = 8
 
+// ExecCmdFunc func for cmd execute
 type ExecCmdFunc func(*rosedb.RoseDB, []string) (string, error)
 
+// ExecCmd exec cmd map
 var ExecCmd = make(map[string]ExecCmdFunc)
 
 func addExecCommand(cmd string, cmdFunc ExecCmdFunc) {
 	ExecCmd[strings.ToLower(cmd)] = cmdFunc
 }
 
+// Server rosedb server
 type Server struct {
 	db       *rosedb.RoseDB
 	closed   bool
@@ -34,6 +37,7 @@ type Server struct {
 	listener net.Listener
 }
 
+// NewServer new rosedb server
 func NewServer(config rosedb.Config) (*Server, error) {
 	db, err := rosedb.Open(config)
 	if err != nil {
@@ -42,6 +46,7 @@ func NewServer(config rosedb.Config) (*Server, error) {
 	return &Server{db: db, done: make(chan struct{})}, nil
 }
 
+// Listen listen the server
 func (s *Server) Listen(addr string) {
 	var err error
 	s.listener, err = net.Listen("tcp", addr)
@@ -65,6 +70,7 @@ func (s *Server) Listen(addr string) {
 	}
 }
 
+// Stop stop the server
 func (s *Server) Stop() {
 	if s.closed {
 		return

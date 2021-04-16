@@ -1,15 +1,18 @@
 package hash
 
-//哈希hash实现
+// 哈希hash实现
 
 type (
+	// Hash 哈希表结构定义
 	Hash struct {
 		record Record
 	}
 
+	// Record hash record to save
 	Record map[string]map[string][]byte
 )
 
+// New new a hash ds
 func New() *Hash {
 	return &Hash{make(Record)}
 }

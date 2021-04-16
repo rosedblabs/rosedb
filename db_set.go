@@ -6,6 +6,7 @@ import (
 	"sync"
 )
 
+// SetIdx the set idx
 type SetIdx struct {
 	mu      sync.RWMutex
 	indexes *set.Set

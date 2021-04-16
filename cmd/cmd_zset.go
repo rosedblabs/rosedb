@@ -9,12 +9,12 @@ import (
 
 func zAdd(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 3 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	score, err := utils.StrToFloat64(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	if err = db.ZAdd([]byte(args[0]), score, []byte(args[2])); err == nil {
@@ -25,7 +25,7 @@ func zAdd(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func zScore(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	score := db.ZScore([]byte(args[0]), []byte(args[1]))
@@ -35,7 +35,7 @@ func zScore(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func zCard(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	card := db.ZCard([]byte(args[0]))
@@ -45,7 +45,7 @@ func zCard(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func zRank(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	rank := db.ZRank([]byte(args[0]), []byte(args[1]))
@@ -55,7 +55,7 @@ func zRank(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func zRevRank(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	rank := db.ZRevRank([]byte(args[0]), []byte(args[1]))
@@ -65,12 +65,12 @@ func zRevRank(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func zIncrBy(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 3 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	incr, err := utils.StrToFloat64(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	var val float64
@@ -91,17 +91,17 @@ func zRevRange(db *rosedb.RoseDB, args []string) (res string, err error) {
 // for zRange and zRevRange
 func zRawRange(db *rosedb.RoseDB, args []string, rev bool) (res string, err error) {
 	if len(args) != 3 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	start, err := strconv.Atoi(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	end, err := strconv.Atoi(args[2])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -123,7 +123,7 @@ func zRawRange(db *rosedb.RoseDB, args []string, rev bool) (res string, err erro
 
 func zRem(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	var ok bool
@@ -148,12 +148,12 @@ func zRevGetByRank(db *rosedb.RoseDB, args []string) (res string, err error) {
 // for zGetByRank and zRevGetByRank
 func zRawGetByRank(db *rosedb.RoseDB, args []string, rev bool) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	rank, err := strconv.Atoi(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -183,17 +183,17 @@ func zSRevScoreRange(db *rosedb.RoseDB, args []string) (res string, err error) {
 // for zScoreRange and zSRevScoreRange
 func zRawScoreRange(db *rosedb.RoseDB, args []string, rev bool) (res string, err error) {
 	if len(args) != 3 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	param1, err := utils.StrToFloat64(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	param2, err := utils.StrToFloat64(args[2])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	var val []interface{}

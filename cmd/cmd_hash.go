@@ -7,7 +7,7 @@ import (
 
 func hSet(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 3 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	var count int
@@ -19,7 +19,7 @@ func hSet(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func hSetNx(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 3 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	var ok bool
@@ -35,7 +35,7 @@ func hSetNx(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func hGet(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	val := db.HGet([]byte(args[0]), []byte(args[1]))
@@ -49,7 +49,7 @@ func hGet(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func hGetAll(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	val := db.HGetAll([]byte(args[0]))
@@ -64,7 +64,7 @@ func hGetAll(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func hDel(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) <= 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -81,7 +81,7 @@ func hDel(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func hExists(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	if exists := db.HExists([]byte(args[0]), []byte(args[1])); exists {
@@ -94,7 +94,7 @@ func hExists(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func hLen(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	count := db.HLen([]byte(args[0]))
@@ -104,7 +104,7 @@ func hLen(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func hKeys(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	val := db.HKeys([]byte(args[0]))
@@ -119,7 +119,7 @@ func hKeys(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func hValues(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	val := db.HValues([]byte(args[0]))

@@ -9,14 +9,17 @@ import (
 
 const expireHeadSize = 12
 
+// Expires 过期字典定义
 type Expires map[string]uint32
 
+// ExpiresValue expires value
 type ExpiresValue struct {
 	Key      []byte
 	KeySize  uint32
 	Deadline uint64
 }
 
+// SaveExpires 保存过期字典信息
 func (e *Expires) SaveExpires(path string) (err error) {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
@@ -46,6 +49,7 @@ func (e *Expires) SaveExpires(path string) (err error) {
 	return
 }
 
+// LoadExpires 加载过期字典信息
 func LoadExpires(path string) (expires Expires) {
 	expires = make(Expires)
 	file, err := os.OpenFile(path, os.O_RDONLY, 0600)

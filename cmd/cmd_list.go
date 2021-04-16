@@ -8,7 +8,7 @@ import (
 
 func lPush(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) < 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -26,7 +26,7 @@ func lPush(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func rPush(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) < 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -44,7 +44,7 @@ func rPush(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func lPop(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -57,7 +57,7 @@ func lPop(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func rPop(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -70,12 +70,12 @@ func rPop(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func lIndex(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 0 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	index, err := strconv.Atoi(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -86,12 +86,12 @@ func lIndex(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func lRem(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 3 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	count, err := strconv.Atoi(args[2])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -104,7 +104,7 @@ func lRem(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func lInsert(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 4 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	var flag int
@@ -123,12 +123,12 @@ func lInsert(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func lSet(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 3 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	index, err := strconv.Atoi(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -144,17 +144,17 @@ func lSet(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func lTrim(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 3 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	start, err := strconv.Atoi(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	end, err := strconv.Atoi(args[2])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -166,17 +166,17 @@ func lTrim(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func lRange(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 3 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	start, err := strconv.Atoi(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	end, err := strconv.Atoi(args[2])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -194,7 +194,7 @@ func lRange(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func lLen(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 

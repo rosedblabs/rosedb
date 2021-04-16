@@ -1,19 +1,23 @@
 package set
 
-//集合set实现
+// 集合set实现
 
 type (
+	// Set set idx
 	Set struct {
 		record Record
 	}
 
+	// Record set record to save
 	Record map[string]map[string]bool
 )
 
+// New new a set idx
 func New() *Set {
 	return &Set{make(Record)}
 }
 
+// SAdd add key member
 func (s *Set) SAdd(key string, member []byte) int {
 	if !s.exist(key) {
 		s.record[key] = make(map[string]bool)
@@ -24,13 +28,14 @@ func (s *Set) SAdd(key string, member []byte) int {
 	return len(s.record[key])
 }
 
+// SPop pop key count
 func (s *Set) SPop(key string, count int) [][]byte {
 	var val [][]byte
 	if !s.exist(key) || count <= 0 {
 		return val
 	}
 
-	for k, _ := range s.record[key] {
+	for k := range s.record[key] {
 		delete(s.record[key], k)
 		val = append(val, []byte(k))
 
@@ -43,6 +48,7 @@ func (s *Set) SPop(key string, count int) [][]byte {
 	return val
 }
 
+// SIsMember if exists key member
 func (s *Set) SIsMember(key string, member []byte) bool {
 	if !s.exist(key) {
 		return false
@@ -51,6 +57,7 @@ func (s *Set) SIsMember(key string, member []byte) bool {
 	return s.record[key][string(member)]
 }
 
+// SRandMember get rand count members in set[key]
 func (s *Set) SRandMember(key string, count int) [][]byte {
 	var val [][]byte
 	if !s.exist(key) || count == 0 {
@@ -82,6 +89,7 @@ func (s *Set) SRandMember(key string, count int) [][]byte {
 	return val
 }
 
+// SRem remove key member
 func (s *Set) SRem(key string, member []byte) bool {
 	if !s.exist(key) {
 		return false
@@ -95,6 +103,7 @@ func (s *Set) SRem(key string, member []byte) bool {
 	return false
 }
 
+// SMove move member from src to dst
 func (s *Set) SMove(src, dst string, member []byte) bool {
 	if !s.exist(src) {
 		return false
@@ -110,6 +119,7 @@ func (s *Set) SMove(src, dst string, member []byte) bool {
 	return true
 }
 
+// SCard len of key
 func (s *Set) SCard(key string) int {
 	if !s.exist(key) {
 		return 0
@@ -118,6 +128,7 @@ func (s *Set) SCard(key string) int {
 	return len(s.record[key])
 }
 
+// SMembers all members in key
 func (s *Set) SMembers(key string) (val [][]byte) {
 	if !s.exist(key) {
 		return
@@ -130,6 +141,7 @@ func (s *Set) SMembers(key string) (val [][]byte) {
 	return
 }
 
+// SUnion union two or more keys
 func (s *Set) SUnion(keys ...string) (val [][]byte) {
 
 	m := make(map[string]bool)
@@ -148,6 +160,7 @@ func (s *Set) SUnion(keys ...string) (val [][]byte) {
 	return
 }
 
+// SDiff diff two or more keys
 func (s *Set) SDiff(keys ...string) (val [][]byte) {
 
 	if len(keys) < 2 || !s.exist(keys[0]) {

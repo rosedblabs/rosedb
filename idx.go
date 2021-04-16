@@ -14,6 +14,7 @@ import (
 // DataType 数据类型定义
 type DataType = uint16
 
+// 数据类型定义
 const (
 	String DataType = iota
 	List

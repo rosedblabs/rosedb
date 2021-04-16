@@ -6,6 +6,7 @@ import (
 	"sync"
 )
 
+// HashIdx hash idx
 type HashIdx struct {
 	mu      sync.RWMutex
 	indexes *hash.Hash

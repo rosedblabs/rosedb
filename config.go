@@ -19,6 +19,7 @@ const (
 	// DefaultAddr 默认服务器地址
 	DefaultAddr = "127.0.0.1:5200"
 
+	// DefaultDirPath 默认数据库目录
 	DefaultDirPath = "/tmp/rosedb_server"
 
 	// DefaultBlockSize 默认数据块文件大小：16MB

@@ -15,24 +15,34 @@ import (
 )
 
 var (
+	// ErrEmptyKey the key is empty
 	ErrEmptyKey = errors.New("rosedb: the key is empty")
 
+	// ErrKeyNotExist key not exist
 	ErrKeyNotExist = errors.New("rosedb: key not exist")
 
+	// ErrKeyTooLarge the key too large
 	ErrKeyTooLarge = errors.New("rosedb: key exceeded the max length")
 
+	// ErrValueTooLarge the value too large
 	ErrValueTooLarge = errors.New("rosedb: value exceeded the max length")
 
+	// ErrNilIndexer the indexer is nil
 	ErrNilIndexer = errors.New("rosedb: indexer is nil")
 
+	// ErrCfgNotExist the config is not exist
 	ErrCfgNotExist = errors.New("rosedb: the config file not exist")
 
+	// ErrReclaimUnreached not ready to reclaim
 	ErrReclaimUnreached = errors.New("rosedb: unused space not reach the threshold")
 
+	// ErrExtraContainsSeparator extra contains separator
 	ErrExtraContainsSeparator = errors.New("rosedb: extra contains separator \\0")
 
-	ErrInvalidTtl = errors.New("rosedb: invalid ttl")
+	// ErrInvalidTTL ttl is invalid
+	ErrInvalidTTL = errors.New("rosedb: invalid ttl")
 
+	// ErrKeyExpired the key is expired
 	ErrKeyExpired = errors.New("rosedb: key is expired")
 )
 
@@ -55,6 +65,7 @@ const (
 )
 
 type (
+	// RoseDB the rosedb struct
 	RoseDB struct {
 		activeFile   *storage.DBFile //当前活跃文件
 		activeFileId uint32          //活跃文件id
@@ -132,14 +143,13 @@ func Reopen(path string) (*RoseDB, error) {
 
 	var config Config
 
-	if bytes, err := ioutil.ReadFile(path + configSaveFile); err != nil {
+	bytes, err := ioutil.ReadFile(path + configSaveFile)
+	if err != nil {
 		return nil, err
-	} else {
-		if err := json.Unmarshal(bytes, &config); err != nil {
-			return nil, err
-		}
 	}
-
+	if err := json.Unmarshal(bytes, &config); err != nil {
+		return nil, err
+	}
 	return Open(config)
 }
 

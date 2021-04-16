@@ -7,7 +7,7 @@ import (
 
 func sAdd(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) <= 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -24,12 +24,12 @@ func sAdd(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func sPop(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	count, err := strconv.Atoi(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	var val [][]byte
@@ -46,7 +46,7 @@ func sPop(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func sIsMember(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	if ok := db.SIsMember([]byte(args[0]), []byte(args[1])); ok {
@@ -59,12 +59,12 @@ func sIsMember(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func sRandMember(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	count, err := strconv.Atoi(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	val := db.SRandMember([]byte(args[0]), count)
@@ -79,7 +79,7 @@ func sRandMember(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func sRem(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) <= 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	var members [][]byte
@@ -95,7 +95,7 @@ func sRem(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func sMove(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 3 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	if err = db.SMove([]byte(args[0]), []byte(args[1]), []byte(args[2])); err == nil {
@@ -106,7 +106,7 @@ func sMove(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func sCard(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	card := db.SCard([]byte(args[0]))
@@ -116,7 +116,7 @@ func sCard(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func sMembers(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	members := db.SMembers([]byte(args[0]))
@@ -131,7 +131,7 @@ func sMembers(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func sUnion(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) <= 0 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	var keys [][]byte
@@ -150,7 +150,7 @@ func sUnion(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func sDiff(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) <= 0 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	var keys [][]byte

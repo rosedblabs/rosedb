@@ -6,11 +6,12 @@ import (
 	"strconv"
 )
 
-var SyntaxErr = errors.New("syntax err")
+// ErrSyntaxIncorrect incorrect err
+var ErrSyntaxIncorrect = errors.New("syntax err")
 
 func set(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -23,7 +24,7 @@ func set(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func get(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	key := args[0]
@@ -36,7 +37,7 @@ func get(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func setNx(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -49,7 +50,7 @@ func setNx(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func getSet(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	key, value := args[0], args[1]
@@ -62,7 +63,7 @@ func getSet(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func appendStr(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	key, value := args[0], args[1]
@@ -74,7 +75,7 @@ func appendStr(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func strLen(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	length := db.StrLen([]byte(args[0]))
@@ -84,7 +85,7 @@ func strLen(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func strExists(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	if exists := db.StrExists([]byte(args[0])); exists {
@@ -97,7 +98,7 @@ func strExists(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func strRem(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	if err = db.StrRem([]byte(args[0])); err == nil {
@@ -108,17 +109,17 @@ func strRem(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func prefixScan(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 3 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	limit, err := strconv.Atoi(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	offset, err := strconv.Atoi(args[2])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -136,7 +137,7 @@ func prefixScan(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func rangeScan(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 
@@ -154,12 +155,12 @@ func rangeScan(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func expire(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 2 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	seconds, err := strconv.Atoi(args[1])
 	if err != nil {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	if err = db.Expire([]byte(args[0]), uint32(seconds)); err == nil {
@@ -170,7 +171,7 @@ func expire(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func persist(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 		return
 	}
 	db.Persist([]byte(args[0]))
@@ -180,7 +181,7 @@ func persist(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 func ttl(db *rosedb.RoseDB, args []string) (res string, err error) {
 	if len(args) != 1 {
-		err = SyntaxErr
+		err = ErrSyntaxIncorrect
 	}
 
 	ttl := db.TTL([]byte(args[0]))
