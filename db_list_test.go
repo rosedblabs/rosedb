@@ -1,9 +1,9 @@
 package rosedb
 
 import (
+	"github.com/roseduan/rosedb/ds/list"
 	"log"
 	"math/rand"
-	"rosedb/ds/list"
 	"strconv"
 	"testing"
 	"time"
