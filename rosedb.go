@@ -298,7 +298,7 @@ func (db *RoseDB) checkKeyValue(key []byte, value ...[]byte) error {
 func (db *RoseDB) saveConfig() (err error) {
 	//保存配置
 	path := db.config.DirPath + configSaveFile
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 
 	bytes, err := json.Marshal(db.config)
 	_, err = file.Write(bytes)
