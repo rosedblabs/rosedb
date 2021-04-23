@@ -4,13 +4,11 @@ import "testing"
 
 func TestDBMeta_Store(t *testing.T) {
 	m := &DBMeta{43}
-	if err := m.Store("/Users/roseduan/resources/rosedb/db.Meta"); err != nil {
+	if err := m.Store("/tmp/db.Meta"); err != nil {
 		t.Error(err)
 	}
 }
 
-func TestLoad(t *testing.T) {
-	m := LoadMeta("/Users/roseduan/resources/rosedb/db.Meta")
-	t.Logf("%+v \n", m)
-	t.Log(m == nil)
+func TestLoadMeta(t *testing.T) {
+	_ = LoadMeta("/tmp/db.Meta")
 }

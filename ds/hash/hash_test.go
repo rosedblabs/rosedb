@@ -16,21 +16,14 @@ func InitHash() *Hash {
 
 func TestHash_HSet(t *testing.T) {
 	hash := InitHash()
-
-	n := hash.HSet("my_hash", "d", []byte("123"))
-	t.Log(n)
-
-	n = hash.HSet("my_hash", "e", []byte("234"))
-	t.Log(n)
+	_ = hash.HSet("my_hash", "d", []byte("123"))
+	_ = hash.HSet("my_hash", "e", []byte("234"))
 }
 
 func TestHash_HSetNx(t *testing.T) {
 	hash := InitHash()
-
-	t.Log(hash.HSetNx(key, "a", []byte("new one")))
-	t.Log(hash.HSetNx(key, "d", []byte("d-new one")))
-
-	t.Log(hash.HLen(key))
+	hash.HSetNx(key, "a", []byte("new one"))
+	hash.HSetNx(key, "d", []byte("d-new one"))
 }
 
 func TestHash_HGet(t *testing.T) {
@@ -38,13 +31,11 @@ func TestHash_HGet(t *testing.T) {
 
 	val := hash.HGet(key, "a")
 	t.Log(string(val))
-
 	t.Log(string(hash.HGet(key, "c")))
 	t.Log(string(hash.HGet(key, "m")))
 }
 
 func TestHash_HGetAll(t *testing.T) {
-
 	hash := InitHash()
 
 	vals := hash.HGetAll(key)
@@ -56,10 +47,8 @@ func TestHash_HGetAll(t *testing.T) {
 func TestHash_HDel(t *testing.T) {
 	hash := InitHash()
 
-	r := hash.HDel(key, "a")
-	t.Log(r)
-	r = hash.HDel(key, "c")
-	t.Log(r)
+	_ = hash.HDel(key, "a")
+	_ = hash.HDel(key, "c")
 }
 
 func TestHash_HExists(t *testing.T) {
@@ -89,4 +78,9 @@ func TestHash_HValues(t *testing.T) {
 	for _, v := range values {
 		t.Log(string(v))
 	}
+}
+
+func TestHash_HLen(t *testing.T) {
+	hash := InitHash()
+	t.Log(hash.HLen(key))
 }

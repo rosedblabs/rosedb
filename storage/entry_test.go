@@ -10,9 +10,7 @@ import (
 func TestNewEntry(t *testing.T) {
 	key, val := []byte("test_key"), []byte("test_val")
 	extra := []byte("extar val")
-	e := NewEntry(key, val, extra, String, 0)
-
-	t.Logf("%+v", e)
+	_ = NewEntry(key, val, extra, String, 0)
 }
 
 func TestEntry_Encode(t *testing.T) {
@@ -37,7 +35,7 @@ func TestEntry_Encode(t *testing.T) {
 
 		//写入文件为了测试下面的Decode方法
 		if encVal != nil {
-			file, _ := os.OpenFile("/Users/roseduan/resources/rosedb/test.dat", os.O_CREATE|os.O_WRONLY, 0644)
+			file, _ := os.OpenFile("/tmp/rosedb/test.dat", os.O_CREATE|os.O_WRONLY, 0644)
 			file.Write(encVal)
 		}
 	})
@@ -62,28 +60,28 @@ func TestEntry_Encode(t *testing.T) {
 	})
 
 	//key为空的情况
-	t.Run("test3", func(t *testing.T) {
-		e := &Entry{
-			Meta: &Meta{
-				Key:   []byte(""),
-				Value: []byte("val_001"),
-			},
-		}
-
-		e.Meta.KeySize = uint32(len(e.Meta.Key))
-		e.Meta.ValueSize = uint32(len(e.Meta.Value))
-
-		if encode, err := e.Encode(); err != nil {
-			t.Error(err)
-		} else {
-			t.Log(encode)
-		}
-	})
+	//t.Run("test3", func(t *testing.T) {
+	//	e := &Entry{
+	//		Meta: &Meta{
+	//			Key:   []byte(""),
+	//			Value: []byte("val_001"),
+	//		},
+	//	}
+	//
+	//	e.Meta.KeySize = uint32(len(e.Meta.Key))
+	//	e.Meta.ValueSize = uint32(len(e.Meta.Value))
+	//
+	//	if encode, err := e.Encode(); err != nil {
+	//		t.Error(err)
+	//	} else {
+	//		t.Log(encode)
+	//	}
+	//})
 }
 
 func TestDecode(t *testing.T) {
 	//expected val : [169 64 25 4 0 0 0 13 0 0 0 15 116 101 115 116 95 107 101 121 95 48 48 48 49 116 101 115 116 95 118 97 108 117 101 95 48 48 48 49]
-	if file, err := os.OpenFile("/Users/roseduan/resources/rosedb/test.dat", os.O_RDONLY, os.ModePerm); err != nil {
+	if file, err := os.OpenFile("/tmp/rosedb/test.dat", os.O_RDONLY, os.ModePerm); err != nil {
 		t.Error("open File err ", err)
 	} else {
 		buf := make([]byte, entryHeaderSize)
@@ -119,4 +117,13 @@ func TestDecode(t *testing.T) {
 			t.Log(checkCrc, e.crc32)
 		}
 	}
+}
+
+func TestNewEntryNoExtra(t *testing.T) {
+	_ = NewEntryNoExtra([]byte("key001"), []byte("val001"), 1, 2)
+}
+
+func TestEntry_Size(t *testing.T) {
+	e := NewEntryNoExtra([]byte("key001"), []byte("val001"), 1, 2)
+	e.Size()
 }

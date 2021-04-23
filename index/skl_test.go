@@ -11,7 +11,20 @@ type Employee struct {
 	age  uint8
 }
 
-func TestSkipList_Put(t *testing.T) {
+func TestNewSkipList(t *testing.T) {
+	list := NewSkipList()
+	if list == nil {
+		t.Error("new skl err")
+	}
+}
+
+func TestSkipList_Exist(t *testing.T) {
+	list := NewSkipList()
+	exist := list.Exist([]byte("11"))
+	t.Log(exist)
+}
+
+func TestSkipList_FindPrefix(t *testing.T) {
 	list := NewSkipList()
 	val := []byte("test_val")
 
@@ -21,16 +34,18 @@ func TestSkipList_Put(t *testing.T) {
 	list.Put([]byte("ae"), val)
 	list.Put([]byte("bc"), val)
 	list.Put([]byte("22"), val)
-	list.Put([]byte("2"), val)
-	list.Put([]byte("bc"), val)
-	list.Put([]byte("xc"), val)
-	list.Put([]byte("34"), val)
-	list.Put([]byte("13"), val)
 
-	e := list.Front()
-	for p := e; p != nil; p = p.Next() {
-		t.Logf("key = %+v, val = %+v", p.Key(), p.Value())
-	}
+	_ = list.FindPrefix([]byte("a"))
+}
+
+func TestSkipList_Put(t *testing.T) {
+	list := NewSkipList()
+	val := []byte("test_val")
+
+	list.Put([]byte("ec"), val)
+	list.Put([]byte("dc"), val)
+	list.Put([]byte("ac"), val)
+	list.Put([]byte("ae"), val)
 }
 
 func TestSkipList_Get(t *testing.T) {
@@ -56,11 +71,9 @@ func TestSkipList_Remove(t *testing.T) {
 	list.Put([]byte("dc"), 123)
 	list.Put([]byte("ac"), val)
 
-	t.Log(list.Len)
 	list.Remove([]byte("dc"))
 	list.Remove([]byte("ec"))
 	list.Remove([]byte("ac"))
-	t.Log(list.Len)
 }
 
 func TestSkipList_Foreach(t *testing.T) {
@@ -109,6 +122,21 @@ func TestSkipList_Foreach2(t *testing.T) {
 	}
 }
 
+func TestElement_Key(t *testing.T) {
+	e := Element{key: []byte("a"), value: "a"}
+	t.Log(e.key)
+}
+
+func TestElement_Value(t *testing.T) {
+	e := Element{key: []byte("a"), value: "a"}
+	t.Log(e.value)
+}
+
+func TestElement_Next(t *testing.T) {
+	//e := Element{key: []byte("a"), value: "a"}
+	//e.Next()
+}
+
 func TestElement_SetValue(t *testing.T) {
 	list := NewSkipList()
 	list.Put([]byte("a"), []byte("13"))
@@ -117,6 +145,11 @@ func TestElement_SetValue(t *testing.T) {
 	t.Log(list.Len)
 	val := list.Get([]byte("a")).Value().([]byte)
 	t.Log(string(val))
+}
+
+func TestSkipList_Front(t *testing.T) {
+	skl := NewSkipList()
+	_ = skl.Front()
 }
 
 func TestSkipList_PrefixScan(t *testing.T) {

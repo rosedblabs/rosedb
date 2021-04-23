@@ -3,10 +3,7 @@ package rosedb
 import (
 	"github.com/roseduan/rosedb/ds/list"
 	"log"
-	"math/rand"
-	"strconv"
 	"testing"
-	"time"
 )
 
 func TestRoseDB_LPush(t *testing.T) {
@@ -35,31 +32,31 @@ func TestRoseDB_LPush(t *testing.T) {
 		}
 		t.Log(res)
 	})
-
-	t.Run("large data", func(t *testing.T) {
-		db := ReopenDb()
-		defer db.Close()
-
-		rand.Seed(time.Now().Unix())
-
-		key := []byte("mylist")
-		valPrefix := "list_data_"
-
-		var flag = 99990
-		for i := 0; i < 100000; i++ {
-			val := valPrefix + strconv.Itoa(rand.Intn(1000000))
-			_, err := db.LPush(key, []byte(val))
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if i > flag {
-				t.Log(val)
-			}
-		}
-
-		t.Log(db.listIndex.indexes.LLen(string(key)))
-	})
+	//
+	//t.Run("large data", func(t *testing.T) {
+	//	db := ReopenDb()
+	//	defer db.Close()
+	//
+	//	rand.Seed(time.Now().Unix())
+	//
+	//	key := []byte("mylist")
+	//	valPrefix := "list_data_"
+	//
+	//	var flag = 99990
+	//	for i := 0; i < 100000; i++ {
+	//		val := valPrefix + strconv.Itoa(rand.Intn(1000000))
+	//		_, err := db.LPush(key, []byte(val))
+	//		if err != nil {
+	//			log.Fatal(err)
+	//		}
+	//
+	//		if i > flag {
+	//			t.Log(val)
+	//		}
+	//	}
+	//
+	//	t.Log(db.listIndex.indexes.LLen(string(key)))
+	//})
 }
 
 func TestRoseDB_LPop(t *testing.T) {
@@ -73,19 +70,19 @@ func TestRoseDB_LPop(t *testing.T) {
 		t.Log(string(val))
 	})
 
-	t.Run("multi data", func(t *testing.T) {
-		db := ReopenDb()
-		defer db.Close()
-
-		for i := 0; i < 10; i++ {
-			val, err := db.LPop(key)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			t.Log(string(val))
-		}
-	})
+	//t.Run("multi data", func(t *testing.T) {
+	//	db := ReopenDb()
+	//	defer db.Close()
+	//
+	//	for i := 0; i < 10; i++ {
+	//		val, err := db.LPop(key)
+	//		if err != nil {
+	//			t.Fatal(err)
+	//		}
+	//
+	//		t.Log(string(val))
+	//	}
+	//})
 }
 
 func TestRoseDB_RPush(t *testing.T) {
@@ -111,30 +108,30 @@ func TestRoseDB_RPush(t *testing.T) {
 			log.Fatal(err)
 		}
 	})
-
-	t.Run("large data", func(t *testing.T) {
-		db := ReopenDb()
-		defer db.Close()
-
-		rand.Seed(time.Now().Unix())
-
-		key := []byte("mylist")
-		valPrefix := "list_data_"
-
-		for i := 0; i < 100000; i++ {
-			val := valPrefix + strconv.Itoa(rand.Intn(1000000))
-			_, err := db.RPush(key, []byte(val))
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if i >= 99990 {
-				t.Log(val)
-			}
-		}
-
-		t.Log(db.listIndex.indexes.LLen(string(key)))
-	})
+	//
+	//t.Run("large data", func(t *testing.T) {
+	//	db := ReopenDb()
+	//	defer db.Close()
+	//
+	//	rand.Seed(time.Now().Unix())
+	//
+	//	key := []byte("mylist")
+	//	valPrefix := "list_data_"
+	//
+	//	for i := 0; i < 100000; i++ {
+	//		val := valPrefix + strconv.Itoa(rand.Intn(1000000))
+	//		_, err := db.RPush(key, []byte(val))
+	//		if err != nil {
+	//			log.Fatal(err)
+	//		}
+	//
+	//		if i >= 99990 {
+	//			t.Log(val)
+	//		}
+	//	}
+	//
+	//	t.Log(db.listIndex.indexes.LLen(string(key)))
+	//})
 }
 
 func TestRoseDB_RPop(t *testing.T) {
@@ -167,7 +164,6 @@ func TestRoseDB_LIndex(t *testing.T) {
 
 	t.Log(db.LLen(key))
 
-	t.Log("-------------")
 	val := db.LIndex(key, 0)
 	t.Log(string(val))
 	t.Log(string(db.LIndex(key, 1)))
@@ -192,11 +188,8 @@ func TestRoseDB_LRange(t *testing.T) {
 			t.Log(string(v))
 		}
 	}
-
 	lrange(0, -1)
-	t.Log("------------")
 	lrange(-12, -1)
-	t.Log("------------")
 	lrange(50, 100)
 }
 
@@ -278,4 +271,12 @@ func TestRoseDB_LTrim(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
+}
+
+func TestRoseDB_LLen(t *testing.T) {
+	db := ReopenDb()
+	defer db.Close()
+
+	key := []byte("mylist")
+	db.LLen(key)
 }

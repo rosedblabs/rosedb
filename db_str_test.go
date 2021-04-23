@@ -29,12 +29,12 @@ func TestRoseDB_Set(t *testing.T) {
 		db.Set([]byte("test_key002"), []byte("test_val002"))
 	})
 
-	t.Run("large data", func(t *testing.T) {
-		db := ReopenDb()
-		defer db.Close()
-
-		writeLargeData(db, t)
-	})
+	//t.Run("large data", func(t *testing.T) {
+	//	db := ReopenDb()
+	//	defer db.Close()
+	//
+	//	writeLargeData(db, t)
+	//})
 }
 
 func TestRoseDB_SetNx(t *testing.T) {
@@ -75,38 +75,26 @@ func TestRoseDB_Get(t *testing.T) {
 		db := ReopenDb()
 		t.Log("reopen db...")
 
-		val, err := db.Get([]byte("test_key_924252"))
-		if err != nil {
-			log.Fatal("get val error : ", err)
-		}
-
-		t.Log(string(val))
-
-		val, _ = db.Get([]byte("test_key_470054"))
-		//test_value_135824
-		t.Log(string(val))
-
-		//test_value_63214
-		val, _ = db.Get([]byte("test_key_648543"))
-		t.Log(string(val))
+		val, _ := db.Get([]byte("test_key_924252"))
+		log.Println(string(val))
 	})
 
-	t.Run("large data", func(t *testing.T) {
-		now := time.Now()
-		db := ReopenDb()
-		t.Log("reopen db time spent : ", time.Since(now))
-
-		defer db.Close()
-
-		val, _ := db.Get([]byte("test_key_001"))
-		t.Log(string(val))
-
-		val, _ = db.Get([]byte("test_key_534647"))
-		t.Log(string(val))
-
-		val, _ = db.Get([]byte("test_key_378893"))
-		t.Log(string(val))
-	})
+	//t.Run("large data", func(t *testing.T) {
+	//	now := time.Now()
+	//	db := ReopenDb()
+	//	t.Log("reopen db time spent : ", time.Since(now))
+	//
+	//	defer db.Close()
+	//
+	//	val, _ := db.Get([]byte("test_key_001"))
+	//	t.Log(string(val))
+	//
+	//	val, _ = db.Get([]byte("test_key_534647"))
+	//	t.Log(string(val))
+	//
+	//	val, _ = db.Get([]byte("test_key_378893"))
+	//	t.Log(string(val))
+	//})
 }
 
 func TestRoseDB_GetSet(t *testing.T) {
@@ -212,48 +200,48 @@ func TestRoseDB_Expire(t *testing.T) {
 	//if err := db.Expire([]byte("test_key_005"), 50); err != nil {
 	//	log.Println("set expire err : ", err)
 	//}
-
-	key := []byte("test_key_005")
-	desc := func() {
-		ttl := db.TTL(key)
-		t.Log(ttl)
-	}
-
-	val, _ := db.Get(key)
-	t.Log("val = ", string(val))
-
-	desc()
-
-	time.Sleep(2 * time.Second)
-	desc()
-
-	time.Sleep(2 * time.Second)
-	desc()
-
-	time.Sleep(2 * time.Second)
-	desc()
+	//
+	//key := []byte("test_key_005")
+	//desc := func() {
+	//	ttl := db.TTL(key)
+	//	t.Log(ttl)
+	//}
+	//
+	//val, _ := db.Get(key)
+	//t.Log("val = ", string(val))
+	//
+	//desc()
+	//
+	//time.Sleep(2 * time.Second)
+	//desc()
+	//
+	//time.Sleep(2 * time.Second)
+	//desc()
+	//
+	//time.Sleep(2 * time.Second)
+	//desc()
 }
 
 func TestRoseDB_Persist(t *testing.T) {
 	db := InitDb()
 	defer db.Close()
 
-	key := []byte("my_name4")
-	_ = db.Append(key, []byte("I am roseduan "))
-
-	db.Expire(key, 10)
-
-	time.Sleep(3 * time.Second)
-	t.Log(db.TTL(key))
-
-	time.Sleep(3 * time.Second)
-	t.Log(db.TTL(key))
-
-	val, err := db.Get(key)
-	t.Log(err)
-	t.Log("val = ", string(val))
-
-	db.Persist(key)
+	//key := []byte("my_name4")
+	//_ = db.Append(key, []byte("I am roseduan "))
+	//
+	//db.Expire(key, 10)
+	//
+	//time.Sleep(3 * time.Second)
+	//t.Log(db.TTL(key))
+	//
+	//time.Sleep(3 * time.Second)
+	//t.Log(db.TTL(key))
+	//
+	//val, err := db.Get(key)
+	//t.Log(err)
+	//t.Log("val = ", string(val))
+	//
+	//db.Persist(key)
 }
 
 func TestAgain(t *testing.T) {
@@ -297,6 +285,27 @@ func TestDoSet(t *testing.T) {
 		log.Println(err)
 	}
 	fmt.Println("val = ", string(val))
+}
+
+func TestRoseDB_StrExists(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	_ = db.StrExists([]byte("11111"))
+}
+
+func TestRoseDB_StrRem(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	_ = db.StrRem([]byte("11111"))
+}
+
+func TestRoseDB_TTL(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	db.TTL([]byte("1"))
 }
 
 func writeLargeData(db *RoseDB, t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-var key string = "my_set"
+var key = "my_set"
 
 func InitSet() *Set {
 	set := New()
@@ -81,8 +81,6 @@ func TestSet_SRandMember(t *testing.T) {
 		for _, m := range members {
 			t.Log(string(m))
 		}
-
-		t.Log("---------")
 		members = set.SRandMember(key, -10)
 		for _, m := range members {
 			t.Log(string(m))

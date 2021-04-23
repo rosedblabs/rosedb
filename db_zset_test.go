@@ -26,6 +26,14 @@ func TestRoseDB_ZAdd(t *testing.T) {
 	}
 }
 
+func TestRoseDB_ZRem(t *testing.T) {
+	db := ReopenDb()
+	defer db.Close()
+	key := []byte("my_zset")
+
+	_, _ = db.ZRem(key, []byte("11"))
+}
+
 func TestRoseDB_ZScore(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
@@ -33,8 +41,6 @@ func TestRoseDB_ZScore(t *testing.T) {
 
 	s := db.ZScore(key, []byte("roseduan"))
 	t.Log(s)
-
-	t.Log(db.ZScore(key, []byte("not exist")))
 }
 
 func TestRoseDB_ZCard(t *testing.T) {
@@ -117,7 +123,6 @@ func TestRoseDB_ZGetByRank(t *testing.T) {
 		for _, v := range val {
 			t.Logf("%+v ", v)
 		}
-		t.Log("------------")
 	}
 
 	getRank(0)
@@ -137,9 +142,7 @@ func TestRoseDB_ZRevGetByRank(t *testing.T) {
 		for _, v := range val {
 			t.Logf("%+v ", v)
 		}
-		t.Log("------------")
 	}
-
 	getRevRank(0)
 	getRevRank(9)
 }
@@ -154,7 +157,6 @@ func TestRoseDB_ZScoreRange(t *testing.T) {
 		for _, v := range vals {
 			t.Logf("%+v ", v)
 		}
-		t.Log("---------------")
 	}
 
 	scoreRange(50, 100)
@@ -172,7 +174,6 @@ func TestRoseDB_ZRevScoreRange(t *testing.T) {
 		for _, v := range vals {
 			t.Logf("%+v ", v)
 		}
-		t.Log("---------------")
 	}
 
 	recScoreRange(100, 50)

@@ -1,10 +1,7 @@
 package rosedb
 
 import (
-	"math/rand"
-	"strconv"
 	"testing"
-	"time"
 )
 
 func TestRoseDB_SAdd(t *testing.T) {
@@ -26,22 +23,22 @@ func TestRoseDB_SAdd(t *testing.T) {
 		res, _ := db.SAdd([]byte(key), []byte("set_data_007"), []byte("set_data_008"), []byte("set_data_009"))
 		t.Log(res)
 	})
-
-	t.Run("large data", func(t *testing.T) {
-		db := ReopenDb()
-		defer db.Close()
-		rand.Seed(time.Now().Unix())
-
-		valPrefix := "set_data_"
-
-		var res int
-		for i := 0; i < 100000; i++ {
-			val := valPrefix + strconv.Itoa(rand.Intn(1000000))
-
-			res, _ = db.SAdd([]byte(key), []byte(val))
-		}
-		t.Log(res)
-	})
+	//
+	//t.Run("large data", func(t *testing.T) {
+	//	db := ReopenDb()
+	//	defer db.Close()
+	//	rand.Seed(time.Now().Unix())
+	//
+	//	valPrefix := "set_data_"
+	//
+	//	var res int
+	//	for i := 0; i < 100000; i++ {
+	//		val := valPrefix + strconv.Itoa(rand.Intn(1000000))
+	//
+	//		res, _ = db.SAdd([]byte(key), []byte(val))
+	//	}
+	//	t.Log(res)
+	//})
 }
 
 func TestRoseDB_SPop(t *testing.T) {
@@ -108,12 +105,25 @@ func TestRoseDB_SRandMember(t *testing.T) {
 		for _, v := range vals {
 			t.Log(string(v))
 		}
-
-		t.Log("---------")
 	}
 
 	randMem(3)
 	randMem(20)
 	randMem(-3)
 	randMem(-20)
+}
+
+func TestRoseDB_SDiff(t *testing.T) {
+	db := ReopenDb()
+	defer db.Close()
+}
+
+func TestRoseDB_SMove(t *testing.T) {
+	db := ReopenDb()
+	defer db.Close()
+}
+
+func TestRoseDB_SUnion(t *testing.T) {
+	db := ReopenDb()
+	defer db.Close()
 }

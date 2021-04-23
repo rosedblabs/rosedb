@@ -2,11 +2,10 @@ package list
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 )
 
-var key string = "my_list"
+var key = "my_list"
 
 func InitList() *List {
 	list := New()
@@ -224,18 +223,18 @@ func TestList_LTrim(t *testing.T) {
 
 		PrintListData(list)
 	})
-
-	t.Run("large data test", func(t *testing.T) {
-		newLIst := New()
-		for i := 0; i < 100000; i++ {
-			newLIst.RPush(key, []byte(strconv.Itoa(i)))
-		}
-
-		newLIst.LTrim(key, 0, -1)
-		//newLIst.LTrim(key, 75000, 200000)
-		//newLIst.LTrim(key, 30000, 35000)
-
-		t.Log(newLIst.LLen(key))
-		PrintListData(newLIst)
-	})
+	//
+	//t.Run("large data test", func(t *testing.T) {
+	//	newLIst := New()
+	//	for i := 0; i < 100000; i++ {
+	//		newLIst.RPush(key, []byte(strconv.Itoa(i)))
+	//	}
+	//
+	//	newLIst.LTrim(key, 0, -1)
+	//	//newLIst.LTrim(key, 75000, 200000)
+	//	//newLIst.LTrim(key, 30000, 35000)
+	//
+	//	t.Log(newLIst.LLen(key))
+	//	PrintListData(newLIst)
+	//})
 }

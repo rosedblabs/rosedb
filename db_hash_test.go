@@ -1,10 +1,7 @@
 package rosedb
 
 import (
-	"math/rand"
-	"strconv"
 	"testing"
-	"time"
 )
 
 var key = "myhash"
@@ -15,37 +12,34 @@ func TestRoseDB_HSet(t *testing.T) {
 		db := InitDb()
 		defer db.Close()
 
-		res, _ := db.HSet([]byte(key), []byte("my_name"), []byte("roseduan"))
-		t.Log(res)
+		_, _ = db.HSet([]byte(key), []byte("my_name"), []byte("roseduan"))
 	})
 
 	t.Run("reopen and set", func(t *testing.T) {
 		db := ReopenDb()
 		defer db.Close()
-
-		res, _ := db.HSet([]byte(key), []byte("my_hobby"), []byte("coding better"))
-		res, _ = db.HSet([]byte(key), []byte("my_lang"), []byte("Java and Go"))
-		t.Log(res)
+		_, _ = db.HSet([]byte(key), []byte("my_hobby"), []byte("coding better"))
+		_, _ = db.HSet([]byte(key), []byte("my_lang"), []byte("Java and Go"))
 	})
 
-	t.Run("multi data", func(t *testing.T) {
-		db := ReopenDb()
-		defer db.Close()
-
-		rand.Seed(time.Now().Unix())
-
-		fieldPrefix := "hash_field_"
-		valPrefix := "hash_data_"
-
-		var res int
-		for i := 0; i < 100000; i++ {
-			field := fieldPrefix + strconv.Itoa(rand.Intn(1000000))
-			val := valPrefix + strconv.Itoa(rand.Intn(1000000))
-
-			res, _ = db.HSet([]byte(key), []byte(field), []byte(val))
-		}
-		t.Log(res)
-	})
+	//t.Run("multi data", func(t *testing.T) {
+	//	db := ReopenDb()
+	//	defer db.Close()
+	//
+	//	rand.Seed(time.Now().Unix())
+	//
+	//	fieldPrefix := "hash_field_"
+	//	valPrefix := "hash_data_"
+	//
+	//	var res int
+	//	for i := 0; i < 100000; i++ {
+	//		field := fieldPrefix + strconv.Itoa(rand.Intn(1000000))
+	//		val := valPrefix + strconv.Itoa(rand.Intn(1000000))
+	//
+	//		res, _ = db.HSet([]byte(key), []byte(field), []byte(val))
+	//	}
+	//	t.Log(res)
+	//})
 }
 
 func TestRoseDB_HSetNx(t *testing.T) {
@@ -64,19 +58,12 @@ func TestRoseDB_HGet(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
-	val1 := db.HGet([]byte(key), []byte("my_name"))
-	val2 := db.HGet([]byte(key), []byte("not exist"))
-	val3 := db.HGet([]byte(key), []byte("my_hobby"))
+	_ = db.HGet([]byte(key), []byte("my_name"))
+	_ = db.HGet([]byte(key), []byte("not exist"))
+	_ = db.HGet([]byte(key), []byte("my_hobby"))
 
-	t.Log(string(val1))
-	t.Log(string(val2))
-	t.Log(string(val3))
-
-	val4 := db.HGet([]byte(key), []byte("hash_field_732328"))
-	val5 := db.HGet([]byte(key), []byte("hash_field_112243"))
-
-	t.Log(string(val4))
-	t.Log(string(val5))
+	_ = db.HGet([]byte(key), []byte("hash_field_732328"))
+	_ = db.HGet([]byte(key), []byte("hash_field_112243"))
 }
 
 func TestRoseDB_HGetAll(t *testing.T) {
@@ -127,4 +114,11 @@ func TestRoseDB_HValues(t *testing.T) {
 	for _, k := range keys {
 		t.Log(string(k))
 	}
+}
+
+func TestRoseDB_HLen(t *testing.T) {
+	db := ReopenDb()
+	defer db.Close()
+
+	db.HLen([]byte("11"))
 }
