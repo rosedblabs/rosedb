@@ -85,16 +85,17 @@ func TestReopen(t *testing.T) {
 	//}
 }
 
-func TestRoseDB_Reclaim(t *testing.T) {
-	db := ReopenDb()
-	defer db.Close()
-
-	db.config.ReclaimThreshold = 0
-	err := db.Reclaim()
-	if err != nil {
-		log.Println(err)
-	}
-}
+//
+//func TestRoseDB_Reclaim(t *testing.T) {
+//	db := ReopenDb()
+//	defer db.Close()
+//
+//	db.config.ReclaimThreshold = 0
+//	err := db.Reclaim()
+//	if err != nil {
+//		log.Println(err)
+//	}
+//}
 
 func TestRoseDB_Backup(t *testing.T) {
 	path := "/tmp/rosedb/db0"

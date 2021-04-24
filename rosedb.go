@@ -3,15 +3,12 @@ package rosedb
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/roseduan/rosedb/index"
 	"github.com/roseduan/rosedb/storage"
 	"github.com/roseduan/rosedb/utils"
-	"io"
 	"io/ioutil"
 	"os"
 	"sync"
-	"time"
 )
 
 var (
@@ -186,85 +183,85 @@ func (db *RoseDB) Sync() error {
 }
 
 // Reclaim 重新组织磁盘中的数据，回收磁盘空间
-func (db *RoseDB) Reclaim() (err error) {
-	if len(db.archFiles) < db.config.ReclaimThreshold {
-		return ErrReclaimUnreached
-	}
-
-	//新建临时目录，用于暂存新的数据文件
-	reclaimPath := db.config.DirPath + reclaimPath
-	if err := os.MkdirAll(reclaimPath, os.ModePerm); err != nil {
-		return err
-	}
-	defer os.RemoveAll(reclaimPath)
-
-	var (
-		activeFileId uint32 = 0
-		newArchFiles        = make(ArchivedFiles)
-		df           *storage.DBFile
-	)
-
-	for _, file := range db.archFiles {
-		var offset int64 = 0
-		var reclaimEntries []*storage.Entry
-
-		for {
-			if e, err := file.Read(offset); err == nil {
-				//判断是否为有效的entry
-				if db.validEntry(e) {
-					reclaimEntries = append(reclaimEntries, e)
-				}
-				offset += int64(e.Size())
-			} else {
-				if err == io.EOF {
-					break
-				}
-				return err
-			}
-		}
-
-		//重新将entry写入到文件中
-		if len(reclaimEntries) > 0 {
-			for _, entry := range reclaimEntries {
-				if df == nil || int64(entry.Size())+df.Offset > db.config.BlockSize {
-					df, err = storage.NewDBFile(reclaimPath, activeFileId, db.config.RwMethod, db.config.BlockSize)
-					if err != nil {
-						return
-					}
-
-					newArchFiles[activeFileId] = df
-					activeFileId++
-				}
-
-				if err = df.Write(entry); err != nil {
-					return
-				}
-
-				//字符串类型的索引需要在这里更新
-				if entry.Type == String {
-					item := db.strIndex.idxList.Get(entry.Meta.Key)
-					idx := item.Value().(*index.Indexer)
-					idx.Offset = df.Offset - int64(entry.Size())
-					idx.FileId = activeFileId
-					db.strIndex.idxList.Put(idx.Meta.Key, idx)
-				}
-			}
-		}
-	}
-
-	//旧数据删除，临时目录拷贝为新的数据文件
-	for _, v := range db.archFiles {
-		_ = os.Remove(v.File.Name())
-	}
-
-	for _, v := range newArchFiles {
-		name := storage.PathSeparator + fmt.Sprintf(storage.DBFileFormatName, v.Id)
-		os.Rename(reclaimPath+name, db.config.DirPath+name)
-	}
-
-	db.archFiles = newArchFiles
-	return
-}
+//func (db *RoseDB) Reclaim() (err error) {
+//	if len(db.archFiles) < db.config.ReclaimThreshold {
+//		return ErrReclaimUnreached
+//	}
+//
+//	//新建临时目录，用于暂存新的数据文件
+//	reclaimPath := db.config.DirPath + reclaimPath
+//	if err := os.MkdirAll(reclaimPath, os.ModePerm); err != nil {
+//		return err
+//	}
+//	defer os.RemoveAll(reclaimPath)
+//
+//	var (
+//		activeFileId uint32 = 0
+//		newArchFiles        = make(ArchivedFiles)
+//		df           *storage.DBFile
+//	)
+//
+//	for _, file := range db.archFiles {
+//		var offset int64 = 0
+//		var reclaimEntries []*storage.Entry
+//
+//		for {
+//			if e, err := file.Read(offset); err == nil {
+//				//判断是否为有效的entry
+//				if db.validEntry(e) {
+//					reclaimEntries = append(reclaimEntries, e)
+//				}
+//				offset += int64(e.Size())
+//			} else {
+//				if err == io.EOF {
+//					break
+//				}
+//				return err
+//			}
+//		}
+//
+//		//重新将entry写入到文件中
+//		if len(reclaimEntries) > 0 {
+//			for _, entry := range reclaimEntries {
+//				if df == nil || int64(entry.Size())+df.Offset > db.config.BlockSize {
+//					df, err = storage.NewDBFile(reclaimPath, activeFileId, db.config.RwMethod, db.config.BlockSize)
+//					if err != nil {
+//						return
+//					}
+//
+//					newArchFiles[activeFileId] = df
+//					activeFileId++
+//				}
+//
+//				if err = df.Write(entry); err != nil {
+//					return
+//				}
+//
+//				//字符串类型的索引需要在这里更新
+//				if entry.Type == String {
+//					item := db.strIndex.idxList.Get(entry.Meta.Key)
+//					idx := item.Value().(*index.Indexer)
+//					idx.Offset = df.Offset - int64(entry.Size())
+//					idx.FileId = activeFileId
+//					db.strIndex.idxList.Put(idx.Meta.Key, idx)
+//				}
+//			}
+//		}
+//	}
+//
+//	//旧数据删除，临时目录拷贝为新的数据文件
+//	for _, v := range db.archFiles {
+//		_ = os.Remove(v.File.Name())
+//	}
+//
+//	for _, v := range newArchFiles {
+//		name := storage.PathSeparator + fmt.Sprintf(storage.DBFileFormatName, v.Id)
+//		os.Rename(reclaimPath+name, db.config.DirPath+name)
+//	}
+//
+//	db.archFiles = newArchFiles
+//	return
+//}
 
 // Backup 复制数据库目录，用于备份
 func (db *RoseDB) Backup(dir string) (err error) {
@@ -341,24 +338,24 @@ func (db *RoseDB) store(e *storage.Entry) error {
 
 	//如果数据文件空间不够，则关闭该文件，并新打开一个文件
 	config := db.config
-	if db.activeFile.Offset+int64(e.Size()) > config.BlockSize {
-		if err := db.activeFile.Close(true); err != nil {
-			return err
-		}
-
-		//保存旧的文件
-		db.archFiles[db.activeFileId] = db.activeFile
-
-		activeFileId := db.activeFileId + 1
-
-		if dbFile, err := storage.NewDBFile(config.DirPath, activeFileId, config.RwMethod, config.BlockSize); err != nil {
-			return err
-		} else {
-			db.activeFile = dbFile
-			db.activeFileId = activeFileId
-			db.meta.ActiveWriteOff = 0
-		}
-	}
+	//if db.activeFile.Offset+int64(e.Size()) > config.BlockSize {
+	//	if err := db.activeFile.Close(true); err != nil {
+	//		return err
+	//	}
+	//
+	//	//保存旧的文件
+	//	db.archFiles[db.activeFileId] = db.activeFile
+	//
+	//	activeFileId := db.activeFileId + 1
+	//
+	//	if dbFile, err := storage.NewDBFile(config.DirPath, activeFileId, config.RwMethod, config.BlockSize); err != nil {
+	//		return err
+	//	} else {
+	//		db.activeFile = dbFile
+	//		db.activeFileId = activeFileId
+	//		db.meta.ActiveWriteOff = 0
+	//	}
+	//}
 
 	//写入数据至文件中
 	if err := db.activeFile.Write(e); err != nil {
@@ -377,58 +374,59 @@ func (db *RoseDB) store(e *storage.Entry) error {
 	return nil
 }
 
-// validEntry 判断entry所属的操作标识(增、改类型的操作)，以及val是否是有效的
-func (db *RoseDB) validEntry(e *storage.Entry) bool {
-	if e == nil {
-		return false
-	}
-
-	mark := e.Mark
-	switch e.Type {
-	case String:
-		if mark == StringSet {
-			now := uint32(time.Now().Unix())
-			if deadline, exist := db.expires[string(e.Meta.Key)]; exist && deadline <= now {
-				return false
-			}
-			if val, err := db.Get(e.Meta.Key); err == nil && string(val) == string(e.Meta.Value) {
-				return true
-			}
-		}
-	case List:
-		if mark == ListLPush || mark == ListRPush || mark == ListLInsert || mark == ListLSet {
-			//由于List是链表结构，无法有效的进行检索，取出全部数据依次比较的开销太大
-			//因此暂时不参与reclaim，后续再想想其他的解决方案
-			return true
-		}
-	case Hash:
-		if mark == HashHSet {
-			if val := db.HGet(e.Meta.Key, e.Meta.Extra); string(val) == string(e.Meta.Value) {
-				return true
-			}
-		}
-	case Set:
-		if mark == SetSMove {
-			if db.SIsMember(e.Meta.Extra, e.Meta.Value) {
-				return true
-			}
-		}
-
-		if mark == SetSAdd {
-			if db.SIsMember(e.Meta.Key, e.Meta.Value) {
-				return true
-			}
-		}
-	case ZSet:
-		if mark == ZSetZAdd {
-			if val, err := utils.StrToFloat64(string(e.Meta.Extra)); err == nil {
-				score := db.ZScore(e.Meta.Key, e.Meta.Value)
-				if score == val {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
-}
+//
+//// validEntry 判断entry所属的操作标识(增、改类型的操作)，以及val是否是有效的
+//func (db *RoseDB) validEntry(e *storage.Entry) bool {
+//	if e == nil {
+//		return false
+//	}
+//
+//	mark := e.Mark
+//	switch e.Type {
+//	case String:
+//		if mark == StringSet {
+//			now := uint32(time.Now().Unix())
+//			if deadline, exist := db.expires[string(e.Meta.Key)]; exist && deadline <= now {
+//				return false
+//			}
+//			if val, err := db.Get(e.Meta.Key); err == nil && string(val) == string(e.Meta.Value) {
+//				return true
+//			}
+//		}
+//	case List:
+//		if mark == ListLPush || mark == ListRPush || mark == ListLInsert || mark == ListLSet {
+//			//由于List是链表结构，无法有效的进行检索，取出全部数据依次比较的开销太大
+//			//因此暂时不参与reclaim，后续再想想其他的解决方案
+//			return true
+//		}
+//	case Hash:
+//		if mark == HashHSet {
+//			if val := db.HGet(e.Meta.Key, e.Meta.Extra); string(val) == string(e.Meta.Value) {
+//				return true
+//			}
+//		}
+//	case Set:
+//		if mark == SetSMove {
+//			if db.SIsMember(e.Meta.Extra, e.Meta.Value) {
+//				return true
+//			}
+//		}
+//
+//		if mark == SetSAdd {
+//			if db.SIsMember(e.Meta.Key, e.Meta.Value) {
+//				return true
+//			}
+//		}
+//	case ZSet:
+//		if mark == ZSetZAdd {
+//			if val, err := utils.StrToFloat64(string(e.Meta.Extra)); err == nil {
+//				score := db.ZScore(e.Meta.Key, e.Meta.Value)
+//				if score == val {
+//					return true
+//				}
+//			}
+//		}
+//	}
+//
+//	return false
+//}
