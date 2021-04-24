@@ -1,0 +1,4 @@
+codecov:
+  token: 6707e74e-9565-49af-90e8-c6be3bdea060
+  max_report_age: off
+  disable_default_path_fixes: false
