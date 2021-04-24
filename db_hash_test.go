@@ -12,6 +12,8 @@ func TestRoseDB_HSet(t *testing.T) {
 		db := InitDb()
 		defer db.Close()
 
+		db.HSet(nil, nil, nil)
+
 		_, _ = db.HSet([]byte(key), []byte("my_name"), []byte("roseduan"))
 	})
 
@@ -45,6 +47,8 @@ func TestRoseDB_HSet(t *testing.T) {
 func TestRoseDB_HSetNx(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
+
+	db.HSetNx(nil, nil, nil)
 
 	ok, _ := db.HSetNx([]byte(key), []byte("my_hobby"), []byte("coding better"))
 	t.Log(ok)
@@ -80,6 +84,8 @@ func TestRoseDB_HDel(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
+	db.HDel(nil, nil)
+
 	res, _ := db.HDel([]byte(key), []byte("my_name"), []byte("my_name2"), []byte("my_name3"))
 	t.Log(res)
 }
@@ -87,6 +93,8 @@ func TestRoseDB_HDel(t *testing.T) {
 func TestRoseDB_HExists(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
+
+	db.HExists(nil, nil)
 
 	ok := db.HExists([]byte(key), []byte("my_name"))
 	t.Log(ok)
@@ -100,6 +108,7 @@ func TestRoseDB_HKeys(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
+	db.HKeys(nil)
 	keys := db.HKeys([]byte(key))
 	for _, k := range keys {
 		t.Log(k)
@@ -110,6 +119,7 @@ func TestRoseDB_HValues(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
+	db.HValues(nil)
 	keys := db.HValues([]byte(key))
 	for _, k := range keys {
 		t.Log(string(k))
@@ -119,6 +129,8 @@ func TestRoseDB_HValues(t *testing.T) {
 func TestRoseDB_HLen(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
+
+	db.HLen(nil)
 
 	db.HLen([]byte("11"))
 }

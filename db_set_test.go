@@ -11,6 +11,8 @@ func TestRoseDB_SAdd(t *testing.T) {
 		db := InitDb()
 		defer db.Close()
 
+		db.SAdd(nil, nil)
+
 		db.SAdd([]byte(key), []byte("set_data_001"), []byte("set_data_002"), []byte("set_data_003"))
 		res, _ := db.SAdd([]byte(key), []byte("set_data_004"), []byte("set_data_005"), []byte("set_data_006"))
 		t.Log(res)
@@ -46,6 +48,7 @@ func TestRoseDB_SPop(t *testing.T) {
 	defer db.Close()
 	var key = []byte("my_set")
 
+	db.SPop(nil, 3)
 	values, _ := db.SPop(key, 2)
 	for _, v := range values {
 		t.Log(string(v))
@@ -56,6 +59,8 @@ func TestRoseDB_SCard(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 	var key = []byte("my_set")
+
+	db.SCard(nil)
 
 	card := db.SCard(key)
 	t.Log(card)
@@ -79,6 +84,7 @@ func TestRoseDB_SMembers(t *testing.T) {
 	defer db.Close()
 	var key = []byte("my_set")
 
+	db.SMembers(nil)
 	members := db.SMembers(key)
 	for _, m := range members {
 		t.Log(string(m))
@@ -90,6 +96,7 @@ func TestRoseDB_SRem(t *testing.T) {
 	defer db.Close()
 	var key = []byte("my_set")
 
+	db.SRem(nil, nil)
 	t.Log(db.SRem(key, []byte("set_data_009")))
 	t.Log(db.SRem(key, []byte("set_data_001")))
 	t.Log(db.SRem(key, []byte("not exist one")))
@@ -106,7 +113,6 @@ func TestRoseDB_SRandMember(t *testing.T) {
 			t.Log(string(v))
 		}
 	}
-
 	randMem(3)
 	randMem(20)
 	randMem(-3)
@@ -116,14 +122,36 @@ func TestRoseDB_SRandMember(t *testing.T) {
 func TestRoseDB_SDiff(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
+
+	var keys = [][]byte{
+		[]byte("my_set1"),
+		[]byte("my_set2"),
+	}
+
+	db.SDiff(nil)
+	db.SDiff(keys...)
 }
 
 func TestRoseDB_SMove(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
+
+	var key1 = []byte("my_set1")
+	var key2 = []byte("my_set2")
+
+	db.SMove(nil, nil, nil)
+	db.SMove(key1, key2, []byte("test1"))
 }
 
 func TestRoseDB_SUnion(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
+
+	var keys = [][]byte{
+		[]byte("my_set1"),
+		[]byte("my_set2"),
+	}
+
+	db.SUnion(nil)
+	db.SUnion(keys...)
 }

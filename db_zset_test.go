@@ -11,6 +11,7 @@ func TestRoseDB_ZAdd(t *testing.T) {
 	key := []byte("my_zset")
 	err := db.ZAdd(key, 310.23, []byte("roseduan"))
 
+	db.ZAdd(nil, 0, nil)
 	db.ZAdd(key, 30.234554, []byte("Java"))
 	db.ZAdd(key, 92.2233, []byte("Golang"))
 	db.ZAdd(key, 221.24, []byte("Python"))
@@ -31,7 +32,9 @@ func TestRoseDB_ZRem(t *testing.T) {
 	defer db.Close()
 	key := []byte("my_zset")
 
-	_, _ = db.ZRem(key, []byte("11"))
+	db.ZRem(nil, nil)
+	_, _ = db.ZRem(key, []byte("C"))
+	_, _ = db.ZRem(key, []byte("Java"))
 }
 
 func TestRoseDB_ZScore(t *testing.T) {
@@ -56,6 +59,7 @@ func TestRoseDB_ZRank(t *testing.T) {
 	db.Close()
 	key := []byte("my_zset")
 
+	db.ZRank(nil, nil)
 	rank := db.ZRank(key, []byte("Python-flask"))
 	t.Log(rank)
 
@@ -68,6 +72,7 @@ func TestRoseDB_ZRevRank(t *testing.T) {
 	db.Close()
 	key := []byte("my_zset")
 
+	db.ZRevRank(nil, nil)
 	rank := db.ZRevRank(key, []byte("Python-flask"))
 	t.Log(rank)
 
@@ -80,6 +85,7 @@ func TestRoseDB_ZRange(t *testing.T) {
 	defer db.Close()
 	key := []byte("my_zset")
 
+	db.ZRange(nil, 0, -1)
 	vals := db.ZRange(key, 0, -1)
 	for _, v := range vals {
 		t.Logf("%+v ", v)
@@ -91,6 +97,7 @@ func TestRoseDB_ZRevRange(t *testing.T) {
 	defer db.Close()
 	key := []byte("my_zset")
 
+	db.ZRevRange(nil, 0, -1)
 	vals := db.ZRevRange(key, 0, -1)
 	for _, v := range vals {
 		t.Logf("%+v ", v)
@@ -103,6 +110,7 @@ func TestRoseDB_ZIncrBy(t *testing.T) {
 	defer db.Close()
 	key := []byte("my_zset")
 
+	db.ZIncrBy(nil, 10, nil)
 	incr, err := db.ZIncrBy(key, 100, []byte("Java"))
 	if err != nil {
 		t.Log(err)
@@ -159,6 +167,7 @@ func TestRoseDB_ZScoreRange(t *testing.T) {
 		}
 	}
 
+	db.ZScoreRange(nil, 0, -1)
 	scoreRange(50, 100)
 	scoreRange(100, 200)
 	scoreRange(200, 500)
@@ -176,6 +185,7 @@ func TestRoseDB_ZRevScoreRange(t *testing.T) {
 		}
 	}
 
+	db.ZRevScoreRange(nil, 0, -1)
 	recScoreRange(100, 50)
 	recScoreRange(200, 100)
 	recScoreRange(500, 200)

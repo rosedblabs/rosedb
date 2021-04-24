@@ -89,10 +89,11 @@ func TestRoseDB_Reclaim(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
-	//err := db.Reclaim()
-	//if err != nil {
-	//	log.Println(err)
-	//}
+	db.config.ReclaimThreshold = 0
+	err := db.Reclaim()
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func TestRoseDB_Backup(t *testing.T) {

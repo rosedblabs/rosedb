@@ -13,6 +13,9 @@ func TestRoseDB_LPush(t *testing.T) {
 		defer db.Close()
 
 		key := []byte("mylist")
+		// empty
+		_, _ = db.LPush(nil)
+
 		res, err := db.LPush(key, []byte("list_data_001"), []byte("list_data_002"), []byte("list_data_003"))
 		if err != nil {
 			log.Fatal(err)
@@ -90,6 +93,8 @@ func TestRoseDB_RPush(t *testing.T) {
 	t.Run("normal situation", func(t *testing.T) {
 		db := InitDb()
 		defer db.Close()
+
+		_, _ = db.RPush(nil)
 
 		key := []byte("mylist")
 		_, err := db.RPush(key, []byte("list_data_001"), []byte("list_data_002"), []byte("list_data_003"))
@@ -178,6 +183,8 @@ func TestRoseDB_LRange(t *testing.T) {
 
 	key := []byte("mylist")
 
+	db.LRange(nil, 0, -1)
+
 	lrange := func(start, stop int) {
 		vals, err := db.LRange(key, start, stop)
 		if err != nil {
@@ -234,6 +241,9 @@ func TestRoseDB_LInsert(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
+	_, _ = db.LInsert("", list.Before, nil, nil)
+	db.LInsert("", list.After, []byte("11\\0"), nil)
+
 	key := []byte("mylist")
 	count, err := db.LInsert(string(key), list.Before, []byte("list_data_0011"), []byte("I am roseduan"))
 	if err != nil {
@@ -252,6 +262,8 @@ func TestRoseDB_LSet(t *testing.T) {
 	defer db.Close()
 
 	key := []byte("mylist")
+
+	db.LSet(nil, 0, nil)
 
 	ok, err := db.LSet(key, 0, []byte("list_data_new_001"))
 	t.Log(ok, err)
