@@ -208,6 +208,13 @@ func (db *RoseDB) Reclaim() (err error) {
 		var offset int64 = 0
 		var reclaimEntries []*storage.Entry
 
+		var dfFile *os.File
+		dfFile, err = os.Open(file.File.Name())
+		if err != nil {
+			return err
+		}
+		file.File = dfFile
+
 		for {
 			if e, err := file.Read(offset); err == nil {
 				//判断是否为有效的entry

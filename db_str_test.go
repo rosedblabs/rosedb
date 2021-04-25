@@ -31,12 +31,19 @@ func TestRoseDB_Set(t *testing.T) {
 		db.Set([]byte("test_key002"), []byte("test_val002"))
 	})
 
-	//t.Run("large data", func(t *testing.T) {
-	//	db := ReopenDb()
-	//	defer db.Close()
-	//
-	//	writeLargeData(db, t)
-	//})
+	t.Run("large data", func(t *testing.T) {
+		db := ReopenDb()
+		defer db.Close()
+
+		for i := 0; i < 100000; i++ {
+			key := "k---" + strconv.Itoa(rand.Intn(1000))
+			val := "v---" + strconv.Itoa(rand.Intn(1000))
+			err := db.Set([]byte(key), []byte(val))
+			if err != nil {
+				log.Println("数据写入发生错误 ", err)
+			}
+		}
+	})
 }
 
 func TestRoseDB_SetNx(t *testing.T) {
@@ -170,8 +177,7 @@ func TestRoseDB_PrefixScan(t *testing.T) {
 	findPrefix(-1, 0)
 	findPrefix(2, 0)
 	findPrefix(2, 2)
-	findPrefix(1, 3)
-	findPrefix(1, 20)
+	findPrefix(2, -1)
 }
 
 func TestRoseDB_RangeScan(t *testing.T) {
@@ -248,33 +254,22 @@ func TestRoseDB_Persist(t *testing.T) {
 	//
 	//val, err := db.Get(key)
 	//t.Log(err)
-	//t.Log("val = ", string(val))
+	//t.Log("val = ", string(va
 	//
 	//db.Persist(key)
 }
 
-func TestAgain(t *testing.T) {
+func TestRoseDB_Expire2(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
-	getVal := func(key []byte) {
-		val, err := db.Get(key)
-		if err != nil {
-			log.Println(err)
-		}
-		fmt.Println("val = ", string(val))
-	}
+	exKey := []byte("ex_key_001")
+	db.Set(exKey, []byte("111"))
 
-	key := []byte("test_key_719")
-	getVal(key)
-	//
-	//db.Expire(key, 4)
-	//
-	//time.Sleep(3 * time.Second)
-	//getVal(key)
-	//
-	//time.Sleep(2 * time.Second)
-	//getVal(key)
+	db.Expire(exKey, 1)
+	time.Sleep(1200 * time.Millisecond)
+	db.TTL(exKey)
+	db.Get(exKey)
 }
 
 func TestDoSet(t *testing.T) {

@@ -5,10 +5,13 @@ import (
 	"github.com/roseduan/rosedb/storage"
 	"io/ioutil"
 	"log"
+	"math/rand"
+	"strconv"
 	"testing"
+	"time"
 )
 
-var dbPath = "/tmp/rosedb/db0"
+var dbPath = "/tmp/rosedb/db1"
 
 func InitDb() *RoseDB {
 	config := DefaultConfig()
@@ -40,7 +43,7 @@ func TestOpen(t *testing.T) {
 		config := DefaultConfig()
 		config.RwMethod = method
 
-		config.DirPath = "/tmp/rosedb/db0"
+		config.DirPath = dbPath
 		db, err := Open(config)
 		if err != nil {
 			t.Error("数据库打开失败 ", err)
@@ -60,7 +63,7 @@ func TestOpen(t *testing.T) {
 
 func Test_SaveInfo(t *testing.T) {
 	config := DefaultConfig()
-	config.DirPath = "/tmp/rosedb/db0"
+	config.DirPath = dbPath
 	db, err := Open(config)
 
 	if err != nil {
@@ -76,7 +79,7 @@ func Test_SaveInfo(t *testing.T) {
 }
 
 func TestReopen(t *testing.T) {
-	path := "/tmp/rosedb/db0"
+	path := dbPath
 	_, _ = Reopen(path)
 	//defer db.Close()
 
@@ -85,19 +88,8 @@ func TestReopen(t *testing.T) {
 	//}
 }
 
-func TestRoseDB_Reclaim(t *testing.T) {
-	db := ReopenDb()
-	defer db.Close()
-
-	db.config.ReclaimThreshold = 0
-	err := db.Reclaim()
-	if err != nil {
-		log.Println(err)
-	}
-}
-
 func TestRoseDB_Backup(t *testing.T) {
-	path := "/tmp/rosedb/db0"
+	path := dbPath
 	db, err := Reopen(path)
 	if err != nil {
 		t.Error("reopen db error ", err)
@@ -119,4 +111,75 @@ func TestRoseDB_Sync(t *testing.T) {
 	defer db.Close()
 
 	db.Sync()
+}
+
+func TestRoseDB_Reclaim(t *testing.T) {
+	config := DefaultConfig()
+	config.DirPath = "/tmp/rosedb/db-reclaim"
+	config.IdxMode = KeyOnlyRamMode
+	config.RwMethod = storage.FileIO
+	config.BlockSize = 4 * 1024 * 1024
+
+	db, err := Open(config)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	writeMultiLargeData(db)
+	//for test
+	db.config.ReclaimThreshold = 1
+	err = db.Reclaim()
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func writeMultiLargeData(db *RoseDB) {
+	keyPrefix := "test_key_"
+	valPrefix := "test_value_"
+	rand.Seed(time.Now().Unix())
+
+	//str
+	for i := 0; i < 50000; i++ {
+		key := keyPrefix + strconv.Itoa(rand.Intn(1000))
+		val := valPrefix + strconv.Itoa(rand.Intn(1000))
+		err := db.Set([]byte(key), []byte(val))
+		if err != nil {
+			log.Println("数据写入发生错误 ", err)
+		}
+	}
+
+	//list
+	for i := 0; i < 50000; i++ {
+		key := keyPrefix + strconv.Itoa(rand.Intn(1000))
+		val := valPrefix + strconv.Itoa(rand.Intn(1000))
+		if i%2 == 0 {
+			db.LPush([]byte(key), []byte(val))
+		} else {
+			db.RPush([]byte(key), []byte(val))
+		}
+	}
+
+	//hash
+	for i := 0; i < 50000; i++ {
+		key := keyPrefix + strconv.Itoa(rand.Intn(1000))
+		field := "field-" + strconv.Itoa(rand.Intn(1000))
+		val := valPrefix + strconv.Itoa(rand.Intn(1000))
+		db.HSet([]byte(key), []byte(field), []byte(val))
+	}
+
+	//set
+	for i := 0; i < 50000; i++ {
+		key := keyPrefix + strconv.Itoa(rand.Intn(1000))
+		val := valPrefix + strconv.Itoa(rand.Intn(1000))
+		db.SAdd([]byte(key), [][]byte{[]byte(val)}...)
+	}
+
+	//zset
+	for i := 0; i < 50000; i++ {
+		key := keyPrefix + strconv.Itoa(rand.Intn(1000))
+		val := valPrefix + strconv.Itoa(rand.Intn(1000))
+		db.ZAdd([]byte(key), float64(i+100), []byte(val))
+	}
 }

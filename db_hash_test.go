@@ -84,7 +84,8 @@ func TestRoseDB_HDel(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
-	db.HDel(nil, nil)
+	var filed []byte
+	db.HDel(nil, filed)
 
 	res, _ := db.HDel([]byte(key), []byte("my_name"), []byte("my_name2"), []byte("my_name3"))
 	t.Log(res)
