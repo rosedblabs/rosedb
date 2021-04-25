@@ -101,6 +101,23 @@ func TestRoseDB_Backup(t *testing.T) {
 	}
 }
 
+func TestOpen2(t *testing.T) {
+	config := DefaultConfig()
+	config.DirPath = ""
+
+	db, _ := Open(config)
+	if db != nil {
+		db.Close()
+	}
+}
+
+func TestReopen2(t *testing.T) {
+	db, _ := Reopen("")
+	if db != nil {
+		db.Close()
+	}
+}
+
 func TestRoseDB_Close(t *testing.T) {
 	db := InitDb()
 	defer db.Close()
@@ -127,6 +144,11 @@ func TestRoseDB_Reclaim(t *testing.T) {
 	defer db.Close()
 
 	writeMultiLargeData(db)
+
+	// another case
+	db.config.ReclaimThreshold = 10
+	db.Reclaim()
+
 	//for test
 	db.config.ReclaimThreshold = 1
 	err = db.Reclaim()

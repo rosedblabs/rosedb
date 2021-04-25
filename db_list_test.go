@@ -242,7 +242,7 @@ func TestRoseDB_LInsert(t *testing.T) {
 	defer db.Close()
 
 	_, _ = db.LInsert("", list.Before, nil, nil)
-	db.LInsert("", list.After, []byte("11\\0"), nil)
+	db.LInsert("123", list.After, []byte("11\\0"), nil)
 
 	key := []byte("mylist")
 	count, err := db.LInsert(string(key), list.Before, []byte("list_data_0011"), []byte("I am roseduan"))

@@ -142,11 +142,16 @@ func TestRoseDB_Append(t *testing.T) {
 
 func TestRoseDB_StrLen(t *testing.T) {
 	db := ReopenDb()
-	//defer db.Close()
+	defer db.Close()
+
+	db.StrLen(nil)
 
 	length := db.StrLen([]byte("test_key_26385"))
 	t.Log(length)
 	t.Log(len([]byte("test_value_121294_abcd")))
+
+	db.Set([]byte("111"), []byte("222"))
+	db.StrLen([]byte("111"))
 }
 
 func TestRoseDB_PrefixScan(t *testing.T) {
@@ -160,6 +165,8 @@ func TestRoseDB_PrefixScan(t *testing.T) {
 	db.Set([]byte("ba"), []byte("7"))
 	db.Set([]byte("ab"), []byte("2"))
 	db.Set([]byte("af"), []byte("5"))
+
+	db.PrefixScan("", 0, 0)
 
 	findPrefix := func(limit, offset int) {
 		values, err := db.PrefixScan("a", limit, offset)
@@ -175,6 +182,7 @@ func TestRoseDB_PrefixScan(t *testing.T) {
 	}
 
 	findPrefix(-1, 0)
+	findPrefix(0, 0)
 	findPrefix(2, 0)
 	findPrefix(2, 2)
 	findPrefix(2, -1)
@@ -191,6 +199,8 @@ func TestRoseDB_RangeScan(t *testing.T) {
 	_ = db.Set([]byte("100023"), []byte("ghtr"))
 	_ = db.Set([]byte("100056"), []byte("yhtb"))
 
+	db.RangeScan(nil, nil)
+
 	val, err := db.RangeScan([]byte("100007"), []byte("100030"))
 	if err != nil {
 		log.Fatal(err)
@@ -206,6 +216,9 @@ func TestRoseDB_RangeScan(t *testing.T) {
 func TestRoseDB_Expire(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
+
+	db.Expire([]byte("test_1111"), 10)
+	db.Expire([]byte("test_key_004"), 0)
 
 	_ = db.Set([]byte("test_key_004"), []byte("test_val_004"))
 	_ = db.Set([]byte("test_key_005"), []byte("test_val_005"))
@@ -305,6 +318,10 @@ func TestRoseDB_StrRem(t *testing.T) {
 
 	db.StrRem(nil)
 	_ = db.StrRem([]byte("11111"))
+
+	key := []byte("bb-aa")
+	db.Set(key, []byte("rosedb"))
+	db.StrRem(key)
 }
 
 func TestRoseDB_TTL(t *testing.T) {

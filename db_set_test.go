@@ -139,8 +139,11 @@ func TestRoseDB_SMove(t *testing.T) {
 	var key1 = []byte("my_set1")
 	var key2 = []byte("my_set2")
 
+	db.SAdd(key1, [][]byte{[]byte("1")}...)
+	db.SAdd(key2, [][]byte{[]byte("2")}...)
+
 	db.SMove(nil, nil, nil)
-	db.SMove(key1, key2, []byte("test1"))
+	db.SMove(key1, key2, []byte("1"))
 }
 
 func TestRoseDB_SUnion(t *testing.T) {
