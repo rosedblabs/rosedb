@@ -128,7 +128,8 @@ func TestRoseDB_SDiff(t *testing.T) {
 		[]byte("my_set2"),
 	}
 
-	db.SDiff(nil)
+	var emptyKeys [][]byte
+	db.SDiff(emptyKeys...)
 	db.SDiff(keys...)
 }
 
@@ -155,6 +156,7 @@ func TestRoseDB_SUnion(t *testing.T) {
 		[]byte("my_set2"),
 	}
 
-	db.SUnion(nil)
+	var emptyKeys [][]byte
+	db.SUnion(emptyKeys...)
 	db.SUnion(keys...)
 }

@@ -245,7 +245,7 @@ func (db *RoseDB) RangeScan(start, end []byte) (val [][]byte, err error) {
 
 	db.strIndex.mu.RLock()
 	defer db.strIndex.mu.RUnlock()
-	for bytes.Compare(node.Key(), end) <= 0 {
+	for node != nil && bytes.Compare(node.Key(), end) <= 0 {
 		if db.expireIfNeeded(node.Key()) {
 			node = node.Next()
 			continue

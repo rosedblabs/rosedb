@@ -198,6 +198,12 @@ func writeMultiLargeData(db *RoseDB) {
 		db.SAdd([]byte(key), [][]byte{[]byte(val)}...)
 	}
 
+	var key1 = []byte("m_set1")
+	var key2 = []byte("m_set2")
+	db.SAdd(key1, [][]byte{[]byte("1")}...)
+	db.SAdd(key2, [][]byte{[]byte("2")}...)
+	db.SMove(key1, key2, []byte("1"))
+
 	//zset
 	for i := 0; i < 50000; i++ {
 		key := keyPrefix + strconv.Itoa(rand.Intn(1000))
