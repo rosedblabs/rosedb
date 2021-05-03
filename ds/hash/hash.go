@@ -1,9 +1,9 @@
 package hash
 
-// 哈希hash实现
+// the implementation of hash table
 
 type (
-	// Hash 哈希表结构定义
+	// Hash hash table struct
 	Hash struct {
 		record Record
 	}
@@ -12,7 +12,7 @@ type (
 	Record map[string]map[string][]byte
 )
 
-// New new a hash ds
+// New create a new hash ds
 func New() *Hash {
 	return &Hash{make(Record)}
 }
@@ -20,6 +20,9 @@ func New() *Hash {
 // HSet 将哈希表 hash 中域 field 的值设置为 value
 //如果给定的哈希表并不存在， 那么一个新的哈希表将被创建并执行 HSet 操作
 //如果域 field 已经存在于哈希表中， 那么它的旧值将被新值 value 覆盖
+
+// Sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
+// If field already exists in the hash, it is overwritten.
 func (h *Hash) HSet(key string, field string, value []byte) int {
 	if !h.exist(key) {
 		h.record[key] = make(map[string][]byte)
@@ -31,6 +34,10 @@ func (h *Hash) HSet(key string, field string, value []byte) int {
 
 // HSetNx 当且仅当域 field 尚未存在于哈希表的情况下， 将它的值设置为 value
 //如果给定域已经存在于哈希表当中， 那么命令将放弃执行设置操作
+
+// Sets field in the hash stored at key to value, only if field does not yet exist.
+// If key does not exist, a new key holding a hash is created. If field already exists, this operation has no effect.
+// return if the operation successful
 func (h *Hash) HSetNx(key string, field string, value []byte) bool {
 	if !h.exist(key) {
 		h.record[key] = make(map[string][]byte)
@@ -45,6 +52,7 @@ func (h *Hash) HSetNx(key string, field string, value []byte) bool {
 }
 
 // HGet 返回哈希表中给定域的值
+// Returns the value associated with field in the hash stored at key.
 func (h *Hash) HGet(key, field string) []byte {
 	if !h.exist(key) {
 		return nil
@@ -54,6 +62,8 @@ func (h *Hash) HGet(key, field string) []byte {
 }
 
 // HGetAll 返回哈希表 key 中，所有的域和值
+// Returns all fields and values of the hash stored at key.
+// In the returned value, every field name is followed by its value, so the length of the reply is twice the size of the hash.
 func (h *Hash) HGetAll(key string) (res [][]byte) {
 	if !h.exist(key) {
 		return
@@ -67,7 +77,9 @@ func (h *Hash) HGetAll(key string) (res [][]byte) {
 }
 
 // HDel 删除哈希表 key 中的一个或多个指定域，不存在的域将被忽略
-//返回是否被成功移除
+// 返回是否被成功移除
+// Removes the specified fields from the hash stored at key. Specified fields that do not exist within this hash are ignored.
+// If key does not exist, it is treated as an empty hash and this command returns false.
 func (h *Hash) HDel(key, field string) bool {
 	if !h.exist(key) {
 		return false
@@ -82,6 +94,7 @@ func (h *Hash) HDel(key, field string) bool {
 }
 
 // HExists 检查给定域 field 是否存在于key对应的哈希表中
+// Returns if field is an existing field in the hash stored at key.
 func (h *Hash) HExists(key, field string) bool {
 	if !h.exist(key) {
 		return false
@@ -92,6 +105,7 @@ func (h *Hash) HExists(key, field string) bool {
 }
 
 // HLen 返回哈希表 key 中域的数量
+// Returns the number of fields contained in the hash stored at key.
 func (h *Hash) HLen(key string) int {
 	if !h.exist(key) {
 		return 0
@@ -101,6 +115,7 @@ func (h *Hash) HLen(key string) int {
 }
 
 // HKeys 返回哈希表 key 中的所有域
+// Returns all field names in the hash stored at key.
 func (h *Hash) HKeys(key string) (val []string) {
 	if !h.exist(key) {
 		return
@@ -114,6 +129,7 @@ func (h *Hash) HKeys(key string) (val []string) {
 }
 
 // HValues 返回哈希表 key 中的所有域对应的值
+// Returns all values in the hash stored at key.
 func (h *Hash) HValues(key string) (val [][]byte) {
 
 	if !h.exist(key) {

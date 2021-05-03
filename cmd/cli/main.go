@@ -12,6 +12,7 @@ import (
 	"strings"
 )
 
+// all supported commands
 var commandList = [][]string{
 	{"SET", "key value", "STRING"},
 	{"GET", "key", "STRING"},
