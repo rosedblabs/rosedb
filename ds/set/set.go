@@ -1,6 +1,6 @@
 package set
 
-// 集合set实现
+// Set is the implementation of set data structure
 
 type (
 	// Set set idx
@@ -17,7 +17,9 @@ func New() *Set {
 	return &Set{make(Record)}
 }
 
-// SAdd add key member
+// SAdd Add the specified members to the set stored at key.
+// Specified members that are already a member of this set are ignored.
+// If key does not exist, a new set is created before adding the specified members.
 func (s *Set) SAdd(key string, member []byte) int {
 	if !s.exist(key) {
 		s.record[key] = make(map[string]bool)
@@ -28,7 +30,7 @@ func (s *Set) SAdd(key string, member []byte) int {
 	return len(s.record[key])
 }
 
-// SPop pop key count
+// SPop Removes and returns one or more random members from the set value store at key.
 func (s *Set) SPop(key string, count int) [][]byte {
 	var val [][]byte
 	if !s.exist(key) || count <= 0 {
@@ -48,7 +50,7 @@ func (s *Set) SPop(key string, count int) [][]byte {
 	return val
 }
 
-// SIsMember if exists key member
+// SIsMember Returns if member is a member of the set stored at key.
 func (s *Set) SIsMember(key string, member []byte) bool {
 	if !s.exist(key) {
 		return false
@@ -57,7 +59,7 @@ func (s *Set) SIsMember(key string, member []byte) bool {
 	return s.record[key][string(member)]
 }
 
-// SRandMember get rand count members in set[key]
+// SRandMember When called with just the key argument, return a random element from the set value stored at key.
 func (s *Set) SRandMember(key string, count int) [][]byte {
 	var val [][]byte
 	if !s.exist(key) || count == 0 {
@@ -89,7 +91,9 @@ func (s *Set) SRandMember(key string, count int) [][]byte {
 	return val
 }
 
-// SRem remove key member
+// SRem Remove the specified members from the set stored at key.
+// Specified members that are not a member of this set are ignored.
+// If key does not exist, it is treated as an empty set and this command returns 0.
 func (s *Set) SRem(key string, member []byte) bool {
 	if !s.exist(key) {
 		return false
@@ -103,7 +107,7 @@ func (s *Set) SRem(key string, member []byte) bool {
 	return false
 }
 
-// SMove move member from src to dst
+// SMove Move member from the set at source to the set at destination.
 func (s *Set) SMove(src, dst string, member []byte) bool {
 	if !s.exist(src) {
 		return false
@@ -119,7 +123,7 @@ func (s *Set) SMove(src, dst string, member []byte) bool {
 	return true
 }
 
-// SCard len of key
+// SCard Returns the set cardinality (number of elements) of the set stored at key.
 func (s *Set) SCard(key string) int {
 	if !s.exist(key) {
 		return 0
@@ -128,7 +132,7 @@ func (s *Set) SCard(key string) int {
 	return len(s.record[key])
 }
 
-// SMembers all members in key
+// SMembers Returns all the members of the set value stored at key.
 func (s *Set) SMembers(key string) (val [][]byte) {
 	if !s.exist(key) {
 		return
@@ -141,7 +145,7 @@ func (s *Set) SMembers(key string) (val [][]byte) {
 	return
 }
 
-// SUnion union two or more keys
+// SUnion Returns the members of the set resulting from the union of all the given sets.
 func (s *Set) SUnion(keys ...string) (val [][]byte) {
 
 	m := make(map[string]bool)
@@ -160,7 +164,7 @@ func (s *Set) SUnion(keys ...string) (val [][]byte) {
 	return
 }
 
-// SDiff diff two or more keys
+// SDiff Returns the members of the set resulting from the difference between the first set and all the successive sets.
 func (s *Set) SDiff(keys ...string) (val [][]byte) {
 
 	if len(keys) < 2 || !s.exist(keys[0]) {
@@ -186,6 +190,7 @@ func (s *Set) SDiff(keys ...string) (val [][]byte) {
 }
 
 // exist key对应的集合是否存在
+// check the key of set is exist
 func (s *Set) exist(key string) bool {
 	_, exist := s.record[key]
 	return exist

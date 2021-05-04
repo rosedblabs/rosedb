@@ -97,7 +97,7 @@ func TestDBFile_Write2(t *testing.T) {
 	}()
 
 	if err != nil {
-		t.Error("写入数据错误 : ", err)
+		t.Error("write data err: ", err)
 	}
 }
 
@@ -134,7 +134,7 @@ func TestDBFile_Write(t *testing.T) {
 		e.Meta.ValueSize = uint32(len(e.Meta.Value))
 
 		if err := df.Write(e); err != nil {
-			t.Error("数据写入错误", err)
+			t.Error("write data err: ", err)
 		}
 	}
 	writeEntry([]byte("mmap_key_001"), []byte("mmap_val_001"))

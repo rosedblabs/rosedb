@@ -4,6 +4,9 @@ package index
 //它能够在O(log(n))的时间复杂度下进行插入、删除、查找操作
 //跳表的具体解释可参考Wikipedia上的描述：https://zh.wikipedia.org/wiki/%E8%B7%B3%E8%B7%83%E5%88%97%E8%A1%A8
 
+// SkipList is the implementation of skip list, skip list is an efficient data structure that can replace the balanced binary search tree
+// It can insert, delete, and query in O(logN) time complexity
+// For a specific explanation of the skip list,  you can refer to Wikipedia: https://en.wikipedia.org/wiki/Skip_list
 import (
 	"bytes"
 	"math"
@@ -12,28 +15,30 @@ import (
 )
 
 const (
-	//跳表索引最大层数，可根据实际情况进行调整
+	// 跳表索引最大层数，可根据实际情况进行调整
+	// the max level of the skl indexes, can be adjusted according to the actual situation
 	maxLevel    int     = 18
 	probability float64 = 1 / math.E
 )
 
-//遍历节点的函数，bool返回值为false时遍历结束
+// 遍历节点的函数，bool返回值为false时遍历结束
+// iterate the skl node, ends when the return value is false
 type handleEle func(e *Element) bool
 
 type (
-	// Node 跳表节点
+	// Node the skl node
 	Node struct {
 		next []*Element
 	}
 
-	// Element 跳表存储元素定义
+	// Element element is the data stored
 	Element struct {
 		Node
 		key   []byte
 		value interface{}
 	}
 
-	// SkipList 跳表定义
+	// SkipList define the skip list
 	SkipList struct {
 		Node
 		maxLevel       int
@@ -45,7 +50,7 @@ type (
 	}
 )
 
-// NewSkipList 初始化一个空的跳表
+// NewSkipList create a new skip list
 func NewSkipList() *SkipList {
 	return &SkipList{
 		Node:           Node{next: make([]*Element, maxLevel)},
@@ -57,12 +62,12 @@ func NewSkipList() *SkipList {
 	}
 }
 
-// Key 跳表元素 key
+// Key the key of the Element
 func (e *Element) Key() []byte {
 	return e.key
 }
 
-// Value 跳表元素 value
+// Value the value of the Element
 func (e *Element) Value() interface{} {
 	return e.value
 }
@@ -73,11 +78,14 @@ func (e *Element) SetValue(val interface{}) {
 }
 
 // Next 跳表的第一层索引是原始数据，有序排列，可根据Next方法获取一个串联所有数据的链表
+// The first-level index of the skip list is the original data, which is arranged in an orderly manner.
+// A linked list of all data in series can be obtained according to the Next method.
 func (e *Element) Next() *Element {
 	return e.next[0]
 }
 
 // Front 获取跳表头元素，获取到之后，可向后遍历得到所有的数据
+// Get the head element of skl, and get all data by traversing backward
 //	e := list.Front()
 //	for p := e; p != nil; p = p.Next() {
 //		//do something with Element p
@@ -87,7 +95,8 @@ func (t *SkipList) Front() *Element {
 }
 
 // Put 方法存储一个元素至跳表中，如果key已经存在，则会更新其对应的value
-//因此此跳表的实现暂不支持相同的key
+// 因此此跳表的实现暂不支持相同的key
+// put an element into skl, replace the value if key already exists.
 func (t *SkipList) Put(key []byte, value interface{}) *Element {
 	var element *Element
 	prev := t.backNodes(key)
@@ -115,7 +124,8 @@ func (t *SkipList) Put(key []byte, value interface{}) *Element {
 }
 
 // Get 方法根据 key 查找对应的 Element 元素
-//未找到则返回nil
+// 未找到则返回nil
+// find value by the key, returns nil if not found.
 func (t *SkipList) Get(key []byte) *Element {
 	var prev = &t.Node
 	var next *Element
@@ -137,11 +147,13 @@ func (t *SkipList) Get(key []byte) *Element {
 }
 
 // Exist 判断跳表是否存在对应的key
+// check if exists the key in skl.
 func (t *SkipList) Exist(key []byte) bool {
 	return t.Get(key) != nil
 }
 
 // Remove Remove方法根据key删除跳表中的元素，返回删除后的元素指针
+// remove element by the key.
 func (t *SkipList) Remove(key []byte) *Element {
 	prev := t.backNodes(key)
 
@@ -158,6 +170,7 @@ func (t *SkipList) Remove(key []byte) *Element {
 }
 
 // Foreach 遍历跳表中的每个元素
+// iterate all elements in the skip list.
 func (t *SkipList) Foreach(fun handleEle) {
 	for p := t.Front(); p != nil; p = p.Next() {
 		if ok := fun(p); !ok {
@@ -166,7 +179,8 @@ func (t *SkipList) Foreach(fun handleEle) {
 	}
 }
 
-//找到key对应的前一个节点索引的信息
+// 找到key对应的前一个节点索引的信息
+// find the previous node at the key
 func (t *SkipList) backNodes(key []byte) []*Node {
 	var prev = &t.Node
 	var next *Element
@@ -188,6 +202,7 @@ func (t *SkipList) backNodes(key []byte) []*Node {
 }
 
 // FindPrefix 找到第一个和前缀匹配的Element
+// find the first element that matches the prefix
 func (t *SkipList) FindPrefix(prefix []byte) *Element {
 	var prev = &t.Node
 	var next *Element
@@ -208,7 +223,8 @@ func (t *SkipList) FindPrefix(prefix []byte) *Element {
 	return next
 }
 
-//生成索引随机层数
+// 生成索引随机层数
+// generate random index level
 func (t *SkipList) randomLevel() (level int) {
 	r := float64(t.randSource.Int63()) / (1 << 63)
 

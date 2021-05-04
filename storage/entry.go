@@ -14,13 +14,14 @@ var (
 )
 
 const (
-	//KeySize, ValueSize, ExtraSize, crc32 均为 uint32 类型，各占 4 字节
-	//Type 和 Mark 占 2 + 2
+	//KeySize, ValueSize, ExtraSize, crc32 is uint32 type，4 bytes each
+	//Type and Mark are 2 + 2 = 4 bytes
 	//4 + 4 + 4 + 4 + 2 + 2 = 20
 	entryHeaderSize = 20
 )
 
-//Value的数据结构类型
+// Value的数据结构类型
+// data structure type of value
 const (
 	String uint16 = iota
 	List
@@ -31,25 +32,26 @@ const (
 
 type (
 	// Entry 数据entry定义
+	// define data entry
 	Entry struct {
 		Meta  *Meta
-		Type  uint16 //数据类型
-		Mark  uint16 //数据操作类型
-		crc32 uint32 //校验和
+		Type  uint16 //数据类型     data type
+		Mark  uint16 //数据操作类型 data operation type
+		crc32 uint32 //校验和      check sum
 	}
 
-	// Meta meta 数据
+	// Meta meta info
 	Meta struct {
 		Key       []byte
 		Value     []byte
-		Extra     []byte //操作Entry所需的额外信息
+		Extra     []byte //操作Entry所需的额外信息 extra info that operates the entry
 		KeySize   uint32
 		ValueSize uint32
 		ExtraSize uint32
 	}
 )
 
-// NewEntry new an entry
+// NewEntry create a new entry
 func NewEntry(key, value, extra []byte, t, mark uint16) *Entry {
 	return &Entry{
 		Meta: &Meta{
@@ -65,7 +67,7 @@ func NewEntry(key, value, extra []byte, t, mark uint16) *Entry {
 	}
 }
 
-// NewEntryNoExtra new an entry without extra info
+// NewEntryNoExtra create a new entry without extra info
 func NewEntryNoExtra(key, value []byte, t, mark uint16) *Entry {
 	return NewEntry(key, value, nil, t, mark)
 }
@@ -76,6 +78,7 @@ func (e *Entry) Size() uint32 {
 }
 
 // Encode 对Entry进行编码，返回字节数组
+// encode the entry and returns byte array
 func (e *Entry) Encode() ([]byte, error) {
 	if e == nil || e.Meta.KeySize == 0 {
 		return nil, ErrInvalidEntry
@@ -103,6 +106,7 @@ func (e *Entry) Encode() ([]byte, error) {
 }
 
 // Decode 解码字节数组，返回Entry
+// decode the entry and returns entry
 func Decode(buf []byte) (*Entry, error) {
 	ks := binary.BigEndian.Uint32(buf[4:8])
 	vs := binary.BigEndian.Uint32(buf[8:12])
