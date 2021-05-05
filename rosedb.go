@@ -48,47 +48,55 @@ var (
 
 const (
 
-	//保存配置的文件名称
+	// 保存配置的文件名称
+	// rosedb config save path
 	configSaveFile = string(os.PathSeparator) + "db.cfg"
 
-	//保存数据库相关信息的文件名称
+	// 保存数据库相关信息的文件名称
+	// rosedb meta info save path
 	dbMetaSaveFile = string(os.PathSeparator) + "db.meta"
 
-	//回收磁盘空间时的临时目录
+	// 回收磁盘空间时的临时目录
+	// rosedb reclaim path
 	reclaimPath = string(os.PathSeparator) + "rosedb_reclaim"
 
-	//保存过期字典的文件名称
+	// 保存过期字典的文件名称
+	// expired directory save path
 	expireFile = string(os.PathSeparator) + "db.expires"
 
 	// ExtraSeparator 额外信息的分隔符，用于存储一些额外的信息（因此一些操作的value中不能包含此分隔符）
+	// separator of the extar info
 	ExtraSeparator = "\\0"
 )
 
 type (
 	// RoseDB the rosedb struct
 	RoseDB struct {
-		activeFile   *storage.DBFile //当前活跃文件
-		activeFileId uint32          //活跃文件id
-		archFiles    ArchivedFiles   //已封存文件
-		strIndex     *StrIdx         //字符串索引列表
-		listIndex    *ListIdx        //list索引列表
-		hashIndex    *HashIdx        //hash索引列表
-		setIndex     *SetIdx         //集合索引列表
-		zsetIndex    *ZsetIdx        //有序集合索引列表
-		config       Config          //数据库配置
+		activeFile   *storage.DBFile //当前活跃文件      current active file
+		activeFileId uint32          //活跃文件id	       current active file id
+		archFiles    ArchivedFiles   //已封存文件        the archived files
+		strIndex     *StrIdx         //字符串索引列表     string indexes
+		listIndex    *ListIdx        //list索引列表      list indexes
+		hashIndex    *HashIdx        //hash索引列表      hash indexes
+		setIndex     *SetIdx         //集合索引列表       set indexes
+		zsetIndex    *ZsetIdx        //有序集合索引列表    sorted set indexes
+		config       Config          //数据库配置		    config of rosedb
 		mu           sync.RWMutex    //mutex
-		meta         *storage.DBMeta //数据库配置额外信息
-		expires      storage.Expires //过期字典
+		meta         *storage.DBMeta //数据库配置额外信息  meta info for rosedb
+		expires      storage.Expires //过期字典          expired directory
 	}
 
 	// ArchivedFiles 已封存的文件定义
+	// define the archived files
 	ArchivedFiles map[uint32]*storage.DBFile
 )
 
 // Open 打开一个数据库实例
+// open a rosedb instance
 func Open(config Config) (*RoseDB, error) {
 
 	//如果目录不存在则创建
+	//create the dirs if not exists.
 	if !utils.Exist(config.DirPath) {
 		if err := os.MkdirAll(config.DirPath, os.ModePerm); err != nil {
 			return nil, err
@@ -96,6 +104,7 @@ func Open(config Config) (*RoseDB, error) {
 	}
 
 	//加载数据文件
+	//load the db files
 	archFiles, activeFileId, err := storage.Build(config.DirPath, config.RwMethod, config.BlockSize)
 	if err != nil {
 		return nil, err
@@ -107,9 +116,11 @@ func Open(config Config) (*RoseDB, error) {
 	}
 
 	//加载过期字典
+	//load expired directories
 	expires := storage.LoadExpires(config.DirPath + expireFile)
 
 	//加载数据库额外的信息
+	//load db meta info
 	meta := storage.LoadMeta(config.DirPath + dbMetaSaveFile)
 	activeFile.Offset = meta.ActiveWriteOff
 
@@ -128,6 +139,7 @@ func Open(config Config) (*RoseDB, error) {
 	}
 
 	//加载索引信息
+	//load indexes from files
 	if err := db.loadIdxFromFiles(); err != nil {
 		return nil, err
 	}
@@ -136,6 +148,7 @@ func Open(config Config) (*RoseDB, error) {
 }
 
 // Reopen 根据配置重新打开数据库
+// reopen the db according to the specific config path
 func Reopen(path string) (*RoseDB, error) {
 	if exist := utils.Exist(path + configSaveFile); !exist {
 		return nil, ErrCfgNotExist
@@ -154,6 +167,7 @@ func Reopen(path string) (*RoseDB, error) {
 }
 
 // Close 关闭数据库，保存相关配置
+// close db and save relative configs.
 func (db *RoseDB) Close() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -174,6 +188,7 @@ func (db *RoseDB) Close() error {
 }
 
 // Sync 数据持久化
+// persisit data to disk.
 func (db *RoseDB) Sync() error {
 	if db == nil || db.activeFile == nil {
 		return nil
@@ -186,12 +201,14 @@ func (db *RoseDB) Sync() error {
 }
 
 // Reclaim 重新组织磁盘中的数据，回收磁盘空间
+// reclaim db files in disk.
 func (db *RoseDB) Reclaim() (err error) {
 	if len(db.archFiles) < db.config.ReclaimThreshold {
 		return ErrReclaimUnreached
 	}
 
 	//新建临时目录，用于暂存新的数据文件
+	//create a temporary directory for storing the new db files.
 	reclaimPath := db.config.DirPath + reclaimPath
 	if err := os.MkdirAll(reclaimPath, os.ModePerm); err != nil {
 		return err
@@ -204,6 +221,8 @@ func (db *RoseDB) Reclaim() (err error) {
 		df           *storage.DBFile
 	)
 
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	for _, file := range db.archFiles {
 		var offset int64 = 0
 		var reclaimEntries []*storage.Entry
@@ -218,6 +237,7 @@ func (db *RoseDB) Reclaim() (err error) {
 		for {
 			if e, err := file.Read(offset); err == nil {
 				//判断是否为有效的entry
+				//check whether the entry is valid.
 				if db.validEntry(e) {
 					reclaimEntries = append(reclaimEntries, e)
 				}
@@ -231,6 +251,7 @@ func (db *RoseDB) Reclaim() (err error) {
 		}
 
 		//重新将entry写入到文件中
+		//rewrite entry to the db file.
 		if len(reclaimEntries) > 0 {
 			for _, entry := range reclaimEntries {
 				if df == nil || int64(entry.Size())+df.Offset > db.config.BlockSize {
@@ -248,6 +269,7 @@ func (db *RoseDB) Reclaim() (err error) {
 				}
 
 				//字符串类型的索引需要在这里更新
+				//update string indexes.
 				if entry.Type == String {
 					item := db.strIndex.idxList.Get(entry.Meta.Key)
 					idx := item.Value().(*index.Indexer)
@@ -260,6 +282,7 @@ func (db *RoseDB) Reclaim() (err error) {
 	}
 
 	//旧数据删除，临时目录拷贝为新的数据文件
+	//delete the old db files, and copy the directory as new db files.
 	for _, v := range db.archFiles {
 		_ = os.Remove(v.File.Name())
 	}
@@ -274,6 +297,7 @@ func (db *RoseDB) Reclaim() (err error) {
 }
 
 // Backup 复制数据库目录，用于备份
+// copy the database directory for backup.
 func (db *RoseDB) Backup(dir string) (err error) {
 	if utils.Exist(db.config.DirPath) {
 		err = utils.CopyDir(db.config.DirPath, dir)
@@ -302,8 +326,8 @@ func (db *RoseDB) checkKeyValue(key []byte, value ...[]byte) error {
 }
 
 // saveConfig 关闭数据库之前保存配置
+// save db config.
 func (db *RoseDB) saveConfig() (err error) {
-	//保存配置
 	path := db.config.DirPath + configSaveFile
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 
@@ -320,6 +344,7 @@ func (db *RoseDB) saveMeta() error {
 }
 
 // buildIndex 建立索引
+// build the different indexes.
 func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
 
 	if db.config.IdxMode == KeyValueRamMode {
@@ -344,9 +369,11 @@ func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
 }
 
 // store 写数据
+// write entry to db file.
 func (db *RoseDB) store(e *storage.Entry) error {
 
 	//如果数据文件空间不够，则关闭该文件，并新打开一个文件
+	//close db file if file size is not enough, and open a new db file.
 	config := db.config
 	if db.activeFile.Offset+int64(e.Size()) > config.BlockSize {
 		if err := db.activeFile.Close(true); err != nil {
@@ -354,6 +381,7 @@ func (db *RoseDB) store(e *storage.Entry) error {
 		}
 
 		//保存旧的文件
+		//save old db file
 		db.archFiles[db.activeFileId] = db.activeFile
 
 		activeFileId := db.activeFileId + 1
@@ -368,6 +396,7 @@ func (db *RoseDB) store(e *storage.Entry) error {
 	}
 
 	//写入数据至文件中
+	//write data to db file.
 	if err := db.activeFile.Write(e); err != nil {
 		return err
 	}
@@ -375,6 +404,7 @@ func (db *RoseDB) store(e *storage.Entry) error {
 	db.meta.ActiveWriteOff = db.activeFile.Offset
 
 	//数据持久化
+	//persist data
 	if config.Sync {
 		if err := db.activeFile.Sync(); err != nil {
 			return err
@@ -385,6 +415,7 @@ func (db *RoseDB) store(e *storage.Entry) error {
 }
 
 // validEntry 判断entry所属的操作标识(增、改类型的操作)，以及val是否是有效的
+// check whether entry is valid(contains add and update types of operations).
 func (db *RoseDB) validEntry(e *storage.Entry) bool {
 	if e == nil {
 		return false
@@ -436,6 +467,5 @@ func (db *RoseDB) validEntry(e *storage.Entry) bool {
 			}
 		}
 	}
-
 	return false
 }
