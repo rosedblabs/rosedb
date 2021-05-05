@@ -12,9 +12,11 @@ import (
 )
 
 // DataType 数据类型定义
+// defint the data type
 type DataType = uint16
 
 // 数据类型定义
+// five different data types
 const (
 	String DataType = iota
 	List
@@ -24,12 +26,14 @@ const (
 )
 
 // 字符串相关操作标识
+// string operations
 const (
 	StringSet uint16 = iota
 	StringRem
 )
 
 // 列表相关操作标识
+// list operations
 const (
 	ListLPush uint16 = iota
 	ListRPush
@@ -42,12 +46,14 @@ const (
 )
 
 // 哈希相关操作标识
+// hash table operations
 const (
 	HashHSet uint16 = iota
 	HashHDel
 )
 
 // 集合相关操作标识
+// set operations
 const (
 	SetSAdd uint16 = iota
 	SetSRem
@@ -55,12 +61,14 @@ const (
 )
 
 // 有序集合相关操作标识
+// sorted set opertions
 const (
 	ZSetZAdd uint16 = iota
 	ZSetZRem
 )
 
 // buildStringIndex 建立字符串索引
+// build string inexes
 func (db *RoseDB) buildStringIndex(idx *index.Indexer, opt uint16) {
 	if db.listIndex == nil || idx == nil {
 		return
@@ -79,6 +87,7 @@ func (db *RoseDB) buildStringIndex(idx *index.Indexer, opt uint16) {
 }
 
 // buildListIndex 建立列表索引
+// build list inexes
 func (db *RoseDB) buildListIndex(idx *index.Indexer, opt uint16) {
 	if db.listIndex == nil || idx == nil {
 		return
@@ -124,6 +133,7 @@ func (db *RoseDB) buildListIndex(idx *index.Indexer, opt uint16) {
 }
 
 // buildHashIndex 建立哈希索引
+// build hash inexes
 func (db *RoseDB) buildHashIndex(idx *index.Indexer, opt uint16) {
 
 	if db.hashIndex == nil || idx == nil {
@@ -140,6 +150,7 @@ func (db *RoseDB) buildHashIndex(idx *index.Indexer, opt uint16) {
 }
 
 // buildSetIndex 建立集合索引
+// build set inexes
 func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
 
 	if db.hashIndex == nil || idx == nil {
@@ -159,6 +170,7 @@ func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
 }
 
 // buildZsetIndex 建立有序集合索引
+// build sorted set inexes
 func (db *RoseDB) buildZsetIndex(idx *index.Indexer, opt uint16) {
 
 	if db.hashIndex == nil || idx == nil {
@@ -177,6 +189,7 @@ func (db *RoseDB) buildZsetIndex(idx *index.Indexer, opt uint16) {
 }
 
 // loadIdxFromFiles 从文件中加载String、List、Hash、Set、ZSet索引
+// load String、List、Hash、Set、ZSet indexes from files.
 func (db *RoseDB) loadIdxFromFiles() error {
 	if db.archFiles == nil && db.activeFile == nil {
 		return nil

@@ -21,20 +21,25 @@ func newStrIdx() *StrIdx {
 }
 
 // Set 将字符串值 value 关联到 key
-//如果 key 已经持有其他值，SET 就覆写旧值
+// 如果 key 已经持有其他值，SET 就覆写旧值
+// set key to hold the string value. If key already holds a value, it is overwritten.
 func (db *RoseDB) Set(key, value []byte) error {
 	if err := db.doSet(key, value); err != nil {
 		return err
 	}
 
 	//清除过期时间
+	// persist represents clear the expires
 	db.Persist(key)
 	return nil
 }
 
-//SetNx 是SET if Not Exists(如果不存在，则 SET)的简写
-//只在键 key 不存在的情况下， 将键 key 的值设置为 value
-//若键 key 已经存在， 则 SetNx 命令不做任何动作
+// SetNx 是SET if Not Exists(如果不存在，则 SET)的简写
+// 只在键 key 不存在的情况下， 将键 key 的值设置为 value
+// 若键 key 已经存在， 则 SetNx 命令不做任何动作
+// set key to hold string value if key does not exist.
+// In that case, it is equal to SET. When key already holds a value, no operation is performed.
+// SETNX is short for "SET if Not eXists".
 func (db *RoseDB) SetNx(key, value []byte) error {
 	if exist := db.StrExists(key); exist {
 		return nil
@@ -44,6 +49,7 @@ func (db *RoseDB) SetNx(key, value []byte) error {
 }
 
 // Get 获取str数据
+// get the value of key. If the key does not exist an error is returned.
 func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	keySize := uint32(len(key))
 	if keySize == 0 {
@@ -64,15 +70,18 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	defer db.strIndex.mu.RUnlock()
 
 	//判断是否过期
+	//check key is expired
 	if db.expireIfNeeded(key) {
 		return nil, ErrKeyExpired
 	}
 	//如果key和value均在内存中，则取内存中的value
+	//get value from memory
 	if db.config.IdxMode == KeyValueRamMode {
 		return idx.Meta.Value, nil
 	}
 
 	//如果只有key在内存中，那么需要从db file中获取value
+	//get value from the db file
 	if db.config.IdxMode == KeyOnlyRamMode {
 		df := db.activeFile
 		if idx.FileId != db.activeFileId {
@@ -89,6 +98,7 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 }
 
 // GetSet 将键 key 的值设为 value ， 并返回键 key 在被设置之前的旧值。
+// set key to value and returns the old value stored at key.
 func (db *RoseDB) GetSet(key, val []byte) (res []byte, err error) {
 	if res, err = db.Get(key); err != nil {
 		return
@@ -100,7 +110,9 @@ func (db *RoseDB) GetSet(key, val []byte) (res []byte, err error) {
 }
 
 // Append 如果key存在，则将value追加至原来的value末尾
-//如果key不存在，则相当于Set方法
+// 如果key不存在，则相当于Set方法
+// If key already exists and is a string, this command appends the value at the end of the string.
+// If key does not exist it is created and set as an empty string, so APPEND will be similar to SET in this special case.
 func (db *RoseDB) Append(key, value []byte) error {
 	if err := db.checkKeyValue(key, value); err != nil {
 		return err
@@ -131,6 +143,7 @@ func (db *RoseDB) Append(key, value []byte) error {
 }
 
 // StrLen 返回key存储的字符串值的长度
+// Returns the length of the string value stored at key
 func (db *RoseDB) StrLen(key []byte) int {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return 0
@@ -152,6 +165,7 @@ func (db *RoseDB) StrLen(key []byte) int {
 }
 
 // StrExists 判断key是否存在
+// check whether the key exists.
 func (db *RoseDB) StrExists(key []byte) bool {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return false
@@ -168,6 +182,7 @@ func (db *RoseDB) StrExists(key []byte) bool {
 }
 
 // StrRem 删除key及其数据
+// remove the value stored at key.
 func (db *RoseDB) StrRem(key []byte) error {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return err
@@ -188,8 +203,11 @@ func (db *RoseDB) StrRem(key []byte) error {
 }
 
 // PrefixScan 根据前缀查找所有匹配的 key 对应的 value
-//参数 limit 和 offset 控制取数据的范围，类似关系型数据库中的分页操作
-//如果 limit 为负数，则返回所有满足条件的结果
+// 参数 limit 和 offset 控制取数据的范围，类似关系型数据库中的分页操作
+// 如果 limit 为负数，则返回所有满足条件的结果
+// Find the value corresponding to all matching keys based on the prefix
+// limit and offset control the range of value
+// if limit is negative, all matched values will return.
 func (db *RoseDB) PrefixScan(prefix string, limit, offset int) (val [][]byte, err error) {
 	if limit == 0 {
 		return
@@ -237,6 +255,7 @@ func (db *RoseDB) PrefixScan(prefix string, limit, offset int) (val [][]byte, er
 }
 
 // RangeScan 范围扫描，查找 key 从 start 到 end 之间的数据
+// find value from start to end.
 func (db *RoseDB) RangeScan(start, end []byte) (val [][]byte, err error) {
 	node := db.strIndex.idxList.Get(start)
 	if node == nil {
@@ -269,6 +288,7 @@ func (db *RoseDB) RangeScan(start, end []byte) (val [][]byte, err error) {
 }
 
 // Expire 设置key的过期时间
+// set the expiration time of the key.
 func (db *RoseDB) Expire(key []byte, seconds uint32) (err error) {
 	if exist := db.StrExists(key); !exist {
 		return ErrKeyNotExist
@@ -286,6 +306,7 @@ func (db *RoseDB) Expire(key []byte, seconds uint32) (err error) {
 }
 
 // Persist 清除key的过期时间
+// clear expiration time.
 func (db *RoseDB) Persist(key []byte) {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
@@ -294,6 +315,7 @@ func (db *RoseDB) Persist(key []byte) {
 }
 
 // TTL 获取key的过期时间
+// time to live
 func (db *RoseDB) TTL(key []byte) (ttl uint32) {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
@@ -314,6 +336,7 @@ func (db *RoseDB) TTL(key []byte) (ttl uint32) {
 }
 
 //检查key是否过期并删除相应的值
+//check whether key is expired and delete it.
 func (db *RoseDB) expireIfNeeded(key []byte) (expired bool) {
 	deadline := db.expires[string(key)]
 	if deadline <= 0 {
