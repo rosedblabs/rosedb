@@ -182,6 +182,12 @@ func main() {
 + [ ] 支持更多的命令操作（type，keys，mset，mget，zcount，etc...）
 + [ ] 完善相关文档
 
+## 联系我
+
+欢迎加我微信，拉你进项目交流群，请备注【Github】。
+
+<img src="https://i.loli.net/2021/05/06/tGTH7SXg8w95slA.jpg" width="200px" align="left"/>
+
 ## License
 
 rosedb 根据 MIT License 许可证授权，有关完整许可证文本，请参阅 [LICENSE](https://github.com/roseduan/rosedb/blob/main/LICENSE)。

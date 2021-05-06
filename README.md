@@ -146,6 +146,10 @@ func main() {
 + [x] Cli for command line use.
 + [ ] Improve related documents
 
+## Contact me
+
+If you have any questions, you can contact me by email: roseduan520@gmail.com
+
 ## License
 
 rosedb is licensed under the term of the [MIT License](https://github.com/roseduan/rosedb/blob/main/LICENSE)
