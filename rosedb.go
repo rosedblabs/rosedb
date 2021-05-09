@@ -65,22 +65,22 @@ const (
 	expireFile = string(os.PathSeparator) + "db.expires"
 
 	// ExtraSeparator 额外信息的分隔符，用于存储一些额外的信息（因此一些操作的value中不能包含此分隔符）
-	// separator of the extar info
+	// separator of the extra info
 	ExtraSeparator = "\\0"
 )
 
 type (
 	// RoseDB the rosedb struct
 	RoseDB struct {
-		activeFile   *storage.DBFile //当前活跃文件      current active file
+		activeFile   *storage.DBFile //当前活跃文件       current active file
 		activeFileId uint32          //活跃文件id	       current active file id
 		archFiles    ArchivedFiles   //已封存文件        the archived files
 		strIndex     *StrIdx         //字符串索引列表     string indexes
 		listIndex    *ListIdx        //list索引列表      list indexes
 		hashIndex    *HashIdx        //hash索引列表      hash indexes
 		setIndex     *SetIdx         //集合索引列表       set indexes
-		zsetIndex    *ZsetIdx        //有序集合索引列表    sorted set indexes
-		config       Config          //数据库配置		    config of rosedb
+		zsetIndex    *ZsetIdx        //有序集合索引列表   sorted set indexes
+		config       Config          //数据库配置		   config of rosedb
 		mu           sync.RWMutex    //mutex
 		meta         *storage.DBMeta //数据库配置额外信息  meta info for rosedb
 		expires      storage.Expires //过期字典          expired directory
@@ -188,7 +188,7 @@ func (db *RoseDB) Close() error {
 }
 
 // Sync 数据持久化
-// persisit data to disk.
+// persist data to disk.
 func (db *RoseDB) Sync() error {
 	if db == nil || db.activeFile == nil {
 		return nil

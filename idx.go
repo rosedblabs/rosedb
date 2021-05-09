@@ -12,7 +12,7 @@ import (
 )
 
 // DataType 数据类型定义
-// defint the data type
+// define the data type
 type DataType = uint16
 
 // 数据类型定义
@@ -61,14 +61,14 @@ const (
 )
 
 // 有序集合相关操作标识
-// sorted set opertions
+// sorted set operations
 const (
 	ZSetZAdd uint16 = iota
 	ZSetZRem
 )
 
 // buildStringIndex 建立字符串索引
-// build string inexes
+// build string indexes
 func (db *RoseDB) buildStringIndex(idx *index.Indexer, opt uint16) {
 	if db.listIndex == nil || idx == nil {
 		return
@@ -87,7 +87,7 @@ func (db *RoseDB) buildStringIndex(idx *index.Indexer, opt uint16) {
 }
 
 // buildListIndex 建立列表索引
-// build list inexes
+// build list indexes
 func (db *RoseDB) buildListIndex(idx *index.Indexer, opt uint16) {
 	if db.listIndex == nil || idx == nil {
 		return
@@ -133,7 +133,7 @@ func (db *RoseDB) buildListIndex(idx *index.Indexer, opt uint16) {
 }
 
 // buildHashIndex 建立哈希索引
-// build hash inexes
+// build hash indexes
 func (db *RoseDB) buildHashIndex(idx *index.Indexer, opt uint16) {
 
 	if db.hashIndex == nil || idx == nil {
@@ -150,7 +150,7 @@ func (db *RoseDB) buildHashIndex(idx *index.Indexer, opt uint16) {
 }
 
 // buildSetIndex 建立集合索引
-// build set inexes
+// build set indexes
 func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
 
 	if db.hashIndex == nil || idx == nil {
@@ -170,7 +170,7 @@ func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
 }
 
 // buildZsetIndex 建立有序集合索引
-// build sorted set inexes
+// build sorted set indexes
 func (db *RoseDB) buildZsetIndex(idx *index.Indexer, opt uint16) {
 
 	if db.hashIndex == nil || idx == nil {
