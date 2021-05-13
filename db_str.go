@@ -364,6 +364,14 @@ func (db *RoseDB) doSet(key, value []byte) (err error) {
 		return err
 	}
 
+	// 如果新增的 value 和设置的 value 一样，则不做任何操作
+	// If the existed value is the same as the set value, nothing will be done.
+	if db.config.IdxMode == KeyValueRamMode {
+		if existVal, _ := db.Get(key); existVal != nil && bytes.Compare(existVal, value) == 0 {
+			return
+		}
+	}
+
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 

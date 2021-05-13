@@ -370,9 +370,9 @@ func writeLargeData(db *RoseDB, t *testing.T) {
 	rand.Seed(time.Now().Unix())
 
 	start := time.Now()
-	for i := 0; i < 500000; i++ {
-		key := keyPrefix + strconv.Itoa(rand.Intn(10000))
-		val := valPrefix + strconv.Itoa(rand.Intn(10000))
+	for i := 0; i < 5000000; i++ {
+		key := keyPrefix + strconv.Itoa(rand.Intn(100000))
+		val := valPrefix + strconv.Itoa(rand.Intn(100000))
 
 		err := db.Set([]byte(key), []byte(val))
 		if err != nil {
@@ -382,4 +382,31 @@ func writeLargeData(db *RoseDB, t *testing.T) {
 	t.Log("time spent : ", time.Since(start).Milliseconds())
 
 	t.Log("写入的有效数据量 : ", db.strIndex.idxList.Len)
+}
+
+func TestOpen3(t *testing.T) {
+	config := DefaultConfig()
+	config.IdxMode = KeyOnlyRamMode
+	config.DirPath = "bench/rosedb"
+	db, err := Open(config)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	writeLargeData(db, t)
+}
+
+func TestRoseDB_Reclaim2(t *testing.T) {
+	db, _ := Reopen("bench/rosedb")
+	defer db.Close()
+
+	start := time.Now()
+	err := db.Reclaim()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log("reclaim time spent: ", time.Since(start))
+
+	t.Log("valid keys: ", db.strIndex.idxList.Len)
 }

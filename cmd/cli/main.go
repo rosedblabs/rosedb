@@ -135,15 +135,15 @@ func main() {
 		if len(cmd) == 0 {
 			continue
 		}
-		cmd = strings.ToLower(cmd)
+		lowerCmd := strings.ToLower(cmd)
 
 		c := strings.Split(cmd, " ")
-		if cmd == "help" {
+		if lowerCmd == "help" {
 			printCmdHelp()
-		} else if cmd == "quit" {
+		} else if lowerCmd == "quit" {
 			break
-		} else if c[0] == "help" && len(c) == 2 {
-			helpCmd := c[1]
+		} else if strings.ToLower(c[0]) == "help" && len(c) == 2 {
+			helpCmd := strings.ToLower(c[1])
 			if !commandSet[helpCmd] {
 				fmt.Println("command not found")
 				continue
@@ -159,8 +159,8 @@ func main() {
 		} else {
 			line.AppendHistory(cmd)
 
-			if !commandSet[c[0]] && c[0] != "quit" {
-				fmt.Println("command not found")
+			lowerC := strings.ToLower(strings.TrimSpace(c[0]))
+			if !commandSet[lowerC] && lowerC != "quit" {
 				continue
 			}
 

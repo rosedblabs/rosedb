@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -233,12 +234,13 @@ func (db *RoseDB) Reclaim() (err error) {
 			return err
 		}
 		file.File = dfFile
+		fileId := file.Id
 
 		for {
 			if e, err := file.Read(offset); err == nil {
 				//判断是否为有效的entry
 				//check whether the entry is valid.
-				if db.validEntry(e) {
+				if db.validEntry(e, offset, fileId) {
 					reclaimEntries = append(reclaimEntries, e)
 				}
 				offset += int64(e.Size())
@@ -416,7 +418,7 @@ func (db *RoseDB) store(e *storage.Entry) error {
 
 // validEntry 判断entry所属的操作标识(增、改类型的操作)，以及val是否是有效的
 // check whether entry is valid(contains add and update types of operations).
-func (db *RoseDB) validEntry(e *storage.Entry) bool {
+func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool {
 	if e == nil {
 		return false
 	}
@@ -425,10 +427,24 @@ func (db *RoseDB) validEntry(e *storage.Entry) bool {
 	switch e.Type {
 	case String:
 		if mark == StringSet {
+			// expired key is not valid.
 			now := uint32(time.Now().Unix())
 			if deadline, exist := db.expires[string(e.Meta.Key)]; exist && deadline <= now {
 				return false
 			}
+
+			// check the data position.
+			node := db.strIndex.idxList.Get(e.Meta.Key)
+			if node == nil {
+				return false
+			}
+			indexer := node.Value().(*index.Indexer)
+			if bytes.Compare(indexer.Meta.Key, e.Meta.Key) == 0 {
+				if indexer == nil || indexer.FileId != fileId || indexer.Offset != offset {
+					return false
+				}
+			}
+
 			if val, err := db.Get(e.Meta.Key); err == nil && string(val) == string(e.Meta.Value) {
 				return true
 			}

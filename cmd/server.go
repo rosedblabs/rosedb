@@ -127,7 +127,7 @@ func (s *Server) handleCmd(cmd string, args []string) (res string) {
 		}
 	}()
 
-	exec, exist := ExecCmd[cmd]
+	exec, exist := ExecCmd[strings.ToLower(cmd)]
 	if !exist {
 		return "command not found"
 	}
