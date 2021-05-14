@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"github.com/roseduan/rosedb"
 	"github.com/roseduan/rosedb/utils"
+	"github.com/tidwall/redcon"
 	"strconv"
 )
 
-func zAdd(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zAdd(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 3 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("zadd")
 		return
 	}
 	score, err := utils.StrToFloat64(args[1])
@@ -18,14 +19,14 @@ func zAdd(db *rosedb.RoseDB, args []string) (res string, err error) {
 		return
 	}
 	if err = db.ZAdd([]byte(args[0]), score, []byte(args[2])); err == nil {
-		res = "OK"
+		res = okResult
 	}
 	return
 }
 
-func zScore(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zScore(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("zscore")
 		return
 	}
 	score := db.ZScore([]byte(args[0]), []byte(args[1]))
@@ -33,39 +34,39 @@ func zScore(db *rosedb.RoseDB, args []string) (res string, err error) {
 	return
 }
 
-func zCard(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zCard(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("zcard")
 		return
 	}
 	card := db.ZCard([]byte(args[0]))
-	res = strconv.Itoa(card)
+	res = redcon.SimpleInt(card)
 	return
 }
 
-func zRank(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zRank(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
 		err = ErrSyntaxIncorrect
 		return
 	}
 	rank := db.ZRank([]byte(args[0]), []byte(args[1]))
-	res = strconv.FormatInt(rank, 10)
+	res = redcon.SimpleInt(rank)
 	return
 }
 
-func zRevRank(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zRevRank(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("zrevrank")
 		return
 	}
 	rank := db.ZRevRank([]byte(args[0]), []byte(args[1]))
-	res = strconv.FormatInt(rank, 10)
+	res = redcon.SimpleInt(rank)
 	return
 }
 
-func zIncrBy(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zIncrBy(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 3 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("zincrby")
 		return
 	}
 	incr, err := utils.StrToFloat64(args[1])
@@ -80,20 +81,24 @@ func zIncrBy(db *rosedb.RoseDB, args []string) (res string, err error) {
 	return
 }
 
-func zRange(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zRange(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 3 {
+		err = newWrongNumOfArgsError("zrange")
+		return
+	}
 	return zRawRange(db, args, false)
 }
 
-func zRevRange(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zRevRange(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 3 {
+		err = newWrongNumOfArgsError("zrevrange")
+		return
+	}
 	return zRawRange(db, args, true)
 }
 
 // for zRange and zRevRange
-func zRawRange(db *rosedb.RoseDB, args []string, rev bool) (res string, err error) {
-	if len(args) != 3 {
-		err = ErrSyntaxIncorrect
-		return
-	}
+func zRawRange(db *rosedb.RoseDB, args []string, rev bool) (res interface{}, err error) {
 	start, err := strconv.Atoi(args[1])
 	if err != nil {
 		err = ErrSyntaxIncorrect
@@ -112,16 +117,15 @@ func zRawRange(db *rosedb.RoseDB, args []string, rev bool) (res string, err erro
 		val = db.ZRange([]byte(args[0]), start, end)
 	}
 
+	results := make([]string, len(val))
 	for i, v := range val {
-		res += fmt.Sprintf("%v", v)
-		if i != len(val)-1 {
-			res += "\n"
-		}
+		results[i] = fmt.Sprintf("%v", v)
 	}
+	res = results
 	return
 }
 
-func zRem(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zRem(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
 		err = ErrSyntaxIncorrect
 		return
@@ -129,28 +133,32 @@ func zRem(db *rosedb.RoseDB, args []string) (res string, err error) {
 	var ok bool
 	if ok, err = db.ZRem([]byte(args[0]), []byte(args[1])); err == nil {
 		if ok {
-			res = "1"
+			res = redcon.SimpleInt(1)
 		} else {
-			res = "0"
+			res = redcon.SimpleInt(0)
 		}
 	}
 	return
 }
 
-func zGetByRank(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zGetByRank(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 2 {
+		err = newWrongNumOfArgsError("zgetbyrank")
+		return
+	}
 	return zRawGetByRank(db, args, false)
 }
 
-func zRevGetByRank(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zRevGetByRank(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 2 {
+		err = newWrongNumOfArgsError("zrevgetbyrank")
+		return
+	}
 	return zRawGetByRank(db, args, true)
 }
 
 // for zGetByRank and zRevGetByRank
-func zRawGetByRank(db *rosedb.RoseDB, args []string, rev bool) (res string, err error) {
-	if len(args) != 2 {
-		err = ErrSyntaxIncorrect
-		return
-	}
+func zRawGetByRank(db *rosedb.RoseDB, args []string, rev bool) (res interface{}, err error) {
 	rank, err := strconv.Atoi(args[1])
 	if err != nil {
 		err = ErrSyntaxIncorrect
@@ -163,29 +171,32 @@ func zRawGetByRank(db *rosedb.RoseDB, args []string, rev bool) (res string, err 
 	} else {
 		val = db.ZGetByRank([]byte(args[0]), rank)
 	}
+	results := make([]string, len(val))
 	for i, v := range val {
-		res += fmt.Sprintf("%v", v)
-		if i != len(val)-1 {
-			res += "\n"
-		}
+		results[i] = fmt.Sprintf("%v", v)
 	}
+	res = results
 	return
 }
 
-func zScoreRange(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zScoreRange(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 3 {
+		err = newWrongNumOfArgsError("zscorerange")
+		return
+	}
 	return zRawScoreRange(db, args, false)
 }
 
-func zSRevScoreRange(db *rosedb.RoseDB, args []string) (res string, err error) {
+func zSRevScoreRange(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 3 {
+		err = newWrongNumOfArgsError("zsrevscorerange")
+		return
+	}
 	return zRawScoreRange(db, args, true)
 }
 
 // for zScoreRange and zSRevScoreRange
-func zRawScoreRange(db *rosedb.RoseDB, args []string, rev bool) (res string, err error) {
-	if len(args) != 3 {
-		err = ErrSyntaxIncorrect
-		return
-	}
+func zRawScoreRange(db *rosedb.RoseDB, args []string, rev bool) (res interface{}, err error) {
 	param1, err := utils.StrToFloat64(args[1])
 	if err != nil {
 		err = ErrSyntaxIncorrect
@@ -202,12 +213,11 @@ func zRawScoreRange(db *rosedb.RoseDB, args []string, rev bool) (res string, err
 	} else {
 		val = db.ZScoreRange([]byte(args[0]), param1, param2)
 	}
+	results := make([]string, len(val))
 	for i, v := range val {
-		res += fmt.Sprintf("%v", v)
-		if i != len(val)-1 {
-			res += "\n"
-		}
+		results[i] = fmt.Sprintf("%v", v)
 	}
+	res = results
 	return
 }
 

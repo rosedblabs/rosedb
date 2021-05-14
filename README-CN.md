@@ -63,6 +63,10 @@ reclaim 方法的执行流程也比较的简单，首先建立一个临时的文
 
 ![Xnip2021-04-14_14-35-50.png](https://i.loli.net/2021/04/14/9uh1ElVF3C4D6dM.png)
 
+也可以直接使用 redis-cli:
+
+![2021-05-14 上午11.19.24.png](https://i.loli.net/2021/05/14/eYkMyTzl5CXUN83.png)
+
 ### 内嵌使用
 
 在项目中 import 我的项目：

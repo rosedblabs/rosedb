@@ -30,6 +30,10 @@ Open a new shell, and change the directory to rosedb/cmd/cli, and run the `main.
 
 ![Xnip2021-04-14_14-35-50.png](https://i.loli.net/2021/04/14/9uh1ElVF3C4D6dM.png)
 
+or you can just use redis-cli or any other redis client：
+
+![2021-05-14 上午11.19.24.png](https://i.loli.net/2021/05/14/eYkMyTzl5CXUN83.png)
+
 ### Embedded example
 
 Import rosedb in the application:

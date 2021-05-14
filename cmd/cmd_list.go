@@ -3,12 +3,13 @@ package cmd
 import (
 	"github.com/roseduan/rosedb"
 	"github.com/roseduan/rosedb/ds/list"
+	"github.com/tidwall/redcon"
 	"strconv"
 )
 
-func lPush(db *rosedb.RoseDB, args []string) (res string, err error) {
+func lPush(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) < 2 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("lpush")
 		return
 	}
 
@@ -19,14 +20,14 @@ func lPush(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 	var val int
 	if val, err = db.LPush([]byte(args[0]), values...); err == nil {
-		res = strconv.Itoa(val)
+		res = redcon.SimpleInt(val)
 	}
 	return
 }
 
-func rPush(db *rosedb.RoseDB, args []string) (res string, err error) {
+func rPush(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) < 2 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("rpush")
 		return
 	}
 
@@ -37,14 +38,14 @@ func rPush(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 	var val int
 	if val, err = db.RPush([]byte(args[0]), values...); err == nil {
-		res = strconv.Itoa(val)
+		res = redcon.SimpleInt(val)
 	}
 	return
 }
 
-func lPop(db *rosedb.RoseDB, args []string) (res string, err error) {
+func lPop(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("lpop")
 		return
 	}
 
@@ -55,9 +56,9 @@ func lPop(db *rosedb.RoseDB, args []string) (res string, err error) {
 	return
 }
 
-func rPop(db *rosedb.RoseDB, args []string) (res string, err error) {
+func rPop(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("rpop")
 		return
 	}
 
@@ -68,9 +69,9 @@ func rPop(db *rosedb.RoseDB, args []string) (res string, err error) {
 	return
 }
 
-func lIndex(db *rosedb.RoseDB, args []string) (res string, err error) {
+func lIndex(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 0 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("lindex")
 		return
 	}
 	index, err := strconv.Atoi(args[1])
@@ -84,9 +85,9 @@ func lIndex(db *rosedb.RoseDB, args []string) (res string, err error) {
 	return
 }
 
-func lRem(db *rosedb.RoseDB, args []string) (res string, err error) {
+func lRem(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 3 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("lrem")
 		return
 	}
 	count, err := strconv.Atoi(args[2])
@@ -97,14 +98,14 @@ func lRem(db *rosedb.RoseDB, args []string) (res string, err error) {
 
 	var val int
 	if val, err = db.LRem([]byte(args[0]), []byte(args[1]), count); err == nil {
-		res = strconv.Itoa(val)
+		res = redcon.SimpleInt(val)
 	}
 	return
 }
 
-func lInsert(db *rosedb.RoseDB, args []string) (res string, err error) {
+func lInsert(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 4 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("linsert")
 		return
 	}
 	var flag int
@@ -116,14 +117,14 @@ func lInsert(db *rosedb.RoseDB, args []string) (res string, err error) {
 	}
 	var val int
 	if val, err = db.LInsert(args[0], list.InsertOption(flag), []byte(args[2]), []byte(args[3])); err == nil {
-		res = strconv.Itoa(val)
+		res = redcon.SimpleInt(val)
 	}
 	return
 }
 
-func lSet(db *rosedb.RoseDB, args []string) (res string, err error) {
+func lSet(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 3 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("lset")
 		return
 	}
 	index, err := strconv.Atoi(args[1])
@@ -135,16 +136,16 @@ func lSet(db *rosedb.RoseDB, args []string) (res string, err error) {
 	var ok bool
 	ok, err = db.LSet([]byte(args[0]), index, []byte(args[2]))
 	if ok {
-		res = "1"
+		res = redcon.SimpleInt(1)
 	} else {
-		res = "0"
+		res = redcon.SimpleInt(0)
 	}
 	return
 }
 
-func lTrim(db *rosedb.RoseDB, args []string) (res string, err error) {
+func lTrim(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 3 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("ltrim")
 		return
 	}
 	start, err := strconv.Atoi(args[1])
@@ -159,14 +160,14 @@ func lTrim(db *rosedb.RoseDB, args []string) (res string, err error) {
 	}
 
 	if err = db.LTrim([]byte(args[0]), start, end); err == nil {
-		res = "OK"
+		res = okResult
 	}
 	return
 }
 
-func lRange(db *rosedb.RoseDB, args []string) (res string, err error) {
+func lRange(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 3 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("lrange")
 		return
 	}
 	start, err := strconv.Atoi(args[1])
@@ -180,26 +181,18 @@ func lRange(db *rosedb.RoseDB, args []string) (res string, err error) {
 		return
 	}
 
-	var val [][]byte
-	if val, err = db.LRange([]byte(args[0]), start, end); err == nil {
-		for i, v := range val {
-			res += string(v)
-			if i != len(val)-1 {
-				res += "\n"
-			}
-		}
-	}
+	res, err = db.LRange([]byte(args[0]), start, end)
 	return
 }
 
-func lLen(db *rosedb.RoseDB, args []string) (res string, err error) {
+func lLen(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("llen")
 		return
 	}
 
 	length := db.LLen([]byte(args[0]))
-	res = strconv.Itoa(length)
+	res = redcon.SimpleInt(length)
 	return
 }
 
