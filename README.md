@@ -146,6 +146,70 @@ func main() {
 + [x] Cli for command line use.
 + [ ] Improve related documents
 
+## Benchmark
+
+### Benchmark Environment
+
+* System: macOS Catalina 10.15.7
+* CPU: 2.6GHz 
+* Memory: 16 GB 2667 MHz DDR4
+
+### Benchmark Result
+
+**In the case of a specified time duration(3s):** 
+
+```
+go test -bench=. -benchtime=3s
+badger 2021/05/16 00:02:30 INFO: All 0 tables opened in 0s
+badger 2021/05/16 00:02:30 INFO: Discard stats nextEmptySlot: 0
+badger 2021/05/16 00:02:30 INFO: Set nextTxnTs to 0
+goos: darwin
+goarch: amd64
+pkg: rosedb-bench
+BenchmarkPutValue_BadgerDB-12                     276902             11482 ns/op            1629 B/op         45 allocs/op
+BenchmarkGetValue_BadgerDB-12                    2363458              1504 ns/op             457 B/op         11 allocs/op
+BenchmarkPutValue_GoLevelDB-12                    844111              4653 ns/op             372 B/op          9 allocs/op
+BenchmarkGetValue_GoLevelDB-12                   2043241              1690 ns/op             415 B/op          8 allocs/op
+BenchmarkPutValue_Pudge-12                        470827              8316 ns/op             776 B/op         22 allocs/op
+BenchmarkGetValue_Pudge-12                       6904564               483 ns/op             125 B/op          5 allocs/op
+BenchmarkPutValue_RoseDB_KeyValRam-12             901753              4550 ns/op             565 B/op         10 allocs/op
+BenchmarkGetValue_RoseDB_KeyValRam-12            7288071               466 ns/op              56 B/op          3 allocs/op
+BenchmarkPutValue_RoseDB_KeyOnlyRam-12            963763              4198 ns/op             565 B/op         10 allocs/op
+BenchmarkGetValue_RoseDB_KeyOnlyRam-12           1866518              1659 ns/op             188 B/op          5 allocs/op
+PASS
+ok      rosedb-bench    59.091s
+
+```
+
+**In the case of a specified execute times(200w):**
+
+```
+go test -bench=. -benchtime=2000000x
+badger 2021/05/16 00:09:59 INFO: All 0 tables opened in 0s
+badger 2021/05/16 00:09:59 INFO: Discard stats nextEmptySlot: 0
+badger 2021/05/16 00:09:59 INFO: Set nextTxnTs to 0
+goos: darwin
+goarch: amd64
+pkg: rosedb-bench
+BenchmarkPutValue_BadgerDB-12                    2000000             11667 ns/op            2108 B/op         46 allocs/op
+BenchmarkGetValue_BadgerDB-12                    2000000              4127 ns/op            1212 B/op         20 allocs/op
+BenchmarkPutValue_GoLevelDB-12                   2000000              4593 ns/op             341 B/op          9 allocs/op
+BenchmarkGetValue_GoLevelDB-12                   2000000              2855 ns/op             972 B/op         15 allocs/op
+BenchmarkPutValue_Pudge-12                       2000000              8973 ns/op             788 B/op         22 allocs/op
+BenchmarkGetValue_Pudge-12                       2000000              1258 ns/op             200 B/op          6 allocs/op
+BenchmarkPutValue_RoseDB_KeyValRam-12            2000000              4440 ns/op             566 B/op         11 allocs/op
+BenchmarkGetValue_RoseDB_KeyValRam-12            2000000               508 ns/op              56 B/op          3 allocs/op
+BenchmarkPutValue_RoseDB_KeyOnlyRam-12           2000000              4258 ns/op             566 B/op         11 allocs/op
+BenchmarkGetValue_RoseDB_KeyOnlyRam-12           2000000              2980 ns/op             312 B/op          8 allocs/op
+PASS
+ok      rosedb-bench    94.468s
+
+```
+
+### Benchmark Conclusion
+
+
+
 ## Contributing
 
 If you are intrested in contributing to rosedb, please see here: [CONTRIBUTING](https://github.com/roseduan/rosedb/blob/main/CONTRIBUTING.md)
