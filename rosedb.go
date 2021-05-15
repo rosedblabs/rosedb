@@ -182,8 +182,17 @@ func (db *RoseDB) Close() error {
 	if err := db.expires.SaveExpires(db.config.DirPath + expireFile); err != nil {
 		return err
 	}
+
+	// close and sync the active file
 	if err := db.activeFile.Close(true); err != nil {
 		return err
+	}
+
+	// close the archived files.
+	for _, archFile := range db.archFiles {
+		if err := archFile.Sync(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -374,18 +383,17 @@ func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
 // write entry to db file.
 func (db *RoseDB) store(e *storage.Entry) error {
 
-	//如果数据文件空间不够，则关闭该文件，并新打开一个文件
-	//close db file if file size is not enough, and open a new db file.
+	//如果数据文件空间不够，则持久化该文件，并新打开一个文件
+	//sync the db file if file size is not enough, and open a new db file.
 	config := db.config
 	if db.activeFile.Offset+int64(e.Size()) > config.BlockSize {
-		if err := db.activeFile.Close(true); err != nil {
+		if err := db.activeFile.Sync(); err != nil {
 			return err
 		}
 
 		//保存旧的文件
 		//save old db file
 		db.archFiles[db.activeFileId] = db.activeFile
-
 		activeFileId := db.activeFileId + 1
 
 		if dbFile, err := storage.NewDBFile(config.DirPath, activeFileId, config.RwMethod, config.BlockSize); err != nil {
@@ -406,7 +414,7 @@ func (db *RoseDB) store(e *storage.Entry) error {
 	db.meta.ActiveWriteOff = db.activeFile.Offset
 
 	//数据持久化
-	//persist data
+	//persist the data to disk.
 	if config.Sync {
 		if err := db.activeFile.Sync(); err != nil {
 			return err

@@ -381,6 +381,7 @@ func (db *RoseDB) doSet(key, value []byte) (err error) {
 	}
 
 	//数据索引
+	// data indexes, store in skiplist.
 	idx := &index.Indexer{
 		Meta: &storage.Meta{
 			KeySize: uint32(len(e.Meta.Key)),
