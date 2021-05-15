@@ -196,7 +196,7 @@ func main() {
 * 关于代码，性能各方面的建议
 * 参与进来，完善功能
 
-完整的步骤及规范，请参考：
+完整的步骤及规范，请参考：[CONTRIBUTING](https://github.com/roseduan/rosedb/blob/main/CONTRIBUTING.md)
 
 ## 联系我
 

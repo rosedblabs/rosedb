@@ -146,6 +146,10 @@ func main() {
 + [x] Cli for command line use.
 + [ ] Improve related documents
 
+## Contributing
+
+If you are intrested in contributing to rosedb, please see here: [CONTRIBUTING](https://github.com/roseduan/rosedb/blob/main/CONTRIBUTING.md)
+
 ## Contact me
 
 If you have any questions, you can contact me by email: roseduan520@gmail.com

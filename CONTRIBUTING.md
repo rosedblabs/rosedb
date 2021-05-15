@@ -10,7 +10,7 @@ First of all, thanks for your contribution, you can participate in this project 
 
 ## Before you started
 
-Before you started, pelase make sure to read and observe our Code Of Conduct.
+Before you started, pelase make sure to read and observe our [Code Of Conduct](https://github.com/roseduan/rosedb/blob/main/CODE_OF_CONDUCT.md).
 
 ## Contribution steps
 
