@@ -5,21 +5,9 @@
 
 [English](https://github.com/roseduan/rosedb#rosedb) | [简体中文](https://github.com/roseduan/rosedb/blob/main/README.md)
 
-rosedb 是一个简单、内嵌的 k-v 数据库，使用 `Golang` 实现，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`，接口名称风格和 Redis 类似，如果你对 Redis 比较熟悉，那么使用起来会毫无违和感。
+rosedb 是一个简单、内嵌的 k-v 数据库，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`，接口名称风格和 Redis 类似。
 
-## 为什么会做这个项目
-
-大概半年前（2020 年中），我刚开始学习 Go 语言，由于之前有 Java 语言的经验，加上 Go 的基本语法较简单，上手还是很快，但是学完基础的语法知识之后，就不知道下一步应该做什么了。
-
-一个偶然的机会，我在网上看到了一篇介绍数据库模型的文章，文章很简单，理解起来也很容易，加上我对于数据库还是比较感兴趣的，因此想着可以自己实现一个，造个轮子来玩玩，借此巩固自己的一些基础知识。
-
-因此这个项目也是学习并巩固 Go 相关知识的不错的素材，通过实践这个项目，你至少可以学到：
-
-* Golang 大多数基础语法，以及一些高级特性比如 `goroutine`、`chan`、`mutex`
-* 数据结构及算法相关知识，链表，哈希表，跳表等
-* 操作系统的一些知识，特别是对文件系统，内存映射相关
-
-由于个人能力有限，因此欢迎大家提 Issue 和 Pr，一起完善这个项目。
+rosedb 基于 LSM Tree 模型和 WAL，纯 `Golang` 实现，易于学习、使用、扩展。
 
 ## 介绍
 
@@ -176,19 +164,49 @@ func main() {
 + [x] 支持 TTL
 + [x] String 类型 key 加入前缀扫描
 + [x] 写一个简单的客户端，支持命令行操作
++ [ ] 数据库启动优化
++ [ ] reclaim 性能优化
 + [ ] 支持事务，ACID 特性
 + [ ] 文件数据压缩存储（snappy、zstd、zlib）
 + [ ] 缓存淘汰策略（LRU、LFU、Random）
 + [ ] 支持更多的命令操作（type，keys，mset，mget，zcount，etc...）
 + [ ] 完善相关文档
 
-## License
+## 教程
 
-rosedb 根据 MIT License 许可证授权，有关完整许可证文本，请参阅 [LICENSE](https://github.com/roseduan/rosedb/blob/main/LICENSE)。
+我在 B 站录制了这个项目的视频，你可以跟着视频来学习这个项目，期待你给这个项目提出宝贵的意见和建议！
+
+[使用 Go 写一个数据库—1 基本结构](https://www.bilibili.com/video/BV1aZ4y1w7Uz)
+
+[使用 Go 写一个数据库—2 基本数据操作](https://www.bilibili.com/video/BV15p4y1a7kD?spm_id_from=333.788.b_636f6d6d656e74.30)
+
+[使用 Go 写一个数据库—3 数据库操作](https://www.bilibili.com/video/BV1qb4y1D7dG?spm_id_from=333.788.b_636f6d6d656e74.31)
+
+[使用 Go 写一个数据库—4 数据结构](https://www.bilibili.com/video/BV18V411J7Dr?spm_id_from=333.788.b_636f6d6d656e74.32)
+
+[使用 Go 写一个数据库—5 命令行](https://www.bilibili.com/video/BV1gN411f7SR?spm_id_from=333.788.b_636f6d6d656e74.33)
+
+[使用 Go 写一个数据库—6 完结撒花](https://www.bilibili.com/video/BV1VQ4y1o7AV/?spm_id_from=333.788.recommend_more_video.5)
+
+## 参与贡献
+
+感谢你的参与，你可以给这个项目：
+
+* 提 bug 或者 issue
+* 关于代码，性能各方面的建议
+* 参与进来，完善功能
+
+完整的步骤及规范，请参考：
 
 ## 联系我
 
-欢迎加我微信，拉你进项目交流群，和大牛一起交流学习，请备注【Github】。
+欢迎加我微信，拉你进 rosedb 项目交流群，和大牛一起交流学习。
 
 <img src="https://i.loli.net/2021/05/06/tGTH7SXg8w95slA.jpg" width="200px" align="left"/>
+
+添加时请备注【Github】。
+
+## License
+
+rosedb 根据 MIT License 许可证授权，有关完整许可证文本，请参阅 [LICENSE](https://github.com/roseduan/rosedb/blob/main/LICENSE)。
 
