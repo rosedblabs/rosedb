@@ -1,14 +1,11 @@
 package main
 
 import (
-	"bufio"
-	"encoding/binary"
 	"flag"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"github.com/peterh/liner"
 	"log"
-	"net"
 	"os"
 	"strings"
 )
@@ -221,21 +218,4 @@ func parseCommandLine(cmdLine string) (string, []interface{}) {
 		args = append(args, arr[i])
 	}
 	return arr[0], args
-}
-
-func readReply(conn net.Conn) (res string) {
-	reader := bufio.NewReader(conn)
-
-	b := make([]byte, 4)
-	_, err := reader.Read(b)
-	if err != nil {
-		return
-	}
-	size := binary.BigEndian.Uint32(b)
-	if size > 0 {
-		data := make([]byte, size)
-		reader.Read(data)
-		res = string(data)
-	}
-	return
 }

@@ -9,8 +9,6 @@ import (
 	"sync"
 )
 
-const connInterval = 8
-
 // ExecCmdFunc func for cmd execute
 type ExecCmdFunc func(*rosedb.RoseDB, []string) (interface{}, error)
 
