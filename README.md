@@ -4,7 +4,7 @@
 
 [English](https://github.com/roseduan/rosedb#rosedb) | [简体中文](https://github.com/roseduan/rosedb/blob/main/README-CN.md)
 
-rosedb is an embedded k-v database based on LSM+WAL, so it has good write performance and high throughput. It also supports many kinds of data structures such as `string`, `list`, `hash`, `set`, `zset`，and the API name style is similar to Redis.
+rosedb is an embedded k-v database based on LSM + WAL, so it has good write performance and high throughput. It also supports many kinds of data structures such as `string`, `list`, `hash`, `set`, `zset`，and the API name style is similar to Redis.
 
 rosedb is in pure `Go`, simple and easy to understand for using or learning.
 
@@ -30,7 +30,7 @@ Open a new shell, and change the directory to rosedb/cmd/cli, and run the `main.
 
 ![Xnip2021-04-14_14-35-50.png](https://i.loli.net/2021/04/14/9uh1ElVF3C4D6dM.png)
 
-or you can just use redis-cli or any other redis client：
+Or you can just use `redis-cli` or any other redis client：
 
 ![2021-05-14 上午11.19.24.png](https://i.loli.net/2021/05/14/eYkMyTzl5CXUN83.png)
 
@@ -143,76 +143,100 @@ func main() {
 ## TODO
 
 + [x] Support expiration and TTL
++ [x] Add prefix scan and range scan for string type
++ [x] Cli for command line use
++ [ ] Improve the performance of reopening db.
++ [ ] Improve the performance of reclaim operation.
 + [ ] Support transaction, ACID features
 + [ ] Compress the written data
-+ [x] Add prefix scan and range scan for string type
-+ [ ] Add cache elimination strategy (LRU, LFU, Random)
-+ [x] Cli for command line use.
++ [ ] Add cache elimination strategy (Such as LRU, LFU, Random, etc...)
 + [ ] Improve related documents
 
 ## Benchmark
 
 ### Benchmark Environment
 
+* Go version：1.14.4
+
 * System: macOS Catalina 10.15.7
-* CPU: 2.6GHz 
+* CPU: 2.6GHz 6-Core Intel Core i7
 * Memory: 16 GB 2667 MHz DDR4
+* The test databases I choose:
+  * Badger
+  * GoLevelDB
+  * Pudge
 
 ### Benchmark Result
 
-**In the case of a specified time duration(3s):** 
+**execute 100w times**
 
 ```
-go test -bench=. -benchtime=3s
-badger 2021/05/16 00:02:30 INFO: All 0 tables opened in 0s
-badger 2021/05/16 00:02:30 INFO: Discard stats nextEmptySlot: 0
-badger 2021/05/16 00:02:30 INFO: Set nextTxnTs to 0
+go test -bench=. -benchtime=1000000x
+badger 2021/05/16 21:59:53 INFO: All 0 tables opened in 0s
+badger 2021/05/16 21:59:53 INFO: Discard stats nextEmptySlot: 0
+badger 2021/05/16 21:59:53 INFO: Set nextTxnTs to 0
 goos: darwin
 goarch: amd64
 pkg: rosedb-bench
-BenchmarkPutValue_BadgerDB-12                     276902             11482 ns/op            1629 B/op         45 allocs/op
-BenchmarkGetValue_BadgerDB-12                    2363458              1504 ns/op             457 B/op         11 allocs/op
-BenchmarkPutValue_GoLevelDB-12                    844111              4653 ns/op             372 B/op          9 allocs/op
-BenchmarkGetValue_GoLevelDB-12                   2043241              1690 ns/op             415 B/op          8 allocs/op
-BenchmarkPutValue_Pudge-12                        470827              8316 ns/op             776 B/op         22 allocs/op
-BenchmarkGetValue_Pudge-12                       6904564               483 ns/op             125 B/op          5 allocs/op
-BenchmarkPutValue_RoseDB_KeyValRam-12             901753              4550 ns/op             565 B/op         10 allocs/op
-BenchmarkGetValue_RoseDB_KeyValRam-12            7288071               466 ns/op              56 B/op          3 allocs/op
-BenchmarkPutValue_RoseDB_KeyOnlyRam-12            963763              4198 ns/op             565 B/op         10 allocs/op
-BenchmarkGetValue_RoseDB_KeyOnlyRam-12           1866518              1659 ns/op             188 B/op          5 allocs/op
+BenchmarkPutValue_BadgerDB-12                    1000000             11518 ns/op            2110 B/op         46 allocs/op
+BenchmarkGetValue_BadgerDB-12                    1000000              3547 ns/op            1172 B/op         20 allocs/op
+BenchmarkPutValue_GoLevelDB-12                   1000000              4659 ns/op             352 B/op          9 allocs/op
+BenchmarkGetValue_GoLevelDB-12                   1000000              2838 ns/op             814 B/op         13 allocs/op
+BenchmarkPutValue_Pudge-12                       1000000              8512 ns/op             791 B/op         22 allocs/op
+BenchmarkGetValue_Pudge-12                       1000000              1253 ns/op             200 B/op          6 allocs/op
+BenchmarkPutValue_RoseDB_KeyValRam-12            1000000              4371 ns/op             566 B/op         11 allocs/op
+BenchmarkGetValue_RoseDB_KeyValRam-12            1000000               481 ns/op              56 B/op          3 allocs/op
+BenchmarkPutValue_RoseDB_KeyOnlyRam-12           1000000              4255 ns/op             566 B/op         11 allocs/op
+BenchmarkGetValue_RoseDB_KeyOnlyRam-12           1000000              2986 ns/op             312 B/op          8 allocs/op
 PASS
-ok      rosedb-bench    59.091s
-
+ok      rosedb-bench    46.388s
 ```
 
-**In the case of a specified execute times(200w):**
+**execute 250w times**
 
 ```
-go test -bench=. -benchtime=2000000x
-badger 2021/05/16 00:09:59 INFO: All 0 tables opened in 0s
-badger 2021/05/16 00:09:59 INFO: Discard stats nextEmptySlot: 0
-badger 2021/05/16 00:09:59 INFO: Set nextTxnTs to 0
+go test -bench=. -benchtime=2500000x
+badger 2021/05/16 22:06:08 INFO: All 0 tables opened in 0s
+badger 2021/05/16 22:06:08 INFO: Discard stats nextEmptySlot: 0
+badger 2021/05/16 22:06:08 INFO: Set nextTxnTs to 0
 goos: darwin
 goarch: amd64
 pkg: rosedb-bench
-BenchmarkPutValue_BadgerDB-12                    2000000             11667 ns/op            2108 B/op         46 allocs/op
-BenchmarkGetValue_BadgerDB-12                    2000000              4127 ns/op            1212 B/op         20 allocs/op
-BenchmarkPutValue_GoLevelDB-12                   2000000              4593 ns/op             341 B/op          9 allocs/op
-BenchmarkGetValue_GoLevelDB-12                   2000000              2855 ns/op             972 B/op         15 allocs/op
-BenchmarkPutValue_Pudge-12                       2000000              8973 ns/op             788 B/op         22 allocs/op
-BenchmarkGetValue_Pudge-12                       2000000              1258 ns/op             200 B/op          6 allocs/op
-BenchmarkPutValue_RoseDB_KeyValRam-12            2000000              4440 ns/op             566 B/op         11 allocs/op
-BenchmarkGetValue_RoseDB_KeyValRam-12            2000000               508 ns/op              56 B/op          3 allocs/op
-BenchmarkPutValue_RoseDB_KeyOnlyRam-12           2000000              4258 ns/op             566 B/op         11 allocs/op
-BenchmarkGetValue_RoseDB_KeyOnlyRam-12           2000000              2980 ns/op             312 B/op          8 allocs/op
+BenchmarkPutValue_BadgerDB-12                    2500000             11660 ns/op            2150 B/op         46 allocs/op
+BenchmarkGetValue_BadgerDB-12                    2500000              4180 ns/op            1222 B/op         21 allocs/op
+BenchmarkPutValue_GoLevelDB-12                   2500000              4637 ns/op             336 B/op          9 allocs/op
+BenchmarkGetValue_GoLevelDB-12                   2500000              2942 ns/op             817 B/op         14 allocs/op
+BenchmarkPutValue_Pudge-12                       2500000              9238 ns/op             763 B/op         22 allocs/op
+BenchmarkGetValue_Pudge-12                       2500000              1275 ns/op             200 B/op          6 allocs/op
+BenchmarkPutValue_RoseDB_KeyValRam-12            2500000              4474 ns/op             566 B/op         11 allocs/op
+BenchmarkGetValue_RoseDB_KeyValRam-12            2500000               525 ns/op              56 B/op          3 allocs/op
+BenchmarkPutValue_RoseDB_KeyOnlyRam-12           2500000              4294 ns/op             566 B/op         11 allocs/op
+BenchmarkGetValue_RoseDB_KeyOnlyRam-12           2500000              3038 ns/op             312 B/op          8 allocs/op
 PASS
-ok      rosedb-bench    94.468s
-
+ok      rosedb-bench    119.529s
 ```
 
 ### Benchmark Conclusion
 
+**Badger**
 
+Its read and wirte performance are stable. Write: 11000+ ns/op. Read: 4000+ ns/op.
+
+**GoLevelDB**
+
+Its write performance is almost 2.5x faster than Badger, and its read performance is almost 3000 ns/op, a little faster than Badger.
+
+**Pudge**
+
+Its write performance is between GoLevelDB and Badger, almost 8500 ns/op, slower than GoLevelDB. Its read performance is very fast and stable, almost 2x faster than GoLevelDB.
+
+**RoseDB**
+
+Its write performance is stable, alomost the same as GoLevelDB, 2.5x faster than Badger. 
+
+In KeyValueRamMode, since the values are all in memory, so it is the fastest of all.
+
+In KeyOnlyRamMode, it is almost the same as GoLevelDB.
 
 ## Contributing
 
