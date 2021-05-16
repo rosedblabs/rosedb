@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"github.com/gomodule/redigo/redis"
 	"github.com/peterh/liner"
 	"log"
 	"net"
@@ -85,7 +86,7 @@ func main() {
 	flag.Parse()
 
 	addr := fmt.Sprintf("%s:%d", *host, *port)
-	conn, err := net.Dial("tcp", addr)
+	conn, err := redis.Dial("tcp", addr)
 	if err != nil {
 		log.Println("tcp dial err: ", err)
 		return
@@ -164,14 +165,37 @@ func main() {
 				continue
 			}
 
-			wInfo := wrapCmdInfo(cmd)
-			_, err := conn.Write(wInfo)
+			command, args := parseCommandLine(cmd)
+			rawResp, err := conn.Do(command, args...)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Printf("(error) %v \n", err)
+				continue
+			}
+			switch reply := rawResp.(type) {
+			case []byte:
+				println(string(reply))
+			case string:
+				println(reply)
+			case nil:
+				println("(nil)")
+			case redis.Error:
+				fmt.Printf("(error) %v \n", reply)
+			case int64:
+				fmt.Printf("(integer) %d \n", reply)
+			case []interface{}:
+				for i, e := range reply {
+					switch element := e.(type) {
+					case string:
+						fmt.Printf("%d) %s\n", i+1, element)
+					case []byte:
+						fmt.Printf("%d) %s\n", i+1, string(element))
+					default:
+						fmt.Printf("%d) %v\n", i+1, element)
+					}
+
+				}
 			}
 
-			reply := readReply(conn)
-			fmt.Println(reply)
 		}
 	}
 }
@@ -187,11 +211,16 @@ func printCmdHelp() {
 	fmt.Println(help)
 }
 
-func wrapCmdInfo(cmd string) []byte {
-	b := make([]byte, len(cmd)+4)
-	binary.BigEndian.PutUint32(b[:4], uint32(len(cmd)))
-	copy(b[4:], cmd)
-	return b
+func parseCommandLine(cmdLine string) (string, []interface{}) {
+	arr := strings.Split(cmdLine, " ")
+	if len(arr) == 0 {
+		return "", nil
+	}
+	args := make([]interface{}, 0)
+	for i := 1; i < len(arr); i++ {
+		args = append(args, arr[i])
+	}
+	return arr[0], args
 }
 
 func readReply(conn net.Conn) (res string) {

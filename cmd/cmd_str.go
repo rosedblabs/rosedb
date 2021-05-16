@@ -2,29 +2,36 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"github.com/roseduan/rosedb"
+	"github.com/tidwall/redcon"
 	"strconv"
 )
 
 // ErrSyntaxIncorrect incorrect err
 var ErrSyntaxIncorrect = errors.New("syntax err")
+var okResult = redcon.SimpleString("OK")
 
-func set(db *rosedb.RoseDB, args []string) (res string, err error) {
+func newWrongNumOfArgsError(cmd string) error {
+	return fmt.Errorf("wrong number of arguments for '%s' command", cmd)
+}
+
+func set(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("set")
 		return
 	}
 
 	key, value := args[0], args[1]
 	if err = db.Set([]byte(key), []byte(value)); err == nil {
-		res = "OK"
+		res = okResult
 	}
 	return
 }
 
-func get(db *rosedb.RoseDB, args []string) (res string, err error) {
+func get(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("get")
 		return
 	}
 	key := args[0]
@@ -35,22 +42,22 @@ func get(db *rosedb.RoseDB, args []string) (res string, err error) {
 	return
 }
 
-func setNx(db *rosedb.RoseDB, args []string) (res string, err error) {
+func setNx(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("setnx")
 		return
 	}
 
 	key, value := args[0], args[1]
 	if err = db.SetNx([]byte(key), []byte(value)); err == nil {
-		res = "OK"
+		res = okResult
 	}
 	return
 }
 
-func getSet(db *rosedb.RoseDB, args []string) (res string, err error) {
+func getSet(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("getset")
 		return
 	}
 	key, value := args[0], args[1]
@@ -61,55 +68,55 @@ func getSet(db *rosedb.RoseDB, args []string) (res string, err error) {
 	return
 }
 
-func appendStr(db *rosedb.RoseDB, args []string) (res string, err error) {
+func appendStr(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("append")
 		return
 	}
 	key, value := args[0], args[1]
 	if err = db.Append([]byte(key), []byte(value)); err == nil {
-		res = "OK"
+		res = okResult
 	}
 	return
 }
 
-func strLen(db *rosedb.RoseDB, args []string) (res string, err error) {
+func strLen(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("strlen")
 		return
 	}
 	length := db.StrLen([]byte(args[0]))
-	res = strconv.Itoa(length)
+	res = redcon.SimpleInt(length)
 	return
 }
 
-func strExists(db *rosedb.RoseDB, args []string) (res string, err error) {
+func strExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("strexists")
 		return
 	}
 	if exists := db.StrExists([]byte(args[0])); exists {
-		res = "1"
+		res = redcon.SimpleInt(1)
 	} else {
-		res = "0"
+		res = redcon.SimpleInt(0)
 	}
 	return
 }
 
-func strRem(db *rosedb.RoseDB, args []string) (res string, err error) {
+func strRem(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("strrem")
 		return
 	}
 	if err = db.StrRem([]byte(args[0])); err == nil {
-		res = "OK"
+		res = okResult
 	}
 	return
 }
 
-func prefixScan(db *rosedb.RoseDB, args []string) (res string, err error) {
+func prefixScan(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 3 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("prefixscan")
 		return
 	}
 	limit, err := strconv.Atoi(args[1])
@@ -123,37 +130,21 @@ func prefixScan(db *rosedb.RoseDB, args []string) (res string, err error) {
 		return
 	}
 
-	var val [][]byte
-	if val, err = db.PrefixScan(args[0], limit, offset); err == nil {
-		for i, v := range val {
-			res += string(v)
-			if i != len(val)-1 {
-				res += "\n"
-			}
-		}
-	}
+	res, err = db.PrefixScan(args[0], limit, offset)
 	return
 }
 
-func rangeScan(db *rosedb.RoseDB, args []string) (res string, err error) {
+func rangeScan(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("rangescan")
 		return
 	}
 
-	var val [][]byte
-	if val, err = db.RangeScan([]byte(args[0]), []byte(args[1])); err == nil {
-		for i, v := range val {
-			res += string(v)
-			if i != len(val)-1 {
-				res += "\n"
-			}
-		}
-	}
+	res, err = db.RangeScan([]byte(args[0]), []byte(args[1]))
 	return
 }
 
-func expire(db *rosedb.RoseDB, args []string) (res string, err error) {
+func expire(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
 		err = ErrSyntaxIncorrect
 		return
@@ -164,28 +155,28 @@ func expire(db *rosedb.RoseDB, args []string) (res string, err error) {
 		return
 	}
 	if err = db.Expire([]byte(args[0]), uint32(seconds)); err == nil {
-		res = "OK"
+		res = okResult
 	}
 	return
 }
 
-func persist(db *rosedb.RoseDB, args []string) (res string, err error) {
+func persist(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("persist")
 		return
 	}
 	db.Persist([]byte(args[0]))
-	res = "OK"
+	res = okResult
 	return
 }
 
-func ttl(db *rosedb.RoseDB, args []string) (res string, err error) {
+func ttl(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
-		err = ErrSyntaxIncorrect
+		err = newWrongNumOfArgsError("ttl")
 	}
 
-	ttl := db.TTL([]byte(args[0]))
-	res = strconv.FormatInt(int64(ttl), 10)
+	ttlVal := db.TTL([]byte(args[0]))
+	res = strconv.FormatInt(int64(ttlVal), 10)
 	return
 }
 
