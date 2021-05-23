@@ -157,11 +157,11 @@ func Reopen(path string) (*RoseDB, error) {
 
 	var config Config
 
-	bytes, err := ioutil.ReadFile(path + configSaveFile)
+	b, err := ioutil.ReadFile(path + configSaveFile)
 	if err != nil {
 		return nil, err
 	}
-	if err := json.Unmarshal(bytes, &config); err != nil {
+	if err := json.Unmarshal(b, &config); err != nil {
 		return nil, err
 	}
 	return Open(config)
@@ -183,7 +183,7 @@ func (db *RoseDB) Close() error {
 		return err
 	}
 
-	// close and sync the active file
+	// close and sync the active file.
 	if err := db.activeFile.Close(true); err != nil {
 		return err
 	}
@@ -342,8 +342,8 @@ func (db *RoseDB) saveConfig() (err error) {
 	path := db.config.DirPath + configSaveFile
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 
-	bytes, err := json.Marshal(db.config)
-	_, err = file.Write(bytes)
+	b, err := json.Marshal(db.config)
+	_, err = file.Write(b)
 	err = file.Close()
 
 	return

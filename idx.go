@@ -189,7 +189,7 @@ func (db *RoseDB) buildZsetIndex(idx *index.Indexer, opt uint16) {
 }
 
 // loadIdxFromFiles 从文件中加载String、List、Hash、Set、ZSet索引
-// load String、List、Hash、Set、ZSet indexes from files.
+// load String、List、Hash、Set、ZSet indexes from db files.
 func (db *RoseDB) loadIdxFromFiles() error {
 	if db.archFiles == nil && db.activeFile == nil {
 		return nil
@@ -205,6 +205,7 @@ func (db *RoseDB) loadIdxFromFiles() error {
 	dbFile[db.activeFileId] = db.activeFile
 	fileIds = append(fileIds, int(db.activeFileId))
 
+	// load the db files in a specified order.
 	sort.Ints(fileIds)
 	for i := 0; i < len(fileIds); i++ {
 		fid := uint32(fileIds[i])
