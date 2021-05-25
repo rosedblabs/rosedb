@@ -170,7 +170,18 @@ func (z *SortedSet) ZRange(key string, start, stop int) []interface{} {
 		return nil
 	}
 
-	return z.findRange(key, int64(start), int64(stop), false)
+	return z.findRange(key, int64(start), int64(stop), false, false)
+}
+
+// ZRangeWithScores 返回有序集 key 中，指定区间内的成员以及 score 值,其中成员的位置按 score 值递增(从小到大)来排序
+//具有相同 score 值的成员按字典序(lexicographical order )来排列
+// Returns the specified range of elements in the sorted set stored at <key>.
+func (z *SortedSet) ZRangeWithScores(key string, start, stop int) []interface{} {
+	if !z.exist(key) {
+		return nil
+	}
+
+	return z.findRange(key, int64(start), int64(stop), false, true)
 }
 
 // ZRevRange 返回有序集 key 中，指定区间内的成员，其中成员的位置按 score 值递减(从大到小)来排列
@@ -183,7 +194,20 @@ func (z *SortedSet) ZRevRange(key string, start, stop int) []interface{} {
 		return nil
 	}
 
-	return z.findRange(key, int64(start), int64(stop), true)
+	return z.findRange(key, int64(start), int64(stop), true, false)
+}
+
+// ZRevRange 返回有序集 key 中，指定区间内的成员以及 score 值，其中成员的位置按 score 值递减(从大到小)来排列
+// 具有相同 score 值的成员按字典序的逆序(reverse lexicographical order)排列
+// Returns the specified range of elements in the sorted set stored at key.
+// The elements are considered to be ordered from the highest to the lowest score.
+// Descending lexicographical order is used for elements with equal score.
+func (z *SortedSet) ZRevRangeWithScores(key string, start, stop int) []interface{} {
+	if !z.exist(key) {
+		return nil
+	}
+
+	return z.findRange(key, int64(start), int64(stop), true, true)
 }
 
 // ZRem 移除有序集 key 中的 member 成员，不存在则将被忽略
@@ -340,7 +364,7 @@ func (z *SortedSet) getByRank(key string, rank int64, reverse bool) (string, flo
 	return node.member, node.score
 }
 
-func (z *SortedSet) findRange(key string, start, stop int64, reverse bool) (val []interface{}) {
+func (z *SortedSet) findRange(key string, start, stop int64, reverse bool, withScores bool) (val []interface{}) {
 	skl := z.record[key].skl
 	length := skl.length
 
@@ -379,8 +403,11 @@ func (z *SortedSet) findRange(key string, start, stop int64, reverse bool) (val 
 
 	for span > 0 {
 		span--
-
-		val = append(val, node.member, node.score)
+		if withScores {
+			val = append(val, node.member, node.score)
+		} else {
+			val = append(val, node.member)
+		}
 		if reverse {
 			node = node.backward
 		} else {

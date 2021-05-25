@@ -117,11 +117,35 @@ func TestSortedSet_ZRange(t *testing.T) {
 	}
 }
 
+func TestSortedSet_ZRangeWithScores(t *testing.T) {
+	zSet := InitZSet()
+	key := "myzset"
+
+	ran := zSet.ZRangeWithScores(key, 0, -1)
+	t.Log(len(ran))
+
+	for _, v := range ran {
+		t.Logf("%+v", v)
+	}
+}
+
 func TestSortedSet_ZRevRange(t *testing.T) {
 	zSet := InitZSet()
 	key := "myzset"
 
 	ran := zSet.ZRevRange(key, 0, -1)
+	t.Log(len(ran))
+
+	for _, v := range ran {
+		t.Logf("%+v", v)
+	}
+}
+
+func TestSortedSet_ZRevRangeWithScores(t *testing.T) {
+	zSet := InitZSet()
+	key := "myzset"
+
+	ran := zSet.ZRevRangeWithScores(key, 0, -1)
 	t.Log(len(ran))
 
 	for _, v := range ran {
