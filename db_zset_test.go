@@ -92,6 +92,18 @@ func TestRoseDB_ZRange(t *testing.T) {
 	}
 }
 
+func TestRoseDB_ZRangeWithScores(t *testing.T) {
+	db := ReopenDb()
+	defer db.Close()
+	key := []byte("my_zset")
+
+	db.ZRangeWithScores(nil, 0, -1)
+	vals := db.ZRangeWithScores(key, 0, -1)
+	for _, v := range vals {
+		t.Logf("%+v ", v)
+	}
+}
+
 func TestRoseDB_ZRevRange(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
@@ -99,6 +111,18 @@ func TestRoseDB_ZRevRange(t *testing.T) {
 
 	db.ZRevRange(nil, 0, -1)
 	vals := db.ZRevRange(key, 0, -1)
+	for _, v := range vals {
+		t.Logf("%+v ", v)
+	}
+}
+
+func TestRoseDB_ZRevRangeWithScores(t *testing.T) {
+	db := ReopenDb()
+	defer db.Close()
+	key := []byte("my_zset")
+
+	db.ZRevRangeWithScores(nil, 0, -1)
+	vals := db.ZRevRangeWithScores(key, 0, -1)
 	for _, v := range vals {
 		t.Logf("%+v ", v)
 	}
