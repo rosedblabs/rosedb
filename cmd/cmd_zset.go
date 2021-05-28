@@ -6,6 +6,7 @@ import (
 	"github.com/roseduan/rosedb/utils"
 	"github.com/tidwall/redcon"
 	"strconv"
+	"strings"
 )
 
 func zAdd(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
@@ -82,7 +83,7 @@ func zIncrBy(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 }
 
 func zRange(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
-	if len(args) != 3 {
+	if len(args) != 3 && len(args) != 4 {
 		err = newWrongNumOfArgsError("zrange")
 		return
 	}
@@ -90,7 +91,7 @@ func zRange(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 }
 
 func zRevRange(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
-	if len(args) != 3 {
+	if len(args) != 3 && len(args) != 4 {
 		err = newWrongNumOfArgsError("zrevrange")
 		return
 	}
@@ -99,6 +100,16 @@ func zRevRange(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 
 // for zRange and zRevRange
 func zRawRange(db *rosedb.RoseDB, args []string, rev bool) (res interface{}, err error) {
+	withScores := false
+	if len(args) == 4 {
+		if strings.ToLower(args[3]) == "withscores" {
+			withScores = true
+			args = args[:3]
+		} else {
+			err = ErrSyntaxIncorrect
+			return
+		}
+	}
 	start, err := strconv.Atoi(args[1])
 	if err != nil {
 		err = ErrSyntaxIncorrect
@@ -112,9 +123,17 @@ func zRawRange(db *rosedb.RoseDB, args []string, rev bool) (res interface{}, err
 
 	var val []interface{}
 	if rev {
-		val = db.ZRevRange([]byte(args[0]), start, end)
+		if withScores {
+			val = db.ZRevRangeWithScores([]byte(args[0]), start, end)
+		} else {
+			val = db.ZRevRange([]byte(args[0]), start, end)
+		}
 	} else {
-		val = db.ZRange([]byte(args[0]), start, end)
+		if withScores {
+			val = db.ZRangeWithScores([]byte(args[0]), start, end)
+		} else {
+			val = db.ZRange([]byte(args[0]), start, end)
+		}
 	}
 
 	results := make([]string, len(val))
