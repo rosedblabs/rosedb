@@ -11,11 +11,7 @@ WORKDIR /build
 
 COPY . .
 
-RUN go mod tidy
-
-RUN go build -o bin/rosedb-server cmd/server/main.go
-
-RUN go build -o bin/rosedb-cli cmd/cli/main.go
+RUN go mod tidy && go build -o bin/rosedb-server cmd/server/main.go && go build -o bin/rosedb-cli cmd/cli/main.go
 
 WORKDIR /dist
 
