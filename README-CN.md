@@ -88,7 +88,7 @@ func main() {
 }
 ```
 
-### Docker部署与运行
+### 在Docker上部署与运行
 
 ```shell
 docker build -t="rosedb:v1.2.7" .
