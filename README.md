@@ -67,7 +67,7 @@ func main() {
 }
 ```
 
-### depley and run on Docker
+### deploy and run on Docker
 
 ```shell
 docker build -t="rosedb:v1.2.7" .
