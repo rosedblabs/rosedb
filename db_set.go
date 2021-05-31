@@ -29,7 +29,8 @@ func (db *RoseDB) SAdd(key []byte, members ...[]byte) (res int, err error) {
 	defer db.setIndex.mu.Unlock()
 
 	for _, m := range members {
-		if exist := db.SIsMember(key, m); !exist {
+		exist := db.setIndex.indexes.SIsMember(string(key), m)
+		if !exist {
 			e := storage.NewEntryNoExtra(key, m, Set, SetSAdd)
 			if err = db.store(e); err != nil {
 				return
