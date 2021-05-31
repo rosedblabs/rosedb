@@ -16,33 +16,37 @@ const (
 
 func init() {
 	os.MkdirAll(path1, os.ModePerm)
-	_, err := os.OpenFile("/tmp/rosedb/000000000.data", os.O_CREATE|os.O_RDWR, os.ModePerm)
+	_, err := os.OpenFile("/tmp/rosedb/000000000.data.str", os.O_CREATE|os.O_RDWR, os.ModePerm)
 	if err != nil {
 		log.Println("create file err. ", err)
 	}
-	os.OpenFile("/tmp/rosedb/000000001.data", os.O_CREATE|os.O_RDWR, os.ModePerm)
+	os.OpenFile("/tmp/rosedb/000000001.data.list", os.O_CREATE|os.O_RDWR, os.ModePerm)
 }
 
 func TestNewDBFile(t *testing.T) {
-
-	newOne := func(method FileRWMethod) {
-		_, err := NewDBFile(path1, fileID1, method, defaultBlockSize)
+	os.MkdirAll(path1, os.ModePerm)
+	newOne := func(method FileRWMethod, dataType uint16) {
+		_, err := NewDBFile(path1, fileID1, method, defaultBlockSize, dataType)
 		if err != nil {
 			t.Error("new db file error ", err)
 		}
 	}
 
 	t.Run("new db file file io", func(t *testing.T) {
-		newOne(FileIO)
+		for i := 0; i < 5; i++ {
+			newOne(FileIO, uint16(i))
+		}
 	})
 
 	t.Run("new db file mmap", func(t *testing.T) {
-		newOne(MMap)
+		for i := 0; i < 5; i++ {
+			newOne(MMap, uint16(i))
+		}
 	})
 }
 
 func TestDBFile_Sync(t *testing.T) {
-	df, err := NewDBFile(path1, fileID1, FileIO, defaultBlockSize)
+	df, err := NewDBFile(path1, fileID1, FileIO, defaultBlockSize, 1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -50,7 +54,7 @@ func TestDBFile_Sync(t *testing.T) {
 }
 
 func TestDBFile_Close(t *testing.T) {
-	df, err := NewDBFile(path1, fileID1, FileIO, defaultBlockSize)
+	df, err := NewDBFile(path1, fileID1, FileIO, defaultBlockSize, 3)
 	if err != nil {
 		t.Error(err)
 	}
@@ -66,7 +70,7 @@ func TestBuild(t *testing.T) {
 }
 
 func TestDBFile_Write2(t *testing.T) {
-	df, err := NewDBFile(path1, fileID1, FileIO, defaultBlockSize)
+	df, err := NewDBFile(path1, fileID1, FileIO, defaultBlockSize, 0)
 	if err != nil {
 		t.Error(err)
 	}
@@ -102,25 +106,25 @@ func TestDBFile_Write2(t *testing.T) {
 }
 
 func TestDBFile_Read2(t *testing.T) {
-	//df, _ := NewDBFile(path1, fileID1, FileIO, defaultBlockSize)
-	//
-	//readEntry := func(offset int64) *Entry {
-	//	if e, err := df.Read(offset); err != nil {
-	//		t.Error("read db File error ", err)
-	//	} else {
-	//		return e
-	//	}
-	//	return nil
-	//}
-	//
-	//_ = readEntry(0)
-	//_ = readEntry(30)
-	//defer df.Close(false)
+	df, _ := NewDBFile(path1, fileID1, FileIO, defaultBlockSize, 0)
+
+	readEntry := func(offset int64) *Entry {
+		if e, err := df.Read(offset); err != nil {
+			t.Error("read db File error ", err)
+		} else {
+			return e
+		}
+		return nil
+	}
+
+	_ = readEntry(0)
+	_ = readEntry(34)
+	defer df.Close(false)
 }
 
 func TestDBFile_Write(t *testing.T) {
 
-	var df, _ = NewDBFile(path2, fileID2, MMap, defaultBlockSize)
+	var df, _ = NewDBFile(path2, fileID2, MMap, defaultBlockSize, 1)
 
 	writeEntry := func(key, value []byte) {
 		defer df.Sync()
@@ -142,13 +146,15 @@ func TestDBFile_Write(t *testing.T) {
 }
 
 func TestDBFile_Read(t *testing.T) {
-	//readEntry := func(offset int64) {
-	//	if e, err := df.Read(offset); err != nil {
-	//		t.Error("数据读取失败", err)
-	//	} else {
-	//		t.Log(string(e.Meta.Key), e.Meta.KeySize, string(e.Meta.Value), e.Meta.ValueSize, e.crc32)
-	//	}
-	//}
-	//readEntry(0)
-	//readEntry(40)
+	var df, _ = NewDBFile(path2, fileID2, MMap, defaultBlockSize, 1)
+
+	readEntry := func(offset int64) {
+		if e, err := df.Read(offset); err != nil {
+			t.Error("数据读取失败", err)
+		} else {
+			t.Log(string(e.Meta.Key), e.Meta.KeySize, string(e.Meta.Value), e.Meta.ValueSize, e.crc32)
+		}
+	}
+	readEntry(0)
+	readEntry(44)
 }

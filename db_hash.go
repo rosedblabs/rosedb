@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"bytes"
 	"github.com/roseduan/rosedb/ds/hash"
 	"github.com/roseduan/rosedb/storage"
 	"sync"
@@ -24,8 +25,13 @@ func newHashIdx() *HashIdx {
 // Sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
 // If field already exists in the hash, it is overwritten.
 func (db *RoseDB) HSet(key, field, value []byte) (res int, err error) {
-
 	if err = db.checkKeyValue(key, value); err != nil {
+		return
+	}
+
+	// If the existed value is the same as the set value, nothing will be done.
+	oldVal := db.HGet(key, field)
+	if bytes.Compare(oldVal, value) == 0 {
 		return
 	}
 
@@ -49,7 +55,6 @@ func (db *RoseDB) HSet(key, field, value []byte) (res int, err error) {
 // If key does not exist, a new key holding a hash is created. If field already exists, this operation has no effect.
 // return if the operation successful
 func (db *RoseDB) HSetNx(key, field, value []byte) (res bool, err error) {
-
 	if err = db.checkKeyValue(key, value); err != nil {
 		return
 	}
@@ -93,7 +98,6 @@ func (db *RoseDB) HGetAll(key []byte) [][]byte {
 // Removes the specified fields from the hash stored at key. Specified fields that do not exist within this hash are ignored.
 // If key does not exist, it is treated as an empty hash and this command returns false.
 func (db *RoseDB) HDel(key []byte, field ...[]byte) (res int, err error) {
-
 	if field == nil || len(field) == 0 {
 		return
 	}
@@ -116,7 +120,6 @@ func (db *RoseDB) HDel(key []byte, field ...[]byte) (res int, err error) {
 // HExists 检查给定域 field 是否存在于key对应的哈希表中
 // Returns if field is an existing field in the hash stored at key.
 func (db *RoseDB) HExists(key, field []byte) bool {
-
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return false
 	}

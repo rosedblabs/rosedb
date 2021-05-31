@@ -3,11 +3,14 @@ package rosedb
 import (
 	"github.com/roseduan/rosedb/ds/list"
 	"github.com/roseduan/rosedb/index"
+	"github.com/roseduan/rosedb/storage"
 	"github.com/roseduan/rosedb/utils"
 	"io"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -195,43 +198,56 @@ func (db *RoseDB) loadIdxFromFiles() error {
 		return nil
 	}
 
-	var fileIds []int
-	dbFile := make(ArchivedFiles)
-	for k, v := range db.archFiles {
-		dbFile[k] = v
-		fileIds = append(fileIds, int(k))
-	}
+	wg := sync.WaitGroup{}
+	wg.Add(5)
+	for dataType := 0; dataType < 5; dataType++ {
+		go func(dType uint16) {
+			defer func() {
+				wg.Done()
+			}()
 
-	dbFile[db.activeFileId] = db.activeFile
-	fileIds = append(fileIds, int(db.activeFileId))
-
-	// load the db files in a specified order.
-	sort.Ints(fileIds)
-	for i := 0; i < len(fileIds); i++ {
-		fid := uint32(fileIds[i])
-		df := dbFile[fid]
-		var offset int64 = 0
-
-		for offset <= db.config.BlockSize {
-			if e, err := df.Read(offset); err == nil {
-				idx := &index.Indexer{
-					Meta:      e.Meta,
-					FileId:    fid,
-					EntrySize: e.Size(),
-					Offset:    offset,
-				}
-				offset += int64(e.Size())
-
-				if err := db.buildIndex(e, idx); err != nil {
-					return err
-				}
-			} else {
-				if err == io.EOF {
-					break
-				}
-				return err
+			// archived files
+			var fileIds []int
+			dbFile := make(map[uint32]*storage.DBFile)
+			for k, v := range db.archFiles[dType] {
+				dbFile[k] = v
+				fileIds = append(fileIds, int(k))
 			}
-		}
+
+			// active file
+			dbFile[db.activeFileIds[dType]] = db.activeFile[dType]
+			fileIds = append(fileIds, int(db.activeFileIds[dType]))
+
+			// load the db files in a specified order.
+			sort.Ints(fileIds)
+			for i := 0; i < len(fileIds); i++ {
+				fid := uint32(fileIds[i])
+				df := dbFile[fid]
+				var offset int64 = 0
+
+				for offset <= db.config.BlockSize {
+					if e, err := df.Read(offset); err == nil {
+						idx := &index.Indexer{
+							Meta:      e.Meta,
+							FileId:    fid,
+							EntrySize: e.Size(),
+							Offset:    offset,
+						}
+						offset += int64(e.Size())
+
+						if err := db.buildIndex(e, idx); err != nil {
+							log.Fatalf("a fatal err occurred, the db can not open.[%+v]", err)
+						}
+					} else {
+						if err == io.EOF {
+							break
+						}
+						log.Fatalf("a fatal err occurred, the db can not open.[%+v]", err)
+					}
+				}
+			}
+		}(uint16(dataType))
 	}
+	wg.Wait()
 	return nil
 }

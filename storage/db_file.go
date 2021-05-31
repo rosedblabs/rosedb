@@ -17,12 +17,23 @@ const (
 	// default permission of the created file
 	FilePerm = 0644
 
-	// DBFileFormatName 默认数据文件名称格式化
-	// default name format of the data file
-	DBFileFormatName = "%09d.data"
-
 	// PathSeparator the default path separator
 	PathSeparator = string(os.PathSeparator)
+)
+
+var (
+	// DBFileFormatNames 默认数据文件名称格式化
+	// default name format of the db files.
+	DBFileFormatNames = map[uint16]string{
+		0: "%09d.data.str",
+		1: "%09d.data.list",
+		2: "%09d.data.hash",
+		3: "%09d.data.set",
+		4: "%09d.data.zset",
+	}
+
+	// DBFileSuffixName represent the suffix names of the db files.
+	DBFileSuffixName = []string{"str", "list", "hash", "set", "zset"}
 )
 
 var (
@@ -31,7 +42,7 @@ var (
 )
 
 // FileRWMethod 文件数据读写的方式
-// file read and write method
+// db file read and write method
 type FileRWMethod uint8
 
 const (
@@ -59,8 +70,8 @@ type DBFile struct {
 
 // NewDBFile 新建一个数据读写文件，如果是MMap，则需要Truncate文件并进行加载
 // create a new db file, truncate the file if rw method is mmap.
-func NewDBFile(path string, fileId uint32, method FileRWMethod, blockSize int64) (*DBFile, error) {
-	filePath := path + PathSeparator + fmt.Sprintf(DBFileFormatName, fileId)
+func NewDBFile(path string, fileId uint32, method FileRWMethod, blockSize int64, eType uint16) (*DBFile, error) {
+	filePath := path + PathSeparator + fmt.Sprintf(DBFileFormatNames[eType], fileId)
 
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, FilePerm)
 	if err != nil {
@@ -205,39 +216,60 @@ func (df *DBFile) Sync() (err error) {
 }
 
 // Build 加载数据文件
-// build db file
-func Build(path string, method FileRWMethod, blockSize int64) (map[uint32]*DBFile, uint32, error) {
+// build db files.
+func Build(path string, method FileRWMethod, blockSize int64) (map[uint16]map[uint32]*DBFile, map[uint16]uint32, error) {
 	dir, err := ioutil.ReadDir(path)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 
-	var fileIDs []int
+	fileIdsMap := make(map[uint16][]int)
 	for _, d := range dir {
-		if strings.HasSuffix(d.Name(), "data") {
+		if strings.Contains(d.Name(), ".data") {
 			splitNames := strings.Split(d.Name(), ".")
 			id, _ := strconv.Atoi(splitNames[0])
-			fileIDs = append(fileIDs, id)
-		}
-	}
 
-	sort.Ints(fileIDs)
-	var activeFileId uint32 = 0
-	archFiles := make(map[uint32]*DBFile)
-	if len(fileIDs) > 0 {
-		activeFileId = uint32(fileIDs[len(fileIDs)-1])
-
-		for i := 0; i < len(fileIDs)-1; i++ {
-			id := fileIDs[i]
-
-			file, err := NewDBFile(path, uint32(id), method, blockSize)
-			if err != nil {
-				return nil, activeFileId, err
+			// find the different types of file.
+			switch splitNames[2] {
+			case DBFileSuffixName[0]:
+				fileIdsMap[0] = append(fileIdsMap[0], id)
+			case DBFileSuffixName[1]:
+				fileIdsMap[1] = append(fileIdsMap[1], id)
+			case DBFileSuffixName[2]:
+				fileIdsMap[2] = append(fileIdsMap[2], id)
+			case DBFileSuffixName[3]:
+				fileIdsMap[3] = append(fileIdsMap[3], id)
+			case DBFileSuffixName[4]:
+				fileIdsMap[4] = append(fileIdsMap[4], id)
 			}
-
-			archFiles[uint32(id)] = file
 		}
 	}
 
-	return archFiles, activeFileId, nil
+	// load all the db files.
+	activeFileIds := make(map[uint16]uint32)
+	archFiles := make(map[uint16]map[uint32]*DBFile)
+	var dataType uint16 = 0
+	for ; dataType < 5; dataType++ {
+		fileIDs := fileIdsMap[dataType]
+		sort.Ints(fileIDs)
+		files := make(map[uint32]*DBFile)
+		var activeFileId uint32 = 0
+
+		if len(fileIDs) > 0 {
+			activeFileId = uint32(fileIDs[len(fileIDs)-1])
+
+			for i := 0; i < len(fileIDs)-1; i++ {
+				id := fileIDs[i]
+
+				file, err := NewDBFile(path, uint32(id), method, blockSize, dataType)
+				if err != nil {
+					return nil, nil, err
+				}
+				files[uint32(id)] = file
+			}
+		}
+		archFiles[dataType] = files
+		activeFileIds[dataType] = activeFileId
+	}
+	return archFiles, activeFileIds, nil
 }

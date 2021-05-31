@@ -3,7 +3,9 @@ package storage
 import "testing"
 
 func TestDBMeta_Store(t *testing.T) {
-	m := &DBMeta{43}
+	writeOff := make(map[uint16]int64)
+	writeOff[0] = 34
+	m := &DBMeta{writeOff}
 	if err := m.Store("/tmp/db.Meta"); err != nil {
 		t.Error(err)
 	}

@@ -206,9 +206,9 @@ func main() {
 
 欢迎加我微信，拉你进 rosedb 项目交流群，和大牛一起交流学习。
 
-<img src="https://i.loli.net/2021/05/06/tGTH7SXg8w95slA.jpg" width="200px" align="left"/>
-
-添加时请备注【Github】。
+| <img src="https://i.loli.net/2021/05/06/tGTH7SXg8w95slA.jpg" width="200px" align="left"/> |
+| ------------------------------------------------------------ |
+| 添加时请备注【Github】哦。                                   |
 
 ## License
 

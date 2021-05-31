@@ -184,17 +184,17 @@ func writeMultiLargeData(db *RoseDB) {
 	}
 
 	//hash
-	for i := 0; i < 50000; i++ {
-		key := keyPrefix + strconv.Itoa(rand.Intn(1000))
-		field := "field-" + strconv.Itoa(rand.Intn(1000))
-		val := valPrefix + strconv.Itoa(rand.Intn(1000))
+	for i := 0; i < 2000000; i++ {
+		key := keyPrefix + strconv.Itoa(rand.Intn(100000))
+		field := "field-" + strconv.Itoa(rand.Intn(100000))
+		val := valPrefix + strconv.Itoa(rand.Intn(100000))
 		db.HSet([]byte(key), []byte(field), []byte(val))
 	}
 
 	//set
-	for i := 0; i < 50000; i++ {
-		key := keyPrefix + strconv.Itoa(rand.Intn(1000))
-		val := valPrefix + strconv.Itoa(rand.Intn(1000))
+	for i := 0; i < 2000000; i++ {
+		key := keyPrefix + strconv.Itoa(rand.Intn(10000))
+		val := valPrefix + strconv.Itoa(rand.Intn(10000))
 		db.SAdd([]byte(key), [][]byte{[]byte(val)}...)
 	}
 
@@ -205,9 +205,35 @@ func writeMultiLargeData(db *RoseDB) {
 	db.SMove(key1, key2, []byte("1"))
 
 	//zset
-	for i := 0; i < 50000; i++ {
-		key := keyPrefix + strconv.Itoa(rand.Intn(1000))
-		val := valPrefix + strconv.Itoa(rand.Intn(1000))
+	for i := 0; i < 2000000; i++ {
+		key := keyPrefix + strconv.Itoa(rand.Intn(10000))
+		val := valPrefix + strconv.Itoa(rand.Intn(10000))
 		db.ZAdd([]byte(key), float64(i+100), []byte(val))
 	}
+}
+
+func TestOpen4(t *testing.T) {
+	config := DefaultConfig()
+	config.IdxMode = KeyOnlyRamMode
+	config.BlockSize = 8 * 1024 * 1024
+	config.DirPath = "/tmp/rosedb"
+
+	start := time.Now()
+	db, err := Open(config)
+	t.Log("open time spend: ", time.Since(start))
+
+	if err != nil {
+		log.Fatal("open db err.", err)
+	}
+	defer db.Close()
+
+	t.Log("有效的 str 数量 : ", db.strIndex.idxList.Len)
+
+	start = time.Now()
+	writeMultiLargeData(db)
+	//err = db.Reclaim()
+	//if err != nil {
+	//	log.Fatal("reclaim err: ", err)
+	//}
+	t.Log("time spent : ", time.Since(start))
 }
