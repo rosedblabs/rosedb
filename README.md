@@ -4,17 +4,18 @@
 
 [English](https://github.com/roseduan/rosedb#rosedb) | [简体中文](https://github.com/roseduan/rosedb/blob/main/README-CN.md)
 
-rosedb is an embedded k-v database based on LSM + WAL, so it has good write performance and high throughput. It also supports many kinds of data structures such as `string`, `list`, `hash`, `set`, `zset`，and the API name style is similar to Redis.
+rosedb is an embedded and fast  k-v database based on LSM + WAL, so it has pretty good write performance and high throughput. It also supports many kinds of data structures such as `string`, `list`, `hash`, `set`, `zset`，and the API name style is similar to Redis.
 
 rosedb is in pure `Go`, simple and easy to understand for using or learning.
 
 ## Feature
 
-* Support rich data structure :  `string`, `list`, `hash`, `set`, `zset`.
-* Support expiration and TTL.
-* Has builtin rosedb-cli for command line.
+* Support rich data structures :  `string`, `list`, `hash`, `set`, `zset`.
 * Easy to embedded (`import "github.com/roseduan/rosedb"`).
 * Low latency and high throughput.
+* Operations of various data types can be parallel.
+* Has builtin rosedb-cli for command line, also support redis-cli.
+* Support expiration and TTL.
 
 ## Usage
 
@@ -145,8 +146,8 @@ func main() {
 + [x] Support expiration and TTL
 + [x] Add prefix scan and range scan for string type
 + [x] Cli for command line use
-+ [ ] Improve the performance of reopening db.
-+ [ ] Improve the performance of reclaim operation.
++ [x] Improve the performance of reopening db.
++ [x] Improve the performance of reclaim operation.
 + [ ] Support transaction, ACID features
 + [ ] Compress the written data
 + [ ] Add cache elimination strategy (Such as LRU, LFU, Random, etc...)
