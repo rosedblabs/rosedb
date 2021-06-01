@@ -69,7 +69,7 @@ func newConfigFromFile(config string) (*rosedb.Config, error) {
 	}
 
 	var cfg = new(rosedb.Config)
-	err = toml.Unmarshal(data, &cfg)
+	err = toml.Unmarshal(data, cfg)
 	if err != nil {
 		return nil, err
 	}
