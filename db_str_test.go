@@ -51,8 +51,8 @@ func TestRoseDB_SetNx(t *testing.T) {
 	defer db.Close()
 
 	_ = db.Set([]byte("test_key"), []byte("test_value"))
-	_ = db.SetNx([]byte("test_key"), []byte("value_001"))
-	_ = db.SetNx([]byte("test_key_new11111111111"), []byte("value_002"))
+	_, _ = db.SetNx([]byte("test_key"), []byte("value_001"))
+	_, _ = db.SetNx([]byte("test_key_new11111111111"), []byte("value_002"))
 
 	val1, _ := db.Get([]byte("test_key"))
 	val2, _ := db.Get([]byte("test_key_new11111111111"))

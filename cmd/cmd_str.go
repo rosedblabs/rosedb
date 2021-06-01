@@ -49,8 +49,10 @@ func setNx(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	}
 
 	key, value := args[0], args[1]
-	if err = db.SetNx([]byte(key), []byte(value)); err == nil {
-		res = okResult
+	result, err := db.SetNx([]byte(key), []byte(value))
+
+	if err == nil {
+		res = result
 	}
 	return
 }

@@ -40,12 +40,18 @@ func (db *RoseDB) Set(key, value []byte) error {
 // set key to hold string value if key does not exist.
 // In that case, it is equal to SET. When key already holds a value, no operation is performed.
 // SETNX is short for "SET if Not eXists".
-func (db *RoseDB) SetNx(key, value []byte) error {
+func (db *RoseDB) SetNx(key, value []byte) (result uint32, error error) {
 	if exist := db.StrExists(key); exist {
-		return nil
+		return 0, nil
 	}
 
-	return db.Set(key, value)
+	var err = db.Set(key, value)
+	if err == nil {
+		return 1, nil
+	} else {
+		return 0, err
+	}
+
 }
 
 // Get 获取str数据
