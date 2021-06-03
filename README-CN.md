@@ -5,9 +5,13 @@
 
 [English](https://github.com/roseduan/rosedb#rosedb) | [简体中文](https://github.com/roseduan/rosedb/blob/main/README.md)
 
-rosedb 是一个高性能、快速、内嵌的 k-v 数据库，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`，接口名称风格和 Redis 类似。
+rosedb 是一个稳定、高性能、快速、内嵌的 k-v 数据库，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`，接口名称风格和 Redis 类似。
 
-rosedb 基于 LSM Tree 模型和 WAL，纯 `Golang` 实现，易于使用、扩展。
+rosedb 数据文件布局基于 LSM Tree 和 WAL，纯 `Golang` 实现，易于使用、扩展。
+
+我们的愿景是打造一个高效的 k-v 存储引擎，你可以给我们提任何建议，也请给我们一个 start ✨ 吧，非常感谢！
+
+ ![Stargazers over time](https://starchart.cc/roseduan/rosedb.svg)
 
 ## 特性
 

@@ -4,9 +4,13 @@
 
 [English](https://github.com/roseduan/rosedb#rosedb) | [简体中文](https://github.com/roseduan/rosedb/blob/main/README-CN.md)
 
-rosedb is an embedded and fast  k-v database based on LSM + WAL, so it has pretty good write performance and high throughput. It also supports many kinds of data structures such as `string`, `list`, `hash`, `set`, `zset`，and the API name style is similar to Redis.
+rosedb is a fast, stable and embedded  k-v database based on LSM + WAL, so it has great write performance and high throughput. It also supports many kinds of data structures such as `string`, `list`, `hash`, `set`, `zset`，and the API name style is similar to Redis.
 
-rosedb is in pure `Go`, simple and easy to understand for using or learning.
+rosedb is in pure `Go`, and it is simple and easy enough to use in production.
+
+Our vision is to build an efficient kv storage engine for Go-based applications, you can give us any advices, and also please give us a star ✨，that will help us a lot, thanks!
+
+ [![Stargazers over time](https://starchart.cc/roseduan/rosedb.svg)](https://starchart.cc/roseduan/rosedb)      
 
 ## Feature
 
@@ -158,10 +162,10 @@ func main() {
 ### Benchmark Environment
 
 * Go version：1.14.4
-
 * System: macOS Catalina 10.15.7
 * CPU: 2.6GHz 6-Core Intel Core i7
 * Memory: 16 GB 2667 MHz DDR4
+* The benchmark code: [rosedb-bench](https://github.com/roseduan/rosedb-bench)
 * The test databases I choose:
   * Badger
   * GoLevelDB
