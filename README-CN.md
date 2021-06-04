@@ -101,6 +101,20 @@ func main() {
 }
 ```
 
+### 在Docker上部署与运行
+
+```shell
+docker build -t="rosedb:v1.2.7" .
+docker run --name=rosedb -itd -p 5200:5200 rosedb:v1.2.7
+docker exec -it rosedb sh
+
+$ rosedb-cli
+127.0.0.1:5200>set hello rosedb
+OK
+127.0.0.1:5200>get hello
+rosedb
+```
+
 ## 支持的命令
 
 ### String
