@@ -20,6 +20,7 @@ Our vision is to build an efficient kv storage engine for Go-based applications,
 * Operations of various data types can be parallel.
 * Has builtin rosedb-cli for command line, also support redis-cli.
 * Support expiration and TTL.
+* Support prefix scan and range scan for string keys.
 
 ## Usage
 
@@ -152,7 +153,9 @@ rosedb
 * ZRevRank
 * ZIncrBy
 * ZRange
+* ZRangeWithScores
 * ZRevRange
+* ZRevRangeWithScores
 * ZRem
 * ZGetByRank
 * ZRevGetByRank

@@ -21,6 +21,7 @@ rosedb 数据文件布局基于 LSM Tree 和 WAL，纯 `Golang` 实现，易于�
 * 不同数据类型的操作可以完全并行。
 * 支持客户端命令行操作。
 * 支持过期时间。
+* `String` 数据类型支持前缀和范围扫描。
 
 ## 介绍
 
@@ -181,7 +182,9 @@ rosedb
 * ZRevRank
 * ZIncrBy
 * ZRange
+* ZRangeWithScores
 * ZRevRange
+* ZRevRangeWithScores
 * ZRem
 * ZGetByRank
 * ZRevGetByRank
@@ -190,7 +193,7 @@ rosedb
 
 ## 待办
 
-这个项目其实还有很多可以完善的地方，比如下面列举到的一些，如果你对这个项目比较熟悉了，可以挑选一个自己感兴趣的 Todo List，自己去实现，然后提 Pr，成为这个项目的 Contributor，我相信这一定会对你有帮助的，赶快行动起来吧！
+这个项目其实还有很多可以完善的地方，比如下面列举到的一些，如果你对这个项目比较熟悉了，可以挑选一个自己感兴趣的 Todo List，自己去实现，然后提 Pr，成为这个项目的 Contributor。
 
 + [x] 支持 TTL
 + [x] String 类型 key 加入前缀扫描
