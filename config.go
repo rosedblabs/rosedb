@@ -9,13 +9,16 @@ import (
 type DataIndexMode int
 
 const (
-	// KeyValueRamMode 键和值均存于内存中的模式
-	// key and value in ram
-	KeyValueRamMode DataIndexMode = iota
+	// KeyValueMemMode 键和值均存于内存中的模式
+	// Key and value are both in memory, read operation will be very fast in this mode.
+	// Because there is no disk seek, just get value from the corresponding data structures in memory.
+	// This mode is suitable for scenarios where the value are relatively small.
+	KeyValueMemMode DataIndexMode = iota
 
-	// KeyOnlyRamMode 只有键存于内存中的模式
-	// only key in ram
-	KeyOnlyRamMode
+	// KeyOnlyMemMode 只有键存于内存中的模式
+	// Only key in memory, there is a disk seek while getting value.
+	// Because the value is in db file.
+	KeyOnlyMemMode
 )
 
 const (
@@ -65,7 +68,7 @@ func DefaultConfig() Config {
 		DirPath:          DefaultDirPath,
 		BlockSize:        DefaultBlockSize,
 		RwMethod:         storage.FileIO,
-		IdxMode:          KeyValueRamMode,
+		IdxMode:          KeyValueMemMode,
 		MaxKeySize:       DefaultMaxKeySize,
 		MaxValueSize:     DefaultMaxValueSize,
 		Sync:             false,

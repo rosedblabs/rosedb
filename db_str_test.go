@@ -386,7 +386,7 @@ func writeLargeData(db *RoseDB, t *testing.T) {
 
 func TestOpen3(t *testing.T) {
 	config := DefaultConfig()
-	config.IdxMode = KeyOnlyRamMode
+	config.IdxMode = KeyOnlyMemMode
 	config.DirPath = "bench/rosedb"
 	db, err := Open(config)
 	if err != nil {

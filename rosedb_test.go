@@ -16,7 +16,7 @@ var dbPath = "/tmp/rosedb/db1"
 func InitDb() *RoseDB {
 	config := DefaultConfig()
 	config.DirPath = dbPath
-	config.IdxMode = KeyOnlyRamMode
+	config.IdxMode = KeyOnlyMemMode
 	config.RwMethod = storage.FileIO
 	config.BlockSize = 4 * 1024 * 1024
 
@@ -133,7 +133,7 @@ func TestRoseDB_Sync(t *testing.T) {
 func TestRoseDB_Reclaim(t *testing.T) {
 	config := DefaultConfig()
 	config.DirPath = "/tmp/rosedb/db-reclaim"
-	config.IdxMode = KeyOnlyRamMode
+	config.IdxMode = KeyOnlyMemMode
 	config.RwMethod = storage.FileIO
 	config.BlockSize = 4 * 1024 * 1024
 
@@ -214,7 +214,7 @@ func writeMultiLargeData(db *RoseDB) {
 
 func TestOpen4(t *testing.T) {
 	config := DefaultConfig()
-	config.IdxMode = KeyOnlyRamMode
+	config.IdxMode = KeyOnlyMemMode
 	config.BlockSize = 8 * 1024 * 1024
 	config.DirPath = "/tmp/rosedb"
 

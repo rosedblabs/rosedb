@@ -51,28 +51,28 @@ var (
 const (
 
 	// 保存配置的文件名称
-	// rosedb config save path
+	// rosedb config file saving path.
 	configSaveFile = string(os.PathSeparator) + "db.cfg"
 
 	// 保存数据库相关信息的文件名称
-	// rosedb meta info save path
+	// rosedb meta info saving path.
 	dbMetaSaveFile = string(os.PathSeparator) + "db.meta"
 
 	// 回收磁盘空间时的临时目录
-	// rosedb reclaim path
+	// rosedb reclaim path, a temporary dir, will be removed after reclaim.
 	reclaimPath = string(os.PathSeparator) + "rosedb_reclaim"
 
 	// 保存过期字典的文件名称
-	// expired directory save path
+	// expired directory saving path.
 	expireFile = string(os.PathSeparator) + "db.expires"
 
 	// ExtraSeparator 额外信息的分隔符，用于存储一些额外的信息（因此一些操作的value中不能包含此分隔符）
-	// separator of the extra info
+	// separator of the extra info.
 	ExtraSeparator = "\\0"
 )
 
 type (
-	// RoseDB the rosedb struct
+	// RoseDB the rosedb struct, represents a db instance.
 	RoseDB struct {
 		activeFile    ActiveFiles     // 当前活跃文件      current active files
 		activeFileIds ActiveFileIds   // 活跃文件id	     current active file ids
@@ -88,35 +88,36 @@ type (
 		expires       storage.Expires // 过期字典          expired directory
 	}
 
-	// ActiveFiles current active file for different data types.
+	// ActiveFiles current active files for different data types.
 	ActiveFiles map[DataType]*storage.DBFile
 
-	// ActiveFileIds current active file id for different data types.
+	// ActiveFileIds current active files id for different data types.
 	ActiveFileIds map[DataType]uint32
 
 	// ArchivedFiles 已封存的文件定义
 	// define the archived files, which mean these files can only be read.
+	// and will never be opened for writing.
 	ArchivedFiles map[DataType]map[uint32]*storage.DBFile
 )
 
 // Open 打开一个数据库实例
-// open a rosedb instance.
+// Open a rosedb instance.
 func Open(config Config) (*RoseDB, error) {
-	//create the dir path if not exists.
+	// create the dir path if not exists.
 	if !utils.Exist(config.DirPath) {
 		if err := os.MkdirAll(config.DirPath, os.ModePerm); err != nil {
 			return nil, err
 		}
 	}
 
-	//加载数据文件
-	//load the db files
+	// 加载数据文件
+	// load the db files from disk.
 	archFiles, activeFileIds, err := storage.Build(config.DirPath, config.RwMethod, config.BlockSize)
 	if err != nil {
 		return nil, err
 	}
 
-	// set active files.
+	// set active files for writing.
 	activeFiles := make(ActiveFiles)
 	for dataType, fileId := range activeFileIds {
 		file, err := storage.NewDBFile(config.DirPath, fileId, config.RwMethod, config.BlockSize, dataType)
@@ -126,12 +127,12 @@ func Open(config Config) (*RoseDB, error) {
 		activeFiles[dataType] = file
 	}
 
-	//加载过期字典
-	//load expired directories
+	// 加载过期字典
+	// load expired directories.
 	expires := storage.LoadExpires(config.DirPath + expireFile)
 
-	//加载数据库额外的信息
-	//load db meta info
+	// 加载数据库额外的信息
+	// load db meta info, only active file`s write offset right now.
 	meta := storage.LoadMeta(config.DirPath + dbMetaSaveFile)
 	for dataType, file := range activeFiles {
 		file.Offset = meta.ActiveWriteOff[dataType]
@@ -151,8 +152,8 @@ func Open(config Config) (*RoseDB, error) {
 		expires:       expires,
 	}
 
-	//从文件中加载索引信息
-	//load indexes from db files.
+	// 从文件中加载索引信息
+	// load indexes from db files.
 	if err := db.loadIdxFromFiles(); err != nil {
 		return nil, err
 	}
@@ -161,7 +162,7 @@ func Open(config Config) (*RoseDB, error) {
 }
 
 // Reopen 根据配置重新打开数据库
-// reopen the db according to the specific config path
+// Reopen the db according to the specific config path
 func Reopen(path string) (*RoseDB, error) {
 	if exist := utils.Exist(path + configSaveFile); !exist {
 		return nil, ErrCfgNotExist
@@ -180,7 +181,7 @@ func Reopen(path string) (*RoseDB, error) {
 }
 
 // Close 关闭数据库，保存相关配置
-// close db and save relative configs.
+// Close db and save relative configs.
 func (db *RoseDB) Close() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -214,7 +215,7 @@ func (db *RoseDB) Close() error {
 }
 
 // Sync 数据持久化
-// persist data to disk.
+// Persist data to disk.
 func (db *RoseDB) Sync() error {
 	if db == nil || db.activeFile == nil {
 		return nil
@@ -232,7 +233,9 @@ func (db *RoseDB) Sync() error {
 }
 
 // Reclaim 重新组织磁盘中的数据，回收磁盘空间
-// reclaim db files in disk.
+// Reclaim db files in disk.
+// Currently reclaim will block read operation of String in KeyOnlyMemMode.
+// Because we must get value from db files, so you can execute it while closing the db.
 func (db *RoseDB) Reclaim() (err error) {
 	var reclaimable bool
 	for _, archFiles := range db.archFiles {
@@ -245,8 +248,8 @@ func (db *RoseDB) Reclaim() (err error) {
 		return ErrReclaimUnreached
 	}
 
-	//新建临时目录，用于暂存新的数据文件
-	//create a temporary directory for storing the new db files.
+	// 新建临时目录，用于暂存新的数据文件
+	// create a temporary directory for storing the new db files.
 	reclaimPath := db.config.DirPath + reclaimPath
 	if err := os.MkdirAll(reclaimPath, os.ModePerm); err != nil {
 		return err
@@ -314,7 +317,7 @@ func (db *RoseDB) Reclaim() (err error) {
 						return
 					}
 
-					//字符串类型的数据需要在这里更新索引
+					// 字符串类型的数据需要在这里更新索引
 					// Since the str types value will be read from db file, so should update the index info.
 					if dType == String {
 						item := db.strIndex.idxList.Get(entry.Meta.Key)
@@ -342,7 +345,7 @@ func (db *RoseDB) Reclaim() (err error) {
 		dbArchivedFiles[dType] = value.(map[uint32]*storage.DBFile)
 	}
 
-	//delete the old db files.
+	// delete the old db files.
 	for dataType, files := range db.archFiles {
 		if _, exist := reclaimedTypes.Load(dataType); exist {
 			for _, f := range files {
@@ -351,7 +354,7 @@ func (db *RoseDB) Reclaim() (err error) {
 		}
 	}
 
-	//copy the temporary reclaim directory as new db files.
+	// copy the temporary reclaim directory as new db files.
 	for dataType, files := range dbArchivedFiles {
 		if _, exist := reclaimedTypes.Load(dataType); exist {
 			for _, f := range files {
@@ -366,7 +369,7 @@ func (db *RoseDB) Reclaim() (err error) {
 }
 
 // Backup 复制数据库目录，用于备份
-// copy the database directory for backup.
+// Copy the database directory for backup.
 func (db *RoseDB) Backup(dir string) (err error) {
 	if utils.Exist(db.config.DirPath) {
 		err = utils.CopyDir(db.config.DirPath, dir)
@@ -415,7 +418,7 @@ func (db *RoseDB) saveMeta() error {
 // buildIndex 建立索引
 // build the different indexes.
 func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
-	if db.config.IdxMode == KeyValueRamMode {
+	if db.config.IdxMode == KeyValueMemMode {
 		idx.Meta.Value = e.Meta.Value
 		idx.Meta.ValueSize = uint32(len(e.Meta.Value))
 	}

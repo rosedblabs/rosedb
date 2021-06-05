@@ -75,13 +75,13 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	}
 	//如果key和value均在内存中，则取内存中的value
 	//get value from memory
-	if db.config.IdxMode == KeyValueRamMode {
+	if db.config.IdxMode == KeyValueMemMode {
 		return idx.Meta.Value, nil
 	}
 
 	//如果只有key在内存中，那么需要从db file中获取value
 	//get value from the db file
-	if db.config.IdxMode == KeyOnlyRamMode {
+	if db.config.IdxMode == KeyOnlyMemMode {
 		df := db.activeFile[String]
 		if idx.FileId != db.activeFileIds[String] {
 			df = db.archFiles[String][idx.FileId]
@@ -230,7 +230,7 @@ func (db *RoseDB) PrefixScan(prefix string, limit, offset int) (val [][]byte, er
 		item := e.Value().(*index.Indexer)
 		var value []byte
 
-		if db.config.IdxMode == KeyOnlyRamMode {
+		if db.config.IdxMode == KeyOnlyMemMode {
 			value, err = db.Get(e.Key())
 			if err != nil {
 				return
@@ -270,7 +270,7 @@ func (db *RoseDB) RangeScan(start, end []byte) (val [][]byte, err error) {
 		}
 
 		var value []byte
-		if db.config.IdxMode == KeyOnlyRamMode {
+		if db.config.IdxMode == KeyOnlyMemMode {
 			value, err = db.Get(node.Key())
 			if err != nil {
 				return nil, err
@@ -365,7 +365,7 @@ func (db *RoseDB) doSet(key, value []byte) (err error) {
 
 	// 如果新增的 value 和设置的 value 一样，则不做任何操作
 	// If the existed value is the same as the set value, nothing will be done.
-	if db.config.IdxMode == KeyValueRamMode {
+	if db.config.IdxMode == KeyValueMemMode {
 		if existVal, _ := db.Get(key); existVal != nil && bytes.Compare(existVal, value) == 0 {
 			return
 		}
