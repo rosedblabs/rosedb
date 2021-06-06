@@ -49,6 +49,7 @@ func (s *Server) Listen(addr string) {
 		},
 	)
 	s.server = svr
+	log.Println("rosedb is running, ready to accept connections.")
 	if err := svr.ListenAndServe(); err != nil {
 		log.Printf("listen and serve ocuurs error: %+v", err)
 	}

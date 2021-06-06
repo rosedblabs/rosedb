@@ -15,11 +15,11 @@ import (
 )
 
 // DataType 数据类型定义
-// define the data type
+// Define the data type.
 type DataType = uint16
 
 // 数据类型定义
-// five different data types
+// Five different data types, support String, List, Hash, Set, Sorted Set right now.
 const (
 	String DataType = iota
 	List
@@ -29,14 +29,14 @@ const (
 )
 
 // 字符串相关操作标识
-// string operations
+// The operations of String, will be a part of Entry, the same for the other four types.
 const (
 	StringSet uint16 = iota
 	StringRem
 )
 
 // 列表相关操作标识
-// list operations
+// The operations of List.
 const (
 	ListLPush uint16 = iota
 	ListRPush
@@ -49,14 +49,14 @@ const (
 )
 
 // 哈希相关操作标识
-// hash table operations
+// The operations of Hash.
 const (
 	HashHSet uint16 = iota
 	HashHDel
 )
 
 // 集合相关操作标识
-// set operations
+// The operations of Set.
 const (
 	SetSAdd uint16 = iota
 	SetSRem
@@ -64,14 +64,14 @@ const (
 )
 
 // 有序集合相关操作标识
-// sorted set operations
+// The operations of Sorted Set.
 const (
 	ZSetZAdd uint16 = iota
 	ZSetZRem
 )
 
 // buildStringIndex 建立字符串索引
-// build string indexes
+// build string indexes.
 func (db *RoseDB) buildStringIndex(idx *index.Indexer, opt uint16) {
 	if db.listIndex == nil || idx == nil {
 		return
@@ -90,7 +90,7 @@ func (db *RoseDB) buildStringIndex(idx *index.Indexer, opt uint16) {
 }
 
 // buildListIndex 建立列表索引
-// build list indexes
+// build list indexes.
 func (db *RoseDB) buildListIndex(idx *index.Indexer, opt uint16) {
 	if db.listIndex == nil || idx == nil {
 		return
@@ -136,7 +136,7 @@ func (db *RoseDB) buildListIndex(idx *index.Indexer, opt uint16) {
 }
 
 // buildHashIndex 建立哈希索引
-// build hash indexes
+// build hash indexes.
 func (db *RoseDB) buildHashIndex(idx *index.Indexer, opt uint16) {
 
 	if db.hashIndex == nil || idx == nil {
@@ -153,7 +153,7 @@ func (db *RoseDB) buildHashIndex(idx *index.Indexer, opt uint16) {
 }
 
 // buildSetIndex 建立集合索引
-// build set indexes
+// build set indexes.
 func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
 
 	if db.hashIndex == nil || idx == nil {
@@ -173,7 +173,7 @@ func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
 }
 
 // buildZsetIndex 建立有序集合索引
-// build sorted set indexes
+// build sorted set indexes.
 func (db *RoseDB) buildZsetIndex(idx *index.Indexer, opt uint16) {
 
 	if db.hashIndex == nil || idx == nil {
@@ -235,8 +235,10 @@ func (db *RoseDB) loadIdxFromFiles() error {
 						}
 						offset += int64(e.Size())
 
-						if err := db.buildIndex(e, idx); err != nil {
-							log.Fatalf("a fatal err occurred, the db can not open.[%+v]", err)
+						if len(e.Meta.Key) > 0 {
+							if err := db.buildIndex(e, idx); err != nil {
+								log.Fatalf("a fatal err occurred, the db can not open.[%+v]", err)
+							}
 						}
 					} else {
 						if err == io.EOF {
