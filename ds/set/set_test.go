@@ -157,9 +157,16 @@ func TestSet_SDiff(t *testing.T) {
 	set.SAdd("set2", []byte("a"))
 	set.SAdd("set2", []byte("f"))
 	set.SAdd("set2", []byte("g"))
-
-	members := set.SDiff(key, "set2")
-	for _, m := range members {
-		t.Log(string(m))
-	}
+	t.Run("normal situation", func(t *testing.T) {
+		members := set.SDiff(key, "set2")
+		for _, m := range members {
+			t.Log(string(m))
+		}
+	})
+	t.Run("one key", func(t *testing.T) {
+		members := set.SDiff(key)
+		for _, m := range members {
+			t.Log(string(m))
+		}
+	})
 }

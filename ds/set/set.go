@@ -108,8 +108,9 @@ func (s *Set) SRem(key string, member []byte) bool {
 }
 
 // SMove Move member from the set at source to the set at destination.
+// If the source set does not exist or does not contain the specified element,no operation is performed and returns 0.
 func (s *Set) SMove(src, dst string, member []byte) bool {
-	if !s.exist(src) {
+	if !s.exist(src) || !s.record[src][string(member)] {
 		return false
 	}
 
@@ -167,7 +168,7 @@ func (s *Set) SUnion(keys ...string) (val [][]byte) {
 // SDiff Returns the members of the set resulting from the difference between the first set and all the successive sets.
 func (s *Set) SDiff(keys ...string) (val [][]byte) {
 
-	if len(keys) < 2 || !s.exist(keys[0]) {
+	if !s.exist(keys[0]) {
 		return
 	}
 
