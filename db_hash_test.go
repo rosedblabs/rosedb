@@ -115,12 +115,12 @@ func TestRoseDB_HKeys(t *testing.T) {
 	}
 }
 
-func TestRoseDB_HValues(t *testing.T) {
+func TestRoseDB_HVals(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
-	db.HValues(nil)
-	keys := db.HValues([]byte(key))
+	db.HVals(nil)
+	keys := db.HVals([]byte(key))
 	for _, k := range keys {
 		t.Log(string(k))
 	}

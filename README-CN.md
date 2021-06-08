@@ -158,7 +158,7 @@ rosedb
 * HExists
 * HLen
 * HKeys
-* HValues
+* HVals
 
 ### Set
 

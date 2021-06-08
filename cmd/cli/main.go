@@ -46,7 +46,7 @@ var commandList = [][]string{
 	{"HEXISTS", "key field", "HASH"},
 	{"HLEN", "key", "HASH"},
 	{"HKEYS", "key", "HASH"},
-	{"HVALUES", "key", "HASH"},
+	{"HVALS", "key", "HASH"},
 
 	{"SADD", "key members [members...]", "SET"},
 	{"SPOP", "key count", "SET"},

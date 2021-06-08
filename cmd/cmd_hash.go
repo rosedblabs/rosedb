@@ -22,9 +22,9 @@ func hSetNx(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		err = newWrongNumOfArgsError("hsetnx")
 		return
 	}
-	var ok bool
+	var ok int
 	if ok, err = db.HSetNx([]byte(args[0]), []byte(args[1]), []byte(args[2])); err == nil {
-		if ok {
+		if ok == 1 {
 			res = redcon.SimpleInt(1)
 		} else {
 			res = redcon.SimpleInt(0)
@@ -78,11 +78,8 @@ func hExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		err = newWrongNumOfArgsError("hexists")
 		return
 	}
-	if exists := db.HExists([]byte(args[0]), []byte(args[1])); exists {
-		res = redcon.SimpleInt(1)
-	} else {
-		res = redcon.SimpleInt(0)
-	}
+	exists := db.HExists([]byte(args[0]), []byte(args[1]))
+	res = redcon.SimpleInt(exists)
 	return
 }
 
@@ -105,12 +102,12 @@ func hKeys(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	return
 }
 
-func hValues(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+func hVals(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
-		err = newWrongNumOfArgsError("hvalues")
+		err = newWrongNumOfArgsError("hvals")
 		return
 	}
-	res = db.HValues([]byte(args[0]))
+	res = db.HVals([]byte(args[0]))
 	return
 }
 
@@ -123,5 +120,5 @@ func init() {
 	addExecCommand("hexists", hExists)
 	addExecCommand("hlen", hLen)
 	addExecCommand("hkeys", hKeys)
-	addExecCommand("hvalues", hValues)
+	addExecCommand("hvals", hVals)
 }
