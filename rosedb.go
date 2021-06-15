@@ -516,9 +516,9 @@ func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool
 		}
 	case List:
 		if mark == ListLPush || mark == ListRPush || mark == ListLInsert || mark == ListLSet {
-			//由于List是链表结构，无法有效的进行检索，取出全部数据依次比较的开销太大
-			//因此暂时不参与reclaim，后续再想想其他的解决方案
-			return true
+			if db.LValExists(e.Meta.Key, e.Meta.Value) {
+				return true
+			}
 		}
 	case Hash:
 		if mark == HashHSet {

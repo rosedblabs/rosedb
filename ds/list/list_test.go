@@ -238,3 +238,25 @@ func TestList_LTrim(t *testing.T) {
 	//	PrintListData(newLIst)
 	//})
 }
+
+func TestList_LKeyExists(t *testing.T) {
+	lis := InitList()
+	ok1 := lis.LKeyExists(key)
+	t.Log(ok1)
+
+	ok2 := lis.LKeyExists("not")
+	t.Log(ok2)
+}
+
+func TestList_LValExists(t *testing.T) {
+	lis := InitList()
+
+	ok1 := lis.LValExists(key, []byte("a"))
+	t.Log(ok1)
+
+	ok2 := lis.LValExists(key, []byte("f"))
+	t.Log(ok2)
+
+	ok3 := lis.LValExists(key, []byte("aaa"))
+	t.Log(ok3)
+}

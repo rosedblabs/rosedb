@@ -5,32 +5,40 @@ import (
 	"reflect"
 )
 
-// List is the implementation of doubly linked list
+// List is the implementation of doubly linked list.
 
-// InsertOption insert option for LInsert
+// InsertOption insert option for LInsert.
 type InsertOption uint8
 
 const (
-	// Before insert before
+	// Before insert before pivot.
 	Before InsertOption = iota
-	// After insert after
+	// After insert after pivot.
 	After
 )
 
+// existFlag set the value exist in List.
+var existFlag = struct{}{}
+
 type (
-	// List list idx
+	// List list idx.
 	List struct {
+		// record saves the List of a specified key.
 		record Record
+
+		// values saves the values of a List, help checking if a value exists in List.
+		values map[string]map[string]struct{}
 	}
 
-	// Record list record to save
+	// Record list record to save.
 	Record map[string]*list.List
 )
 
-// New create a new list idx
+// New create a new list idx.
 func New() *List {
 	return &List{
 		make(Record),
+		make(map[string]map[string]struct{}),
 	}
 }
 
@@ -105,7 +113,6 @@ func (lis *List) LRem(key string, val []byte, count int) int {
 			}
 		}
 	}
-
 	if count > 0 {
 		for p := item.Front(); p != nil && len(ele) < count; p = p.Next() {
 			if reflect.DeepEqual(p.Value.([]byte), val) {
@@ -113,7 +120,6 @@ func (lis *List) LRem(key string, val []byte, count int) int {
 			}
 		}
 	}
-
 	if count < 0 {
 		for p := item.Back(); p != nil && len(ele) < -count; p = p.Prev() {
 			if reflect.DeepEqual(p.Value.([]byte), val) {
@@ -125,9 +131,12 @@ func (lis *List) LRem(key string, val []byte, count int) int {
 	for _, e := range ele {
 		item.Remove(e)
 	}
-
 	length := len(ele)
 	ele = nil
+
+	if lis.values[key] != nil {
+		delete(lis.values[key], string(val))
+	}
 	return length
 }
 
@@ -148,19 +157,32 @@ func (lis *List) LInsert(key string, option InsertOption, pivot, val []byte) int
 		item.InsertAfter(val, e)
 	}
 
+	if lis.values[key] == nil {
+		lis.values[key] = make(map[string]struct{})
+	}
+	lis.values[key][string(val)] = existFlag
+
 	return item.Len()
 }
 
 // LSet 将列表 key 下标为 index 的元素的值设置为 val
 // bool返回值表示操作是否成功
-// Sets the list element at index to element
-func (lis List) LSet(key string, index int, val []byte) bool {
+// Sets the list element at index to element.
+func (lis *List) LSet(key string, index int, val []byte) bool {
 	e := lis.index(key, index)
 	if e == nil {
 		return false
 	}
 
+	if lis.values[key] == nil {
+		lis.values[key] = make(map[string]struct{})
+	}
+	if e.Value != nil {
+		delete(lis.values[key], string(e.Value.([]byte)))
+	}
+
 	e.Value = val
+	lis.values[key][string(val)] = existFlag
 	return true
 }
 
@@ -186,7 +208,6 @@ func (lis *List) LRange(key string, start, end int) [][]byte {
 		return val
 	}
 
-	//从列表中取出val
 	mid := length >> 1
 
 	//从左往右遍历
@@ -204,14 +225,12 @@ func (lis *List) LRange(key string, start, end int) [][]byte {
 				val = append(val, p.Value.([]byte))
 			}
 		}
-
 		if len(val) > 0 {
 			for i, j := 0, len(val)-1; i < j; i, j = i+1, j-1 {
 				val[i], val[j] = val[j], val[i]
 			}
 		}
 	}
-
 	return val
 }
 
@@ -235,18 +254,24 @@ func (lis *List) LTrim(key string, start, end int) bool {
 	//start大于end，或者start超出右边界，则直接将列表置空
 	if start > end || start >= length {
 		lis.record[key] = nil
+		lis.values[key] = nil
 		return true
 	}
 
 	startEle, endEle := lis.index(key, start), lis.index(key, end)
 	if end-start+1 < (length >> 1) {
 		newList := list.New()
+		newValuesMap := make(map[string]struct{})
 		for p := startEle; p != endEle.Next(); p = p.Next() {
 			newList.PushBack(p.Value)
+			if p.Value != nil {
+				newValuesMap[string(p.Value.([]byte))] = existFlag
+			}
 		}
 
 		item = nil
 		lis.record[key] = newList
+		lis.values[key] = newValuesMap
 	} else {
 		var ele []*list.Element
 		for p := item.Front(); p != startEle; p = p.Next() {
@@ -258,11 +283,12 @@ func (lis *List) LTrim(key string, start, end int) bool {
 
 		for _, e := range ele {
 			item.Remove(e)
+			if lis.values[key] != nil && e.Value != nil {
+				delete(lis.values[key], string(e.Value.([]byte)))
+			}
 		}
-
 		ele = nil
 	}
-
 	return true
 }
 
@@ -276,6 +302,20 @@ func (lis *List) LLen(key string) int {
 	}
 
 	return length
+}
+
+// LKeyExists check if the key of a List exists.
+func (lis *List) LKeyExists(key string) (ok bool) {
+	_, ok = lis.record[key]
+	return
+}
+
+// LValExists check if the val exists in a specified List stored at key.
+func (lis *List) LValExists(key string, val []byte) (ok bool) {
+	if lis.values[key] != nil {
+		_, ok = lis.values[key][string(val)]
+	}
+	return
 }
 
 func (lis *List) find(key string, val []byte) *list.Element {
@@ -324,9 +364,11 @@ func (lis *List) index(key string, index int) *list.Element {
 }
 
 func (lis *List) push(front bool, key string, val ...[]byte) int {
-
 	if lis.record[key] == nil {
 		lis.record[key] = list.New()
+	}
+	if lis.values[key] == nil {
+		lis.values[key] = make(map[string]struct{})
 	}
 
 	for _, v := range val {
@@ -335,8 +377,8 @@ func (lis *List) push(front bool, key string, val ...[]byte) int {
 		} else {
 			lis.record[key].PushBack(v)
 		}
+		lis.values[key][string(v)] = existFlag
 	}
-
 	return lis.record[key].Len()
 }
 
@@ -354,13 +396,15 @@ func (lis *List) pop(front bool, key string) []byte {
 
 		val = e.Value.([]byte)
 		item.Remove(e)
+		if lis.values[key] != nil {
+			delete(lis.values[key], string(val))
+		}
 	}
-
 	return val
 }
 
 // 校验index是否有效，并返回新的index
-// check if the index is valid and returns the new index
+// check if the index is valid and returns the new index.
 func (lis *List) validIndex(key string, index int) (bool, int) {
 	item := lis.record[key]
 	if item == nil || item.Len() <= 0 {
@@ -376,7 +420,7 @@ func (lis *List) validIndex(key string, index int) (bool, int) {
 }
 
 // 处理start和end的值(负数和边界情况)
-// handle the value of start and end (negative and corner case)
+// handle the value of start and end (negative and corner case).
 func (lis *List) handleIndex(length, start, end int) (int, int) {
 	if start < 0 {
 		start += length
