@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-// HashIdx hash idx
+// HashIdx hash index.
 type HashIdx struct {
 	mu      sync.RWMutex
 	indexes *hash.Hash
@@ -75,6 +75,9 @@ func (db *RoseDB) HSetNx(key, field, value []byte) (res bool, err error) {
 // HGet 返回哈希表中给定域的值
 // Returns the value associated with field in the hash stored at key.
 func (db *RoseDB) HGet(key, field []byte) []byte {
+	if err := db.checkKeyValue(key, nil); err != nil {
+		return nil
+	}
 
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
@@ -86,6 +89,9 @@ func (db *RoseDB) HGet(key, field []byte) []byte {
 // Returns all fields and values of the hash stored at key.
 // In the returned value, every field name is followed by its value, so the length of the reply is twice the size of the hash.
 func (db *RoseDB) HGetAll(key []byte) [][]byte {
+	if err := db.checkKeyValue(key, nil); err != nil {
+		return nil
+	}
 
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
@@ -98,6 +104,10 @@ func (db *RoseDB) HGetAll(key []byte) [][]byte {
 // Removes the specified fields from the hash stored at key. Specified fields that do not exist within this hash are ignored.
 // If key does not exist, it is treated as an empty hash and this command returns false.
 func (db *RoseDB) HDel(key []byte, field ...[]byte) (res int, err error) {
+	if err = db.checkKeyValue(key, nil); err != nil {
+		return
+	}
+
 	if field == nil || len(field) == 0 {
 		return
 	}
