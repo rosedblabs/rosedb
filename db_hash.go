@@ -22,9 +22,9 @@ func newHashIdx() *HashIdx {
 // 如果域 field 已经存在于哈希表中， 那么它的旧值将被新值 value 覆盖
 // 返回操作后key所属哈希表中的元素个数
 
-// Sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
+// HSet Sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
 // If field already exists in the hash, it is overwritten.
-func (db *RoseDB) HSet(key, field, value []byte) (res int, err error) {
+func (db *RoseDB) HSet(key []byte, field []byte, value []byte) (res int, err error) {
 	if err = db.checkKeyValue(key, value); err != nil {
 		return
 	}
@@ -51,10 +51,10 @@ func (db *RoseDB) HSet(key, field, value []byte) (res int, err error) {
 // 如果给定域已经存在于哈希表当中， 那么命令将放弃执行设置操作
 // 返回操作是否成功
 
-// Sets field in the hash stored at key to value, only if field does not yet exist.
+// HSetNx Sets field in the hash stored at key to value, only if field does not yet exist.
 // If key does not exist, a new key holding a hash is created. If field already exists, this operation has no effect.
 // return if the operation successful
-func (db *RoseDB) HSetNx(key, field, value []byte) (res bool, err error) {
+func (db *RoseDB) HSetNx(key, field, value []byte) (res int, err error) {
 	if err = db.checkKeyValue(key, value); err != nil {
 		return
 	}
@@ -62,7 +62,7 @@ func (db *RoseDB) HSetNx(key, field, value []byte) (res bool, err error) {
 	db.hashIndex.mu.Lock()
 	defer db.hashIndex.mu.Unlock()
 
-	if res = db.hashIndex.indexes.HSetNx(string(key), string(field), value); res {
+	if res = db.hashIndex.indexes.HSetNx(string(key), string(field), value); res == 1 {
 		e := storage.NewEntry(key, value, field, Hash, HashHSet)
 		if err = db.store(e); err != nil {
 			return
@@ -116,7 +116,7 @@ func (db *RoseDB) HDel(key []byte, field ...[]byte) (res int, err error) {
 	defer db.hashIndex.mu.Unlock()
 
 	for _, f := range field {
-		if ok := db.hashIndex.indexes.HDel(string(key), string(f)); ok {
+		if ok := db.hashIndex.indexes.HDel(string(key), string(f)); ok == 1 {
 			e := storage.NewEntry(key, nil, f, Hash, HashHDel)
 			if err = db.store(e); err != nil {
 				return
@@ -129,9 +129,9 @@ func (db *RoseDB) HDel(key []byte, field ...[]byte) (res int, err error) {
 
 // HExists 检查给定域 field 是否存在于key对应的哈希表中
 // Returns if field is an existing field in the hash stored at key.
-func (db *RoseDB) HExists(key, field []byte) bool {
+func (db *RoseDB) HExists(key, field []byte) int {
 	if err := db.checkKeyValue(key, nil); err != nil {
-		return false
+		return 0
 	}
 
 	db.hashIndex.mu.RLock()
@@ -166,9 +166,9 @@ func (db *RoseDB) HKeys(key []byte) (val []string) {
 	return db.hashIndex.indexes.HKeys(string(key))
 }
 
-// HValues 返回哈希表 key 中的所有域对应的值
+// HVals 返回哈希表 key 中的所有域对应的值
 // Returns all values in the hash stored at key.
-func (db *RoseDB) HValues(key []byte) (val [][]byte) {
+func (db *RoseDB) HVals(key []byte) (val [][]byte) {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return
 	}
@@ -176,5 +176,5 @@ func (db *RoseDB) HValues(key []byte) (val [][]byte) {
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
 
-	return db.hashIndex.indexes.HValues(string(key))
+	return db.hashIndex.indexes.HVals(string(key))
 }
