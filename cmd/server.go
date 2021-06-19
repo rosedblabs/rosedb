@@ -9,17 +9,17 @@ import (
 	"sync"
 )
 
-// ExecCmdFunc func for cmd execute
+// ExecCmdFunc func for cmd execute.
 type ExecCmdFunc func(*rosedb.RoseDB, []string) (interface{}, error)
 
-// ExecCmd exec cmd map
+// ExecCmd exec cmd map, saving all the functions corresponding to a specified command.
 var ExecCmd = make(map[string]ExecCmdFunc)
 
 func addExecCommand(cmd string, cmdFunc ExecCmdFunc) {
 	ExecCmd[strings.ToLower(cmd)] = cmdFunc
 }
 
-// Server rosedb server
+// Server a rosedb server.
 type Server struct {
 	server *redcon.Server
 	db     *rosedb.RoseDB
@@ -27,7 +27,7 @@ type Server struct {
 	mu     sync.Mutex
 }
 
-// NewServer new rosedb server
+// NewServer create a new rosedb server.
 func NewServer(config rosedb.Config) (*Server, error) {
 	db, err := rosedb.Open(config)
 	if err != nil {
@@ -36,7 +36,7 @@ func NewServer(config rosedb.Config) (*Server, error) {
 	return &Server{db: db}, nil
 }
 
-// Listen listen the server
+// Listen listen the server.
 func (s *Server) Listen(addr string) {
 	svr := redcon.NewServerNetwork("tcp", addr,
 		func(conn redcon.Conn, cmd redcon.Command) {
@@ -48,6 +48,7 @@ func (s *Server) Listen(addr string) {
 		func(conn redcon.Conn, err error) {
 		},
 	)
+
 	s.server = svr
 	log.Println("rosedb is running, ready to accept connections.")
 	if err := svr.ListenAndServe(); err != nil {
@@ -55,7 +56,7 @@ func (s *Server) Listen(addr string) {
 	}
 }
 
-// Stop stops the server
+// Stop stops the server.
 func (s *Server) Stop() {
 	if s.closed {
 		return

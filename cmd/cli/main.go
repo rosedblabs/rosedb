@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// all supported commands
+// all supported commands.
 var commandList = [][]string{
 	{"SET", "key value", "STRING"},
 	{"GET", "key", "STRING"},
@@ -37,6 +37,8 @@ var commandList = [][]string{
 	{"LTRIM", "key start end", "LIST"},
 	{"LRANGE", "key start end", "LIST"},
 	{"LLEN", "key", "LIST"},
+	{"LKEYEXISTS", "key", "LIST"},
+	{"LVALEXISTS", "key value", "LIST"},
 
 	{"HSET", "key field value", "HASH"},
 	{"HSETNX", "key field value", "HASH"},
@@ -102,7 +104,7 @@ func main() {
 		return
 	})
 
-	// open and save cmd history
+	// open and save cmd history.
 	if f, err := os.Open(cmdHistoryPath); err == nil {
 		line.ReadHistory(f)
 		f.Close()
@@ -136,6 +138,7 @@ func main() {
 		lowerCmd := strings.ToLower(cmd)
 
 		c := strings.Split(cmd, " ")
+		// print help or quit.
 		if lowerCmd == "help" {
 			printCmdHelp()
 		} else if lowerCmd == "quit" {
@@ -155,6 +158,7 @@ func main() {
 				}
 			}
 		} else {
+			// execute the command and print the reply.
 			line.AppendHistory(cmd)
 
 			lowerC := strings.ToLower(strings.TrimSpace(c[0]))
@@ -192,7 +196,6 @@ func main() {
 
 				}
 			}
-
 		}
 	}
 }

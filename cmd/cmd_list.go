@@ -196,6 +196,35 @@ func lLen(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	return
 }
 
+func LKeyExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 1 {
+		err = newWrongNumOfArgsError("lkeyexists")
+		return
+	}
+
+	if ok := db.LKeyExists([]byte(args[0])); ok {
+		res = redcon.SimpleInt(1)
+
+	} else {
+		res = redcon.SimpleInt(0)
+	}
+	return
+}
+
+func LValExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 2 {
+		err = newWrongNumOfArgsError("lvalexists")
+		return
+	}
+
+	if ok := db.LValExists([]byte(args[0]), []byte(args[1])); ok {
+		res = redcon.SimpleInt(1)
+	} else {
+		res = redcon.SimpleInt(0)
+	}
+	return
+}
+
 func init() {
 	addExecCommand("lpush", lPush)
 	addExecCommand("rpush", rPush)
@@ -208,4 +237,6 @@ func init() {
 	addExecCommand("ltrim", lTrim)
 	addExecCommand("lrange", lRange)
 	addExecCommand("llen", lLen)
+	addExecCommand("lkeyexists", LKeyExists)
+	addExecCommand("lvalexists", LValExists)
 }
