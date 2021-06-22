@@ -186,6 +186,8 @@ func (db *RoseDB) StrRem(key []byte) error {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
+	db.incrReclaimableSpace(key)
+
 	if ele := db.strIndex.idxList.Remove(key); ele != nil {
 		delete(db.expires, string(key))
 		e := storage.NewEntryNoExtra(key, nil, String, StringRem)
@@ -193,7 +195,6 @@ func (db *RoseDB) StrRem(key []byte) error {
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -273,9 +274,7 @@ func (db *RoseDB) RangeScan(start, end []byte) (val [][]byte, err error) {
 			value = node.Value().(*index.Indexer).Meta.Value
 		}
 
-		if !db.expireIfNeeded(node.Key()) {
-			val = append(val, value)
-		}
+		val = append(val, value)
 		node = node.Next()
 	}
 	return
@@ -340,6 +339,9 @@ func (db *RoseDB) expireIfNeeded(key []byte) (expired bool) {
 
 		// delete the index.
 		if ele := db.strIndex.idxList.Remove(key); ele != nil {
+			// add reclaimable space.
+			db.incrReclaimableSpace(key)
+
 			e := storage.NewEntryNoExtra(key, nil, String, StringRem)
 			if err := db.store(e); err != nil {
 				log.Printf("remove expired key err [%+v] [%+v]\n", key, err)
@@ -369,6 +371,8 @@ func (db *RoseDB) doSet(key, value []byte) (err error) {
 		return err
 	}
 
+	db.incrReclaimableSpace(key)
+
 	// string indexes, stored in skiplist.
 	idx := &index.Indexer{
 		Meta: &storage.Meta{
@@ -384,4 +388,17 @@ func (db *RoseDB) doSet(key, value []byte) (err error) {
 		return err
 	}
 	return
+}
+
+// Get the original index info and add reclaimable space for the db file.
+func (db *RoseDB) incrReclaimableSpace(key []byte) {
+	oldIdx := db.strIndex.idxList.Get(key)
+	if oldIdx != nil {
+		indexer := oldIdx.Value().(*index.Indexer)
+
+		if indexer != nil {
+			space := int64(indexer.EntrySize)
+			db.meta.ReclaimableSpace[indexer.FileId] += space
+		}
+	}
 }

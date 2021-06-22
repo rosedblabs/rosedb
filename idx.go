@@ -199,8 +199,8 @@ func (db *RoseDB) loadIdxFromFiles() error {
 	}
 
 	wg := sync.WaitGroup{}
-	wg.Add(5)
-	for dataType := 0; dataType < 5; dataType++ {
+	wg.Add(DataStructureNum)
+	for dataType := 0; dataType < DataStructureNum; dataType++ {
 		go func(dType uint16) {
 			defer func() {
 				wg.Done()

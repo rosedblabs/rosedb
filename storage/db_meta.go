@@ -6,16 +6,18 @@ import (
 	"os"
 )
 
-// DBMeta 保存数据库的一些额外信息
-// save some extra info of rosedb, other config may be added in the future
+// Save some extra info of rosedb, other config may be added in the future.
 type DBMeta struct {
-	ActiveWriteOff map[uint16]int64 `json:"active_write_off"` //当前数据文件的写偏移  write offset of current active db file
+	ActiveWriteOff   map[uint16]int64 `json:"active_write_off"`  // Write offset of current active db files.
+	ReclaimableSpace map[uint32]int64 `json:"reclaimable_space"` // Reclaimable space in each db file of String, for single reclaiming.
 }
 
-// LoadMeta 加载数据信息
-// load db meta
+// LoadMeta load db meta from file.
 func LoadMeta(path string) (m *DBMeta) {
-	m = &DBMeta{ActiveWriteOff: make(map[uint16]int64)}
+	m = &DBMeta{
+		ActiveWriteOff:   make(map[uint16]int64),
+		ReclaimableSpace: make(map[uint32]int64),
+	}
 
 	file, err := os.OpenFile(path, os.O_RDONLY, 0600)
 	if err != nil {
@@ -28,8 +30,7 @@ func LoadMeta(path string) (m *DBMeta) {
 	return
 }
 
-// Store 存储数据信息
-// store db meta
+// Store store db meta as json.
 func (m *DBMeta) Store(path string) error {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {

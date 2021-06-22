@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sort"
 	"sync"
 	"time"
 )
@@ -46,46 +47,49 @@ var (
 
 	// ErrKeyExpired the key is expired
 	ErrKeyExpired = errors.New("rosedb: key is expired")
+
+	// ErrDBisReclaiming reclaim and single reclaim can`t execute at the same time.
+	ErrDBisReclaiming = errors.New("rosedb: can`t do reclaim and single reclaim at the same time")
 )
 
 const (
 
-	// 保存配置的文件名称
-	// rosedb config file saving path.
+	// The path for saving rosedb config file.
 	configSaveFile = string(os.PathSeparator) + "db.cfg"
 
-	// 保存数据库相关信息的文件名称
-	// rosedb meta info saving path.
+	// The path for saving rosedb meta info.
 	dbMetaSaveFile = string(os.PathSeparator) + "db.meta"
 
-	// 回收磁盘空间时的临时目录
 	// rosedb reclaim path, a temporary dir, will be removed after reclaim.
 	reclaimPath = string(os.PathSeparator) + "rosedb_reclaim"
 
-	// 保存过期字典的文件名称
-	// expired directory saving path.
+	// The path for saving expire info.
 	expireFile = string(os.PathSeparator) + "db.expires"
 
-	// ExtraSeparator 额外信息的分隔符，用于存储一些额外的信息（因此一些操作的value中不能包含此分隔符）
-	// separator of the extra info.
+	// Separator of the extra info, some commands can`t contains it.
 	ExtraSeparator = "\\0"
+
+	// DataStructureNum the num of different data structures, there are five now(string, list, hash, set, zset).
+	DataStructureNum = 5
 )
 
 type (
 	// RoseDB the rosedb struct, represents a db instance.
 	RoseDB struct {
-		activeFile    ActiveFiles     // 当前活跃文件      current active files
-		activeFileIds ActiveFileIds   // 活跃文件id	     current active file ids
-		archFiles     ArchivedFiles   // 已封存文件        the archived files
-		strIndex      *StrIdx         // 字符串索引列表     string indexes
-		listIndex     *ListIdx        // list索引列表      list indexes
-		hashIndex     *HashIdx        // hash索引列表      hash indexes
-		setIndex      *SetIdx         // 集合索引列表       set indexes
-		zsetIndex     *ZsetIdx        // 有序集合索引列表   sorted set indexes
-		config        Config          // 数据库配置		  config of rosedb
-		mu            sync.RWMutex    // mutex
-		meta          *storage.DBMeta // 数据库配置额外信息 meta info for rosedb
-		expires       storage.Expires // 过期字典          expired directory
+		activeFile         ActiveFiles     // Current active files.
+		activeFileIds      ActiveFileIds   // Current active file ids.
+		archFiles          ArchivedFiles   // The archived files.
+		strIndex           *StrIdx         // String indexes(a skip list).
+		listIndex          *ListIdx        // List indexes.
+		hashIndex          *HashIdx        // Hash indexes.
+		setIndex           *SetIdx         // Set indexes.
+		zsetIndex          *ZsetIdx        // Sorted set indexes.
+		config             Config          // Config info of rosedb.
+		mu                 sync.RWMutex    // mutex.
+		meta               *storage.DBMeta // Meta info for rosedb.
+		expires            storage.Expires // Expired directory.
+		isReclaiming       bool
+		isSingleReclaiming bool
 	}
 
 	// ActiveFiles current active files for different data types.
@@ -94,13 +98,11 @@ type (
 	// ActiveFileIds current active files id for different data types.
 	ActiveFileIds map[DataType]uint32
 
-	// ArchivedFiles 已封存的文件定义
-	// define the archived files, which mean these files can only be read.
+	// ArchivedFiles define the archived files, which mean these files can only be read.
 	// and will never be opened for writing.
 	ArchivedFiles map[DataType]map[uint32]*storage.DBFile
 )
 
-// Open 打开一个数据库实例
 // Open a rosedb instance.
 func Open(config Config) (*RoseDB, error) {
 	// create the dir path if not exists.
@@ -110,7 +112,6 @@ func Open(config Config) (*RoseDB, error) {
 		}
 	}
 
-	// 加载数据文件
 	// load the db files from disk.
 	archFiles, activeFileIds, err := storage.Build(config.DirPath, config.RwMethod, config.BlockSize)
 	if err != nil {
@@ -127,11 +128,9 @@ func Open(config Config) (*RoseDB, error) {
 		activeFiles[dataType] = file
 	}
 
-	// 加载过期字典
 	// load expired directories.
 	expires := storage.LoadExpires(config.DirPath + expireFile)
 
-	// 加载数据库额外的信息
 	// load db meta info, only active file`s write offset right now.
 	meta := storage.LoadMeta(config.DirPath + dbMetaSaveFile)
 	for dataType, file := range activeFiles {
@@ -152,7 +151,6 @@ func Open(config Config) (*RoseDB, error) {
 		expires:       expires,
 	}
 
-	// 从文件中加载索引信息
 	// load indexes from db files.
 	if err := db.loadIdxFromFiles(); err != nil {
 		return nil, err
@@ -161,8 +159,7 @@ func Open(config Config) (*RoseDB, error) {
 	return db, nil
 }
 
-// Reopen 根据配置重新打开数据库
-// Reopen the db according to the specific config path
+// Reopen the db according to the specific config path.
 func Reopen(path string) (*RoseDB, error) {
 	if exist := utils.Exist(path + configSaveFile); !exist {
 		return nil, ErrCfgNotExist
@@ -180,7 +177,6 @@ func Reopen(path string) (*RoseDB, error) {
 	return Open(config)
 }
 
-// Close 关闭数据库，保存相关配置
 // Close db and save relative configs.
 func (db *RoseDB) Close() error {
 	db.mu.Lock()
@@ -214,8 +210,7 @@ func (db *RoseDB) Close() error {
 	return nil
 }
 
-// Sync 数据持久化
-// Persist data to disk.
+// Persist the db files.
 func (db *RoseDB) Sync() error {
 	if db == nil || db.activeFile == nil {
 		return nil
@@ -232,11 +227,15 @@ func (db *RoseDB) Sync() error {
 	return nil
 }
 
-// Reclaim 重新组织磁盘中的数据，回收磁盘空间
-// Reclaim db files in disk.
-// Currently reclaim will block read operation of String in KeyOnlyMemMode.
-// Because we must get value from db files, so you can execute it while closing the db.
+// Reclaim reclaim db files`s redundant space in disk.
+// Reclaim operation will read all archived files, iterate all entries and find the valid.
+// Then rewrite the valid entries to new db files.
+// So the time required for reclaim operation depend on the number of entries, you`d better execute it in low peak period.
 func (db *RoseDB) Reclaim() (err error) {
+	// if single reclaiming is in progress, the reclaim operation can`t be executed.
+	if db.isSingleReclaiming {
+		return ErrDBisReclaiming
+	}
 	var reclaimable bool
 	for _, archFiles := range db.archFiles {
 		if len(archFiles) >= db.config.ReclaimThreshold {
@@ -248,7 +247,6 @@ func (db *RoseDB) Reclaim() (err error) {
 		return ErrReclaimUnreached
 	}
 
-	// 新建临时目录，用于暂存新的数据文件
 	// create a temporary directory for storing the new db files.
 	reclaimPath := db.config.DirPath + reclaimPath
 	if err := os.MkdirAll(reclaimPath, os.ModePerm); err != nil {
@@ -257,14 +255,18 @@ func (db *RoseDB) Reclaim() (err error) {
 	defer os.RemoveAll(reclaimPath)
 
 	db.mu.Lock()
-	defer db.mu.Unlock()
+	defer func() {
+		db.isReclaiming = false
+		db.mu.Unlock()
+	}()
+	db.isReclaiming = true
 
 	// processing the different types of files in different goroutines.
 	newArchivedFiles := sync.Map{}
 	reclaimedTypes := sync.Map{}
 	wg := sync.WaitGroup{}
-	wg.Add(5)
-	for i := 0; i < 5; i++ {
+	wg.Add(DataStructureNum)
+	for i := 0; i < DataStructureNum; i++ {
 		go func(dType uint16) {
 			defer func() {
 				wg.Done()
@@ -279,8 +281,16 @@ func (db *RoseDB) Reclaim() (err error) {
 				df        *storage.DBFile
 				fileId    uint32
 				archFiles = make(map[uint32]*storage.DBFile)
+				fileIds   []int
 			)
+
 			for _, file := range db.archFiles[dType] {
+				fileIds = append(fileIds, int(file.Id))
+			}
+			sort.Ints(fileIds)
+
+			for _, fid := range fileIds {
+				file := db.archFiles[dType][uint32(fid)]
 				var offset int64 = 0
 				var reclaimEntries []*storage.Entry
 
@@ -317,7 +327,6 @@ func (db *RoseDB) Reclaim() (err error) {
 						return
 					}
 
-					// 字符串类型的数据需要在这里更新索引
 					// Since the str types value will be read from db file, so should update the index info.
 					if dType == String {
 						item := db.strIndex.idxList.Get(entry.Meta.Key)
@@ -335,7 +344,7 @@ func (db *RoseDB) Reclaim() (err error) {
 	wg.Wait()
 
 	dbArchivedFiles := make(ArchivedFiles)
-	for i := 0; i < 5; i++ {
+	for i := 0; i < DataStructureNum; i++ {
 		dType := uint16(i)
 		value, ok := newArchivedFiles.Load(dType)
 		if !ok {
@@ -368,8 +377,102 @@ func (db *RoseDB) Reclaim() (err error) {
 	return
 }
 
-// Backup 复制数据库目录，用于备份
-// Copy the database directory for backup.
+// SingleReclaim reclaim the db files`space according to the SingleReclaimThreshold in config, you can execute it by setting a cron.
+// Only support String type now.
+func (db *RoseDB) SingleReclaim() (err error) {
+	// if reclaim operation is in progress, single reclaim can`t be executed.
+	if db.isReclaiming {
+		return ErrDBisReclaiming
+	}
+
+	// create a temporary directory for storing the new db files.
+	reclaimPath := db.config.DirPath + reclaimPath
+	if err := os.MkdirAll(reclaimPath, os.ModePerm); err != nil {
+		return err
+	}
+	defer os.RemoveAll(reclaimPath)
+
+	db.mu.Lock()
+	defer func() {
+		db.isSingleReclaiming = false
+		db.mu.Unlock()
+	}()
+
+	db.isSingleReclaiming = true
+	var fileIds []int
+	for _, file := range db.archFiles[String] {
+		fileIds = append(fileIds, int(file.Id))
+	}
+	// read db files in order.
+	sort.Ints(fileIds)
+
+	for _, fid := range fileIds {
+		file := db.archFiles[String][uint32(fid)]
+		// not reached the threshold.
+		if db.meta.ReclaimableSpace[file.Id] < db.config.SingleReclaimThreshold {
+			continue
+		}
+
+		var (
+			readOff      int64
+			validEntries []*storage.Entry
+		)
+		// read and find all valid entries.
+		for {
+			entry, err := file.Read(readOff)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			if db.validEntry(entry, readOff, uint32(fid)) {
+				validEntries = append(validEntries, entry)
+			}
+			readOff += int64(entry.Size())
+		}
+
+		// remove redundant db file, update reclaimable space and archived files.
+		if len(validEntries) == 0 {
+			os.Remove(file.File.Name())
+			delete(db.meta.ReclaimableSpace, uint32(fid))
+			delete(db.archFiles[String], uint32(fid))
+			continue
+		}
+
+		// rewrite the valid entry.
+		df, err := storage.NewDBFile(reclaimPath, uint32(fid), db.config.RwMethod, db.config.BlockSize, String)
+		if err != nil {
+			return err
+		}
+		for _, e := range validEntries {
+			if err := df.Write(e); err != nil {
+				return err
+			}
+
+			// update the String index.
+			item := db.strIndex.idxList.Get(e.Meta.Key)
+			idx := item.Value().(*index.Indexer)
+			idx.Offset = df.Offset - int64(e.Size())
+			idx.FileId = uint32(fid)
+			db.strIndex.idxList.Put(idx.Meta.Key, idx)
+		}
+
+		// delete old db file.
+		os.Remove(file.File.Name())
+		// copy the temporary file as new archived file.
+		name := storage.PathSeparator + fmt.Sprintf(storage.DBFileFormatNames[String], fid)
+		os.Rename(reclaimPath+name, db.config.DirPath+name)
+
+		// update reclaimable space in db meta.
+		db.meta.ReclaimableSpace[uint32(fid)] = 0
+		// update the archived file.
+		db.archFiles[String][uint32(fid)] = df
+	}
+	return
+}
+
+// Backup copy the database directory for backup.
 func (db *RoseDB) Backup(dir string) (err error) {
 	if utils.Exist(db.config.DirPath) {
 		err = utils.CopyDir(db.config.DirPath, dir)
@@ -397,8 +500,7 @@ func (db *RoseDB) checkKeyValue(key []byte, value ...[]byte) error {
 	return nil
 }
 
-// saveConfig 关闭数据库之前保存配置
-// save db config.
+// save config before closing db.
 func (db *RoseDB) saveConfig() (err error) {
 	path := db.config.DirPath + configSaveFile
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
@@ -415,8 +517,7 @@ func (db *RoseDB) saveMeta() error {
 	return db.meta.Store(metaPath)
 }
 
-// buildIndex 建立索引
-// build the different indexes.
+// build the indexes for different data structures.
 func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
 	if db.config.IdxMode == KeyValueMemMode {
 		idx.Meta.Value = e.Meta.Value
@@ -441,14 +542,14 @@ func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
 
 // write entry to db file.
 func (db *RoseDB) store(e *storage.Entry) error {
-	//sync the db file if file size is not enough, and open a new db file.
+	// sync the db file if file size is not enough, and open a new db file.
 	config := db.config
 	if db.activeFile[e.Type].Offset+int64(e.Size()) > config.BlockSize {
 		if err := db.activeFile[e.Type].Sync(); err != nil {
 			return err
 		}
 
-		//save the old db file as arched file.
+		// save the old db file as arched file.
 		activeFileId := db.activeFileIds[e.Type]
 		db.archFiles[e.Type][activeFileId] = db.activeFile[e.Type]
 		activeFileId = activeFileId + 1
@@ -462,16 +563,14 @@ func (db *RoseDB) store(e *storage.Entry) error {
 		db.meta.ActiveWriteOff[e.Type] = 0
 	}
 
-	//写入 Entry 至文件中
-	//write entry to db file.
+	// write entry to db file.
 	if err := db.activeFile[e.Type].Write(e); err != nil {
 		return err
 	}
 
 	db.meta.ActiveWriteOff[e.Type] = db.activeFile[e.Type].Offset
 
-	//数据持久化
-	//persist the data to disk if necessary.
+	// persist db file according to the config.
 	if config.Sync {
 		if err := db.activeFile[e.Type].Sync(); err != nil {
 			return err
@@ -481,8 +580,8 @@ func (db *RoseDB) store(e *storage.Entry) error {
 	return nil
 }
 
-// validEntry 判断entry所属的操作标识(增、改类型的操作)，以及val是否是有效的
-// check whether entry is valid(contains add and update types of operations).
+// validEntry check whether entry is valid(contains add and update types of operations).
+// expired entry will be filtered.
 func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool {
 	if e == nil {
 		return false
