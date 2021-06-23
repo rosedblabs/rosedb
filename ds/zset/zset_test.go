@@ -168,12 +168,23 @@ func TestSortedSet_ZGetByRank(t *testing.T) {
 	zset := InitZSet()
 	key := "myzset"
 
-	val := zset.ZGetByRank(key, 2)
-	if val != nil {
-		for _, v := range val {
-			t.Logf("%+v ", v)
+	getRank := func(rank int) {
+		val := zset.ZGetByRank(key, rank)
+		if val != nil {
+			for _, v := range val {
+				t.Logf("%+v ", v)
+			}
 		}
 	}
+	t.Run("normal status", func(t *testing.T) {
+		getRank(0)
+		getRank(4)
+		getRank(6)
+	})
+	t.Run("rank range out of len", func(t *testing.T) {
+		getRank(-1)
+		getRank(100)
+	})
 }
 
 func TestSortedSet_ZRevGetByRank(t *testing.T) {

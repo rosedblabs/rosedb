@@ -169,4 +169,8 @@ func TestSet_SDiff(t *testing.T) {
 			t.Log(string(m))
 		}
 	})
+	t.Run("empty key", func(t *testing.T) {
+		var keySet []string
+		_ = set.SDiff(keySet...)
+	})
 }
