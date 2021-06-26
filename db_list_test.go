@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"github.com/roseduan/rosedb/ds/list"
+	"github.com/stretchr/testify/assert"
 	"log"
 	"testing"
 )
@@ -317,4 +318,47 @@ func TestRoseDB_LValExists(t *testing.T) {
 
 	ok1 := db.LValExists(key, []byte("list_data_00099"))
 	t.Log(ok1)
+}
+
+func TestRoseDB_LClear(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("my_list")
+	res, err := db.LPush(key, []byte("val-1"), []byte("val-2"), []byte("val-3"))
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res, 3)
+
+	err = db.LClear(key)
+	assert.Equal(t, err, nil)
+}
+
+func TestRoseDB_LExpire(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("my_list")
+	res, err := db.LPush(key, []byte("val-1"), []byte("val-2"), []byte("val-3"))
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res, 3)
+
+	err = db.LExpire(key, 300)
+	assert.Equal(t, err, nil)
+}
+
+func TestRoseDB_LTTL(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("my_list")
+	res, err := db.LPush(key, []byte("val-1"), []byte("val-2"), []byte("val-3"))
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res, 3)
+
+	db.LExpire(key, 20)
+	t.Log(db.LTTL(key))
+	//for i := 0; i < 5; i++ {
+	//	time.Sleep(time.Second * 2)
+	//	t.Log(db.LTTL(key))
+	//}
 }

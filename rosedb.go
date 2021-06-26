@@ -525,7 +525,7 @@ func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer) error {
 	case storage.String:
 		db.buildStringIndex(idx, entry)
 	case storage.List:
-		db.buildListIndex(idx, entry.GetMark())
+		db.buildListIndex(idx, entry)
 	case storage.Hash:
 		db.buildHashIndex(idx, entry.GetMark())
 	case storage.Set:
@@ -618,6 +618,12 @@ func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool
 			}
 		}
 	case List:
+		deadline, exist := db.expires[String][string(e.Meta.Key)]
+		if mark == ListLExpire {
+			if exist && deadline > time.Now().Unix() {
+				return true
+			}
+		}
 		if mark == ListLPush || mark == ListRPush || mark == ListLInsert || mark == ListLSet {
 			if db.LValExists(e.Meta.Key, e.Meta.Value) {
 				return true
@@ -664,16 +670,21 @@ func (db *RoseDB) checkExpired(key []byte, dType DataType) (expired bool) {
 	if time.Now().Unix() > deadline {
 		expired = true
 
+		var e *storage.Entry
 		switch dType {
 		case String:
-			e := storage.NewEntryNoExtra(key, nil, String, StringRem)
-			if err := db.store(e); err != nil {
-				log.Println("checkExpired: store entry err: ", err)
-				return
-			}
+			e = storage.NewEntryNoExtra(key, nil, String, StringRem)
 			if ele := db.strIndex.idxList.Remove(key); ele != nil {
 				db.incrReclaimableSpace(key)
 			}
+		case List:
+			e = storage.NewEntryNoExtra(key, nil, List, ListLClear)
+			db.listIndex.indexes.LClear(string(key))
+		}
+
+		if err := db.store(e); err != nil {
+			log.Println("checkExpired: store entry err: ", err)
+			return
 		}
 		// delete the expire info stored at key.
 		delete(db.expires[dType], string(key))

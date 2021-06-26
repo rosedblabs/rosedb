@@ -48,6 +48,8 @@ const (
 	ListLInsert
 	ListLSet
 	ListLTrim
+	ListLClear
+	ListLExpire
 )
 
 // 哈希相关操作标识
@@ -98,13 +100,13 @@ func (db *RoseDB) buildStringIndex(idx *index.Indexer, entry *storage.Entry) {
 
 // buildListIndex 建立列表索引
 // build list indexes.
-func (db *RoseDB) buildListIndex(idx *index.Indexer, opt uint16) {
+func (db *RoseDB) buildListIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.listIndex == nil || idx == nil {
 		return
 	}
 
 	key := string(idx.Meta.Key)
-	switch opt {
+	switch entry.GetMark() {
 	case ListLPush:
 		db.listIndex.indexes.LPush(key, idx.Meta.Value)
 	case ListLPop:
@@ -139,6 +141,14 @@ func (db *RoseDB) buildListIndex(idx *index.Indexer, opt uint16) {
 
 			db.listIndex.indexes.LTrim(string(idx.Meta.Key), start, end)
 		}
+	case ListLExpire:
+		if entry.Timestamp < uint64(time.Now().Unix()) {
+			db.listIndex.indexes.LClear(key)
+		} else {
+			db.expires[List][key] = int64(entry.Timestamp)
+		}
+	case ListLClear:
+		db.listIndex.indexes.LClear(key)
 	}
 }
 
