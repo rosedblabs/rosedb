@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -133,4 +134,50 @@ func TestRoseDB_HLen(t *testing.T) {
 	db.HLen(nil)
 
 	db.HLen([]byte("11"))
+}
+
+func TestRoseDB_HExpire(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("hash_key")
+	res, err := db.HSet(key, []byte("a"), []byte("hash-val-1"))
+	assert.Equal(t, err, nil)
+	assert.Equal(t, res, 1)
+
+	err = db.HExpire(key, 10)
+	assert.Equal(t, err, nil)
+}
+
+func TestRoseDB_HTTL(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("hash_key_2")
+
+	res, err := db.HSet(key, []byte("bb"), []byte("hash-val-2"))
+	assert.Equal(t, res, 1)
+	assert.Equal(t, err, nil)
+
+	err = db.HExpire(key, 30)
+	assert.Equal(t, err, nil)
+
+	for i := 0; i < 5; i++ {
+		t.Log(db.HTTL(key))
+		//time.Sleep(time.Second * 2)
+	}
+}
+
+func TestRoseDB_HClear(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("hash_key_3")
+
+	res, err := db.HSet(key, []byte("bb"), []byte("hash-val-2"))
+	assert.Equal(t, res, 1)
+	assert.Equal(t, err, nil)
+
+	err = db.HClear(key)
+	assert.Equal(t, err, nil)
 }

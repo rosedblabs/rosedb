@@ -14,11 +14,9 @@ import (
 	"time"
 )
 
-// DataType 数据类型定义
-// Define the data type.
+// DataType Define the data structure type.
 type DataType = uint16
 
-// 数据类型定义
 // Five different data types, support String, List, Hash, Set, Sorted Set right now.
 const (
 	String DataType = iota
@@ -28,8 +26,7 @@ const (
 	ZSet
 )
 
-// 字符串相关操作标识
-// The operations of String, will be a part of Entry, the same for the other four types.
+// The operations of a String Type, will be a part of Entry, the same for the other four types.
 const (
 	StringSet uint16 = iota
 	StringRem
@@ -37,7 +34,6 @@ const (
 	StringPersist
 )
 
-// 列表相关操作标识
 // The operations of List.
 const (
 	ListLPush uint16 = iota
@@ -52,14 +48,14 @@ const (
 	ListLExpire
 )
 
-// 哈希相关操作标识
 // The operations of Hash.
 const (
 	HashHSet uint16 = iota
 	HashHDel
+	HashClear
+	HashExpire
 )
 
-// 集合相关操作标识
 // The operations of Set.
 const (
 	SetSAdd uint16 = iota
@@ -67,14 +63,12 @@ const (
 	SetSMove
 )
 
-// 有序集合相关操作标识
 // The operations of Sorted Set.
 const (
 	ZSetZAdd uint16 = iota
 	ZSetZRem
 )
 
-// buildStringIndex 建立字符串索引
 // build string indexes.
 func (db *RoseDB) buildStringIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.listIndex == nil || idx == nil {
@@ -98,7 +92,6 @@ func (db *RoseDB) buildStringIndex(idx *index.Indexer, entry *storage.Entry) {
 	}
 }
 
-// buildListIndex 建立列表索引
 // build list indexes.
 func (db *RoseDB) buildListIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.listIndex == nil || idx == nil {
@@ -152,27 +145,31 @@ func (db *RoseDB) buildListIndex(idx *index.Indexer, entry *storage.Entry) {
 	}
 }
 
-// buildHashIndex 建立哈希索引
 // build hash indexes.
-func (db *RoseDB) buildHashIndex(idx *index.Indexer, opt uint16) {
-
+func (db *RoseDB) buildHashIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.hashIndex == nil || idx == nil {
 		return
 	}
 
 	key := string(idx.Meta.Key)
-	switch opt {
+	switch entry.GetMark() {
 	case HashHSet:
 		db.hashIndex.indexes.HSet(key, string(idx.Meta.Extra), idx.Meta.Value)
 	case HashHDel:
 		db.hashIndex.indexes.HDel(key, string(idx.Meta.Extra))
+	case HashClear:
+		db.hashIndex.indexes.HClear(key)
+	case HashExpire:
+		if entry.Timestamp < uint64(time.Now().Unix()) {
+			db.hashIndex.indexes.HClear(key)
+		} else {
+			db.expires[Hash][key] = int64(entry.Timestamp)
+		}
 	}
 }
 
-// buildSetIndex 建立集合索引
 // build set indexes.
 func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
-
 	if db.hashIndex == nil || idx == nil {
 		return
 	}
@@ -189,10 +186,8 @@ func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
 	}
 }
 
-// buildZsetIndex 建立有序集合索引
 // build sorted set indexes.
 func (db *RoseDB) buildZsetIndex(idx *index.Indexer, opt uint16) {
-
 	if db.hashIndex == nil || idx == nil {
 		return
 	}
@@ -208,7 +203,6 @@ func (db *RoseDB) buildZsetIndex(idx *index.Indexer, opt uint16) {
 	}
 }
 
-// loadIdxFromFiles 从文件中加载String、List、Hash、Set、ZSet索引
 // load String、List、Hash、Set、ZSet indexes from db files.
 func (db *RoseDB) loadIdxFromFiles() error {
 	if db.archFiles == nil && db.activeFile == nil {

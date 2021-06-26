@@ -527,7 +527,7 @@ func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer) error {
 	case storage.List:
 		db.buildListIndex(idx, entry)
 	case storage.Hash:
-		db.buildHashIndex(idx, entry.GetMark())
+		db.buildHashIndex(idx, entry)
 	case storage.Set:
 		db.buildSetIndex(idx, entry.GetMark())
 	case storage.ZSet:
@@ -618,7 +618,7 @@ func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool
 			}
 		}
 	case List:
-		deadline, exist := db.expires[String][string(e.Meta.Key)]
+		deadline, exist := db.expires[List][string(e.Meta.Key)]
 		if mark == ListLExpire {
 			if exist && deadline > time.Now().Unix() {
 				return true
@@ -630,6 +630,12 @@ func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool
 			}
 		}
 	case Hash:
+		deadline, exist := db.expires[Hash][string(e.Meta.Key)]
+		if mark == HashExpire {
+			if exist && deadline > time.Now().Unix() {
+				return true
+			}
+		}
 		if mark == HashHSet {
 			if val := db.HGet(e.Meta.Key, e.Meta.Extra); string(val) == string(e.Meta.Value) {
 				return true
@@ -680,6 +686,9 @@ func (db *RoseDB) checkExpired(key []byte, dType DataType) (expired bool) {
 		case List:
 			e = storage.NewEntryNoExtra(key, nil, List, ListLClear)
 			db.listIndex.indexes.LClear(string(key))
+		case Hash:
+			e = storage.NewEntryNoExtra(key, nil, Hash, HashClear)
+			db.hashIndex.indexes.HClear(string(key))
 		}
 
 		if err := db.store(e); err != nil {

@@ -336,18 +336,15 @@ func (db *RoseDB) LExpire(key []byte, duration int64) (err error) {
 
 // LTTL return time to live.
 func (db *RoseDB) LTTL(key []byte) (ttl int64) {
+	db.listIndex.mu.RLock()
+	defer db.listIndex.mu.RUnlock()
+
 	if db.checkExpired(key, List) {
 		return
 	}
 
-	db.listIndex.mu.RLock()
-	defer db.listIndex.mu.RUnlock()
-
 	deadline, exist := db.expires[List][string(key)]
 	if !exist {
-		return
-	}
-	if expired := db.checkExpired(key, List); expired {
 		return
 	}
 	return deadline - time.Now().Unix()

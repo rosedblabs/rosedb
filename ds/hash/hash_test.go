@@ -18,6 +18,11 @@ func InitHash() *Hash {
 	return hash
 }
 
+func TestNew(t *testing.T) {
+	hash := New()
+	assert.NotEqual(t, hash, nil)
+}
+
 func TestHash_HSet(t *testing.T) {
 	hash := InitHash()
 	r1 := hash.HSet("my_hash", "d", []byte("123"))
@@ -106,4 +111,23 @@ func TestHash_HVals(t *testing.T) {
 func TestHash_HLen(t *testing.T) {
 	hash := InitHash()
 	assert.Equal(t, 3, hash.HLen(key))
+}
+
+func TestHash_HClear(t *testing.T) {
+	hash := InitHash()
+	hash.HClear(key)
+
+	v := hash.HGet(key, "a")
+	assert.Equal(t, len(v), 0)
+}
+
+func TestHash_HKeyExists(t *testing.T) {
+	hash := InitHash()
+	exists := hash.HKeyExists(key)
+	assert.Equal(t, exists, true)
+
+	hash.HClear(key)
+
+	exists1 := hash.HKeyExists(key)
+	assert.Equal(t, exists1, false)
 }
