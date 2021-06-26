@@ -1,16 +1,59 @@
 package storage
 
 import (
+	"github.com/stretchr/testify/assert"
 	"hash/crc32"
 	"log"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestNewEntry(t *testing.T) {
 	key, val := []byte("test_key"), []byte("test_val")
-	extra := []byte("extar val")
+	extra := []byte("extra val")
 	_ = NewEntry(key, val, extra, String, 0)
+}
+
+func TestNewEntryWithExpire(t *testing.T) {
+
+	t.Run("normal", func(t *testing.T) {
+		key, val := []byte("test_key_001"), []byte("test_val_001")
+		deadline := time.Now().Add(time.Second * 21).Unix()
+		e := NewEntryWithExpire(key, val, deadline, String, 2)
+		assert.NotEqual(t, e, nil)
+	})
+
+	t.Run("val nil", func(t *testing.T) {
+		deadline := time.Now().Add(time.Second * 21).Unix()
+		e := NewEntryWithExpire([]byte("aa"), nil, deadline, String, 2)
+		assert.NotEqual(t, e, nil)
+	})
+}
+
+func TestEntry_GetType(t *testing.T) {
+	key, val := []byte("test_key_001"), []byte("test_val_001")
+	deadline := time.Now().Add(time.Second * 21).Unix()
+	e := NewEntryWithExpire(key, val, deadline, ZSet, 2)
+
+	assert.Equal(t, e.GetType(), uint16(4))
+}
+
+func TestEntry_GetMark(t *testing.T) {
+	key, val := []byte("test_key_001"), []byte("test_val_001")
+	deadline := time.Now().Add(time.Second * 21).Unix()
+	e := NewEntryWithExpire(key, val, deadline, ZSet, 15)
+
+	assert.Equal(t, e.GetMark(), uint16(15))
+}
+
+func TestNewEntryNoExtra(t *testing.T) {
+	_ = NewEntryNoExtra([]byte("key001"), []byte("val001"), 1, 2)
+}
+
+func TestEntry_Size(t *testing.T) {
+	e := NewEntryNoExtra([]byte("key001"), []byte("val001"), 1, 2)
+	e.Size()
 }
 
 func TestEntry_Encode(t *testing.T) {
@@ -58,25 +101,6 @@ func TestEntry_Encode(t *testing.T) {
 		t.Log(e.Size())
 		t.Log(encVal)
 	})
-
-	//key为空的情况
-	//t.Run("test3", func(t *testing.T) {
-	//	e := &Entry{
-	//		Meta: &Meta{
-	//			Key:   []byte(""),
-	//			Value: []byte("val_001"),
-	//		},
-	//	}
-	//
-	//	e.Meta.KeySize = uint32(len(e.Meta.Key))
-	//	e.Meta.ValueSize = uint32(len(e.Meta.Value))
-	//
-	//	if encode, err := e.Encode(); err != nil {
-	//		t.Error(err)
-	//	} else {
-	//		t.Log(encode)
-	//	}
-	//})
 }
 
 func TestDecode(t *testing.T) {
@@ -117,13 +141,4 @@ func TestDecode(t *testing.T) {
 			t.Log(checkCrc, e.crc32)
 		}
 	}
-}
-
-func TestNewEntryNoExtra(t *testing.T) {
-	_ = NewEntryNoExtra([]byte("key001"), []byte("val001"), 1, 2)
-}
-
-func TestEntry_Size(t *testing.T) {
-	e := NewEntryNoExtra([]byte("key001"), []byte("val001"), 1, 2)
-	e.Size()
 }

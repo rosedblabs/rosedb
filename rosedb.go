@@ -55,16 +55,13 @@ var (
 const (
 
 	// The path for saving rosedb config file.
-	configSaveFile = string(os.PathSeparator) + "db.cfg"
+	configSaveFile = string(os.PathSeparator) + "DB.CFG"
 
 	// The path for saving rosedb meta info.
-	dbMetaSaveFile = string(os.PathSeparator) + "db.meta"
+	dbMetaSaveFile = string(os.PathSeparator) + "DB.META"
 
 	// rosedb reclaim path, a temporary dir, will be removed after reclaim.
 	reclaimPath = string(os.PathSeparator) + "rosedb_reclaim"
-
-	// The path for saving expire info.
-	expireFile = string(os.PathSeparator) + "db.expires"
 
 	// Separator of the extra info, some commands can`t contains it.
 	ExtraSeparator = "\\0"
@@ -87,7 +84,7 @@ type (
 		config             Config          // Config info of rosedb.
 		mu                 sync.RWMutex    // mutex.
 		meta               *storage.DBMeta // Meta info for rosedb.
-		expires            storage.Expires // Expired directory.
+		expires            Expires         // Expired directory.
 		isReclaiming       bool
 		isSingleReclaiming bool
 	}
@@ -101,6 +98,9 @@ type (
 	// ArchivedFiles define the archived files, which mean these files can only be read.
 	// and will never be opened for writing.
 	ArchivedFiles map[DataType]map[uint32]*storage.DBFile
+
+	// Expires saves the expire info of different keys.
+	Expires map[DataType]map[string]int64
 )
 
 // Open a rosedb instance.
@@ -128,9 +128,6 @@ func Open(config Config) (*RoseDB, error) {
 		activeFiles[dataType] = file
 	}
 
-	// load expired directories.
-	expires := storage.LoadExpires(config.DirPath + expireFile)
-
 	// load db meta info, only active file`s write offset right now.
 	meta := storage.LoadMeta(config.DirPath + dbMetaSaveFile)
 	for dataType, file := range activeFiles {
@@ -148,7 +145,10 @@ func Open(config Config) (*RoseDB, error) {
 		hashIndex:     newHashIdx(),
 		setIndex:      newSetIdx(),
 		zsetIndex:     newZsetIdx(),
-		expires:       expires,
+		expires:       make(Expires),
+	}
+	for i := 0; i < DataStructureNum; i++ {
+		db.expires[uint16(i)] = make(map[string]int64)
 	}
 
 	// load indexes from db files.
@@ -186,9 +186,6 @@ func (db *RoseDB) Close() error {
 		return err
 	}
 	if err := db.saveMeta(); err != nil {
-		return err
-	}
-	if err := db.expires.SaveExpires(db.config.DirPath + expireFile); err != nil {
 		return err
 	}
 
@@ -518,23 +515,23 @@ func (db *RoseDB) saveMeta() error {
 }
 
 // build the indexes for different data structures.
-func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
+func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer) error {
 	if db.config.IdxMode == KeyValueMemMode {
-		idx.Meta.Value = e.Meta.Value
-		idx.Meta.ValueSize = uint32(len(e.Meta.Value))
+		idx.Meta.Value = entry.Meta.Value
+		idx.Meta.ValueSize = uint32(len(entry.Meta.Value))
 	}
 
-	switch e.Type {
+	switch entry.GetType() {
 	case storage.String:
-		db.buildStringIndex(idx, e.Mark)
+		db.buildStringIndex(idx, entry)
 	case storage.List:
-		db.buildListIndex(idx, e.Mark)
+		db.buildListIndex(idx, entry.GetMark())
 	case storage.Hash:
-		db.buildHashIndex(idx, e.Mark)
+		db.buildHashIndex(idx, entry.GetMark())
 	case storage.Set:
-		db.buildSetIndex(idx, e.Mark)
+		db.buildSetIndex(idx, entry.GetMark())
 	case storage.ZSet:
-		db.buildZsetIndex(idx, e.Mark)
+		db.buildZsetIndex(idx, entry.GetMark())
 	}
 
 	return nil
@@ -544,35 +541,35 @@ func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
 func (db *RoseDB) store(e *storage.Entry) error {
 	// sync the db file if file size is not enough, and open a new db file.
 	config := db.config
-	if db.activeFile[e.Type].Offset+int64(e.Size()) > config.BlockSize {
-		if err := db.activeFile[e.Type].Sync(); err != nil {
+	if db.activeFile[e.GetType()].Offset+int64(e.Size()) > config.BlockSize {
+		if err := db.activeFile[e.GetType()].Sync(); err != nil {
 			return err
 		}
 
 		// save the old db file as arched file.
-		activeFileId := db.activeFileIds[e.Type]
-		db.archFiles[e.Type][activeFileId] = db.activeFile[e.Type]
+		activeFileId := db.activeFileIds[e.GetType()]
+		db.archFiles[e.GetType()][activeFileId] = db.activeFile[e.GetType()]
 		activeFileId = activeFileId + 1
 
-		newDbFile, err := storage.NewDBFile(config.DirPath, activeFileId, config.RwMethod, config.BlockSize, e.Type)
+		newDbFile, err := storage.NewDBFile(config.DirPath, activeFileId, config.RwMethod, config.BlockSize, e.GetType())
 		if err != nil {
 			return err
 		}
-		db.activeFile[e.Type] = newDbFile
-		db.activeFileIds[e.Type] = activeFileId
-		db.meta.ActiveWriteOff[e.Type] = 0
+		db.activeFile[e.GetType()] = newDbFile
+		db.activeFileIds[e.GetType()] = activeFileId
+		db.meta.ActiveWriteOff[e.GetType()] = 0
 	}
 
 	// write entry to db file.
-	if err := db.activeFile[e.Type].Write(e); err != nil {
+	if err := db.activeFile[e.GetType()].Write(e); err != nil {
 		return err
 	}
 
-	db.meta.ActiveWriteOff[e.Type] = db.activeFile[e.Type].Offset
+	db.meta.ActiveWriteOff[e.GetType()] = db.activeFile[e.GetType()].Offset
 
 	// persist db file according to the config.
 	if config.Sync {
-		if err := db.activeFile[e.Type].Sync(); err != nil {
+		if err := db.activeFile[e.GetType()].Sync(); err != nil {
 			return err
 		}
 	}
@@ -587,13 +584,20 @@ func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool
 		return false
 	}
 
-	mark := e.Mark
-	switch e.Type {
+	mark := e.GetMark()
+	switch e.GetType() {
 	case String:
-		if mark == StringSet {
-			// expired key is not valid.
-			now := uint32(time.Now().Unix())
-			if deadline, exist := db.expires[string(e.Meta.Key)]; exist && deadline <= now {
+		deadline, exist := db.expires[String][string(e.Meta.Key)]
+		now := time.Now().Unix()
+
+		if mark == StringExpire {
+			if exist && deadline > now {
+				return true
+			}
+		}
+		if mark == StringSet || mark == StringPersist {
+			// check expired.
+			if exist && deadline <= now {
 				return false
 			}
 
@@ -648,4 +652,31 @@ func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool
 		}
 	}
 	return false
+}
+
+// Check whether key is expired and delete it if needed.
+func (db *RoseDB) checkExpired(key []byte, dType DataType) (expired bool) {
+	deadline, exist := db.expires[dType][string(key)]
+	if !exist {
+		return
+	}
+
+	if time.Now().Unix() > deadline {
+		expired = true
+
+		switch dType {
+		case String:
+			e := storage.NewEntryNoExtra(key, nil, String, StringRem)
+			if err := db.store(e); err != nil {
+				log.Println("checkExpired: store entry err: ", err)
+				return
+			}
+			if ele := db.strIndex.idxList.Remove(key); ele != nil {
+				db.incrReclaimableSpace(key)
+			}
+		}
+		// delete the expire info stored at key.
+		delete(db.expires[dType], string(key))
+	}
+	return
 }

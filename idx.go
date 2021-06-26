@@ -33,6 +33,8 @@ const (
 const (
 	StringSet uint16 = iota
 	StringRem
+	StringExpire
+	StringPersist
 )
 
 // 列表相关操作标识
@@ -72,20 +74,25 @@ const (
 
 // buildStringIndex 建立字符串索引
 // build string indexes.
-func (db *RoseDB) buildStringIndex(idx *index.Indexer, opt uint16) {
+func (db *RoseDB) buildStringIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.listIndex == nil || idx == nil {
 		return
 	}
 
-	now := uint32(time.Now().Unix())
-	if deadline, exist := db.expires[string(idx.Meta.Key)]; exist && deadline <= now {
-		return
-	}
-	switch opt {
+	switch entry.GetMark() {
 	case StringSet:
 		db.strIndex.idxList.Put(idx.Meta.Key, idx)
 	case StringRem:
 		db.strIndex.idxList.Remove(idx.Meta.Key)
+	case StringExpire:
+		if entry.Timestamp < uint64(time.Now().Unix()) {
+			db.strIndex.idxList.Remove(idx.Meta.Key)
+		} else {
+			db.expires[String][string(idx.Meta.Key)] = int64(entry.Timestamp)
+		}
+	case StringPersist:
+		db.strIndex.idxList.Put(idx.Meta.Key, idx)
+		delete(db.expires[String], string(idx.Meta.Key))
 	}
 }
 

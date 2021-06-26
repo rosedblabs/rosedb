@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"github.com/roseduan/rosedb/index"
 	"github.com/roseduan/rosedb/storage"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -23,13 +22,7 @@ func newStrIdx() *StrIdx {
 // Set set key to hold the string value. If key already holds a value, it is overwritten.
 // Any previous time to live associated with the key is discarded on successful Set operation.
 func (db *RoseDB) Set(key, value []byte) error {
-	if err := db.doSet(key, value); err != nil {
-		return err
-	}
-
-	// Clear the expire time of the key.
-	db.Persist(key)
-	return nil
+	return db.doSet(key, value)
 }
 
 // SetNx is short for "Set if not exists", set key to hold string value if key does not exist.
@@ -66,7 +59,7 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	defer db.strIndex.mu.RUnlock()
 
 	// Check if the key is expired.
-	if db.expireIfNeeded(key) {
+	if db.checkExpired(key, String) {
 		return nil, ErrKeyExpired
 	}
 
@@ -113,31 +106,17 @@ func (db *RoseDB) Append(key, value []byte) error {
 	if err := db.checkKeyValue(key, value); err != nil {
 		return err
 	}
-	e, err := db.Get(key)
-	if err != nil && err != ErrKeyNotExist {
+	existVal, err := db.Get(key)
+	if err != nil && err != ErrKeyNotExist && err != ErrKeyExpired {
 		return err
 	}
 
-	// Check if the key is expired.
-	if db.expireIfNeeded(key) {
-		return ErrKeyExpired
-	}
-
-	appendExist := false
-	if e != nil {
-		appendExist = true
-		e = append(e, value...)
+	if len(existVal) > 0 {
+		existVal = append(existVal, value...)
 	} else {
-		e = value
+		existVal = value
 	}
-
-	if err := db.doSet(key, e); err != nil {
-		return err
-	}
-	if !appendExist {
-		db.Persist(key)
-	}
-	return nil
+	return db.doSet(key, existVal)
 }
 
 // StrLen returns the length of the string value stored at key.
@@ -151,13 +130,12 @@ func (db *RoseDB) StrLen(key []byte) int {
 
 	e := db.strIndex.idxList.Get(key)
 	if e != nil {
-		if db.expireIfNeeded(key) {
+		if db.checkExpired(key, String) {
 			return 0
 		}
 		idx := e.Value().(*index.Indexer)
 		return int(idx.Meta.ValueSize)
 	}
-
 	return 0
 }
 
@@ -171,7 +149,7 @@ func (db *RoseDB) StrExists(key []byte) bool {
 	defer db.strIndex.mu.RUnlock()
 
 	exist := db.strIndex.idxList.Exist(key)
-	if exist && !db.expireIfNeeded(key) {
+	if exist && !db.checkExpired(key, String) {
 		return true
 	}
 	return false
@@ -186,15 +164,14 @@ func (db *RoseDB) StrRem(key []byte) error {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	db.incrReclaimableSpace(key)
-
-	if ele := db.strIndex.idxList.Remove(key); ele != nil {
-		delete(db.expires, string(key))
-		e := storage.NewEntryNoExtra(key, nil, String, StringRem)
-		if err := db.store(e); err != nil {
-			return err
-		}
+	e := storage.NewEntryNoExtra(key, nil, String, StringRem)
+	if err := db.store(e); err != nil {
+		return err
 	}
+
+	db.incrReclaimableSpace(key)
+	db.strIndex.idxList.Remove(key)
+	delete(db.expires[String], string(key))
 	return nil
 }
 
@@ -239,7 +216,7 @@ func (db *RoseDB) PrefixScan(prefix string, limit, offset int) (val [][]byte, er
 		}
 
 		// Check if the key is expired.
-		expired := db.expireIfNeeded(e.Key())
+		expired := db.checkExpired(e.Key(), String)
 		if !expired {
 			val = append(val, value)
 			e = e.Next()
@@ -259,7 +236,7 @@ func (db *RoseDB) RangeScan(start, end []byte) (val [][]byte, err error) {
 	defer db.strIndex.mu.RUnlock()
 
 	for node != nil && bytes.Compare(node.Key(), end) <= 0 {
-		if db.expireIfNeeded(node.Key()) {
+		if db.checkExpired(node.Key(), String) {
 			node = node.Next()
 			continue
 		}
@@ -281,74 +258,62 @@ func (db *RoseDB) RangeScan(start, end []byte) (val [][]byte, err error) {
 }
 
 // Expire set the expiration time of the key.
-func (db *RoseDB) Expire(key []byte, seconds uint32) (err error) {
-	if exist := db.StrExists(key); !exist {
-		return ErrKeyNotExist
-	}
-	if seconds <= 0 {
+func (db *RoseDB) Expire(key []byte, duration int64) (err error) {
+	if duration <= 0 {
 		return ErrInvalidTTL
+	}
+
+	if !db.StrExists(key) {
+		return ErrKeyNotExist
 	}
 
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	deadline := uint32(time.Now().Unix()) + seconds
-	db.expires[string(key)] = deadline
+	deadline := time.Now().Unix() + duration
+
+	e := storage.NewEntryWithExpire(key, nil, deadline, String, StringExpire)
+	if err = db.store(e); err != nil {
+		return err
+	}
+
+	db.expires[String][string(key)] = deadline
 	return
 }
 
 // Persist clear expiration time.
-func (db *RoseDB) Persist(key []byte) {
+func (db *RoseDB) Persist(key []byte) (err error) {
+	val, err := db.Get(key)
+	if err != nil {
+		return err
+	}
+
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	delete(db.expires, string(key))
+	e := storage.NewEntryNoExtra(key, val, String, StringPersist)
+	if err = db.store(e); err != nil {
+		return
+	}
+
+	delete(db.expires[String], string(key))
+	return
 }
 
 // TTL Time to live.
-func (db *RoseDB) TTL(key []byte) (ttl uint32) {
+func (db *RoseDB) TTL(key []byte) (ttl int64) {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	if db.expireIfNeeded(key) {
-		return
-	}
-	deadline, exist := db.expires[string(key)]
+	deadline, exist := db.expires[String][string(key)]
 	if !exist {
 		return
 	}
-
-	now := uint32(time.Now().Unix())
-	if deadline > now {
-		ttl = deadline - now
-	}
-	return
-}
-
-// Check whether key is expired and delete it if needed.
-func (db *RoseDB) expireIfNeeded(key []byte) (expired bool) {
-	deadline := db.expires[string(key)]
-	if deadline <= 0 {
+	if expired := db.checkExpired(key, String); expired {
 		return
 	}
 
-	if time.Now().Unix() > int64(deadline) {
-		expired = true
-		// delete the expire info stored at key.
-		delete(db.expires, string(key))
-
-		// delete the index.
-		if ele := db.strIndex.idxList.Remove(key); ele != nil {
-			// add reclaimable space.
-			db.incrReclaimableSpace(key)
-
-			e := storage.NewEntryNoExtra(key, nil, String, StringRem)
-			if err := db.store(e); err != nil {
-				log.Printf("remove expired key err [%+v] [%+v]\n", key, err)
-			}
-		}
-	}
-	return
+	return deadline - time.Now().Unix()
 }
 
 func (db *RoseDB) doSet(key, value []byte) (err error) {
@@ -372,21 +337,21 @@ func (db *RoseDB) doSet(key, value []byte) (err error) {
 	}
 
 	db.incrReclaimableSpace(key)
+	// clear expire time.
+	delete(db.expires[String], string(key))
 
 	// string indexes, stored in skiplist.
 	idx := &index.Indexer{
 		Meta: &storage.Meta{
-			KeySize: uint32(len(e.Meta.Key)),
-			Key:     e.Meta.Key,
+			KeySize:   uint32(len(e.Meta.Key)),
+			Key:       e.Meta.Key,
+			ValueSize: uint32(len(e.Meta.Value)),
 		},
 		FileId:    db.activeFileIds[String],
 		EntrySize: e.Size(),
 		Offset:    db.activeFile[String].Offset - int64(e.Size()),
 	}
-
-	if err = db.buildIndex(e, idx); err != nil {
-		return err
-	}
+	db.strIndex.idxList.Put(idx.Meta.Key, idx)
 	return
 }
 
