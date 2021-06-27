@@ -2,6 +2,7 @@ package set
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -169,4 +170,29 @@ func TestSet_SDiff(t *testing.T) {
 			t.Log(string(m))
 		}
 	})
+}
+
+func TestSet_SClear(t *testing.T) {
+	set := InitSet()
+	set.SClear(key)
+
+	val := set.SMembers(key)
+	assert.Equal(t, len(val), 0)
+}
+
+func TestSet_SKeyExists(t *testing.T) {
+	set := InitSet()
+
+	exists1 := set.SKeyExists(key)
+	assert.Equal(t, exists1, true)
+
+	set.SClear(key)
+
+	exists2 := set.SKeyExists(key)
+	assert.Equal(t, exists2, false)
+}
+
+func TestNew(t *testing.T) {
+	set := New()
+	assert.NotEqual(t, set, nil)
 }

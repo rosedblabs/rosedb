@@ -1,7 +1,9 @@
 package rosedb
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 func TestRoseDB_SAdd(t *testing.T) {
@@ -159,4 +161,69 @@ func TestRoseDB_SUnion(t *testing.T) {
 	var emptyKeys [][]byte
 	db.SUnion(emptyKeys...)
 	db.SUnion(keys...)
+}
+
+func TestRoseDB_SExpire(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("my_set_key")
+	res, err := db.SAdd(key, []byte("set-val-4"), []byte("set-val-5"), []byte("set-val-6"))
+	assert.Equal(t, err, nil)
+	t.Log(res)
+
+	//err = db.SExpire(key, 100)
+	//assert.Equal(t, err, nil)
+
+	t.Log(db.STTL(key))
+
+	val := db.SMembers(key)
+	t.Log(len(val))
+}
+
+func TestRoseDB_STTL(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("my_set_key")
+
+	err := db.SExpire(key, 100)
+	assert.Equal(t, err, nil)
+
+	for i := 0; i < 5; i++ {
+		t.Log(db.STTL(key))
+		time.Sleep(time.Second * 2)
+	}
+}
+
+func TestRoseDB_SKeyExists(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("my_set_key_2")
+	res, err := db.SAdd(key, []byte("set-val-4"), []byte("set-val-5"), []byte("set-val-6"))
+	assert.Equal(t, err, nil)
+	t.Log(res)
+
+	ok1 := db.SKeyExists(key)
+	assert.Equal(t, ok1, true)
+
+	ok2 := db.SKeyExists([]byte("qqqqqqqq"))
+	assert.Equal(t, ok2, false)
+}
+
+func TestRoseDB_SClear(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("my_set_key_3")
+	res, err := db.SAdd(key, []byte("set-val-4"), []byte("set-val-5"), []byte("set-val-6"))
+	assert.Equal(t, err, nil)
+	t.Log(res)
+
+	err = db.SClear(key)
+	t.Log(err)
+
+	v := db.SMembers(key)
+	assert.Equal(t, len(v), 0)
 }

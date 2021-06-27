@@ -61,6 +61,8 @@ const (
 	SetSAdd uint16 = iota
 	SetSRem
 	SetSMove
+	SetSClear
+	SetSExpire
 )
 
 // The operations of Sorted Set.
@@ -169,13 +171,13 @@ func (db *RoseDB) buildHashIndex(idx *index.Indexer, entry *storage.Entry) {
 }
 
 // build set indexes.
-func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
+func (db *RoseDB) buildSetIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.hashIndex == nil || idx == nil {
 		return
 	}
 
 	key := string(idx.Meta.Key)
-	switch opt {
+	switch entry.GetMark() {
 	case SetSAdd:
 		db.setIndex.indexes.SAdd(key, idx.Meta.Value)
 	case SetSRem:
@@ -183,6 +185,14 @@ func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
 	case SetSMove:
 		extra := idx.Meta.Extra
 		db.setIndex.indexes.SMove(key, string(extra), idx.Meta.Value)
+	case SetSClear:
+		db.setIndex.indexes.SClear(key)
+	case SetSExpire:
+		if entry.Timestamp < uint64(time.Now().Unix()) {
+			db.setIndex.indexes.SClear(key)
+		} else {
+			db.expires[Set][key] = int64(entry.Timestamp)
+		}
 	}
 }
 
