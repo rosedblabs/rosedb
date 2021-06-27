@@ -69,6 +69,8 @@ const (
 const (
 	ZSetZAdd uint16 = iota
 	ZSetZRem
+	ZSetZClear
+	ZSetZExpire
 )
 
 // build string indexes.
@@ -197,19 +199,27 @@ func (db *RoseDB) buildSetIndex(idx *index.Indexer, entry *storage.Entry) {
 }
 
 // build sorted set indexes.
-func (db *RoseDB) buildZsetIndex(idx *index.Indexer, opt uint16) {
+func (db *RoseDB) buildZsetIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.hashIndex == nil || idx == nil {
 		return
 	}
 
 	key := string(idx.Meta.Key)
-	switch opt {
+	switch entry.GetMark() {
 	case ZSetZAdd:
 		if score, err := utils.StrToFloat64(string(idx.Meta.Extra)); err == nil {
 			db.zsetIndex.indexes.ZAdd(key, score, string(idx.Meta.Value))
 		}
 	case ZSetZRem:
 		db.zsetIndex.indexes.ZRem(key, string(idx.Meta.Value))
+	case ZSetZClear:
+		db.zsetIndex.indexes.ZClear(key)
+	case ZSetZExpire:
+		if entry.Timestamp < uint64(time.Now().Unix()) {
+			db.zsetIndex.indexes.ZClear(key)
+		} else {
+			db.expires[ZSet][key] = int64(entry.Timestamp)
+		}
 	}
 }
 

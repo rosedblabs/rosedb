@@ -531,9 +531,8 @@ func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer) error {
 	case storage.Set:
 		db.buildSetIndex(idx, entry)
 	case storage.ZSet:
-		db.buildZsetIndex(idx, entry.GetMark())
+		db.buildZsetIndex(idx, entry)
 	}
-
 	return nil
 }
 
@@ -659,6 +658,12 @@ func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool
 			}
 		}
 	case ZSet:
+		if mark == ZSetZExpire {
+			deadline, exist := db.expires[ZSet][string(e.Meta.Key)]
+			if exist && deadline > time.Now().Unix() {
+				return true
+			}
+		}
 		if mark == ZSetZAdd {
 			if val, err := utils.StrToFloat64(string(e.Meta.Extra)); err == nil {
 				score := db.ZScore(e.Meta.Key, e.Meta.Value)
@@ -695,8 +700,11 @@ func (db *RoseDB) checkExpired(key []byte, dType DataType) (expired bool) {
 			e = storage.NewEntryNoExtra(key, nil, Hash, HashClear)
 			db.hashIndex.indexes.HClear(string(key))
 		case Set:
-			e = storage.NewEntryNoExtra(key, nil, Set, SetSExpire)
+			e = storage.NewEntryNoExtra(key, nil, Set, SetSClear)
 			db.setIndex.indexes.SClear(string(key))
+		case ZSet:
+			e = storage.NewEntryNoExtra(key, nil, ZSet, ZSetZClear)
+			db.zsetIndex.indexes.ZClear(string(key))
 		}
 		if err := db.store(e); err != nil {
 			log.Println("checkExpired: store entry err: ", err)

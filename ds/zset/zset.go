@@ -333,6 +333,18 @@ func (z *SortedSet) ZRevScoreRange(key string, max, min float64) (val []interfac
 	return
 }
 
+// ZKeyExists check if the key exists in zset.
+func (z *SortedSet) ZKeyExists(key string) bool {
+	return z.exist(key)
+}
+
+// ZClear clear the key in zset.
+func (z *SortedSet) ZClear(key string) {
+	if z.ZKeyExists(key) {
+		delete(z.record, key)
+	}
+}
+
 func (z *SortedSet) exist(key string) bool {
 	_, exist := z.record[key]
 	return exist
