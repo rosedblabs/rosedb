@@ -241,7 +241,7 @@ func (db *RoseDB) SClear(key []byte) (err error) {
 	return
 }
 
-// SExpire
+// SExpire set expired time for the key in set.
 func (db *RoseDB) SExpire(key []byte, duration int64) (err error) {
 	if duration <= 0 {
 		return ErrInvalidTTL

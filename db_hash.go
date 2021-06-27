@@ -217,7 +217,7 @@ func (db *RoseDB) HClear(key []byte) (err error) {
 	db.hashIndex.mu.Lock()
 	defer db.hashIndex.mu.Unlock()
 
-	e := storage.NewEntryNoExtra(key, nil, Hash, HashClear)
+	e := storage.NewEntryNoExtra(key, nil, Hash, HashHClear)
 	if err := db.store(e); err != nil {
 		return err
 	}
@@ -243,7 +243,7 @@ func (db *RoseDB) HExpire(key []byte, duration int64) (err error) {
 	defer db.hashIndex.mu.Unlock()
 
 	deadline := time.Now().Unix() + duration
-	e := storage.NewEntryWithExpire(key, nil, deadline, Hash, HashExpire)
+	e := storage.NewEntryWithExpire(key, nil, deadline, Hash, HashHExpire)
 	if err := db.store(e); err != nil {
 		return err
 	}

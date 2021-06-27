@@ -629,7 +629,7 @@ func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool
 			}
 		}
 	case Hash:
-		if mark == HashExpire {
+		if mark == HashHExpire {
 			deadline, exist := db.expires[Hash][string(e.Meta.Key)]
 			if exist && deadline > time.Now().Unix() {
 				return true
@@ -697,7 +697,7 @@ func (db *RoseDB) checkExpired(key []byte, dType DataType) (expired bool) {
 			e = storage.NewEntryNoExtra(key, nil, List, ListLClear)
 			db.listIndex.indexes.LClear(string(key))
 		case Hash:
-			e = storage.NewEntryNoExtra(key, nil, Hash, HashClear)
+			e = storage.NewEntryNoExtra(key, nil, Hash, HashHClear)
 			db.hashIndex.indexes.HClear(string(key))
 		case Set:
 			e = storage.NewEntryNoExtra(key, nil, Set, SetSClear)

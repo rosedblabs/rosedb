@@ -52,8 +52,8 @@ const (
 const (
 	HashHSet uint16 = iota
 	HashHDel
-	HashClear
-	HashExpire
+	HashHClear
+	HashHExpire
 )
 
 // The operations of Set.
@@ -161,9 +161,9 @@ func (db *RoseDB) buildHashIndex(idx *index.Indexer, entry *storage.Entry) {
 		db.hashIndex.indexes.HSet(key, string(idx.Meta.Extra), idx.Meta.Value)
 	case HashHDel:
 		db.hashIndex.indexes.HDel(key, string(idx.Meta.Extra))
-	case HashClear:
+	case HashHClear:
 		db.hashIndex.indexes.HClear(key)
-	case HashExpire:
+	case HashHExpire:
 		if entry.Timestamp < uint64(time.Now().Unix()) {
 			db.hashIndex.indexes.HClear(key)
 		} else {
