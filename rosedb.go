@@ -607,13 +607,9 @@ func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool
 			}
 			indexer := node.Value().(*index.Indexer)
 			if bytes.Compare(indexer.Meta.Key, e.Meta.Key) == 0 {
-				if indexer == nil || indexer.FileId != fileId || indexer.Offset != offset {
-					return false
+				if indexer != nil && indexer.FileId == fileId && indexer.Offset == offset {
+					return true
 				}
-			}
-
-			if val, err := db.Get(e.Meta.Key); err == nil && string(val) == string(e.Meta.Value) {
-				return true
 			}
 		}
 	case List:

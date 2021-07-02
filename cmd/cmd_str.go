@@ -156,7 +156,7 @@ func expire(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		err = ErrSyntaxIncorrect
 		return
 	}
-	if err = db.Expire([]byte(args[0]), uint32(seconds)); err == nil {
+	if err = db.Expire([]byte(args[0]), int64(seconds)); err == nil {
 		res = okResult
 	}
 	return
