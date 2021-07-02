@@ -162,7 +162,7 @@ func (s *Set) SUnion(keys ...string) (val [][]byte) {
 
 // SDiff Returns the members of the set resulting from the difference between the first set and all the successive sets.
 func (s *Set) SDiff(keys ...string) (val [][]byte) {
-	if !s.exist(keys[0]) {
+	if len(keys) == 0 || !s.exist(keys[0]) {
 		return
 	}
 
