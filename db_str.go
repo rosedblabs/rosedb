@@ -338,7 +338,9 @@ func (db *RoseDB) doSet(key, value []byte) (err error) {
 
 	db.incrReclaimableSpace(key)
 	// clear expire time.
-	delete(db.expires[String], string(key))
+	if _, ok := db.expires[String][string(key)]; ok {
+		delete(db.expires[String], string(key))
+	}
 
 	// string indexes, stored in skiplist.
 	idx := &index.Indexer{
@@ -350,6 +352,10 @@ func (db *RoseDB) doSet(key, value []byte) (err error) {
 		FileId:    db.activeFileIds[String],
 		EntrySize: e.Size(),
 		Offset:    db.activeFile[String].Offset - int64(e.Size()),
+	}
+	// in KeyValueMemMode, both key and value will store in memory.
+	if db.config.IdxMode == KeyValueMemMode {
+		idx.Meta.Value = e.Meta.Value
 	}
 	db.strIndex.idxList.Put(idx.Meta.Key, idx)
 	return
