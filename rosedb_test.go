@@ -11,14 +11,14 @@ import (
 	"time"
 )
 
-var dbPath = "/tmp/rosedb/db1"
+var dbPath = "/tmp/rosedb_server"
 
 func InitDb() *RoseDB {
 	config := DefaultConfig()
-	config.DirPath = dbPath
+	//config.DirPath = dbPath
 	config.IdxMode = KeyOnlyMemMode
 	config.RwMethod = storage.FileIO
-	config.BlockSize = 4 * 1024 * 1024
+	//config.BlockSize = 4 * 1024 * 1024
 
 	db, err := Open(config)
 	if err != nil {

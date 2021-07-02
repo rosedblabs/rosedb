@@ -12,7 +12,7 @@ type (
 	Record map[string]map[string]bool
 )
 
-// New new a set idx
+// New create a new set idx.
 func New() *Set {
 	return &Set{make(Record)}
 }
@@ -26,7 +26,6 @@ func (s *Set) SAdd(key string, member []byte) int {
 	}
 
 	s.record[key][string(member)] = true
-
 	return len(s.record[key])
 }
 
@@ -46,7 +45,6 @@ func (s *Set) SPop(key string, count int) [][]byte {
 			break
 		}
 	}
-
 	return val
 }
 
@@ -87,7 +85,6 @@ func (s *Set) SRandMember(key string, count int) [][]byte {
 			count--
 		}
 	}
-
 	return val
 }
 
@@ -148,7 +145,6 @@ func (s *Set) SMembers(key string) (val [][]byte) {
 
 // SUnion Returns the members of the set resulting from the union of all the given sets.
 func (s *Set) SUnion(keys ...string) (val [][]byte) {
-
 	m := make(map[string]bool)
 	for _, k := range keys {
 		if s.exist(k) {
@@ -161,19 +157,16 @@ func (s *Set) SUnion(keys ...string) (val [][]byte) {
 	for v := range m {
 		val = append(val, []byte(v))
 	}
-
 	return
 }
 
 // SDiff Returns the members of the set resulting from the difference between the first set and all the successive sets.
 func (s *Set) SDiff(keys ...string) (val [][]byte) {
-
 	if len(keys) == 0 || !s.exist(keys[0]) {
 		return
 	}
 
 	for v := range s.record[keys[0]] {
-
 		flag := true
 		for i := 1; i < len(keys); i++ {
 			if s.SIsMember(keys[i], []byte(v)) {
@@ -181,16 +174,25 @@ func (s *Set) SDiff(keys ...string) (val [][]byte) {
 				break
 			}
 		}
-
 		if flag {
 			val = append(val, []byte(v))
 		}
 	}
-
 	return
 }
 
-// exist key对应的集合是否存在
+// SKeyExists returns if the key exists.
+func (s *Set) SKeyExists(key string) (ok bool) {
+	return s.exist(key)
+}
+
+// SClear clear the specified key in set.
+func (s *Set) SClear(key string) {
+	if s.SKeyExists(key) {
+		delete(s.record, key)
+	}
+}
+
 // check the key of set is exist
 func (s *Set) exist(key string) bool {
 	_, exist := s.record[key]

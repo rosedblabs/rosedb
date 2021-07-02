@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"log"
 	"math/rand"
 	"strconv"
@@ -15,6 +16,7 @@ func TestRoseDB_Set(t *testing.T) {
 		db := InitDb()
 		defer db.Close()
 
+		// both nil
 		db.Set(nil, nil)
 
 		err := db.Set([]byte("test_key"), []byte("I am roseduan"))
@@ -35,9 +37,9 @@ func TestRoseDB_Set(t *testing.T) {
 		db := ReopenDb()
 		defer db.Close()
 
-		for i := 0; i < 100000; i++ {
-			key := "k---" + strconv.Itoa(rand.Intn(1000))
-			val := "v---" + strconv.Itoa(rand.Intn(1000))
+		for i := 0; i < 250000; i++ {
+			key := "k---" + strconv.Itoa(rand.Intn(100000))
+			val := "v---" + strconv.Itoa(rand.Intn(100000))
 			err := db.Set([]byte(key), []byte(val))
 			if err != nil {
 				log.Println("数据写入发生错误 ", err)
@@ -61,7 +63,6 @@ func TestRoseDB_SetNx(t *testing.T) {
 	if string(val1) != "test_value" {
 		t.Fatal("set and get not equals")
 	}
-
 }
 
 func TestRoseDB_Get(t *testing.T) {
@@ -89,9 +90,8 @@ func TestRoseDB_Get(t *testing.T) {
 
 	t.Run("reopen and get", func(t *testing.T) {
 		db := ReopenDb()
-		t.Log("reopen db...")
 
-		val, _ := db.Get([]byte("test_key_924252"))
+		val, _ := db.Get([]byte("test_key"))
 		log.Println(string(val))
 	})
 
@@ -137,16 +137,25 @@ func TestRoseDB_Append(t *testing.T) {
 	defer db.Close()
 
 	db.Append(nil, nil)
-	db.Append([]byte("test_not_exist"), []byte(" some bug"))
+	db.Append([]byte("test_not_exist"), []byte(" whatever"))
 
-	//test_value_746656
-	err := db.Append([]byte("test_key_747172"), []byte(" some bug"))
-	if err != nil {
-		t.Log(err)
-	}
+	t.Run("not exist", func(t *testing.T) {
+		key, val := []byte("my_name"), []byte("roseduan")
+		err := db.Append(key, val)
+		assert.Equal(t, err, nil)
 
-	val, _ := db.Get([]byte("test_key_747172"))
-	t.Log(string(val))
+		v, _ := db.Get(key)
+		assert.Equal(t, v, val)
+	})
+
+	t.Run("exist", func(t *testing.T) {
+		key, val := []byte("my_age"), []byte("24444444")
+		err := db.Set(key, val)
+		assert.Equal(t, err, nil)
+
+		err = db.Append(key, []byte("---rosedb"))
+		assert.Equal(t, err, nil)
+	})
 }
 
 func TestRoseDB_StrLen(t *testing.T) {
@@ -160,7 +169,42 @@ func TestRoseDB_StrLen(t *testing.T) {
 	t.Log(len([]byte("test_value_121294_abcd")))
 
 	db.Set([]byte("111"), []byte("222"))
-	db.StrLen([]byte("111"))
+	//assert.Equal(t, db.StrLen([]byte("111")), 3)
+	t.Log(db.StrLen([]byte("111")))
+
+	key, val := []byte("my_age"), []byte("24444444")
+	db.Set(key, val)
+	t.Log(db.StrLen(key))
+}
+
+func TestRoseDB_StrExists(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	assert.Equal(t, db.StrExists(nil), false)
+
+	exists := db.StrExists([]byte("my_age"))
+	assert.Equal(t, exists, true)
+
+	exist2 := db.StrExists([]byte("111111--22"))
+	assert.Equal(t, exist2, false)
+}
+
+func TestRoseDB_StrRem(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	db.StrRem(nil)
+	_ = db.StrRem([]byte("my_age"))
+
+	key := []byte("bb-aa")
+	db.Set(key, []byte("rosedb"))
+	db.StrRem(key)
+
+	_, err := db.Get([]byte("my_age"))
+	assert.Equal(t, err, ErrKeyNotExist)
+	_, err = db.Get(key)
+	assert.Equal(t, err, ErrKeyNotExist)
 }
 
 func TestRoseDB_PrefixScan(t *testing.T) {
@@ -183,6 +227,7 @@ func TestRoseDB_PrefixScan(t *testing.T) {
 			log.Fatal(err)
 		}
 
+		t.Logf("-----find prefix--- limit: %d, offset: %d -----", limit, offset)
 		if len(values) > 0 {
 			for _, v := range values {
 				t.Log(string(v))
@@ -223,79 +268,79 @@ func TestRoseDB_RangeScan(t *testing.T) {
 }
 
 func TestRoseDB_Expire(t *testing.T) {
-	db := ReopenDb()
+	db := InitDb()
 	defer db.Close()
 
-	db.Expire([]byte("test_1111"), 10)
-	db.Expire([]byte("test_key_004"), 0)
+	key1 := []byte("key-1")
+	db.Set(key1, []byte("val-1"))
 
-	_ = db.Set([]byte("test_key_004"), []byte("test_val_004"))
-	_ = db.Set([]byte("test_key_005"), []byte("test_val_005"))
-	_ = db.Set([]byte("test_key_006"), []byte("test_val_006"))
+	err := db.Expire(key1, 100)
+	assert.Equal(t, err, nil)
 
-	if err := db.Expire([]byte("test_key_005"), 50); err != nil {
-		log.Println("set expire err : ", err)
+	printTTL := func(key []byte) {
+		t.Log(db.TTL(key1))
 	}
 
-	db.Expire([]byte("test_key_005"), 1)
-	time.Sleep(1200 * time.Millisecond)
-	db.Get([]byte("test_key_005"))
-
-	//key := []byte("test_key_005")
-	//desc := func() {
-	//	ttl := db.TTL(key)
-	//	t.Log(ttl)
-	//}
-	//
-	//val, _ := db.Get(key)
-	//t.Log("val = ", string(val))
-	//
-	//desc()
-	//
-	//time.Sleep(2 * time.Second)
-	//desc()
-	//
-	//time.Sleep(2 * time.Second)
-	//desc()
-	//
-	//time.Sleep(2 * time.Second)
-	//desc()
+	for i := 0; i < 10; i++ {
+		printTTL(key1)
+		time.Sleep(2 * time.Second)
+	}
 }
 
 func TestRoseDB_Persist(t *testing.T) {
 	db := InitDb()
 	defer db.Close()
 
-	key := []byte("my_name4")
-	_ = db.Append(key, []byte("I am roseduan "))
+	key := []byte("my_hobby")
+	_ = db.Append(key, []byte("Coding and reading"))
 
 	db.Expire(key, 10)
-	db.Persist(key)
+	time.Sleep(2 * time.Second)
 
-	//time.Sleep(3 * time.Second)
-	//t.Log(db.TTL(key))
+	t.Log(db.TTL(key))
 	//
-	//time.Sleep(3 * time.Second)
-	//t.Log(db.TTL(key))
-	//
-	//val, err := db.Get(key)
-	//t.Log(err)
-	//t.Log("val = ", string(va
-	//
-	//db.Persist(key)
+	err := db.Persist(key)
+	assert.Equal(t, err, nil)
+	val, err := db.Get(key)
+	t.Log(err)
+	t.Log("val = ", string(val))
+}
+
+func TestRoseDB_TTL(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	assert.Equal(t, db.TTL([]byte("1")), int64(0))
+	assert.Equal(t, db.TTL([]byte("12323")), int64(0))
+
+	key := []byte("my_hobby")
+	_ = db.Append(key, []byte("Coding and reading"))
+
+	db.Expire(key, 10)
+	//time.Sleep(4 * time.Second)
+
+	t.Log(db.TTL(key))
 }
 
 func TestRoseDB_Expire2(t *testing.T) {
-	db := ReopenDb()
+	db := InitDb()
 	defer db.Close()
 
 	exKey := []byte("ex_key_001")
-	db.Set(exKey, []byte("111"))
 
-	db.Expire(exKey, 1)
-	time.Sleep(1200 * time.Millisecond)
-	db.TTL(exKey)
-	db.Get(exKey)
+	//db.Set(exKey, []byte("111"))
+	//
+	//db.Expire(exKey, 20)
+	//time.Sleep(4 * time.Second)
+	//
+	//t.Log(db.TTL(exKey))
+	//db.Append(exKey, []byte(" some thing"))
+	//
+	//time.Sleep(2 * time.Second)
+	//t.Log(db.TTL(exKey))
+
+	v, _ := db.Get(exKey)
+	fmt.Println(string(v))
 }
 
 func TestDoSet(t *testing.T) {
@@ -315,33 +360,6 @@ func TestDoSet(t *testing.T) {
 		log.Println(err)
 	}
 	fmt.Println("val = ", string(val))
-}
-
-func TestRoseDB_StrExists(t *testing.T) {
-	db := InitDb()
-	defer db.Close()
-
-	db.StrExists(nil)
-	_ = db.StrExists([]byte("11111"))
-}
-
-func TestRoseDB_StrRem(t *testing.T) {
-	db := InitDb()
-	defer db.Close()
-
-	db.StrRem(nil)
-	_ = db.StrRem([]byte("11111"))
-
-	key := []byte("bb-aa")
-	db.Set(key, []byte("rosedb"))
-	db.StrRem(key)
-}
-
-func TestRoseDB_TTL(t *testing.T) {
-	db := InitDb()
-	defer db.Close()
-
-	db.TTL([]byte("1"))
 }
 
 func TestRoseDB_Get2(t *testing.T) {

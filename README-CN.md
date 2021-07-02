@@ -9,7 +9,7 @@ rosedb 是一个稳定、高性能、快速、内嵌的 k-v 数据库，支持�
 
 rosedb 基于简单的 bitcask 模型，数据文件布局类似 LSM Tree 中的 WAL 日志，纯 `Golang` 实现，易于使用、扩展。
 
-我们的愿景是打造一个高效的 k-v 存储引擎，你可以给我们提任何建议，也请给我们一个 start ✨ 吧，非常感谢！
+我们的愿景是打造一个高效的 k-v 存储引擎，你可以给我们提任何建议，也请给我们一个 star ✨ 吧，非常感谢！
 
  ![Stargazers over time](https://starchart.cc/roseduan/rosedb.svg)
 

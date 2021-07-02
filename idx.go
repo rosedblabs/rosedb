@@ -14,11 +14,9 @@ import (
 	"time"
 )
 
-// DataType 数据类型定义
-// Define the data type.
+// DataType Define the data structure type.
 type DataType = uint16
 
-// 数据类型定义
 // Five different data types, support String, List, Hash, Set, Sorted Set right now.
 const (
 	String DataType = iota
@@ -28,14 +26,14 @@ const (
 	ZSet
 )
 
-// 字符串相关操作标识
-// The operations of String, will be a part of Entry, the same for the other four types.
+// The operations of a String Type, will be a part of Entry, the same for the other four types.
 const (
 	StringSet uint16 = iota
 	StringRem
+	StringExpire
+	StringPersist
 )
 
-// 列表相关操作标识
 // The operations of List.
 const (
 	ListLPush uint16 = iota
@@ -46,58 +44,66 @@ const (
 	ListLInsert
 	ListLSet
 	ListLTrim
+	ListLClear
+	ListLExpire
 )
 
-// 哈希相关操作标识
 // The operations of Hash.
 const (
 	HashHSet uint16 = iota
 	HashHDel
+	HashHClear
+	HashHExpire
 )
 
-// 集合相关操作标识
 // The operations of Set.
 const (
 	SetSAdd uint16 = iota
 	SetSRem
 	SetSMove
+	SetSClear
+	SetSExpire
 )
 
-// 有序集合相关操作标识
 // The operations of Sorted Set.
 const (
 	ZSetZAdd uint16 = iota
 	ZSetZRem
+	ZSetZClear
+	ZSetZExpire
 )
 
-// buildStringIndex 建立字符串索引
 // build string indexes.
-func (db *RoseDB) buildStringIndex(idx *index.Indexer, opt uint16) {
+func (db *RoseDB) buildStringIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.listIndex == nil || idx == nil {
 		return
 	}
 
-	now := uint32(time.Now().Unix())
-	if deadline, exist := db.expires[string(idx.Meta.Key)]; exist && deadline <= now {
-		return
-	}
-	switch opt {
+	switch entry.GetMark() {
 	case StringSet:
 		db.strIndex.idxList.Put(idx.Meta.Key, idx)
 	case StringRem:
 		db.strIndex.idxList.Remove(idx.Meta.Key)
+	case StringExpire:
+		if entry.Timestamp < uint64(time.Now().Unix()) {
+			db.strIndex.idxList.Remove(idx.Meta.Key)
+		} else {
+			db.expires[String][string(idx.Meta.Key)] = int64(entry.Timestamp)
+		}
+	case StringPersist:
+		db.strIndex.idxList.Put(idx.Meta.Key, idx)
+		delete(db.expires[String], string(idx.Meta.Key))
 	}
 }
 
-// buildListIndex 建立列表索引
 // build list indexes.
-func (db *RoseDB) buildListIndex(idx *index.Indexer, opt uint16) {
+func (db *RoseDB) buildListIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.listIndex == nil || idx == nil {
 		return
 	}
 
 	key := string(idx.Meta.Key)
-	switch opt {
+	switch entry.GetMark() {
 	case ListLPush:
 		db.listIndex.indexes.LPush(key, idx.Meta.Value)
 	case ListLPop:
@@ -132,36 +138,48 @@ func (db *RoseDB) buildListIndex(idx *index.Indexer, opt uint16) {
 
 			db.listIndex.indexes.LTrim(string(idx.Meta.Key), start, end)
 		}
+	case ListLExpire:
+		if entry.Timestamp < uint64(time.Now().Unix()) {
+			db.listIndex.indexes.LClear(key)
+		} else {
+			db.expires[List][key] = int64(entry.Timestamp)
+		}
+	case ListLClear:
+		db.listIndex.indexes.LClear(key)
 	}
 }
 
-// buildHashIndex 建立哈希索引
 // build hash indexes.
-func (db *RoseDB) buildHashIndex(idx *index.Indexer, opt uint16) {
-
+func (db *RoseDB) buildHashIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.hashIndex == nil || idx == nil {
 		return
 	}
 
 	key := string(idx.Meta.Key)
-	switch opt {
+	switch entry.GetMark() {
 	case HashHSet:
 		db.hashIndex.indexes.HSet(key, string(idx.Meta.Extra), idx.Meta.Value)
 	case HashHDel:
 		db.hashIndex.indexes.HDel(key, string(idx.Meta.Extra))
+	case HashHClear:
+		db.hashIndex.indexes.HClear(key)
+	case HashHExpire:
+		if entry.Timestamp < uint64(time.Now().Unix()) {
+			db.hashIndex.indexes.HClear(key)
+		} else {
+			db.expires[Hash][key] = int64(entry.Timestamp)
+		}
 	}
 }
 
-// buildSetIndex 建立集合索引
 // build set indexes.
-func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
-
+func (db *RoseDB) buildSetIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.hashIndex == nil || idx == nil {
 		return
 	}
 
 	key := string(idx.Meta.Key)
-	switch opt {
+	switch entry.GetMark() {
 	case SetSAdd:
 		db.setIndex.indexes.SAdd(key, idx.Meta.Value)
 	case SetSRem:
@@ -169,29 +187,42 @@ func (db *RoseDB) buildSetIndex(idx *index.Indexer, opt uint16) {
 	case SetSMove:
 		extra := idx.Meta.Extra
 		db.setIndex.indexes.SMove(key, string(extra), idx.Meta.Value)
+	case SetSClear:
+		db.setIndex.indexes.SClear(key)
+	case SetSExpire:
+		if entry.Timestamp < uint64(time.Now().Unix()) {
+			db.setIndex.indexes.SClear(key)
+		} else {
+			db.expires[Set][key] = int64(entry.Timestamp)
+		}
 	}
 }
 
-// buildZsetIndex 建立有序集合索引
 // build sorted set indexes.
-func (db *RoseDB) buildZsetIndex(idx *index.Indexer, opt uint16) {
-
+func (db *RoseDB) buildZsetIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.hashIndex == nil || idx == nil {
 		return
 	}
 
 	key := string(idx.Meta.Key)
-	switch opt {
+	switch entry.GetMark() {
 	case ZSetZAdd:
 		if score, err := utils.StrToFloat64(string(idx.Meta.Extra)); err == nil {
 			db.zsetIndex.indexes.ZAdd(key, score, string(idx.Meta.Value))
 		}
 	case ZSetZRem:
 		db.zsetIndex.indexes.ZRem(key, string(idx.Meta.Value))
+	case ZSetZClear:
+		db.zsetIndex.indexes.ZClear(key)
+	case ZSetZExpire:
+		if entry.Timestamp < uint64(time.Now().Unix()) {
+			db.zsetIndex.indexes.ZClear(key)
+		} else {
+			db.expires[ZSet][key] = int64(entry.Timestamp)
+		}
 	}
 }
 
-// loadIdxFromFiles 从文件中加载String、List、Hash、Set、ZSet索引
 // load String、List、Hash、Set、ZSet indexes from db files.
 func (db *RoseDB) loadIdxFromFiles() error {
 	if db.archFiles == nil && db.activeFile == nil {

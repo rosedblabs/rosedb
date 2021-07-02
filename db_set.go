@@ -4,6 +4,7 @@ import (
 	"github.com/roseduan/rosedb/ds/set"
 	"github.com/roseduan/rosedb/storage"
 	"sync"
+	"time"
 )
 
 // SetIdx the set idx
@@ -12,12 +13,12 @@ type SetIdx struct {
 	indexes *set.Set
 }
 
+// newSetIdx create new set index.
 func newSetIdx() *SetIdx {
 	return &SetIdx{indexes: set.New()}
 }
 
-// SAdd 添加元素，返回添加后的集合中的元素个数
-// Add the specified members to the set stored at key.
+// SAdd add the specified members to the set stored at key.
 // Specified members that are already a member of this set are ignored.
 // If key does not exist, a new set is created before adding the specified members.
 func (db *RoseDB) SAdd(key []byte, members ...[]byte) (res int, err error) {
@@ -41,8 +42,7 @@ func (db *RoseDB) SAdd(key []byte, members ...[]byte) (res int, err error) {
 	return
 }
 
-// SPop 随机移除并返回集合中的count个元素
-// Removes and returns one or more random members from the set value store at key.
+// SPop removes and returns one or more random members from the set value store at key.
 func (db *RoseDB) SPop(key []byte, count int) (values [][]byte, err error) {
 	if err = db.checkKeyValue(key, nil); err != nil {
 		return
@@ -50,6 +50,10 @@ func (db *RoseDB) SPop(key []byte, count int) (values [][]byte, err error) {
 
 	db.setIndex.mu.Lock()
 	defer db.setIndex.mu.Unlock()
+
+	if db.checkExpired(key, Set) {
+		return nil, ErrKeyExpired
+	}
 
 	values = db.setIndex.indexes.SPop(string(key), count)
 	for _, v := range values {
@@ -61,30 +65,31 @@ func (db *RoseDB) SPop(key []byte, count int) (values [][]byte, err error) {
 	return
 }
 
-// SIsMember 判断 member 元素是不是集合 key 的成员
-// Returns if member is a member of the set stored at key.
+// SIsMember returns if member is a member of the set stored at key.
 func (db *RoseDB) SIsMember(key, member []byte) bool {
 	db.setIndex.mu.RLock()
 	defer db.setIndex.mu.RUnlock()
 
+	if db.checkExpired(key, Set) {
+		return false
+	}
 	return db.setIndex.indexes.SIsMember(string(key), member)
 }
 
-// SRandMember 从集合中返回随机元素，count的可选值如下：
-// 如果 count 为正数，且小于集合元素数量，则返回一个包含 count 个元素的数组，数组中的元素各不相同
-// 如果 count 大于等于集合元素数量，那么返回整个集合
-// 如果 count 为负数，则返回一个数组，数组中的元素可能会重复出现多次，而数组的长度为 count 的绝对值
-// When called with just the key argument, return a random element from the set value stored at key.
+// SRandMember returns a random element from the set value stored at key.
+// count > 0: if count less than set`s card, returns an array containing count different elements. if count greater than set`s card, the entire set will be returned.
+// count < 0: the command is allowed to return the same element multiple times, and in this case, the number of returned elements is the absolute value of the specified count.
 func (db *RoseDB) SRandMember(key []byte, count int) [][]byte {
 	db.setIndex.mu.RLock()
 	defer db.setIndex.mu.RUnlock()
 
+	if db.checkExpired(key, Set) {
+		return nil
+	}
 	return db.setIndex.indexes.SRandMember(string(key), count)
 }
 
-// SRem 移除集合 key 中的一个或多个 member 元素，不存在的 member 元素会被忽略
-// 被成功移除的元素的数量，不包括被忽略的元素
-// Remove the specified members from the set stored at key.
+// SRem remove the specified members from the set stored at key.
 // Specified members that are not a member of this set are ignored.
 // If key does not exist, it is treated as an empty set and this command returns 0.
 func (db *RoseDB) SRem(key []byte, members ...[]byte) (res int, err error) {
@@ -94,6 +99,10 @@ func (db *RoseDB) SRem(key []byte, members ...[]byte) (res int, err error) {
 
 	db.setIndex.mu.Lock()
 	defer db.setIndex.mu.Unlock()
+
+	if db.checkExpired(key, Set) {
+		return
+	}
 
 	for _, m := range members {
 		if ok := db.setIndex.indexes.SRem(string(key), m); ok {
@@ -107,11 +116,17 @@ func (db *RoseDB) SRem(key []byte, members ...[]byte) (res int, err error) {
 	return
 }
 
-// SMove 将 member 元素从 src 集合移动到 dst 集合
-// Move member from the set at source to the set at destination.
+// SMove move member from the set at source to the set at destination.
 func (db *RoseDB) SMove(src, dst, member []byte) error {
 	db.setIndex.mu.Lock()
 	defer db.setIndex.mu.Unlock()
+
+	if db.checkExpired(src, Set) {
+		return ErrKeyExpired
+	}
+	if db.checkExpired(dst, Set) {
+		return ErrKeyExpired
+	}
 
 	if ok := db.setIndex.indexes.SMove(string(src), string(dst), member); ok {
 		e := storage.NewEntry(src, member, dst, Set, SetSMove)
@@ -122,8 +137,7 @@ func (db *RoseDB) SMove(src, dst, member []byte) error {
 	return nil
 }
 
-// SCard 返回集合中的元素个数
-// Returns the set cardinality (number of elements) of the set stored at key.
+// SCard returns the set cardinality (number of elements) of the set stored at key.
 func (db *RoseDB) SCard(key []byte) int {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return 0
@@ -132,11 +146,13 @@ func (db *RoseDB) SCard(key []byte) int {
 	db.setIndex.mu.RLock()
 	defer db.setIndex.mu.RUnlock()
 
+	if db.checkExpired(key, Set) {
+		return 0
+	}
 	return db.setIndex.indexes.SCard(string(key))
 }
 
-// SMembers 返回集合中的所有元素
-// Returns all the members of the set value stored at key.
+// SMembers returns all the members of the set value stored at key.
 func (db *RoseDB) SMembers(key []byte) (val [][]byte) {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return
@@ -145,11 +161,13 @@ func (db *RoseDB) SMembers(key []byte) (val [][]byte) {
 	db.setIndex.mu.RLock()
 	defer db.setIndex.mu.RUnlock()
 
+	if db.checkExpired(key, Set) {
+		return
+	}
 	return db.setIndex.indexes.SMembers(string(key))
 }
 
-// SUnion 返回给定全部集合数据的并集
-// Returns the members of the set resulting from the union of all the given sets.
+// SUnion returns the members of the set resulting from the union of all the given sets.
 func (db *RoseDB) SUnion(keys ...[]byte) (val [][]byte) {
 	if keys == nil || len(keys) == 0 {
 		return
@@ -158,16 +176,18 @@ func (db *RoseDB) SUnion(keys ...[]byte) (val [][]byte) {
 	db.setIndex.mu.RLock()
 	defer db.setIndex.mu.RUnlock()
 
-	var s []string
+	var validKeys []string
 	for _, k := range keys {
-		s = append(s, string(k))
+		if db.checkExpired(k, Set) {
+			continue
+		}
+		validKeys = append(validKeys, string(k))
 	}
 
-	return db.setIndex.indexes.SUnion(s...)
+	return db.setIndex.indexes.SUnion(validKeys...)
 }
 
-// SDiff 返回给定集合数据的差集
-// Returns the members of the set resulting from the difference between the first set and all the successive sets.
+// SDiff returns the members of the set resulting from the difference between the first set and all the successive sets.
 func (db *RoseDB) SDiff(keys ...[]byte) (val [][]byte) {
 	if keys == nil || len(keys) == 0 {
 		return
@@ -176,10 +196,84 @@ func (db *RoseDB) SDiff(keys ...[]byte) (val [][]byte) {
 	db.setIndex.mu.RLock()
 	defer db.setIndex.mu.RUnlock()
 
-	var s []string
+	var validKeys []string
 	for _, k := range keys {
-		s = append(s, string(k))
+		if db.checkExpired(k, Set) {
+			continue
+		}
+		validKeys = append(validKeys, string(k))
 	}
 
-	return db.setIndex.indexes.SDiff(s...)
+	return db.setIndex.indexes.SDiff(validKeys...)
+}
+
+// SKeyExists returns if the key exists.
+func (db *RoseDB) SKeyExists(key []byte) (ok bool) {
+	if err := db.checkKeyValue(key, nil); err != nil {
+		return
+	}
+
+	db.setIndex.mu.RLock()
+	defer db.setIndex.mu.RUnlock()
+
+	if db.checkExpired(key, Set) {
+		return
+	}
+
+	ok = db.setIndex.indexes.SKeyExists(string(key))
+	return
+}
+
+// SClear clear the specified key in set.
+func (db *RoseDB) SClear(key []byte) (err error) {
+	if !db.SKeyExists(key) {
+		return ErrKeyNotExist
+	}
+
+	db.setIndex.mu.Lock()
+	defer db.setIndex.mu.Unlock()
+
+	e := storage.NewEntryNoExtra(key, nil, Set, SetSClear)
+	if err = db.store(e); err != nil {
+		return
+	}
+	db.setIndex.indexes.SClear(string(key))
+	return
+}
+
+// SExpire set expired time for the key in set.
+func (db *RoseDB) SExpire(key []byte, duration int64) (err error) {
+	if duration <= 0 {
+		return ErrInvalidTTL
+	}
+	if !db.SKeyExists(key) {
+		return ErrKeyNotExist
+	}
+
+	db.setIndex.mu.Lock()
+	defer db.setIndex.mu.Unlock()
+
+	deadline := time.Now().Unix() + duration
+	e := storage.NewEntryWithExpire(key, nil, deadline, Set, SetSExpire)
+	if err = db.store(e); err != nil {
+		return
+	}
+	db.expires[Set][string(key)] = deadline
+	return
+}
+
+// STTL return time to live for the key in set.
+func (db *RoseDB) STTL(key []byte) (ttl int64) {
+	db.setIndex.mu.RLock()
+	defer db.setIndex.mu.RUnlock()
+
+	if db.checkExpired(key, Set) {
+		return
+	}
+
+	deadline, exist := db.expires[Set][string(key)]
+	if !exist {
+		return
+	}
+	return deadline - time.Now().Unix()
 }

@@ -1,6 +1,7 @@
 package zset
 
 import (
+	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"testing"
 	"time"
@@ -275,4 +276,25 @@ func TestSortedSet_ZCard(t *testing.T) {
 	zSet := InitZSet()
 	card := zSet.ZCard("myzset")
 	t.Log(card)
+}
+
+func TestSortedSet_ZClear(t *testing.T) {
+	zset := InitZSet()
+	key := "myzset"
+	zset.ZClear(key)
+
+	card := zset.ZCard(key)
+	assert.Equal(t, card, 0)
+}
+
+func TestSortedSet_ZKeyExists(t *testing.T) {
+	zset := InitZSet()
+	key := "myzset"
+
+	ok1 := zset.ZKeyExists(key)
+	assert.Equal(t, ok1, true)
+
+	zset.ZClear(key)
+	ok2 := zset.ZKeyExists(key)
+	assert.Equal(t, ok2, false)
 }

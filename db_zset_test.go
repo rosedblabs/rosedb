@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -213,4 +214,61 @@ func TestRoseDB_ZRevScoreRange(t *testing.T) {
 	recScoreRange(100, 50)
 	recScoreRange(200, 100)
 	recScoreRange(500, 200)
+}
+
+func TestRoseDB_ZExpire(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("my_zset_key")
+	db.ZAdd(key, 423.21, []byte("val-1"))
+	db.ZAdd(key, 675.15, []byte("val-2"))
+
+	err := db.ZExpire(key, 100)
+	assert.Equal(t, err, nil)
+
+	for i := 0; i < 5; i++ {
+		t.Log(db.ZTTL(key))
+		//time.Sleep(time.Second * 2)
+	}
+}
+
+func TestRoseDB_ZTTL(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("my_zset_key_2")
+	db.ZAdd(key, 423.21, []byte("val-1"))
+
+	db.ZExpire(key, 20)
+	t.Log(db.ZTTL(key))
+	for i := 0; i < 5; i++ {
+		t.Log(db.ZTTL(key))
+		//time.Sleep(time.Second * 2)
+	}
+}
+
+func TestRoseDB_ZKeyExists(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("my_zset_key_3")
+	db.ZAdd(key, 43.21, []byte("val-1"))
+
+	ok1 := db.ZKeyExists(key)
+	assert.Equal(t, ok1, true)
+
+	ok2 := db.ZKeyExists([]byte("my"))
+	assert.Equal(t, ok2, false)
+}
+
+func TestRoseDB_ZClear(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("my_zset_key_3")
+	db.ZAdd(key, 43.21, []byte("val-1"))
+
+	err := db.ZClear(key)
+	assert.Equal(t, err, nil)
 }

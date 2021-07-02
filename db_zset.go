@@ -4,21 +4,23 @@ import (
 	"github.com/roseduan/rosedb/ds/zset"
 	"github.com/roseduan/rosedb/storage"
 	"github.com/roseduan/rosedb/utils"
+	"math"
 	"sync"
+	"time"
 )
 
-// ZsetIdx the zset idx
+// ZsetIdx the zset idx.
 type ZsetIdx struct {
 	mu      sync.RWMutex
 	indexes *zset.SortedSet
 }
 
+// create a new zset index.
 func newZsetIdx() *ZsetIdx {
 	return &ZsetIdx{indexes: zset.New()}
 }
 
-// ZAdd 将 member 元素及其 score 值加入到有序集 key 当中
-// Adds the specified member with the specified score to the sorted set stored at key
+// ZAdd adds the specified member with the specified score to the sorted set stored at key.
 func (db *RoseDB) ZAdd(key []byte, score float64, member []byte) error {
 	if err := db.checkKeyValue(key, member); err != nil {
 		return err
@@ -42,27 +44,31 @@ func (db *RoseDB) ZAdd(key []byte, score float64, member []byte) error {
 	return nil
 }
 
-// ZScore 返回集合key中对应member的score值，如果不存在则返回负无穷
-// Returns the score of member in the sorted set at key.
+// ZScore returns the score of member in the sorted set at key.
 func (db *RoseDB) ZScore(key, member []byte) float64 {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	if db.checkExpired(key, ZSet) {
+		return math.MinInt64
+	}
+
 	return db.zsetIndex.indexes.ZScore(string(key), string(member))
 }
 
-// ZCard 返回指定集合key中的元素个数
-// Returns the sorted set cardinality (number of elements) of the sorted set stored at key.
+// ZCard returns the sorted set cardinality (number of elements) of the sorted set stored at key.
 func (db *RoseDB) ZCard(key []byte) int {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	if db.checkExpired(key, ZSet) {
+		return 0
+	}
+
 	return db.zsetIndex.indexes.ZCard(string(key))
 }
 
-// ZRank 返回有序集 key 中成员 member 的排名。其中有序集成员按 score 值递增(从小到大)顺序排列
-// 排名以 0 为底，也就是说， score 值最小的成员排名为 0
-// Returns the rank of member in the sorted set stored at key, with the scores ordered from low to high.
+// ZRank returns the rank of member in the sorted set stored at key, with the scores ordered from low to high.
 // The rank (or index) is 0-based, which means that the member with the lowest score has rank 0.
 func (db *RoseDB) ZRank(key, member []byte) int64 {
 	if err := db.checkKeyValue(key, member); err != nil {
@@ -72,12 +78,14 @@ func (db *RoseDB) ZRank(key, member []byte) int64 {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	if db.checkExpired(key, ZSet) {
+		return -1
+	}
+
 	return db.zsetIndex.indexes.ZRank(string(key), string(member))
 }
 
-// ZRevRank 返回有序集 key 中成员 member 的排名。其中有序集成员按 score 值递减(从大到小)排序
-// 排名以 0 为底，也就是说， score 值最大的成员排名为 0
-// Returns the rank of member in the sorted set stored at key, with the scores ordered from high to low.
+// ZRevRank returns the rank of member in the sorted set stored at key, with the scores ordered from high to low.
 // The rank (or index) is 0-based, which means that the member with the highest score has rank 0.
 func (db *RoseDB) ZRevRank(key, member []byte) int64 {
 	if err := db.checkKeyValue(key, member); err != nil {
@@ -87,12 +95,14 @@ func (db *RoseDB) ZRevRank(key, member []byte) int64 {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	if db.checkExpired(key, ZSet) {
+		return -1
+	}
+
 	return db.zsetIndex.indexes.ZRevRank(string(key), string(member))
 }
 
-// ZIncrBy 为有序集 key 的成员 member 的 score 值加上增量 increment
-// 当 key 不存在，或 member 不是 key 的成员时，ZIncrBy 等同于 ZAdd
-// Increments the score of member in the sorted set stored at key by increment.
+// ZIncrBy increments the score of member in the sorted set stored at key by increment.
 // If member does not exist in the sorted set, it is added with increment as its score (as if its previous score was 0.0).
 // If key does not exist, a new sorted set with the specified member as its sole member is created.
 func (db *RoseDB) ZIncrBy(key []byte, increment float64, member []byte) (float64, error) {
@@ -114,9 +124,7 @@ func (db *RoseDB) ZIncrBy(key []byte, increment float64, member []byte) (float64
 	return increment, nil
 }
 
-// ZRange 返回有序集 key 中，指定区间内的成员，其中成员的位置按 score 值递增(从小到大)来排序
-// 具有相同 score 值的成员按字典序(lexicographical order )来排列
-// Returns the specified range of elements in the sorted set stored at <key>.
+// ZRange returns the specified range of elements in the sorted set stored at key.
 func (db *RoseDB) ZRange(key []byte, start, stop int) []interface{} {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return nil
@@ -125,12 +133,14 @@ func (db *RoseDB) ZRange(key []byte, start, stop int) []interface{} {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	if db.checkExpired(key, ZSet) {
+		return nil
+	}
+
 	return db.zsetIndex.indexes.ZRange(string(key), start, stop)
 }
 
-// ZRangeWithScores 返回有序集 key 中，指定区间内的成员以及 score 值，其中成员的位置按 score 值递增(从小到大)来排序
-// 具有相同 score 值的成员按字典序(lexicographical order )来排列
-// Returns the specified range of elements in the sorted set stored at <key>.
+// ZRangeWithScores returns the specified range of elements in the sorted set stored at key.
 func (db *RoseDB) ZRangeWithScores(key []byte, start, stop int) []interface{} {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return nil
@@ -139,12 +149,14 @@ func (db *RoseDB) ZRangeWithScores(key []byte, start, stop int) []interface{} {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	if db.checkExpired(key, ZSet) {
+		return nil
+	}
+
 	return db.zsetIndex.indexes.ZRangeWithScores(string(key), start, stop)
 }
 
-// ZRevRange 返回有序集 key 中，指定区间内的成员，其中成员的位置按 score 值递减(从大到小)来排列
-// 具有相同 score 值的成员按字典序的逆序(reverse lexicographical order)排列
-// Returns the specified range of elements in the sorted set stored at key.
+// ZRevRange returns the specified range of elements in the sorted set stored at key.
 // The elements are considered to be ordered from the highest to the lowest score.
 // Descending lexicographical order is used for elements with equal score.
 func (db *RoseDB) ZRevRange(key []byte, start, stop int) []interface{} {
@@ -155,12 +167,14 @@ func (db *RoseDB) ZRevRange(key []byte, start, stop int) []interface{} {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	if db.checkExpired(key, ZSet) {
+		return nil
+	}
+
 	return db.zsetIndex.indexes.ZRevRange(string(key), start, stop)
 }
 
-// ZRevRangeWithScores 返回有序集 key 中，指定区间内的成员以及 score 值，其中成员的位置按 score 值递减(从大到小)来排列
-// 具有相同 score 值的成员按字典序的逆序(reverse lexicographical order)排列
-// Returns the specified range of elements in the sorted set stored at key.
+// ZRevRangeWithScores returns the specified range of elements in the sorted set stored at key.
 // The elements are considered to be ordered from the highest to the lowest score.
 // Descending lexicographical order is used for elements with equal score.
 func (db *RoseDB) ZRevRangeWithScores(key []byte, start, stop int) []interface{} {
@@ -171,11 +185,14 @@ func (db *RoseDB) ZRevRangeWithScores(key []byte, start, stop int) []interface{}
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	if db.checkExpired(key, ZSet) {
+		return nil
+	}
+
 	return db.zsetIndex.indexes.ZRevRangeWithScores(string(key), start, stop)
 }
 
-// ZRem 移除有序集 key 中的 member 成员，不存在则将被忽略
-// Removes the specified members from the sorted set stored at key. Non existing members are ignored.
+// ZRem removes the specified members from the sorted set stored at key. Non existing members are ignored.
 // An error is returned when key exists and does not hold a sorted set.
 func (db *RoseDB) ZRem(key, member []byte) (ok bool, err error) {
 	if err = db.checkKeyValue(key, member); err != nil {
@@ -195,29 +212,33 @@ func (db *RoseDB) ZRem(key, member []byte) (ok bool, err error) {
 	return
 }
 
-// ZGetByRank 根据排名获取member及分值信息，从小到大排列遍历，即分值最低排名为0，依次类推
-// get the member at key by rank, the rank is ordered from lowest to highest.
+// ZGetByRank get the member at key by rank, the rank is ordered from lowest to highest.
 // The rank of lowest is 0 and so on.
 func (db *RoseDB) ZGetByRank(key []byte, rank int) []interface{} {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	if db.checkExpired(key, ZSet) {
+		return nil
+	}
+
 	return db.zsetIndex.indexes.ZGetByRank(string(key), rank)
 }
 
-// ZRevGetByRank 根据排名获取member及分值信息，从大到小排列遍历，即分值最高排名为0，依次类推
-// get the member at key by rank, the rank is ordered from highest to lowest.
+// ZRevGetByRank get the member at key by rank, the rank is ordered from highest to lowest.
 // The rank of highest is 0 and so on.
 func (db *RoseDB) ZRevGetByRank(key []byte, rank int) []interface{} {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	if db.checkExpired(key, ZSet) {
+		return nil
+	}
+
 	return db.zsetIndex.indexes.ZRevGetByRank(string(key), rank)
 }
 
-// ZScoreRange 返回有序集 key 中，所有 score 值介于 min 和 max 之间(包括等于 min 或 max )的成员
-// 有序集成员按 score 值递增(从小到大)次序排列
-// Returns all the elements in the sorted set at key with a score between min and max (including elements with score equal to min or max).
+// ZScoreRange returns all the elements in the sorted set at key with a score between min and max (including elements with score equal to min or max).
 // The elements are considered to be ordered from low to high scores.
 func (db *RoseDB) ZScoreRange(key []byte, min, max float64) []interface{} {
 	if err := db.checkKeyValue(key, nil); err != nil {
@@ -227,12 +248,14 @@ func (db *RoseDB) ZScoreRange(key []byte, min, max float64) []interface{} {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	if db.checkExpired(key, ZSet) {
+		return nil
+	}
+
 	return db.zsetIndex.indexes.ZScoreRange(string(key), min, max)
 }
 
-// ZRevScoreRange 返回有序集 key 中， score 值介于 max 和 min 之间(包括等于 max 或 min )的所有的成员
-// 有序集成员按 score 值递减(从大到小)的次序排列
-// Returns all the elements in the sorted set at key with a score between max and min (including elements with score equal to max or min).
+// ZRevScoreRange returns all the elements in the sorted set at key with a score between max and min (including elements with score equal to max or min).
 // In contrary to the default ordering of sorted sets, for this command the elements are considered to be ordered from high to low scores.
 func (db *RoseDB) ZRevScoreRange(key []byte, max, min float64) []interface{} {
 	if err := db.checkKeyValue(key, nil); err != nil {
@@ -242,5 +265,81 @@ func (db *RoseDB) ZRevScoreRange(key []byte, max, min float64) []interface{} {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	if db.checkExpired(key, ZSet) {
+		return nil
+	}
+
 	return db.zsetIndex.indexes.ZRevScoreRange(string(key), max, min)
+}
+
+// ZKeyExists check if the key exists in zset.
+func (db *RoseDB) ZKeyExists(key []byte) (ok bool) {
+	if err := db.checkKeyValue(key, nil); err != nil {
+		return
+	}
+
+	db.zsetIndex.mu.RLock()
+	defer db.zsetIndex.mu.RUnlock()
+
+	if db.checkExpired(key, ZSet) {
+		return
+	}
+
+	ok = db.zsetIndex.indexes.ZKeyExists(string(key))
+	return
+}
+
+// ZClear clear the specified key in zset.
+func (db *RoseDB) ZClear(key []byte) (err error) {
+	if !db.ZKeyExists(key) {
+		return ErrKeyNotExist
+	}
+
+	db.zsetIndex.mu.Lock()
+	defer db.zsetIndex.mu.Unlock()
+
+	e := storage.NewEntryNoExtra(key, nil, ZSet, ZSetZClear)
+	if err = db.store(e); err != nil {
+		return
+	}
+	db.zsetIndex.indexes.ZClear(string(key))
+	return
+}
+
+// ZExpire set expired time for the key in zset.
+func (db *RoseDB) ZExpire(key []byte, duration int64) (err error) {
+	if duration <= 0 {
+		return ErrInvalidTTL
+	}
+	if !db.ZKeyExists(key) {
+		return ErrKeyNotExist
+	}
+
+	db.zsetIndex.mu.Lock()
+	defer db.zsetIndex.mu.Unlock()
+
+	deadline := time.Now().Unix() + duration
+	e := storage.NewEntryWithExpire(key, nil, deadline, ZSet, ZSetZExpire)
+	if err = db.store(e); err != nil {
+		return err
+	}
+
+	db.expires[ZSet][string(key)] = deadline
+	return
+}
+
+// ZTTL return time to live of the key.
+func (db *RoseDB) ZTTL(key []byte) (ttl int64) {
+	if !db.ZKeyExists(key) {
+		return
+	}
+
+	db.zsetIndex.mu.RLock()
+	defer db.zsetIndex.mu.RUnlock()
+
+	deadline, exist := db.expires[ZSet][string(key)]
+	if !exist {
+		return
+	}
+	return deadline - time.Now().Unix()
 }

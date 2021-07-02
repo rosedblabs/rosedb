@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ListIdx the list index.
@@ -70,6 +71,10 @@ func (db *RoseDB) LPop(key []byte) ([]byte, error) {
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
+	if db.checkExpired(key, List) {
+		return nil, ErrKeyExpired
+	}
+
 	val := db.listIndex.indexes.LPop(string(key))
 	if val != nil {
 		e := storage.NewEntryNoExtra(key, val, List, ListLPop)
@@ -88,6 +93,10 @@ func (db *RoseDB) RPop(key []byte) ([]byte, error) {
 
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
+
+	if db.checkExpired(key, List) {
+		return nil, ErrKeyExpired
+	}
 
 	val := db.listIndex.indexes.RPop(string(key))
 	if val != nil {
@@ -125,6 +134,10 @@ func (db *RoseDB) LRem(key, value []byte, count int) (int, error) {
 
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
+
+	if db.checkExpired(key, List) {
+		return 0, ErrKeyExpired
+	}
 
 	res := db.listIndex.indexes.LRem(string(key), value, count)
 	if res > 0 {
@@ -168,7 +181,7 @@ func (db *RoseDB) LInsert(key string, option list.InsertOption, pivot, val []byt
 
 // LSet sets the list element at index to element.
 // returns whether is successful.
-func (db *RoseDB) LSet(key []byte, idx int, val []byte) (bool, error) {
+func (db *RoseDB) LSet(key []byte, idx int, val []byte) (ok bool, err error) {
 	if err := db.checkKeyValue(key, val); err != nil {
 		return false, err
 	}
@@ -176,14 +189,14 @@ func (db *RoseDB) LSet(key []byte, idx int, val []byte) (bool, error) {
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
-	i := strconv.Itoa(idx)
-	e := storage.NewEntry(key, val, []byte(i), List, ListLSet)
-	if err := db.store(e); err != nil {
-		return false, err
+	if ok = db.listIndex.indexes.LSet(string(key), idx, val); ok {
+		i := strconv.Itoa(idx)
+		e := storage.NewEntry(key, val, []byte(i), List, ListLSet)
+		if err := db.store(e); err != nil {
+			return false, err
+		}
 	}
-
-	res := db.listIndex.indexes.LSet(string(key), idx, val)
-	return res, nil
+	return
 }
 
 // LTrim trim an existing list so that it will contain only the specified range of elements specified.
@@ -195,6 +208,10 @@ func (db *RoseDB) LTrim(key []byte, start, end int) error {
 
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
+
+	if db.checkExpired(key, List) {
+		return ErrKeyExpired
+	}
 
 	if res := db.listIndex.indexes.LTrim(string(key), start, end); res {
 		var buf bytes.Buffer
@@ -247,6 +264,10 @@ func (db *RoseDB) LKeyExists(key []byte) (ok bool) {
 	db.listIndex.mu.RLock()
 	defer db.listIndex.mu.RUnlock()
 
+	if db.checkExpired(key, List) {
+		return false
+	}
+
 	ok = db.listIndex.indexes.LKeyExists(string(key))
 	return
 }
@@ -260,6 +281,71 @@ func (db *RoseDB) LValExists(key []byte, val []byte) (ok bool) {
 	db.listIndex.mu.RLock()
 	defer db.listIndex.mu.RUnlock()
 
+	if db.checkExpired(key, List) {
+		return false
+	}
+
 	ok = db.listIndex.indexes.LValExists(string(key), val)
 	return
+}
+
+// LClear clear a specified key.
+func (db *RoseDB) LClear(key []byte) (err error) {
+	if err = db.checkKeyValue(key, nil); err != nil {
+		return
+	}
+
+	if !db.LKeyExists(key) {
+		return ErrKeyNotExist
+	}
+
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	e := storage.NewEntryNoExtra(key, nil, List, ListLClear)
+	if err = db.store(e); err != nil {
+		return err
+	}
+
+	db.listIndex.indexes.LClear(string(key))
+	delete(db.expires[List], string(key))
+	return
+}
+
+// LExpire set expired time for a specified key of List.
+func (db *RoseDB) LExpire(key []byte, duration int64) (err error) {
+	if duration <= 0 {
+		return ErrInvalidTTL
+	}
+	if !db.LKeyExists(key) {
+		return ErrKeyNotExist
+	}
+
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	deadline := time.Now().Unix() + duration
+	e := storage.NewEntryWithExpire(key, nil, deadline, List, ListLExpire)
+	if err = db.store(e); err != nil {
+		return err
+	}
+
+	db.expires[List][string(key)] = deadline
+	return
+}
+
+// LTTL return time to live.
+func (db *RoseDB) LTTL(key []byte) (ttl int64) {
+	db.listIndex.mu.RLock()
+	defer db.listIndex.mu.RUnlock()
+
+	if db.checkExpired(key, List) {
+		return
+	}
+
+	deadline, exist := db.expires[List][string(key)]
+	if !exist {
+		return
+	}
+	return deadline - time.Now().Unix()
 }
