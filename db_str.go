@@ -2,11 +2,12 @@ package rosedb
 
 import (
 	"bytes"
-	"github.com/roseduan/rosedb/index"
-	"github.com/roseduan/rosedb/storage"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/roseduan/rosedb/index"
+	"github.com/roseduan/rosedb/storage"
 )
 
 // StrIdx string index.
@@ -173,6 +174,40 @@ func (db *RoseDB) StrRem(key []byte) error {
 	db.strIndex.idxList.Remove(key)
 	delete(db.expires[String], string(key))
 	return nil
+}
+
+// Keys Get the keys in skiplist
+func (db *RoseDB) Keys(prefix string, limit, offset int) (keys [][]byte) {
+	if limit == 0 {
+		return
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+	e := db.strIndex.idxList.Front()
+	if e == nil {
+		return
+	}
+	for limit > 0 {
+		if e == nil {
+			break
+		}
+		current := e
+		e = e.Next()
+		expired := db.checkExpired(current.Key(), String)
+		if expired || !strings.HasPrefix(string(current.Key()), prefix) {
+			continue
+		}
+		if offset > 0 {
+			offset--
+			continue
+		}
+		keys = append(keys, current.Key())
+		limit--
+	}
+	return
 }
 
 // PrefixScan find the value corresponding to all matching keys based on the prefix.
