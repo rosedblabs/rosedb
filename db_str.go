@@ -44,6 +44,9 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+
 	// Get index info from a skip list in memory.
 	node := db.strIndex.idxList.Get(key)
 	if node == nil {
@@ -54,9 +57,6 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	if idx == nil {
 		return nil, ErrNilIndexer
 	}
-
-	db.strIndex.mu.RLock()
-	defer db.strIndex.mu.RUnlock()
 
 	// Check if the key is expired.
 	if db.checkExpired(key, String) {
