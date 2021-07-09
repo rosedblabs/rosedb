@@ -1,14 +1,16 @@
 package set
 
-// Set is the implementation of set data structure
+// Set is the implementation of set data structure.
+
+var existFlag = struct{}{}
 
 type (
-	// Set set idx
+	// Set set index.
 	Set struct {
 		record Record
 	}
 
-	// Record set record to save
+	// Record records in set to save.
 	Record map[string]map[string]struct{}
 )
 
@@ -25,7 +27,7 @@ func (s *Set) SAdd(key string, member []byte) int {
 		s.record[key] = make(map[string]struct{})
 	}
 
-	s.record[key][string(member)] = struct{}{}
+	s.record[key][string(member)] = existFlag
 	return len(s.record[key])
 }
 
@@ -103,7 +105,7 @@ func (s *Set) SRem(key string, member []byte) bool {
 // SMove Move member from the set at source to the set at destination.
 // If the source set does not exist or does not contain the specified element,no operation is performed and returns 0.
 func (s *Set) SMove(src, dst string, member []byte) bool {
-	if !s.fieldExist(src, string(member)){
+	if !s.fieldExist(src, string(member)) {
 		return false
 	}
 
@@ -112,7 +114,7 @@ func (s *Set) SMove(src, dst string, member []byte) bool {
 	}
 
 	delete(s.record[src], string(member))
-	s.record[dst][string(member)] = struct{}{}
+	s.record[dst][string(member)] = existFlag
 
 	return true
 }
@@ -135,7 +137,6 @@ func (s *Set) SMembers(key string) (val [][]byte) {
 	for k := range s.record[key] {
 		val = append(val, []byte(k))
 	}
-
 	return
 }
 
@@ -189,18 +190,18 @@ func (s *Set) SClear(key string) {
 	}
 }
 
-// check the key of set is exist
+// check the key of set is exist.
 func (s *Set) exist(key string) bool {
 	_, exist := s.record[key]
 	return exist
 }
 
-// check filed of a key exist
-func (s *Set)fieldExist(key, filed string) bool {
-	fileds, kexist := s.record[key]
-	if !kexist {
+// check if a filed of a key exists.
+func (s *Set) fieldExist(key, filed string) bool {
+	fields, exist := s.record[key]
+	if exist {
 		return false
 	}
-	_, ok := fileds[filed]
+	_, ok := fields[filed]
 	return ok
 }
