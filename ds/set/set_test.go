@@ -2,8 +2,9 @@ package set
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var key = "my_set"
@@ -36,6 +37,7 @@ func TestSet_SAdd(t *testing.T) {
 	set := InitSet()
 
 	n := set.SAdd(key, []byte("abcd"))
+	assert.Equal(t, 7, n)
 	t.Log(n)
 	PrintSetData(set)
 }
@@ -48,6 +50,9 @@ func TestSet_SPop(t *testing.T) {
 	}
 
 	PrintSetData(set)
+
+	res = set.SPop("not_exist_key", 1)
+	assert.Equal(t, 0, len(res))
 }
 
 func TestSet_SIsMember(t *testing.T) {
@@ -58,6 +63,9 @@ func TestSet_SIsMember(t *testing.T) {
 
 	isMember = set.SIsMember(key, []byte("123"))
 	t.Log(isMember)
+
+	isMember = set.SIsMember("not_exist_key", []byte("123"))
+	assert.Equal(t, false, isMember)
 }
 
 func TestSet_SRandMember(t *testing.T) {
@@ -93,20 +101,36 @@ func TestSet_SRem(t *testing.T) {
 	set := InitSet()
 
 	n := set.SRem(key, []byte("a"))
+	assert.Equal(t, true, n)
+
 	n = set.SRem(key, []byte("a"))
+	assert.Equal(t, false, n)
+
 	n = set.SRem(key, []byte("c"))
+	assert.Equal(t, true, n)
+
 	t.Log(n)
 	PrintSetData(set)
 
 	n = set.SRem(key, []byte("ss"))
+	assert.Equal(t, false, n)
+
 	n = set.SRem(key, []byte("d"))
+	assert.Equal(t, true, n)
+
 	t.Log(n)
 	PrintSetData(set)
 
 	n = set.SRem(key, []byte("e"))
+	assert.Equal(t, true, n)
+
 	n = set.SRem(key, []byte("x"))
+	assert.Equal(t, false, n)
 	t.Log(n)
 	PrintSetData(set)
+
+	n = set.SRem("not_exist_key", []byte("abc"))
+	assert.Equal(t, false, n)
 }
 
 func TestSet_SMove(t *testing.T) {

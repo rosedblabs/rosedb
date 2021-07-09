@@ -9,7 +9,7 @@ type (
 	}
 
 	// Record set record to save
-	Record map[string]map[string]bool
+	Record map[string]map[string]struct{}
 )
 
 // New create a new set idx.
@@ -22,10 +22,10 @@ func New() *Set {
 // If key does not exist, a new set is created before adding the specified members.
 func (s *Set) SAdd(key string, member []byte) int {
 	if !s.exist(key) {
-		s.record[key] = make(map[string]bool)
+		s.record[key] = make(map[string]struct{})
 	}
 
-	s.record[key][string(member)] = true
+	s.record[key][string(member)] = struct{}{}
 	return len(s.record[key])
 }
 
@@ -50,11 +50,7 @@ func (s *Set) SPop(key string, count int) [][]byte {
 
 // SIsMember Returns if member is a member of the set stored at key.
 func (s *Set) SIsMember(key string, member []byte) bool {
-	if !s.exist(key) {
-		return false
-	}
-
-	return s.record[key][string(member)]
+	return s.fieldExist(key, string(member))
 }
 
 // SRandMember When called with just the key argument, return a random element from the set value stored at key.
@@ -96,7 +92,7 @@ func (s *Set) SRem(key string, member []byte) bool {
 		return false
 	}
 
-	if ok := s.record[key][string(member)]; ok {
+	if _, ok := s.record[key][string(member)]; ok {
 		delete(s.record[key], string(member))
 		return true
 	}
@@ -107,16 +103,16 @@ func (s *Set) SRem(key string, member []byte) bool {
 // SMove Move member from the set at source to the set at destination.
 // If the source set does not exist or does not contain the specified element,no operation is performed and returns 0.
 func (s *Set) SMove(src, dst string, member []byte) bool {
-	if !s.exist(src) || !s.record[src][string(member)] {
+	if !s.fieldExist(src, string(member)){
 		return false
 	}
 
 	if !s.exist(dst) {
-		s.record[dst] = make(map[string]bool)
+		s.record[dst] = make(map[string]struct{})
 	}
 
 	delete(s.record[src], string(member))
-	s.record[dst][string(member)] = true
+	s.record[dst][string(member)] = struct{}{}
 
 	return true
 }
@@ -197,4 +193,14 @@ func (s *Set) SClear(key string) {
 func (s *Set) exist(key string) bool {
 	_, exist := s.record[key]
 	return exist
+}
+
+// check filed of a key exist
+func (s *Set)fieldExist(key, filed string) bool {
+	fileds, kexist := s.record[key]
+	if !kexist {
+		return false
+	}
+	_, ok := fileds[filed]
+	return ok
 }
