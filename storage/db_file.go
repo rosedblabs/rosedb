@@ -3,13 +3,14 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"github.com/roseduan/mmap-go"
 	"hash/crc32"
 	"io/ioutil"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/roseduan/mmap-go"
 )
 
 const (
@@ -230,18 +231,17 @@ func Build(path string, method FileRWMethod, blockSize int64) (map[uint16]map[ui
 			id, _ := strconv.Atoi(splitNames[0])
 
 			// find the different types of file.
-			switch splitNames[2] {
-			case DBFileSuffixName[0]:
-				fileIdsMap[0] = append(fileIdsMap[0], id)
-			case DBFileSuffixName[1]:
-				fileIdsMap[1] = append(fileIdsMap[1], id)
-			case DBFileSuffixName[2]:
-				fileIdsMap[2] = append(fileIdsMap[2], id)
-			case DBFileSuffixName[3]:
-				fileIdsMap[3] = append(fileIdsMap[3], id)
-			case DBFileSuffixName[4]:
-				fileIdsMap[4] = append(fileIdsMap[4], id)
+			var idx int
+			for idx = range DBFileSuffixName {
+				suffix := DBFileSuffixName[idx]
+				if splitNames[2] == suffix {
+					break
+				}
 			}
+			if idx == len(DBFileSuffixName) {
+				return nil, nil, fmt.Errorf("unknown suffix:%s", splitNames[2])
+			}
+			fileIdsMap[uint16(idx)] = append(fileIdsMap[uint16(idx)], id)
 		}
 	}
 
