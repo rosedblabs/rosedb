@@ -1,10 +1,6 @@
 package rosedb
 
 import (
-	"github.com/roseduan/rosedb/ds/list"
-	"github.com/roseduan/rosedb/index"
-	"github.com/roseduan/rosedb/storage"
-	"github.com/roseduan/rosedb/utils"
 	"io"
 	"log"
 	"sort"
@@ -12,6 +8,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/roseduan/rosedb/ds/list"
+	"github.com/roseduan/rosedb/index"
+	"github.com/roseduan/rosedb/storage"
+	"github.com/roseduan/rosedb/utils"
 )
 
 // DataType Define the data structure type.
@@ -75,7 +76,7 @@ const (
 
 // build string indexes.
 func (db *RoseDB) buildStringIndex(idx *index.Indexer, entry *storage.Entry) {
-	if db.listIndex == nil || idx == nil {
+	if db.strIndex == nil || idx == nil {
 		return
 	}
 
