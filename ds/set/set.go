@@ -199,7 +199,7 @@ func (s *Set) exist(key string) bool {
 // check if a filed of a key exists.
 func (s *Set) fieldExist(key, filed string) bool {
 	fields, exist := s.record[key]
-	if exist {
+	if !exist {
 		return false
 	}
 	_, ok := fields[filed]
