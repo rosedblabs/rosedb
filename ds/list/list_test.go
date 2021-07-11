@@ -259,4 +259,15 @@ func TestList_LValExists(t *testing.T) {
 
 	ok3 := lis.LValExists(key, []byte("aaa"))
 	t.Log(ok3)
+
+	lis.RPop(key)
+	lis.RPop(key)
+	lis.RPop(key)
+
+	lis.RPush(key, []byte("a"))
+
+	ok4 := lis.LValExists(key, []byte("a"))
+	t.Log(ok4)
+
+	PrintListData(lis)
 }
