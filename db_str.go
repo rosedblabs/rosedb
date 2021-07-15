@@ -91,7 +91,8 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 // GetSet set key to value and returns the old value stored at key.
 // If the key not exist, return an err.
 func (db *RoseDB) GetSet(key, val []byte) (res []byte, err error) {
-	if res, err = db.Get(key); err != nil {
+	res, err = db.Get(key)
+	if err != nil && err != ErrKeyNotExist {
 		return
 	}
 	if err = db.Set(key, val); err != nil {
