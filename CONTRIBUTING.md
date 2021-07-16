@@ -4,7 +4,7 @@ First of all, thanks for your contribution, you can participate in this project 
 
 * crete a new pull request
 * report a bug
-* crete new issues
+* create new issues
 * contribute documentation
 * give us any suggestions, such as bad code, performance, etc...
 
