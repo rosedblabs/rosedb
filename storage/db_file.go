@@ -3,13 +3,14 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"github.com/roseduan/mmap-go"
 	"hash/crc32"
 	"io/ioutil"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/roseduan/mmap-go"
 )
 
 const (
@@ -31,9 +32,14 @@ var (
 		3: "%09d.data.set",
 		4: "%09d.data.zset",
 	}
+)
 
-	// DBFileSuffixName represent the suffix names of the db files.
-	DBFileSuffixName = []string{"str", "list", "hash", "set", "zset"}
+const (
+	KEY_TYPE_STR  = "str"
+	KEY_TYPE_LIST = "list"
+	KEY_TYPE_HASH = "hash"
+	KEY_TYPE_SET  = "set"
+	KEY_TYPE_ZSET = "zset"
 )
 
 var (
@@ -227,19 +233,22 @@ func Build(path string, method FileRWMethod, blockSize int64) (map[uint16]map[ui
 	for _, d := range dir {
 		if strings.Contains(d.Name(), ".data") {
 			splitNames := strings.Split(d.Name(), ".")
+			if len(splitNames) != 3 {
+				continue
+			}
 			id, _ := strconv.Atoi(splitNames[0])
 
 			// find the different types of file.
 			switch splitNames[2] {
-			case DBFileSuffixName[0]:
+			case KEY_TYPE_STR:
 				fileIdsMap[0] = append(fileIdsMap[0], id)
-			case DBFileSuffixName[1]:
+			case KEY_TYPE_LIST:
 				fileIdsMap[1] = append(fileIdsMap[1], id)
-			case DBFileSuffixName[2]:
+			case KEY_TYPE_HASH:
 				fileIdsMap[2] = append(fileIdsMap[2], id)
-			case DBFileSuffixName[3]:
+			case KEY_TYPE_SET:
 				fileIdsMap[3] = append(fileIdsMap[3], id)
-			case DBFileSuffixName[4]:
+			case KEY_TYPE_ZSET:
 				fileIdsMap[4] = append(fileIdsMap[4], id)
 			}
 		}
