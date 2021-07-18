@@ -169,8 +169,8 @@ func main() {
 			command, args := parseCommandLine(cmd)
 			rawResp, err := conn.Do(command, args...)
 			if err != nil {
-				fmt.Printf("(error) %v \n", err)
-				continue
+				fmt.Printf("(Lost connection with server) %v \n", err)
+				break
 			}
 			switch reply := rawResp.(type) {
 			case []byte:
