@@ -4,6 +4,7 @@ import (
 	"github.com/roseduan/rosedb/ds/list"
 	"github.com/stretchr/testify/assert"
 	"log"
+	"os"
 	"testing"
 )
 
@@ -321,6 +322,8 @@ func TestRoseDB_LValExists(t *testing.T) {
 }
 
 func TestRoseDB_LClear(t *testing.T) {
+	err := setup()
+	assert.NoError(t, err)
 	db := InitDb()
 	defer db.Close()
 
@@ -334,6 +337,8 @@ func TestRoseDB_LClear(t *testing.T) {
 }
 
 func TestRoseDB_LExpire(t *testing.T) {
+	err := setup()
+	assert.NoError(t, err)
 	db := InitDb()
 	defer db.Close()
 
@@ -347,6 +352,8 @@ func TestRoseDB_LExpire(t *testing.T) {
 }
 
 func TestRoseDB_LTTL(t *testing.T) {
+	err := setup()
+	assert.NoError(t, err)
 	db := InitDb()
 	defer db.Close()
 
@@ -361,4 +368,8 @@ func TestRoseDB_LTTL(t *testing.T) {
 	//	time.Sleep(time.Second * 2)
 	//	t.Log(db.LTTL(key))
 	//}
+}
+func setup() error {
+	err := os.RemoveAll(DefaultDirPath)
+	return err
 }
