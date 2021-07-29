@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var KeyNotFoundError = errors.New("Key not found")
+var KeyNotFoundError = errors.New("key not found")
 
 type LRUCache struct {
 	size      int
