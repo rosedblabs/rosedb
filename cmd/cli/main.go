@@ -6,6 +6,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/peterh/liner"
 	"log"
+	"net"
 	"os"
 	"strings"
 )
@@ -169,6 +170,11 @@ func main() {
 			command, args := parseCommandLine(cmd)
 			rawResp, err := conn.Do(command, args...)
 			if err != nil {
+				netErr, ok := err.(net.Error)
+				if !ok {
+					fmt.Printf("Lost connection with server %v\n", netErr)
+					break
+				}
 				fmt.Printf("(error) %v \n", err)
 				continue
 			}
