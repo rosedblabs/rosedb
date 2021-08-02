@@ -15,6 +15,8 @@ const (
 
 type (
 	// Txn is a rosedb Transaction.
+	// You can begin a read-write transaction by calling Txn, and read-only transaction by calling TxnView.
+	// Transaction will be committed or rollback automatically in method Txn and TxnView.
 	Txn struct {
 		// transaction id is an increasing number to mark a unique tx.
 		id uint64
@@ -57,6 +59,8 @@ type (
 )
 
 // Txn execute a transaction including read and write.
+// If no error is returned from the function then the transaction is committed.
+// If an error is returned then the entire transaction is rollback.
 func (db *RoseDB) Txn(fn func(tx *Txn) error) (err error) {
 	txn := db.NewTransaction()
 
