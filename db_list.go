@@ -12,12 +12,14 @@ import (
 
 // ListIdx the list index.
 type ListIdx struct {
-	mu      sync.RWMutex
+	mu      *sync.RWMutex
 	indexes *list.List
 }
 
 func newListIdx() *ListIdx {
-	return &ListIdx{indexes: list.New()}
+	return &ListIdx{
+		indexes: list.New(), mu: new(sync.RWMutex),
+	}
 }
 
 // LPush insert all the specified values at the head of the list stored at key.

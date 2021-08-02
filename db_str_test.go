@@ -432,3 +432,28 @@ func TestRoseDB_Reclaim2(t *testing.T) {
 
 	t.Log("valid keys: ", db.strIndex.idxList.Len)
 }
+
+func TestRoseDB_SetEx(t *testing.T) {
+	config := DefaultConfig()
+	config.DirPath = "/tmp/rosedb"
+	db, err := Open(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	key := []byte("kk11")
+	//err = db.SetEx(key, []byte("mmpp"), 100)
+	//t.Log(err)
+
+	//time.Sleep(5 * time.Second)
+	//db.Persist(key)
+
+	v, err := db.Get(key)
+	t.Log(string(v), err)
+
+	ttl := db.TTL(key)
+	t.Log(ttl)
+
+	ttl = db.TTL(key)
+	t.Log(ttl)
+}

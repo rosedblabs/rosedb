@@ -16,9 +16,9 @@ var (
 
 const (
 	// KeySize, ValueSize, ExtraSize, crc32 is uint32 type，4 bytes each.
-	// Timestamp takes 8 bytes, state takes 2 bytes.
-	// 4 * 4 + 8 + 2 = 26
-	entryHeaderSize = 26
+	// Timestamp 8 bytes, tx 8 bytes, state 2 bytes.
+	// 4 * 4 + 8 + 8 + 2 = 34
+	entryHeaderSize = 34
 )
 
 // data structure type of value, support five types now.
@@ -37,6 +37,7 @@ type (
 		state     uint16 // state represents two fields, high 8 bits is the data type, low 8 bits is operation mark.
 		crc32     uint32 // Check sum.
 		Timestamp uint64 // Timestamp is the time when entry was written.
+		TxId      uint64 // TxId represents transaction id of an Entry.
 	}
 
 	// Meta meta info.
@@ -78,6 +79,7 @@ func NewEntryNoExtra(key, value []byte, t, mark uint16) *Entry {
 	return NewEntry(key, value, nil, t, mark)
 }
 
+// NewEntryWithExpire create a new Entry with expired info.
 func NewEntryWithExpire(key, value []byte, deadline int64, t, mark uint16) *Entry {
 	var state uint16 = 0
 	// set type and mark.
@@ -85,6 +87,13 @@ func NewEntryWithExpire(key, value []byte, deadline int64, t, mark uint16) *Entr
 	state = state | mark
 
 	return newInternal(key, value, nil, state, uint64(deadline))
+}
+
+// NewEntryWithTx create a new Entry with transaction info.
+func NewEntryWithTxn(key, value, extra []byte, t, mark uint16, txId uint64) *Entry {
+	e := NewEntry(key, value, extra, t, mark)
+	e.TxId = txId
+	return e
 }
 
 // Size the entry`s total size.
@@ -107,6 +116,7 @@ func (e *Entry) Encode() ([]byte, error) {
 	binary.BigEndian.PutUint32(buf[12:16], es)
 	binary.BigEndian.PutUint16(buf[16:18], e.state)
 	binary.BigEndian.PutUint64(buf[18:26], e.Timestamp)
+	binary.BigEndian.PutUint64(buf[26:34], e.TxId)
 	copy(buf[entryHeaderSize:entryHeaderSize+ks], e.Meta.Key)
 	copy(buf[entryHeaderSize+ks:(entryHeaderSize+ks+vs)], e.Meta.Value)
 	if es > 0 {
@@ -126,6 +136,7 @@ func Decode(buf []byte) (*Entry, error) {
 	es := binary.BigEndian.Uint32(buf[12:16])
 	state := binary.BigEndian.Uint16(buf[16:18])
 	timestamp := binary.BigEndian.Uint64(buf[18:26])
+	txId := binary.BigEndian.Uint64(buf[26:34])
 	crc := binary.BigEndian.Uint32(buf[0:4])
 
 	return &Entry{
@@ -137,6 +148,7 @@ func Decode(buf []byte) (*Entry, error) {
 		state:     state,
 		crc32:     crc,
 		Timestamp: timestamp,
+		TxId:      txId,
 	}, nil
 }
 

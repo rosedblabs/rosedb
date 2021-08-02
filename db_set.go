@@ -9,13 +9,13 @@ import (
 
 // SetIdx the set idx
 type SetIdx struct {
-	mu      sync.RWMutex
+	mu      *sync.RWMutex
 	indexes *set.Set
 }
 
 // newSetIdx create new set index.
 func newSetIdx() *SetIdx {
-	return &SetIdx{indexes: set.New()}
+	return &SetIdx{indexes: set.New(), mu: new(sync.RWMutex)}
 }
 
 // SAdd add the specified members to the set stored at key.

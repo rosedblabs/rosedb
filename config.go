@@ -37,39 +37,40 @@ const (
 
 	// DefaultReclaimThreshold default disk reclaim threshold: at least 4 archived db files.
 	DefaultReclaimThreshold = 4
-
-	// DefaultSingleReclaimThreshold single reclaimable space: at least 4MB space of a db file.
-	// when a single db file`s reclaimable space reached the threshold, it can be reclaimed automatically.
-	// Only support String type now.
-	DefaultSingleReclaimThreshold = 4 * 1024 * 1024
 )
 
 // Config the config options of rosedb.
 type Config struct {
-	Addr                   string               `json:"addr" toml:"addr"`             // server address
-	DirPath                string               `json:"dir_path" toml:"dir_path"`     // rosedb dir path of db file
-	BlockSize              int64                `json:"block_size" toml:"block_size"` // each db file size
-	RwMethod               storage.FileRWMethod `json:"rw_method" toml:"rw_method"`   // db file read and write method
-	IdxMode                DataIndexMode        `json:"idx_mode" toml:"idx_mode"`     // data index mode
-	MaxKeySize             uint32               `json:"max_key_size" toml:"max_key_size"`
-	MaxValueSize           uint32               `json:"max_value_size" toml:"max_value_size"`
-	Sync                   bool                 `json:"sync" toml:"sync"`                           // sync to disk if necessary
-	ReclaimThreshold       int                  `json:"reclaim_threshold" toml:"reclaim_threshold"` // threshold to reclaim disk
-	SingleReclaimThreshold int64                `json:"single_reclaim_threshold"`                   // single reclaim threshold
+	Addr         string               `json:"addr" toml:"addr"`             // server address
+	DirPath      string               `json:"dir_path" toml:"dir_path"`     // rosedb dir path of db file
+	BlockSize    int64                `json:"block_size" toml:"block_size"` // each db file size
+	RwMethod     storage.FileRWMethod `json:"rw_method" toml:"rw_method"`   // db file read and write method
+	IdxMode      DataIndexMode        `json:"idx_mode" toml:"idx_mode"`     // data index mode
+	MaxKeySize   uint32               `json:"max_key_size" toml:"max_key_size"`
+	MaxValueSize uint32               `json:"max_value_size" toml:"max_value_size"`
+
+	// Sync is whether to sync writes from the OS buffer cache through to actual disk.
+	// If false, and the machine crashes, then some recent writes may be lost.
+	//
+	// Note that if it is just the process that crashes (and the machine does not) then no writes will be lost.
+	//
+	// The default value is false.
+	Sync bool `json:"sync" toml:"sync"`
+
+	ReclaimThreshold int `json:"reclaim_threshold" toml:"reclaim_threshold"` // threshold to reclaim disk
 }
 
 // DefaultConfig get the default config.
 func DefaultConfig() Config {
 	return Config{
-		Addr:                   DefaultAddr,
-		DirPath:                DefaultDirPath,
-		BlockSize:              DefaultBlockSize,
-		RwMethod:               storage.FileIO,
-		IdxMode:                KeyValueMemMode,
-		MaxKeySize:             DefaultMaxKeySize,
-		MaxValueSize:           DefaultMaxValueSize,
-		Sync:                   false,
-		ReclaimThreshold:       DefaultReclaimThreshold,
-		SingleReclaimThreshold: DefaultSingleReclaimThreshold,
+		Addr:             DefaultAddr,
+		DirPath:          DefaultDirPath,
+		BlockSize:        DefaultBlockSize,
+		RwMethod:         storage.FileIO,
+		IdxMode:          KeyValueMemMode,
+		MaxKeySize:       DefaultMaxKeySize,
+		MaxValueSize:     DefaultMaxValueSize,
+		Sync:             false,
+		ReclaimThreshold: DefaultReclaimThreshold,
 	}
 }

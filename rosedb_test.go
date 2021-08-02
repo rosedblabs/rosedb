@@ -2,11 +2,11 @@ package rosedb
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/roseduan/rosedb/storage"
 	"io/ioutil"
 	"log"
 	"math/rand"
-	"strconv"
 	"testing"
 	"time"
 )
@@ -158,64 +158,75 @@ func TestRoseDB_Reclaim(t *testing.T) {
 }
 
 func writeMultiLargeData(db *RoseDB) {
-	keyPrefix := "test_key_"
-	valPrefix := "test_value_"
+	//keyPrefix := "my_list"
+	//valPrefix := "test_value_"
 	rand.Seed(time.Now().Unix())
 
 	//str
-	for i := 0; i < 50000; i++ {
-		key := keyPrefix + strconv.Itoa(rand.Intn(1000))
-		val := valPrefix + strconv.Itoa(rand.Intn(1000))
-		err := db.Set([]byte(key), []byte(val))
+	for i := 0; i < 300000; i++ {
+		//key := keyPrefix + strconv.Itoa(rand.Intn(1000))
+		//val := valPrefix + strconv.Itoa(rand.Intn(1000))
+		err := db.Set(GetKey(i), GetValue())
 		if err != nil {
 			log.Println("数据写入发生错误 ", err)
 		}
-	}
 
-	//list
-	for i := 0; i < 50000; i++ {
-		key := keyPrefix + strconv.Itoa(rand.Intn(1000))
-		val := valPrefix + strconv.Itoa(rand.Intn(1000))
-		if i%2 == 0 {
-			db.LPush([]byte(key), []byte(val))
-		} else {
-			db.RPush([]byte(key), []byte(val))
+		if i == 233004 {
+			err := db.Set([]byte("aaa"), []byte("222333"))
+			if err != nil {
+				log.Println("数据写入发生错误 ", err)
+			}
 		}
 	}
+	//
+	//list
+	//for i := 0; i < 500000; i++ {
+	//	//key := keyPrefix + strconv.Itoa(rand.Intn(1000))
+	//	val := valPrefix + strconv.Itoa(rand.Intn(1000))
+	//	if i%2 == 0 {
+	//		db.LPush([]byte(keyPrefix), []byte(val))
+	//	} else {
+	//		db.RPush([]byte(keyPrefix), []byte(val))
+	//	}
+	//}
+	//
+	//db.LSet([]byte(keyPrefix), 199384, []byte("I am roseduan"))
+	//db.LPush([]byte("bbb"), []byte("rosedb"))
 
-	//hash
-	for i := 0; i < 2000000; i++ {
-		key := keyPrefix + strconv.Itoa(rand.Intn(100000))
-		field := "field-" + strconv.Itoa(rand.Intn(100000))
-		val := valPrefix + strconv.Itoa(rand.Intn(100000))
-		db.HSet([]byte(key), []byte(field), []byte(val))
-	}
-
-	//set
-	for i := 0; i < 2000000; i++ {
-		key := keyPrefix + strconv.Itoa(rand.Intn(10000))
-		val := valPrefix + strconv.Itoa(rand.Intn(10000))
-		db.SAdd([]byte(key), [][]byte{[]byte(val)}...)
-	}
-
-	var key1 = []byte("m_set1")
-	var key2 = []byte("m_set2")
-	db.SAdd(key1, [][]byte{[]byte("1")}...)
-	db.SAdd(key2, [][]byte{[]byte("2")}...)
-	db.SMove(key1, key2, []byte("1"))
-
-	//zset
-	for i := 0; i < 2000000; i++ {
-		key := keyPrefix + strconv.Itoa(rand.Intn(10000))
-		val := valPrefix + strconv.Itoa(rand.Intn(10000))
-		db.ZAdd([]byte(key), float64(i+100), []byte(val))
-	}
+	//
+	////hash
+	//for i := 0; i < 2000000; i++ {
+	//	key := keyPrefix + strconv.Itoa(rand.Intn(100000))
+	//	field := "field-" + strconv.Itoa(rand.Intn(100000))
+	//	val := valPrefix + strconv.Itoa(rand.Intn(100000))
+	//	db.HSet([]byte(key), []byte(field), []byte(val))
+	//}
+	//
+	////set
+	//for i := 0; i < 2000000; i++ {
+	//	key := keyPrefix + strconv.Itoa(rand.Intn(10000))
+	//	val := valPrefix + strconv.Itoa(rand.Intn(10000))
+	//	db.SAdd([]byte(key), [][]byte{[]byte(val)}...)
+	//}
+	//
+	//var key1 = []byte("m_set1")
+	//var key2 = []byte("m_set2")
+	//db.SAdd(key1, [][]byte{[]byte("1")}...)
+	//db.SAdd(key2, [][]byte{[]byte("2")}...)
+	//db.SMove(key1, key2, []byte("1"))
+	//
+	////zset
+	//for i := 0; i < 2000000; i++ {
+	//	key := keyPrefix + strconv.Itoa(rand.Intn(10000))
+	//	val := valPrefix + strconv.Itoa(rand.Intn(10000))
+	//	db.ZAdd([]byte(key), float64(i+100), []byte(val))
+	//}
 }
 
 func TestOpen4(t *testing.T) {
 	config := DefaultConfig()
 	config.IdxMode = KeyOnlyMemMode
-	config.BlockSize = 8 * 1024 * 1024
+	//config.BlockSize = 8 * 1024 * 1024
 	config.DirPath = "/tmp/rosedb"
 
 	start := time.Now()
@@ -230,10 +241,17 @@ func TestOpen4(t *testing.T) {
 	t.Log("有效的 str 数量 : ", db.strIndex.idxList.Len)
 
 	start = time.Now()
-	writeMultiLargeData(db)
-	//err = db.Reclaim()
+	//writeMultiLargeData(db)
+	//err = db.SingleReclaim(0)
 	//if err != nil {
 	//	log.Fatal("reclaim err: ", err)
 	//}
-	t.Log("time spent : ", time.Since(start))
+	fmt.Println("time spent : ", time.Since(start).Milliseconds())
+
+	//ok1 := db.LKeyExists([]byte("aaa"))
+	//ok2 := db.LKeyExists([]byte("bbb"))
+	//t.Log(ok1, ok2)
+
+	v := db.LIndex([]byte("my_list"), 199384)
+	t.Log("-----==", string(v))
 }

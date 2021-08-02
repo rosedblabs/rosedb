@@ -57,8 +57,8 @@ const (
 	// The path for saving rosedb config file.
 	configSaveFile = string(os.PathSeparator) + "DB.CFG"
 
-	// The path for saving rosedb meta info.
-	dbMetaSaveFile = string(os.PathSeparator) + "DB.META"
+	// The path for saving rosedb transaction meta info.
+	dbTxMetaSaveFile = string(os.PathSeparator) + "DB.TX.META"
 
 	// rosedb reclaim path, a temporary dir, will be removed after reclaim.
 	reclaimPath = string(os.PathSeparator) + "rosedb_reclaim"
@@ -73,20 +73,21 @@ const (
 type (
 	// RoseDB the rosedb struct, represents a db instance.
 	RoseDB struct {
-		activeFile         ActiveFiles     // Current active files.
-		activeFileIds      ActiveFileIds   // Current active file ids.
-		archFiles          ArchivedFiles   // The archived files.
-		strIndex           *StrIdx         // String indexes(a skip list).
-		listIndex          *ListIdx        // List indexes.
-		hashIndex          *HashIdx        // Hash indexes.
-		setIndex           *SetIdx         // Set indexes.
-		zsetIndex          *ZsetIdx        // Sorted set indexes.
-		config             Config          // Config info of rosedb.
-		mu                 sync.RWMutex    // mutex.
-		meta               *storage.DBMeta // Meta info for rosedb.
-		expires            Expires         // Expired directory.
-		isReclaiming       bool
-		isSingleReclaiming bool
+		activeFile         ActiveFiles   // Current active files.
+		activeFileIds      ActiveFileIds // Current active file ids.
+		archFiles          ArchivedFiles // The archived files.
+		strIndex           *StrIdx       // String indexes(a skip list).
+		listIndex          *ListIdx      // List indexes.
+		hashIndex          *HashIdx      // Hash indexes.
+		setIndex           *SetIdx       // Set indexes.
+		zsetIndex          *ZsetIdx      // Sorted set indexes.
+		config             Config        // Config info of rosedb.
+		mu                 sync.RWMutex  // mutex.
+		expires            Expires       // Expired directory.
+		isReclaiming       bool          // Indicates whether the db is reclaiming, see Reclaim.
+		isSingleReclaiming bool          // Indicates whether the db is in single reclaiming, see SingleReclaim.
+		lockMgr            *LockMgr      // lockMgr controls isolation of read and write.
+		txnMeta            *TxnMeta      // Txn meta info used in transaction.
 	}
 
 	// ActiveFiles current active files for different data types.
@@ -103,7 +104,7 @@ type (
 	Expires map[DataType]map[string]int64
 )
 
-// Open a rosedb instance.
+// Open a rosedb instance. You must call Close after using it.
 func Open(config Config) (*RoseDB, error) {
 	// create the dir path if not exists.
 	if !utils.Exist(config.DirPath) {
@@ -128,10 +129,10 @@ func Open(config Config) (*RoseDB, error) {
 		activeFiles[dataType] = file
 	}
 
-	// load db meta info, only active file`s write offset right now.
-	meta := storage.LoadMeta(config.DirPath + dbMetaSaveFile)
-	for dataType, file := range activeFiles {
-		file.Offset = meta.ActiveWriteOff[dataType]
+	// load txn meta info for transaction.
+	txnMeta, err := LoadTxnMeta(config.DirPath + dbTxMetaSaveFile)
+	if err != nil {
+		return nil, err
 	}
 
 	db := &RoseDB{
@@ -140,16 +141,17 @@ func Open(config Config) (*RoseDB, error) {
 		archFiles:     archFiles,
 		config:        config,
 		strIndex:      newStrIdx(),
-		meta:          meta,
 		listIndex:     newListIdx(),
 		hashIndex:     newHashIdx(),
 		setIndex:      newSetIdx(),
 		zsetIndex:     newZsetIdx(),
 		expires:       make(Expires),
+		txnMeta:       txnMeta,
 	}
 	for i := 0; i < DataStructureNum; i++ {
 		db.expires[uint16(i)] = make(map[string]int64)
 	}
+	db.lockMgr = newLockMgr(db)
 
 	// load indexes from db files.
 	if err := db.loadIdxFromFiles(); err != nil {
@@ -185,9 +187,6 @@ func (db *RoseDB) Close() error {
 	if err := db.saveConfig(); err != nil {
 		return err
 	}
-	if err := db.saveMeta(); err != nil {
-		return err
-	}
 
 	// close and sync the active file.
 	for _, file := range db.activeFile {
@@ -212,9 +211,6 @@ func (db *RoseDB) Sync() error {
 	if db == nil || db.activeFile == nil {
 		return nil
 	}
-
-	db.mu.RLock()
-	defer db.mu.RUnlock()
 
 	for _, file := range db.activeFile {
 		if err := file.Sync(); err != nil {
@@ -371,12 +367,34 @@ func (db *RoseDB) Reclaim() (err error) {
 	}
 
 	db.archFiles = dbArchivedFiles
+
+	// remove the txn meta file and create a new one.
+	if err = os.Remove(db.config.DirPath + dbTxMetaSaveFile); err == nil {
+		var txnMeta *TxnMeta
+		activeTxIds := db.txnMeta.ActiveTxIds
+		txnMeta, err = LoadTxnMeta(db.config.DirPath + dbTxMetaSaveFile)
+		if err != nil {
+			return err
+		}
+
+		db.txnMeta = txnMeta
+		// write active tx ids.
+		activeTxIds.Range(func(key, value interface{}) bool {
+			if txId, ok := key.(uint64); ok {
+				if err = db.MarkCommit(txId); err != nil {
+					return false
+				}
+			}
+			return true
+		})
+	}
 	return
 }
 
-// SingleReclaim reclaim the db files`space according to the SingleReclaimThreshold in config, you can execute it by setting a cron.
+// SingleReclaim reclaim a single db file`s space according to the param fileId.
+// File id is the non-zero part of a db file`s name prefix, such as 000000000.data.str (fileId is 0), 000000101.data.str (fileId is 101), etc.
 // Only support String type now.
-func (db *RoseDB) SingleReclaim() (err error) {
+func (db *RoseDB) SingleReclaim(fileId uint32) (err error) {
 	// if reclaim operation is in progress, single reclaim can`t be executed.
 	if db.isReclaiming {
 		return ErrDBisReclaiming
@@ -396,76 +414,71 @@ func (db *RoseDB) SingleReclaim() (err error) {
 	}()
 
 	db.isSingleReclaiming = true
-	var fileIds []int
+	var exist bool
 	for _, file := range db.archFiles[String] {
-		fileIds = append(fileIds, int(file.Id))
+		if file.Id == fileId {
+			exist = true
+			break
+		}
 	}
-	// read db files in order.
-	sort.Ints(fileIds)
+	if !exist {
+		return
+	}
 
-	for _, fid := range fileIds {
-		file := db.archFiles[String][uint32(fid)]
-		// not reached the threshold.
-		if db.meta.ReclaimableSpace[file.Id] < db.config.SingleReclaimThreshold {
-			continue
-		}
-
-		var (
-			readOff      int64
-			validEntries []*storage.Entry
-		)
-		// read and find all valid entries.
-		for {
-			entry, err := file.Read(readOff)
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				return err
-			}
-			if db.validEntry(entry, readOff, uint32(fid)) {
-				validEntries = append(validEntries, entry)
-			}
-			readOff += int64(entry.Size())
-		}
-
-		// remove redundant db file, update reclaimable space and archived files.
-		if len(validEntries) == 0 {
-			os.Remove(file.File.Name())
-			delete(db.meta.ReclaimableSpace, uint32(fid))
-			delete(db.archFiles[String], uint32(fid))
-			continue
-		}
-
-		// rewrite the valid entry.
-		df, err := storage.NewDBFile(reclaimPath, uint32(fid), db.config.RwMethod, db.config.BlockSize, String)
+	file := db.archFiles[String][fileId]
+	// not reached the threshold.
+	var (
+		readOff      int64
+		validEntries []*storage.Entry
+	)
+	// read and find all valid entries.
+	for {
+		entry, err := file.Read(readOff)
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			return err
 		}
-		for _, e := range validEntries {
-			if err := df.Write(e); err != nil {
-				return err
-			}
+		if db.validEntry(entry, readOff, fileId) {
+			validEntries = append(validEntries, entry)
+		}
+		readOff += int64(entry.Size())
+	}
 
-			// update the String index.
-			item := db.strIndex.idxList.Get(e.Meta.Key)
-			idx := item.Value().(*index.Indexer)
-			idx.Offset = df.Offset - int64(e.Size())
-			idx.FileId = uint32(fid)
-			db.strIndex.idxList.Put(idx.Meta.Key, idx)
+	// remove redundant db file, update reclaimable space and archived files.
+	if len(validEntries) == 0 {
+		os.Remove(file.File.Name())
+		delete(db.archFiles[String], fileId)
+		return
+	}
+
+	// rewrite the valid entry.
+	df, err := storage.NewDBFile(reclaimPath, fileId, db.config.RwMethod, db.config.BlockSize, String)
+	if err != nil {
+		return err
+	}
+	for _, e := range validEntries {
+		if err := df.Write(e); err != nil {
+			return err
 		}
 
-		// delete old db file.
-		os.Remove(file.File.Name())
-		// copy the temporary file as new archived file.
-		name := storage.PathSeparator + fmt.Sprintf(storage.DBFileFormatNames[String], fid)
-		os.Rename(reclaimPath+name, db.config.DirPath+name)
-
-		// update reclaimable space in db meta.
-		db.meta.ReclaimableSpace[uint32(fid)] = 0
-		// update the archived file.
-		db.archFiles[String][uint32(fid)] = df
+		// update the String index.
+		item := db.strIndex.idxList.Get(e.Meta.Key)
+		idx := item.Value().(*index.Indexer)
+		idx.Offset = df.Offset - int64(e.Size())
+		idx.FileId = fileId
+		db.strIndex.idxList.Put(idx.Meta.Key, idx)
 	}
+
+	// delete old db file.
+	os.Remove(file.File.Name())
+	// copy the temporary file as new archived file.
+	name := storage.PathSeparator + fmt.Sprintf(storage.DBFileFormatNames[String], fileId)
+	os.Rename(reclaimPath+name, db.config.DirPath+name)
+
+	// update the archived file.
+	db.archFiles[String][fileId] = df
 	return
 }
 
@@ -509,31 +522,32 @@ func (db *RoseDB) saveConfig() (err error) {
 	return
 }
 
-func (db *RoseDB) saveMeta() error {
-	metaPath := db.config.DirPath + dbMetaSaveFile
-	return db.meta.Store(metaPath)
-}
-
 // build the indexes for different data structures.
-func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer) error {
-	if db.config.IdxMode == KeyValueMemMode {
+func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer) (err error) {
+	if db.config.IdxMode == KeyValueMemMode && entry.GetType() == String {
 		idx.Meta.Value = entry.Meta.Value
 		idx.Meta.ValueSize = uint32(len(entry.Meta.Value))
+	}
+	// uncommitted entry is invalid.
+	if entry.TxId != 0 {
+		if _, ok := db.txnMeta.CommittedTxIds[entry.TxId]; !ok {
+			return
+		}
 	}
 
 	switch entry.GetType() {
 	case storage.String:
 		db.buildStringIndex(idx, entry)
 	case storage.List:
-		db.buildListIndex(idx, entry)
+		db.buildListIndex(entry)
 	case storage.Hash:
-		db.buildHashIndex(idx, entry)
+		db.buildHashIndex(entry)
 	case storage.Set:
-		db.buildSetIndex(idx, entry)
+		db.buildSetIndex(entry)
 	case storage.ZSet:
-		db.buildZsetIndex(idx, entry)
+		db.buildZsetIndex(entry)
 	}
-	return nil
+	return
 }
 
 // write entry to db file.
@@ -556,15 +570,12 @@ func (db *RoseDB) store(e *storage.Entry) error {
 		}
 		db.activeFile[e.GetType()] = newDbFile
 		db.activeFileIds[e.GetType()] = activeFileId
-		db.meta.ActiveWriteOff[e.GetType()] = 0
 	}
 
 	// write entry to db file.
 	if err := db.activeFile[e.GetType()].Write(e); err != nil {
 		return err
 	}
-
-	db.meta.ActiveWriteOff[e.GetType()] = db.activeFile[e.GetType()].Offset
 
 	// persist db file according to the config.
 	if config.Sync {
@@ -581,6 +592,14 @@ func (db *RoseDB) store(e *storage.Entry) error {
 func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool {
 	if e == nil {
 		return false
+	}
+
+	// uncommitted entry is invalid.
+	if e.TxId != 0 {
+		if _, ok := db.txnMeta.CommittedTxIds[e.TxId]; !ok {
+			return false
+		}
+		e.TxId = 0
 	}
 
 	mark := e.GetMark()
@@ -686,9 +705,7 @@ func (db *RoseDB) checkExpired(key []byte, dType DataType) (expired bool) {
 		switch dType {
 		case String:
 			e = storage.NewEntryNoExtra(key, nil, String, StringRem)
-			if ele := db.strIndex.idxList.Remove(key); ele != nil {
-				db.incrReclaimableSpace(key)
-			}
+			db.strIndex.idxList.Remove(key)
 		case List:
 			e = storage.NewEntryNoExtra(key, nil, List, ListLClear)
 			db.listIndex.indexes.LClear(string(key))
