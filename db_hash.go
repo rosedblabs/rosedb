@@ -10,13 +10,13 @@ import (
 
 // HashIdx hash index.
 type HashIdx struct {
-	mu      sync.RWMutex
+	mu      *sync.RWMutex
 	indexes *hash.Hash
 }
 
 // create a new hash index.
 func newHashIdx() *HashIdx {
-	return &HashIdx{indexes: hash.New()}
+	return &HashIdx{indexes: hash.New(), mu: new(sync.RWMutex)}
 }
 
 // HSet sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.

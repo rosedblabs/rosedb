@@ -11,18 +11,20 @@ import (
 
 // StrIdx string index.
 type StrIdx struct {
-	mu      sync.RWMutex
+	mu      *sync.RWMutex
 	idxList *index.SkipList
 }
 
 func newStrIdx() *StrIdx {
-	return &StrIdx{idxList: index.NewSkipList()}
+	return &StrIdx{
+		idxList: index.NewSkipList(), mu: new(sync.RWMutex),
+	}
 }
 
 // Set set key to hold the string value. If key already holds a value, it is overwritten.
 // Any previous time to live associated with the key is discarded on successful Set operation.
 func (db *RoseDB) Set(key, value []byte) error {
-	return db.doSet(key, value)
+	return db.setVal(key, value)
 }
 
 // SetNx is short for "Set if not exists", set key to hold string value if key does not exist.
@@ -38,6 +40,28 @@ func (db *RoseDB) SetNx(key, value []byte) (res uint32, err error) {
 	return
 }
 
+// SetEx set key to hold the string value and set key to timeout after a given number of seconds.
+func (db *RoseDB) SetEx(key, value []byte, duration int64) (err error) {
+	if duration <= 0 {
+		return ErrInvalidTTL
+	}
+
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	deadline := time.Now().Unix() + duration
+	e := storage.NewEntryWithExpire(key, value, deadline, String, StringExpire)
+	if err = db.store(e); err != nil {
+		return
+	}
+
+	// set String index info, stored at skip list.
+	db.setIndexer(e)
+	// set expired info.
+	db.expires[String][string(key)] = deadline
+	return
+}
+
 // Get get the value of key. If the key does not exist an error is returned.
 func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	if err := db.checkKeyValue(key, nil); err != nil {
@@ -47,45 +71,7 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	db.strIndex.mu.RLock()
 	defer db.strIndex.mu.RUnlock()
 
-	// Get index info from a skip list in memory.
-	node := db.strIndex.idxList.Get(key)
-	if node == nil {
-		return nil, ErrKeyNotExist
-	}
-
-	idx := node.Value().(*index.Indexer)
-	if idx == nil {
-		return nil, ErrNilIndexer
-	}
-
-	// Check if the key is expired.
-	if db.checkExpired(key, String) {
-		return nil, ErrKeyExpired
-	}
-
-	// In KeyValueMemMode, the value will be stored in memory.
-	// So get the value from the index info.
-	if db.config.IdxMode == KeyValueMemMode {
-		return idx.Meta.Value, nil
-	}
-
-	// In KeyOnlyMemMode, the value not in memory.
-	// So get the value from the db file at the offset.
-	if db.config.IdxMode == KeyOnlyMemMode {
-		df := db.activeFile[String]
-
-		if idx.FileId != db.activeFileIds[String] {
-			df = db.archFiles[String][idx.FileId]
-		}
-
-		e, err := df.Read(idx.Offset)
-		if err != nil {
-			return nil, err
-		}
-		return e.Meta.Value, nil
-	}
-
-	return nil, ErrKeyNotExist
+	return db.getVal(key)
 }
 
 // GetSet set key to value and returns the old value stored at key.
@@ -117,27 +103,13 @@ func (db *RoseDB) Append(key, value []byte) error {
 	} else {
 		existVal = value
 	}
-	return db.doSet(key, existVal)
+	return db.setVal(key, existVal)
 }
 
 // StrLen returns the length of the string value stored at key.
 func (db *RoseDB) StrLen(key []byte) int {
-	if err := db.checkKeyValue(key, nil); err != nil {
-		return 0
-	}
-
-	db.strIndex.mu.RLock()
-	defer db.strIndex.mu.RUnlock()
-
-	e := db.strIndex.idxList.Get(key)
-	if e != nil {
-		if db.checkExpired(key, String) {
-			return 0
-		}
-		idx := e.Value().(*index.Indexer)
-		return int(idx.Meta.ValueSize)
-	}
-	return 0
+	val, _ := db.getVal(key)
+	return len(val)
 }
 
 // StrExists check whether the key exists.
@@ -170,7 +142,6 @@ func (db *RoseDB) StrRem(key []byte) error {
 		return err
 	}
 
-	db.incrReclaimableSpace(key)
 	db.strIndex.idxList.Remove(key)
 	delete(db.expires[String], string(key))
 	return nil
@@ -264,16 +235,16 @@ func (db *RoseDB) Expire(key []byte, duration int64) (err error) {
 		return ErrInvalidTTL
 	}
 
-	if !db.StrExists(key) {
-		return ErrKeyNotExist
-	}
-
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	deadline := time.Now().Unix() + duration
+	var value []byte
+	if value, err = db.getVal(key); err != nil {
+		return
+	}
 
-	e := storage.NewEntryWithExpire(key, nil, deadline, String, StringExpire)
+	deadline := time.Now().Unix() + duration
+	e := storage.NewEntryWithExpire(key, value, deadline, String, StringExpire)
 	if err = db.store(e); err != nil {
 		return err
 	}
@@ -317,7 +288,7 @@ func (db *RoseDB) TTL(key []byte) (ttl int64) {
 	return deadline - time.Now().Unix()
 }
 
-func (db *RoseDB) doSet(key, value []byte) (err error) {
+func (db *RoseDB) setVal(key, value []byte) (err error) {
 	if err = db.checkKeyValue(key, value); err != nil {
 		return err
 	}
@@ -337,23 +308,25 @@ func (db *RoseDB) doSet(key, value []byte) (err error) {
 		return err
 	}
 
-	db.incrReclaimableSpace(key)
 	// clear expire time.
 	if _, ok := db.expires[String][string(key)]; ok {
 		delete(db.expires[String], string(key))
 	}
+	// set String index info, stored at skip list.
+	db.setIndexer(e)
+	return
+}
 
+func (db *RoseDB) setIndexer(e *storage.Entry) {
 	// string indexes, stored in skiplist.
 	idx := &index.Indexer{
 		Meta: &storage.Meta{
-			KeySize:   uint32(len(e.Meta.Key)),
-			Key:       e.Meta.Key,
-			ValueSize: uint32(len(e.Meta.Value)),
+			Key: e.Meta.Key,
 		},
-		FileId:    db.activeFileIds[String],
-		EntrySize: e.Size(),
-		Offset:    db.activeFile[String].Offset - int64(e.Size()),
+		FileId: db.activeFileIds[String],
+		Offset: db.activeFile[String].Offset - int64(e.Size()),
 	}
+
 	// in KeyValueMemMode, both key and value will store in memory.
 	if db.config.IdxMode == KeyValueMemMode {
 		idx.Meta.Value = e.Meta.Value
@@ -362,15 +335,42 @@ func (db *RoseDB) doSet(key, value []byte) (err error) {
 	return
 }
 
-// Get the original index info and add reclaimable space for the db file.
-func (db *RoseDB) incrReclaimableSpace(key []byte) {
-	oldIdx := db.strIndex.idxList.Get(key)
-	if oldIdx != nil {
-		indexer := oldIdx.Value().(*index.Indexer)
-
-		if indexer != nil {
-			space := int64(indexer.EntrySize)
-			db.meta.ReclaimableSpace[indexer.FileId] += space
-		}
+func (db *RoseDB) getVal(key []byte) ([]byte, error) {
+	// Get index info from a skip list in memory.
+	node := db.strIndex.idxList.Get(key)
+	if node == nil {
+		return nil, ErrKeyNotExist
 	}
+
+	idx := node.Value().(*index.Indexer)
+	if idx == nil {
+		return nil, ErrNilIndexer
+	}
+
+	// Check if the key is expired.
+	if db.checkExpired(key, String) {
+		return nil, ErrKeyExpired
+	}
+
+	// In KeyValueMemMode, the value will be stored in memory.
+	// So get the value from the index info.
+	if db.config.IdxMode == KeyValueMemMode {
+		return idx.Meta.Value, nil
+	}
+
+	// In KeyOnlyMemMode, the value not in memory.
+	// So get the value from the db file at the offset.
+	if db.config.IdxMode == KeyOnlyMemMode {
+		df := db.activeFile[String]
+		if idx.FileId != db.activeFileIds[String] {
+			df = db.archFiles[String][idx.FileId]
+		}
+
+		e, err := df.Read(idx.Offset)
+		if err != nil {
+			return nil, err
+		}
+		return e.Meta.Value, nil
+	}
+	return nil, ErrKeyNotExist
 }

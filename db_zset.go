@@ -11,13 +11,13 @@ import (
 
 // ZsetIdx the zset idx.
 type ZsetIdx struct {
-	mu      sync.RWMutex
+	mu      *sync.RWMutex
 	indexes *zset.SortedSet
 }
 
 // create a new zset index.
 func newZsetIdx() *ZsetIdx {
-	return &ZsetIdx{indexes: zset.New()}
+	return &ZsetIdx{indexes: zset.New(), mu: new(sync.RWMutex)}
 }
 
 // ZAdd adds the specified member with the specified score to the sorted set stored at key.

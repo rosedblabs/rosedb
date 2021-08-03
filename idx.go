@@ -90,6 +90,7 @@ func (db *RoseDB) buildStringIndex(idx *index.Indexer, entry *storage.Entry) {
 			db.strIndex.idxList.Remove(idx.Meta.Key)
 		} else {
 			db.expires[String][string(idx.Meta.Key)] = int64(entry.Timestamp)
+			db.strIndex.idxList.Put(idx.Meta.Key, idx)
 		}
 	case StringPersist:
 		db.strIndex.idxList.Put(idx.Meta.Key, idx)
@@ -98,46 +99,46 @@ func (db *RoseDB) buildStringIndex(idx *index.Indexer, entry *storage.Entry) {
 }
 
 // build list indexes.
-func (db *RoseDB) buildListIndex(idx *index.Indexer, entry *storage.Entry) {
-	if db.listIndex == nil || idx == nil {
+func (db *RoseDB) buildListIndex(entry *storage.Entry) {
+	if db.listIndex == nil || entry == nil {
 		return
 	}
 
-	key := string(idx.Meta.Key)
+	key := string(entry.Meta.Key)
 	switch entry.GetMark() {
 	case ListLPush:
-		db.listIndex.indexes.LPush(key, idx.Meta.Value)
+		db.listIndex.indexes.LPush(key, entry.Meta.Value)
 	case ListLPop:
 		db.listIndex.indexes.LPop(key)
 	case ListRPush:
-		db.listIndex.indexes.RPush(key, idx.Meta.Value)
+		db.listIndex.indexes.RPush(key, entry.Meta.Value)
 	case ListRPop:
 		db.listIndex.indexes.RPop(key)
 	case ListLRem:
-		if count, err := strconv.Atoi(string(idx.Meta.Extra)); err == nil {
-			db.listIndex.indexes.LRem(key, idx.Meta.Value, count)
+		if count, err := strconv.Atoi(string(entry.Meta.Extra)); err == nil {
+			db.listIndex.indexes.LRem(key, entry.Meta.Value, count)
 		}
 	case ListLInsert:
-		extra := string(idx.Meta.Extra)
+		extra := string(entry.Meta.Extra)
 		s := strings.Split(extra, ExtraSeparator)
 		if len(s) == 2 {
 			pivot := []byte(s[0])
 			if opt, err := strconv.Atoi(s[1]); err == nil {
-				db.listIndex.indexes.LInsert(string(idx.Meta.Key), list.InsertOption(opt), pivot, idx.Meta.Value)
+				db.listIndex.indexes.LInsert(string(entry.Meta.Key), list.InsertOption(opt), pivot, entry.Meta.Value)
 			}
 		}
 	case ListLSet:
-		if i, err := strconv.Atoi(string(idx.Meta.Extra)); err == nil {
-			db.listIndex.indexes.LSet(key, i, idx.Meta.Value)
+		if i, err := strconv.Atoi(string(entry.Meta.Extra)); err == nil {
+			db.listIndex.indexes.LSet(key, i, entry.Meta.Value)
 		}
 	case ListLTrim:
-		extra := string(idx.Meta.Extra)
+		extra := string(entry.Meta.Extra)
 		s := strings.Split(extra, ExtraSeparator)
 		if len(s) == 2 {
 			start, _ := strconv.Atoi(s[0])
 			end, _ := strconv.Atoi(s[1])
 
-			db.listIndex.indexes.LTrim(string(idx.Meta.Key), start, end)
+			db.listIndex.indexes.LTrim(string(entry.Meta.Key), start, end)
 		}
 	case ListLExpire:
 		if entry.Timestamp < uint64(time.Now().Unix()) {
@@ -151,17 +152,17 @@ func (db *RoseDB) buildListIndex(idx *index.Indexer, entry *storage.Entry) {
 }
 
 // build hash indexes.
-func (db *RoseDB) buildHashIndex(idx *index.Indexer, entry *storage.Entry) {
-	if db.hashIndex == nil || idx == nil {
+func (db *RoseDB) buildHashIndex(entry *storage.Entry) {
+	if db.hashIndex == nil || entry == nil {
 		return
 	}
 
-	key := string(idx.Meta.Key)
+	key := string(entry.Meta.Key)
 	switch entry.GetMark() {
 	case HashHSet:
-		db.hashIndex.indexes.HSet(key, string(idx.Meta.Extra), idx.Meta.Value)
+		db.hashIndex.indexes.HSet(key, string(entry.Meta.Extra), entry.Meta.Value)
 	case HashHDel:
-		db.hashIndex.indexes.HDel(key, string(idx.Meta.Extra))
+		db.hashIndex.indexes.HDel(key, string(entry.Meta.Extra))
 	case HashHClear:
 		db.hashIndex.indexes.HClear(key)
 	case HashHExpire:
@@ -174,20 +175,20 @@ func (db *RoseDB) buildHashIndex(idx *index.Indexer, entry *storage.Entry) {
 }
 
 // build set indexes.
-func (db *RoseDB) buildSetIndex(idx *index.Indexer, entry *storage.Entry) {
-	if db.hashIndex == nil || idx == nil {
+func (db *RoseDB) buildSetIndex(entry *storage.Entry) {
+	if db.hashIndex == nil || entry == nil {
 		return
 	}
 
-	key := string(idx.Meta.Key)
+	key := string(entry.Meta.Key)
 	switch entry.GetMark() {
 	case SetSAdd:
-		db.setIndex.indexes.SAdd(key, idx.Meta.Value)
+		db.setIndex.indexes.SAdd(key, entry.Meta.Value)
 	case SetSRem:
-		db.setIndex.indexes.SRem(key, idx.Meta.Value)
+		db.setIndex.indexes.SRem(key, entry.Meta.Value)
 	case SetSMove:
-		extra := idx.Meta.Extra
-		db.setIndex.indexes.SMove(key, string(extra), idx.Meta.Value)
+		extra := entry.Meta.Extra
+		db.setIndex.indexes.SMove(key, string(extra), entry.Meta.Value)
 	case SetSClear:
 		db.setIndex.indexes.SClear(key)
 	case SetSExpire:
@@ -200,19 +201,19 @@ func (db *RoseDB) buildSetIndex(idx *index.Indexer, entry *storage.Entry) {
 }
 
 // build sorted set indexes.
-func (db *RoseDB) buildZsetIndex(idx *index.Indexer, entry *storage.Entry) {
-	if db.hashIndex == nil || idx == nil {
+func (db *RoseDB) buildZsetIndex(entry *storage.Entry) {
+	if db.hashIndex == nil || entry == nil {
 		return
 	}
 
-	key := string(idx.Meta.Key)
+	key := string(entry.Meta.Key)
 	switch entry.GetMark() {
 	case ZSetZAdd:
-		if score, err := utils.StrToFloat64(string(idx.Meta.Extra)); err == nil {
-			db.zsetIndex.indexes.ZAdd(key, score, string(idx.Meta.Value))
+		if score, err := utils.StrToFloat64(string(entry.Meta.Extra)); err == nil {
+			db.zsetIndex.indexes.ZAdd(key, score, string(entry.Meta.Value))
 		}
 	case ZSetZRem:
-		db.zsetIndex.indexes.ZRem(key, string(idx.Meta.Value))
+		db.zsetIndex.indexes.ZRem(key, string(entry.Meta.Value))
 	case ZSetZClear:
 		db.zsetIndex.indexes.ZClear(key)
 	case ZSetZExpire:
@@ -234,9 +235,7 @@ func (db *RoseDB) loadIdxFromFiles() error {
 	wg.Add(DataStructureNum)
 	for dataType := 0; dataType < DataStructureNum; dataType++ {
 		go func(dType uint16) {
-			defer func() {
-				wg.Done()
-			}()
+			defer wg.Done()
 
 			// archived files
 			var fileIds []int
@@ -260,16 +259,20 @@ func (db *RoseDB) loadIdxFromFiles() error {
 				for offset <= db.config.BlockSize {
 					if e, err := df.Read(offset); err == nil {
 						idx := &index.Indexer{
-							Meta:      e.Meta,
-							FileId:    fid,
-							EntrySize: e.Size(),
-							Offset:    offset,
+							Meta:   e.Meta,
+							FileId: fid,
+							Offset: offset,
 						}
 						offset += int64(e.Size())
 
 						if len(e.Meta.Key) > 0 {
 							if err := db.buildIndex(e, idx); err != nil {
 								log.Fatalf("a fatal err occurred, the db can not open.[%+v]", err)
+							}
+
+							// save active tx ids.
+							if i == len(fileIds)-1 && e.TxId != 0 {
+								db.txnMeta.ActiveTxIds.Store(e.TxId, struct{}{})
 							}
 						}
 					} else {

@@ -13,17 +13,15 @@ import (
 )
 
 const (
-	// FilePerm 默认的创建文件权限
-	// default permission of the created file
+	// FilePerm default permission of the newly created db file.
 	FilePerm = 0644
 
-	// PathSeparator the default path separator
+	// PathSeparator the default path separator.
 	PathSeparator = string(os.PathSeparator)
 )
 
 var (
-	// DBFileFormatNames 默认数据文件名称格式化
-	// default name format of the db files.
+	// DBFileFormatNames name format of the db files.
 	DBFileFormatNames = map[uint16]string{
 		0: "%09d.data.str",
 		1: "%09d.data.list",
@@ -32,33 +30,28 @@ var (
 		4: "%09d.data.zset",
 	}
 
-	// DBFileSuffixName represent the suffix names of the db files.
+	// DBFileSuffixName represents the suffix names of the db files.
 	DBFileSuffixName = []string{"str", "list", "hash", "set", "zset"}
 )
 
 var (
-	// ErrEmptyEntry the entry is empty
+	// ErrEmptyEntry the entry is empty.
 	ErrEmptyEntry = errors.New("storage/db_file: entry or the Key of entry is empty")
 )
 
-// FileRWMethod 文件数据读写的方式
-// db file read and write method
+// FileRWMethod db file read and write method.
 type FileRWMethod uint8
 
 const (
 
-	// FileIO 表示文件数据读写使用系统标准IO
-	// Indicates that data file read and write using system standard IO
+	// FileIO Indicates that data file read and write using system standard IO.
 	FileIO FileRWMethod = iota
 
-	// MMap 表示文件数据读写使用Mmap
-	// MMap指的是将文件或其他设备映射至内存，具体可参考Wikipedia上的解释 https://en.wikipedia.org/wiki/Mmap
-	// Indicates that data file read and write using mmap
+	// MMap Indicates that data file read and write using mmap.
 	MMap
 )
 
-// DBFile rosedb数据文件定义
-// define the data file of rosedb
+// DBFile define the data file of rosedb.
 type DBFile struct {
 	Id     uint32
 	path   string
@@ -68,8 +61,7 @@ type DBFile struct {
 	method FileRWMethod
 }
 
-// NewDBFile 新建一个数据读写文件，如果是MMap，则需要Truncate文件并进行加载
-// create a new db file, truncate the file if rw method is mmap.
+// NewDBFile create a new db file, truncate the file if rw method is mmap.
 func NewDBFile(path string, fileId uint32, method FileRWMethod, blockSize int64, eType uint16) (*DBFile, error) {
 	filePath := path + PathSeparator + fmt.Sprintf(DBFileFormatNames[eType], fileId)
 
@@ -77,8 +69,12 @@ func NewDBFile(path string, fileId uint32, method FileRWMethod, blockSize int64,
 	if err != nil {
 		return nil, err
 	}
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
 
-	df := &DBFile{Id: fileId, path: path, Offset: 0, method: method}
+	df := &DBFile{Id: fileId, path: path, Offset: stat.Size(), method: method}
 
 	if method == FileIO {
 		df.File = file
@@ -95,10 +91,11 @@ func NewDBFile(path string, fileId uint32, method FileRWMethod, blockSize int64,
 	return df, nil
 }
 
-// Read 从数据文件中读数据，offset是读的起始位置
-// read data from the db file, offset is the start position of reading
+// Read read data from the db file, offset is the start position of reading.
 func (df *DBFile) Read(offset int64) (e *Entry, err error) {
 	var buf []byte
+
+	// read entry header info.
 	if buf, err = df.readBuf(offset, int64(entryHeaderSize)); err != nil {
 		return
 	}
@@ -107,6 +104,7 @@ func (df *DBFile) Read(offset int64) (e *Entry, err error) {
 		return
 	}
 
+	// read key if necessary(by the KeySize).
 	offset += entryHeaderSize
 	if e.Meta.KeySize > 0 {
 		var key []byte
@@ -116,6 +114,7 @@ func (df *DBFile) Read(offset int64) (e *Entry, err error) {
 		e.Meta.Key = key
 	}
 
+	// read value if necessary.
 	offset += int64(e.Meta.KeySize)
 	if e.Meta.ValueSize > 0 {
 		var val []byte
@@ -125,6 +124,7 @@ func (df *DBFile) Read(offset int64) (e *Entry, err error) {
 		e.Meta.Value = val
 	}
 
+	// read extra info if necessary.
 	offset += int64(e.Meta.ValueSize)
 	if e.Meta.ExtraSize > 0 {
 		var val []byte
@@ -159,8 +159,7 @@ func (df *DBFile) readBuf(offset int64, n int64) ([]byte, error) {
 	return buf, nil
 }
 
-// Write 从文件的offset处开始写数据
-// write data into db file from offset
+// Write write data into db file from offset.
 func (df *DBFile) Write(e *Entry) error {
 	if e == nil || e.Meta.KeySize == 0 {
 		return ErrEmptyEntry
@@ -185,9 +184,7 @@ func (df *DBFile) Write(e *Entry) error {
 	return nil
 }
 
-// Close 读写后进行关闭操作
-// sync 关闭前是否持久化数据
-// close the db file, sync means whether to persist data before closing
+// Close close the db file, sync means whether to persist data before closing.
 func (df *DBFile) Close(sync bool) (err error) {
 	if sync {
 		err = df.Sync()
@@ -202,8 +199,7 @@ func (df *DBFile) Close(sync bool) (err error) {
 	return
 }
 
-// Sync 数据持久化
-// persist data to stable storage
+// Sync persist db file into disk.
 func (df *DBFile) Sync() (err error) {
 	if df.File != nil {
 		err = df.File.Sync()
@@ -215,8 +211,7 @@ func (df *DBFile) Sync() (err error) {
 	return
 }
 
-// Build 加载数据文件
-// build db files.
+// Build load all db files from disk.
 func Build(path string, method FileRWMethod, blockSize int64) (map[uint16]map[uint32]*DBFile, map[uint16]uint32, error) {
 	dir, err := ioutil.ReadDir(path)
 	if err != nil {
