@@ -144,7 +144,7 @@ func (tx *Txn) Commit() (err error) {
 		return err
 	}
 
-	// sync the db file for transaction persistence.
+	// sync the db file for transaction durability.
 	if tx.db.config.Sync {
 		if err := tx.db.Sync(); err != nil {
 			return err
