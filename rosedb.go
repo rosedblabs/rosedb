@@ -14,6 +14,7 @@ import (
 	"os"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -50,6 +51,12 @@ var (
 
 	// ErrDBisReclaiming reclaim and single reclaim can`t execute at the same time.
 	ErrDBisReclaiming = errors.New("rosedb: can`t do reclaim and single reclaim at the same time")
+
+	// ErrDBIsClosed db can`t be used after closed.
+	ErrDBIsClosed = errors.New("rosedb: db is closed, reopen it")
+
+	// ErrTxIsFinished tx is finished.
+	ErrTxIsFinished = errors.New("rosedb: transaction is finished, create a new one")
 )
 
 const (
@@ -88,6 +95,7 @@ type (
 		isSingleReclaiming bool          // Indicates whether the db is in single reclaiming, see SingleReclaim.
 		lockMgr            *LockMgr      // lockMgr controls isolation of read and write.
 		txnMeta            *TxnMeta      // Txn meta info used in transaction.
+		closed             uint32
 	}
 
 	// ActiveFiles current active files for different data types.
@@ -203,7 +211,13 @@ func (db *RoseDB) Close() error {
 			}
 		}
 	}
+
+	atomic.StoreUint32(&db.closed, 1)
 	return nil
+}
+
+func (db *RoseDB) isClosed() bool {
+	return atomic.LoadUint32(&db.closed) == 1
 }
 
 // Persist the db files.

@@ -238,15 +238,59 @@ func TestTxn_StrExists(t *testing.T) {
 }
 
 func TestTxn_StrRem(t *testing.T) {
-	key := []byte("k5")
 	t.Run("1", func(t *testing.T) {
+		key := []byte("k1")
 		err := roseDB.Txn(func(tx *Txn) error {
-			strLen := tx.StrRem(key)
+			strLen := tx.Remove(key)
 			t.Log(strLen)
 			return nil
 		})
 		if err != nil {
 			t.Error("write data err ", err)
+		}
+	})
+
+	t.Run("2", func(t *testing.T) {
+		key := []byte("k1")
+		err := roseDB.Txn(func(tx *Txn) error {
+			err := tx.Remove(key)
+			if err != nil {
+				return err
+			}
+
+			val, err := tx.Get(key)
+			t.Log("---------", string(val), err)
+			return nil
+		})
+		if err != nil {
+			t.Log(err)
+		}
+	})
+
+	t.Run("3", func(t *testing.T) {
+		key := []byte("k3")
+		err := roseDB.Txn(func(tx *Txn) error {
+			err := tx.Set(key, []byte("roseduan"))
+			if err != nil {
+				return err
+			}
+
+			err = tx.Remove(key)
+			if err != nil {
+				return err
+			}
+
+			err = tx.Append(key, []byte("rosedb"))
+			if err != nil {
+				return err
+			}
+
+			val, err := tx.Get(key)
+			t.Log("---------", string(val), err)
+			return nil
+		})
+		if err != nil {
+			t.Log(err)
 		}
 	})
 }
@@ -305,12 +349,115 @@ func TestTxn_HSet(t *testing.T) {
 	})
 }
 
+func TestTxn_HSetNx(t *testing.T) {
+	t.Run("1", func(t *testing.T) {
+		key := []byte("my_hash")
+
+		err := roseDB.Txn(func(tx *Txn) error {
+			err := tx.HSetNx(key, []byte("f1"), []byte("val--1"))
+			return err
+		})
+		if err != nil {
+			t.Log(err)
+		}
+	})
+
+	t.Run("2", func(t *testing.T) {
+		key := []byte("my_hash")
+		err := roseDB.Txn(func(tx *Txn) error {
+			err := tx.HSet(key, []byte("f1"), []byte("val--11"))
+			if err != nil {
+				return err
+			}
+			err = tx.HSetNx(key, []byte("f1"), []byte("val--22"))
+
+			v := tx.HGet(key, []byte("f1"))
+			t.Log(string(v))
+			return err
+		})
+		if err != nil {
+			t.Log(err)
+		}
+	})
+
+	t.Run("3", func(t *testing.T) {
+		key := []byte("my_hash")
+
+		err := roseDB.Txn(func(tx *Txn) error {
+			//err := tx.HSet(key, []byte("f1"), []byte("val--1"))
+			//if err != nil {
+			//	return err
+			//}
+			//
+			//err := tx.HDel(key, []byte("f1"))
+			//if err != nil {
+			//	return err
+			//}
+
+			res := tx.HGet(key, []byte("f1"))
+			t.Log(string(res))
+			return nil
+		})
+		if err != nil {
+			t.Log(err)
+		}
+	})
+}
+
+func TestTxn_HDel(t *testing.T) {
+	t.Run("1", func(t *testing.T) {
+		key := []byte("my_hash")
+		roseDB.Txn(func(tx *Txn) error {
+			err := tx.HDel(key, []byte("f1"))
+			return err
+		})
+	})
+}
+
 func TestTxn_HGet(t *testing.T) {
 	roseDB.Txn(func(tx *Txn) error {
 		key := []byte("my_hash")
 		v := roseDB.HGet(key, []byte("f1"))
 		t.Log(string(v))
 		return nil
+	})
+}
+
+func TestTxn_HExists(t *testing.T) {
+	t.Run("1", func(t *testing.T) {
+		key := []byte("my_hash")
+
+		err := roseDB.Txn(func(tx *Txn) error {
+			res := tx.HExists(key, []byte("f1"))
+			t.Log(res)
+			return nil
+		})
+		if err != nil {
+			t.Log(err)
+		}
+	})
+
+	t.Run("2", func(t *testing.T) {
+		key := []byte("my_hash")
+		err := roseDB.Txn(func(tx *Txn) error {
+			//err := tx.HSet(key, []byte("f1"), []byte("val--1"))
+			//if err != nil {
+			//	return err
+			//}
+			//
+			//
+			//err := tx.HDel(key, []byte("f1"))
+			//if err != nil {
+			//	return err
+			//}
+			//
+			res := tx.HExists(key, []byte("f1"))
+			t.Log(res)
+			return nil
+		})
+		if err != nil {
+			t.Log(err)
+		}
 	})
 }
 
@@ -328,13 +475,41 @@ func TestTxn_SAdd(t *testing.T) {
 func TestTxn_SIsMember(t *testing.T) {
 	key := []byte("my_set")
 	err := roseDB.Txn(func(tx *Txn) error {
-		ok := tx.SIsMember(key, []byte("set-val-11"))
+		ok := tx.SIsMember(key, []byte("set-val-1"))
 		t.Log(ok)
 		return nil
 	})
 	if err != nil {
 		t.Error(err)
 	}
+}
+
+func TestTxn_SRem(t *testing.T) {
+	key := []byte("my_set")
+
+	t.Run("1", func(t *testing.T) {
+		err := roseDB.Txn(func(tx *Txn) error {
+			//err := tx.SAdd(key, []byte("set-val-1"))
+			//if err != nil {
+			//	return err
+			//}
+
+			//ok := tx.SIsMember(key, []byte("set-val-1"))
+			//t.Log(ok)
+			//
+			//err := tx.SRem(key, []byte("set-val-1"))
+			//if err != nil {
+			//	return err
+			//}
+
+			ok := tx.SIsMember(key, []byte("set-val-1"))
+			t.Log(ok)
+			return nil
+		})
+		if err != nil {
+			t.Error(err)
+		}
+	})
 }
 
 func TestTxn_ZAdd(t *testing.T) {
@@ -356,6 +531,28 @@ func TestTxn_ZScore(t *testing.T) {
 		t.Log(score)
 		return err
 	})
+}
+
+func TestTxn_ZRem(t *testing.T) {
+	key := []byte("my_zset")
+
+	t.Run("1", func(t *testing.T) {
+		roseDB.Txn(func(tx *Txn) error {
+			score, err := tx.ZScore(key, []byte("zset-val-11"))
+			t.Log(score, err)
+			//
+			//err = tx.ZRem(key, []byte("zset-val-11"))
+			//if err != nil {
+			//	return err
+			//}
+
+			score, err = tx.ZScore(key, []byte("zset-val-11"))
+			t.Log(score, err)
+
+			return nil
+		})
+	})
+
 }
 
 func TestTxn_Commit(t *testing.T) {
@@ -513,10 +710,9 @@ func BenchmarkTxn_Set(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	//err := db.Txn(func(tx *Txn) error {
+	//err := roseDB.Txn(func(tx *Txn) error {
 	//	for i := 0; i < b.N; i++ {
-	//		key := []byte("test-key--" + strconv.Itoa(i))
-	//		err := tx.Set(key, []byte("test-val"))
+	//		err := tx.Set(GetKey(i), GetValue())
 	//		if err != nil {
 	//			return err
 	//		}
@@ -529,7 +725,6 @@ func BenchmarkTxn_Set(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		err := roseDB.Txn(func(tx *Txn) error {
-			//key := []byte("test-key--" + strconv.Itoa(i % 10))
 			err := tx.Set(GetKey(i), GetValue())
 			return err
 		})
