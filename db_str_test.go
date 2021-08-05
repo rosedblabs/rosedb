@@ -194,12 +194,12 @@ func TestRoseDB_StrRem(t *testing.T) {
 	db := InitDb()
 	defer db.Close()
 
-	db.StrRem(nil)
-	_ = db.StrRem([]byte("my_age"))
+	db.Remove(nil)
+	_ = db.Remove([]byte("my_age"))
 
 	key := []byte("bb-aa")
 	db.Set(key, []byte("rosedb"))
-	db.StrRem(key)
+	db.Remove(key)
 
 	_, err := db.Get([]byte("my_age"))
 	assert.Equal(t, err, ErrKeyNotExist)

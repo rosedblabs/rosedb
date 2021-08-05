@@ -202,6 +202,10 @@ func (db *RoseDB) ZRem(key, member []byte) (ok bool, err error) {
 	db.zsetIndex.mu.Lock()
 	defer db.zsetIndex.mu.Unlock()
 
+	if db.checkExpired(key, ZSet) {
+		return
+	}
+
 	if ok = db.zsetIndex.indexes.ZRem(string(key), string(member)); ok {
 		e := storage.NewEntryNoExtra(key, member, ZSet, ZSetZRem)
 		if err = db.store(e); err != nil {

@@ -128,8 +128,8 @@ func (db *RoseDB) StrExists(key []byte) bool {
 	return false
 }
 
-// StrRem remove the value stored at key.
-func (db *RoseDB) StrRem(key []byte) error {
+// Remove remove the value stored at key.
+func (db *RoseDB) Remove(key []byte) error {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return err
 	}

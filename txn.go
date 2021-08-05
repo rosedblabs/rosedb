@@ -29,11 +29,16 @@ type (
 		// writeEntries is the written entries for List, Hash, Set, ZSet.
 		writeEntries []*storage.Entry
 
+		// skipIds save entries`s index that don`t need be processed.
+		skipIds map[int]struct{}
+
 		// all keys stored in a map to handle duplicate entries.
 		keysMap map[string]int
 
 		// indicate how many data structures will be handled in transaction.
 		dsState uint16
+
+		isFinished bool
 	}
 
 	// TxnMeta represents some transaction info while tx is running.
@@ -62,6 +67,9 @@ type (
 // If no error is returned from the function then the transaction is committed.
 // If an error is returned then the entire transaction is rollback.
 func (db *RoseDB) Txn(fn func(tx *Txn) error) (err error) {
+	if db.isClosed() {
+		return ErrDBIsClosed
+	}
 	txn := db.NewTransaction()
 
 	if err = fn(txn); err != nil {
@@ -78,6 +86,9 @@ func (db *RoseDB) Txn(fn func(tx *Txn) error) (err error) {
 
 // TxnView execute a transaction including read only.
 func (db *RoseDB) TxnView(fn func(tx *Txn) error) (err error) {
+	if db.isClosed() {
+		return ErrDBIsClosed
+	}
 	txn := db.NewTransaction()
 
 	dTypes := []DataType{String, List, Hash, Set, ZSet}
@@ -88,7 +99,7 @@ func (db *RoseDB) TxnView(fn func(tx *Txn) error) (err error) {
 		txn.Rollback()
 		return
 	}
-	txn.discard()
+	txn.finished()
 	return
 }
 
@@ -106,11 +117,16 @@ func (db *RoseDB) NewTransaction() *Txn {
 		wg:         new(sync.WaitGroup),
 		strEntries: make(map[string]*storage.Entry),
 		keysMap:    make(map[string]int),
+		skipIds:    make(map[int]struct{}),
 	}
 }
 
 // Commit commit the transaction.
 func (tx *Txn) Commit() (err error) {
+	if tx.db.isClosed() {
+		return ErrDBIsClosed
+	}
+
 	if len(tx.strEntries) == 0 && len(tx.writeEntries) == 0 {
 		return
 	}
@@ -168,13 +184,13 @@ func (tx *Txn) Commit() (err error) {
 		}
 	}
 
-	tx.discard()
+	tx.finished()
 	return
 }
 
-// Rollback discard current transaction.
+// Rollback finished current transaction.
 func (tx *Txn) Rollback() {
-	tx.discard()
+	tx.finished()
 }
 
 // MarkCommit write the tx id into txn file.
@@ -244,10 +260,14 @@ func LoadTxnMeta(path string) (txnMeta *TxnMeta, err error) {
 	return
 }
 
-func (tx *Txn) discard() {
-	tx.db = nil
+func (tx *Txn) finished() {
 	tx.strEntries = nil
 	tx.writeEntries = nil
+
+	tx.skipIds = nil
+	tx.keysMap = nil
+
+	tx.isFinished = true
 	return
 }
 
@@ -278,7 +298,10 @@ func (tx *Txn) writeOtherEntries() (err error) {
 		return
 	}
 
-	for _, entry := range tx.writeEntries {
+	for i, entry := range tx.writeEntries {
+		if _, ok := tx.skipIds[i]; ok {
+			continue
+		}
 		if err = tx.db.store(entry); err != nil {
 			return
 		}
@@ -286,10 +309,17 @@ func (tx *Txn) writeOtherEntries() (err error) {
 	return
 }
 
-func (tx *Txn) putEntry(e *storage.Entry) {
+func (tx *Txn) putEntry(e *storage.Entry) (err error) {
 	if e == nil {
 		return
 	}
+	if tx.db.isClosed() {
+		return ErrDBIsClosed
+	}
+	if tx.isFinished {
+		return ErrTxIsFinished
+	}
+
 	switch e.GetType() {
 	case String:
 		tx.strEntries[string(e.Meta.Key)] = e
@@ -297,6 +327,7 @@ func (tx *Txn) putEntry(e *storage.Entry) {
 		tx.writeEntries = append(tx.writeEntries, e)
 	}
 	tx.setDsState(e.GetType())
+	return
 }
 
 func (tx *Txn) setDsState(dType DataType) {

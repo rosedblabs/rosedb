@@ -105,12 +105,12 @@ func strExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	return
 }
 
-func strRem(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+func remove(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
-		err = newWrongNumOfArgsError("strrem")
+		err = newWrongNumOfArgsError("remove")
 		return
 	}
-	if err = db.StrRem([]byte(args[0])); err == nil {
+	if err = db.Remove([]byte(args[0])); err == nil {
 		res = okResult
 	}
 	return
@@ -190,7 +190,7 @@ func init() {
 	addExecCommand("append", appendStr)
 	addExecCommand("strlen", strLen)
 	addExecCommand("strexists", strExists)
-	addExecCommand("strrem", strRem)
+	addExecCommand("remove", remove)
 	addExecCommand("prefixscan", prefixScan)
 	addExecCommand("rangescan", rangeScan)
 	addExecCommand("expire", expire)
