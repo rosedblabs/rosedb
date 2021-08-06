@@ -103,20 +103,23 @@ func (tx *Txn) Append(key, value []byte) (err error) {
 }
 
 // StrLen see db_str.go:StrLen
-func (tx *Txn) StrLen(key []byte) int {
+func (tx *Txn) StrLen(key []byte) (res int) {
 	if e, ok := tx.strEntries[string(key)]; ok {
+		if e.GetMark() == StringRem {
+			return
+		}
 		return len(e.Meta.Value)
 	}
 
 	e := tx.db.strIndex.idxList.Get(key)
 	if e != nil {
 		if tx.db.checkExpired(key, String) {
-			return 0
+			return
 		}
 		idx := e.Value().(*index.Indexer)
 		return int(idx.Meta.ValueSize)
 	}
-	return 0
+	return
 }
 
 // StrExists see db_str.go:StrExists
@@ -263,13 +266,13 @@ func (tx *Txn) HExists(key, field []byte) (res int) {
 	encKey := tx.encodeKey(key, field, Hash)
 	if idx, ok := tx.keysMap[encKey]; ok {
 		if tx.writeEntries[idx].GetMark() == HashHDel {
-			return 0
+			return
 		}
 		return 1
 	}
 
 	if tx.db.checkExpired(key, Hash) {
-		return 0
+		return
 	}
 	res = tx.db.hashIndex.indexes.HExists(string(key), string(field))
 	return
@@ -300,14 +303,14 @@ func (tx *Txn) SIsMember(key, member []byte) (ok bool) {
 	if idx, exist := tx.keysMap[encKey]; exist {
 		entry := tx.writeEntries[idx]
 		if entry.GetMark() == SetSRem {
-			return false
+			return
 		}
 		if bytes.Compare(entry.Meta.Value, member) == 0 {
 			return true
 		}
 	}
 	if tx.db.checkExpired(key, Set) {
-		return false
+		return
 	}
 
 	ok = tx.db.setIndex.indexes.SIsMember(string(key), member)
@@ -369,7 +372,7 @@ func (tx *Txn) ZScore(key, member []byte) (score float64, err error) {
 		}
 	}
 	if tx.db.checkExpired(key, ZSet) {
-		return 0, ErrKeyExpired
+		return math.MinInt64, ErrKeyExpired
 	}
 
 	score = tx.db.zsetIndex.indexes.ZScore(string(key), string(member))
