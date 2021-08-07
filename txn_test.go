@@ -747,3 +747,39 @@ func GetValue() []byte {
 	}
 	return []byte("test_val-" + strconv.FormatInt(time.Now().UnixNano(), 10) + str.String())
 }
+
+func TestOpen5(t *testing.T) {
+	now := time.Now()
+	err := roseDB.Txn(func(tx *Txn) error {
+		for i := 0; i < 1000000; i++ {
+			err := tx.Set(GetKey(i), GetValue())
+			if err != nil {
+				return err
+			}
+		}
+
+		//for i := 0; i < 2500000; i++ {
+		//	err := tx.LPush(GetKey(i), GetValue())
+		//	if err != nil {
+		//		return err
+		//	}
+		//}
+		return nil
+	})
+	t.Log("time spent : ", time.Since(now).Milliseconds())
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func BenchmarkTxn_Set1(b *testing.B) {
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		err := roseDB.Set(GetKey(i), GetValue())
+		if err != nil {
+			panic(err)
+		}
+	}
+}

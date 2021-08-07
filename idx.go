@@ -246,8 +246,13 @@ func (db *RoseDB) loadIdxFromFiles() error {
 			}
 
 			// active file
-			dbFile[db.activeFileIds[dType]] = db.activeFile[dType]
-			fileIds = append(fileIds, int(db.activeFileIds[dType]))
+			activeFile, err := db.getActiveFile(dType)
+			if err != nil {
+				log.Fatalf("active file is nil, the db can not open.[%+v]", err)
+				return
+			}
+			dbFile[activeFile.Id] = activeFile
+			fileIds = append(fileIds, int(activeFile.Id))
 
 			// load the db files in a specified order.
 			sort.Ints(fileIds)

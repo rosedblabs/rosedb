@@ -56,7 +56,9 @@ func (db *RoseDB) SetEx(key, value []byte, duration int64) (err error) {
 	}
 
 	// set String index info, stored at skip list.
-	db.setIndexer(e)
+	if err = db.setIndexer(e); err != nil {
+		return
+	}
 	// set expired info.
 	db.expires[String][string(key)] = deadline
 	return
@@ -313,18 +315,24 @@ func (db *RoseDB) setVal(key, value []byte) (err error) {
 		delete(db.expires[String], string(key))
 	}
 	// set String index info, stored at skip list.
-	db.setIndexer(e)
+	if err = db.setIndexer(e); err != nil {
+		return
+	}
 	return
 }
 
-func (db *RoseDB) setIndexer(e *storage.Entry) {
+func (db *RoseDB) setIndexer(e *storage.Entry) error {
+	activeFile, err := db.getActiveFile(String)
+	if err != nil {
+		return err
+	}
 	// string indexes, stored in skiplist.
 	idx := &index.Indexer{
 		Meta: &storage.Meta{
 			Key: e.Meta.Key,
 		},
-		FileId: db.activeFileIds[String],
-		Offset: db.activeFile[String].Offset - int64(e.Size()),
+		FileId: activeFile.Id,
+		Offset: activeFile.Offset - int64(e.Size()),
 	}
 
 	// in KeyValueMemMode, both key and value will store in memory.
@@ -332,7 +340,7 @@ func (db *RoseDB) setIndexer(e *storage.Entry) {
 		idx.Meta.Value = e.Meta.Value
 	}
 	db.strIndex.idxList.Put(idx.Meta.Key, idx)
-	return
+	return nil
 }
 
 func (db *RoseDB) getVal(key []byte) ([]byte, error) {
@@ -361,8 +369,11 @@ func (db *RoseDB) getVal(key []byte) ([]byte, error) {
 	// In KeyOnlyMemMode, the value not in memory.
 	// So get the value from the db file at the offset.
 	if db.config.IdxMode == KeyOnlyMemMode {
-		df := db.activeFile[String]
-		if idx.FileId != db.activeFileIds[String] {
+		df, err := db.getActiveFile(String)
+		if err != nil {
+			return nil, err
+		}
+		if idx.FileId != df.Id {
 			df = db.archFiles[String][idx.FileId]
 		}
 

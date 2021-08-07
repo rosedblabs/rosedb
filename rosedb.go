@@ -57,6 +57,9 @@ var (
 
 	// ErrTxIsFinished tx is finished.
 	ErrTxIsFinished = errors.New("rosedb: transaction is finished, create a new one")
+
+	// ErrActiveFileIsNil active file is nil.
+	ErrActiveFileIsNil = errors.New("rosedb: active file is nil")
 )
 
 const (
@@ -80,8 +83,8 @@ const (
 type (
 	// RoseDB the rosedb struct, represents a db instance.
 	RoseDB struct {
-		activeFile         ActiveFiles   // Current active files.
-		activeFileIds      ActiveFileIds // Current active file ids.
+		// Current active files of different data types, stored like this: map[DataType]*storage.DBFile.
+		activeFile         *sync.Map
 		archFiles          ArchivedFiles // The archived files.
 		strIndex           *StrIdx       // String indexes(a skip list).
 		listIndex          *ListIdx      // List indexes.
@@ -97,12 +100,6 @@ type (
 		txnMeta            *TxnMeta      // Txn meta info used in transaction.
 		closed             uint32
 	}
-
-	// ActiveFiles current active files for different data types.
-	ActiveFiles map[DataType]*storage.DBFile
-
-	// ActiveFileIds current active files id for different data types.
-	ActiveFileIds map[DataType]uint32
 
 	// ArchivedFiles define the archived files, which mean these files can only be read.
 	// and will never be opened for writing.
@@ -128,13 +125,13 @@ func Open(config Config) (*RoseDB, error) {
 	}
 
 	// set active files for writing.
-	activeFiles := make(ActiveFiles)
+	activeFiles := new(sync.Map)
 	for dataType, fileId := range activeFileIds {
 		file, err := storage.NewDBFile(config.DirPath, fileId, config.RwMethod, config.BlockSize, dataType)
 		if err != nil {
 			return nil, err
 		}
-		activeFiles[dataType] = file
+		activeFiles.Store(dataType, file)
 	}
 
 	// load txn meta info for transaction.
@@ -144,17 +141,16 @@ func Open(config Config) (*RoseDB, error) {
 	}
 
 	db := &RoseDB{
-		activeFile:    activeFiles,
-		activeFileIds: activeFileIds,
-		archFiles:     archFiles,
-		config:        config,
-		strIndex:      newStrIdx(),
-		listIndex:     newListIdx(),
-		hashIndex:     newHashIdx(),
-		setIndex:      newSetIdx(),
-		zsetIndex:     newZsetIdx(),
-		expires:       make(Expires),
-		txnMeta:       txnMeta,
+		activeFile: activeFiles,
+		archFiles:  archFiles,
+		config:     config,
+		strIndex:   newStrIdx(),
+		listIndex:  newListIdx(),
+		hashIndex:  newHashIdx(),
+		setIndex:   newSetIdx(),
+		zsetIndex:  newZsetIdx(),
+		expires:    make(Expires),
+		txnMeta:    txnMeta,
 	}
 	for i := 0; i < DataStructureNum; i++ {
 		db.expires[uint16(i)] = make(map[string]int64)
@@ -188,32 +184,38 @@ func Reopen(path string) (*RoseDB, error) {
 }
 
 // Close db and save relative configs.
-func (db *RoseDB) Close() error {
+func (db *RoseDB) Close() (err error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	if err := db.saveConfig(); err != nil {
+	if err = db.saveConfig(); err != nil {
 		return err
 	}
 
 	// close and sync the active file.
-	for _, file := range db.activeFile {
-		if err := file.Close(true); err != nil {
-			return err
+	db.activeFile.Range(func(key, value interface{}) bool {
+		if dbFile, ok := value.(*storage.DBFile); ok {
+			if err = dbFile.Close(true); err != nil {
+				return false
+			}
 		}
+		return true
+	})
+	if err != nil {
+		return
 	}
 
 	// close the archived files.
 	for _, archFile := range db.archFiles {
 		for _, file := range archFile {
-			if err := file.Sync(); err != nil {
+			if err = file.Sync(); err != nil {
 				return err
 			}
 		}
 	}
 
 	atomic.StoreUint32(&db.closed, 1)
-	return nil
+	return
 }
 
 func (db *RoseDB) isClosed() bool {
@@ -221,17 +223,23 @@ func (db *RoseDB) isClosed() bool {
 }
 
 // Persist the db files.
-func (db *RoseDB) Sync() error {
+func (db *RoseDB) Sync() (err error) {
 	if db == nil || db.activeFile == nil {
 		return nil
 	}
 
-	for _, file := range db.activeFile {
-		if err := file.Sync(); err != nil {
-			return err
+	db.activeFile.Range(func(key, value interface{}) bool {
+		if dbFile, ok := value.(*storage.DBFile); ok {
+			if err = dbFile.Sync(); err != nil {
+				return false
+			}
 		}
+		return true
+	})
+	if err != nil {
+		return
 	}
-	return nil
+	return
 }
 
 // Reclaim reclaim db files`s redundant space in disk.
@@ -568,36 +576,39 @@ func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer) (err erro
 func (db *RoseDB) store(e *storage.Entry) error {
 	// sync the db file if file size is not enough, and open a new db file.
 	config := db.config
-	if db.activeFile[e.GetType()].Offset+int64(e.Size()) > config.BlockSize {
-		if err := db.activeFile[e.GetType()].Sync(); err != nil {
+	activeFile, err := db.getActiveFile(e.GetType())
+	if err != nil {
+		return err
+	}
+
+	if activeFile.Offset+int64(e.Size()) > config.BlockSize {
+		if err := activeFile.Sync(); err != nil {
 			return err
 		}
 
 		// save the old db file as arched file.
-		activeFileId := db.activeFileIds[e.GetType()]
-		db.archFiles[e.GetType()][activeFileId] = db.activeFile[e.GetType()]
-		activeFileId = activeFileId + 1
+		activeFileId := activeFile.Id
+		db.archFiles[e.GetType()][activeFileId] = activeFile
 
-		newDbFile, err := storage.NewDBFile(config.DirPath, activeFileId, config.RwMethod, config.BlockSize, e.GetType())
+		newDbFile, err := storage.NewDBFile(config.DirPath, activeFileId+1, config.RwMethod, config.BlockSize, e.GetType())
 		if err != nil {
 			return err
 		}
-		db.activeFile[e.GetType()] = newDbFile
-		db.activeFileIds[e.GetType()] = activeFileId
+		activeFile = newDbFile
 	}
 
 	// write entry to db file.
-	if err := db.activeFile[e.GetType()].Write(e); err != nil {
+	if err := activeFile.Write(e); err != nil {
 		return err
 	}
+	db.activeFile.Store(e.GetType(), activeFile)
 
 	// persist db file according to the config.
 	if config.Sync {
-		if err := db.activeFile[e.GetType()].Sync(); err != nil {
+		if err := activeFile.Sync(); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -739,6 +750,19 @@ func (db *RoseDB) checkExpired(key []byte, dType DataType) (expired bool) {
 		}
 		// delete the expire info stored at key.
 		delete(db.expires[dType], string(key))
+	}
+	return
+}
+
+func (db *RoseDB) getActiveFile(dType DataType) (file *storage.DBFile, err error) {
+	value, ok := db.activeFile.Load(dType)
+	if !ok || value == nil {
+		return nil, ErrActiveFileIsNil
+	}
+
+	var typeOk bool
+	if file, typeOk = value.(*storage.DBFile); !typeOk {
+		return nil, ErrActiveFileIsNil
 	}
 	return
 }

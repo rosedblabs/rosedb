@@ -137,27 +137,32 @@ func (tx *Txn) Commit() (err error) {
 
 	// write entry into db files.
 	var indexes []*index.Indexer
-	if len(tx.strEntries) > 0 {
-		tx.wg.Add(1)
+	if len(tx.strEntries) > 0 && len(tx.writeEntries) > 0 {
+		tx.wg.Add(2)
 		go func() {
 			defer tx.wg.Done()
 			if indexes, err = tx.writeStrEntries(); err != nil {
 				return
 			}
 		}()
-	}
-	if len(tx.writeEntries) > 0 {
-		tx.wg.Add(1)
+
 		go func() {
 			defer tx.wg.Done()
 			if err = tx.writeOtherEntries(); err != nil {
 				return
 			}
 		}()
-	}
-	tx.wg.Wait()
-	if err != nil {
-		return err
+		tx.wg.Wait()
+		if err != nil {
+			return err
+		}
+	} else {
+		if indexes, err = tx.writeStrEntries(); err != nil {
+			return
+		}
+		if err = tx.writeOtherEntries(); err != nil {
+			return
+		}
 	}
 
 	// sync the db file for transaction durability.
@@ -280,14 +285,17 @@ func (tx *Txn) writeStrEntries() (indexes []*index.Indexer, err error) {
 		if err = tx.db.store(entry); err != nil {
 			return
 		}
-
+		activeFile, err := tx.db.getActiveFile(String)
+		if err != nil {
+			return nil, err
+		}
 		// generate index.
 		indexes = append(indexes, &index.Indexer{
 			Meta: &storage.Meta{
 				Key: entry.Meta.Key,
 			},
-			FileId: tx.db.activeFileIds[String],
-			Offset: tx.db.activeFile[String].Offset - int64(entry.Size()),
+			FileId: activeFile.Id,
+			Offset: activeFile.Offset - int64(entry.Size()),
 		})
 	}
 	return
