@@ -126,6 +126,7 @@ func (tx *Txn) Commit() (err error) {
 	if tx.db.isClosed() {
 		return ErrDBIsClosed
 	}
+	defer tx.finished()
 
 	if len(tx.strEntries) == 0 && len(tx.writeEntries) == 0 {
 		return
@@ -188,8 +189,6 @@ func (tx *Txn) Commit() (err error) {
 			return
 		}
 	}
-
-	tx.finished()
 	return
 }
 
