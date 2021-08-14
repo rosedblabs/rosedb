@@ -74,7 +74,7 @@ func (tx *Txn) Get(key []byte) (val []byte, err error) {
 // GetSet see db_str.go:GetSet
 func (tx *Txn) GetSet(key, val []byte) (res []byte, err error) {
 	res, err = tx.Get(key)
-	if err != nil && err != ErrKeyNotExist {
+	if err != nil && err != ErrKeyNotExist && err != ErrKeyExpired {
 		return
 	}
 	err = tx.Set(key, val)
@@ -123,16 +123,16 @@ func (tx *Txn) StrLen(key []byte) (res int) {
 }
 
 // StrExists see db_str.go:StrExists
-func (tx *Txn) StrExists(key []byte) bool {
+func (tx *Txn) StrExists(key []byte) (ok bool) {
 	if e, ok := tx.strEntries[string(key)]; ok && e.GetMark() != StringRem {
 		return true
 	}
-
-	exist := tx.db.strIndex.idxList.Exist(key)
-	if exist && !tx.db.checkExpired(key, String) {
-		return true
+	if tx.db.checkExpired(key, String) {
+		return false
 	}
-	return false
+
+	ok = tx.db.strIndex.idxList.Exist(key)
+	return
 }
 
 // Remove see db_str.go:Remove

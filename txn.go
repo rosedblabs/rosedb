@@ -103,7 +103,9 @@ func (db *RoseDB) TxnView(fn func(tx *Txn) error) (err error) {
 	return
 }
 
-// NewTransaction create a new transaction.
+// NewTransaction create a new transaction, don`t support concurrent execution of transactions now.
+// So you can only open a read-write transaction at the same time.
+// For read-only transactions, you can execute multiple, and any write operations will be omitted.
 func (db *RoseDB) NewTransaction() *Txn {
 	db.mu.Lock()
 	defer func() {
