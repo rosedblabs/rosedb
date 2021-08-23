@@ -4,35 +4,33 @@
 
 [English](https://github.com/roseduan/rosedb#rosedb) | [简体中文](https://github.com/roseduan/rosedb/blob/main/README-CN.md)
 
-rosedb is a fast, stable and embedded  k-v database based on bitcask, data file in disk is similar to WAL in LSM tree, so it has great write performance and high throughput. It also supports many kinds of data structures such as `string`, `list`, `hash`, `set`, `sorted set`.
+rosedb is a fast, stable and embedded key-value (k-v) database based on bitcask. Its on-disk files are organized as LSM trees, optimizing for write throughput. rosedb supports a variety of of data structures such as `string`, `list`, `hash`, `set` and `sorted set`.
 
-rosedb is in pure `Go`, and it is simple and easy enough to use in production.
+rosedb is written in pure `Go`. It is production-ready.
 
-Our vision is to build an efficient kv storage engine for Go-based applications, you can give us any advices, and also please give us a star ✨，that will help us a lot, thanks!
+Our vision is to build an efficient k-v storage engine for Go-based applications. Feel free to give us any advices, and also please give us a star ✨，that means a lot to us, thanks!
 
  [![Stargazers over time](https://starchart.cc/roseduan/rosedb.svg)](https://starchart.cc/roseduan/rosedb)      
 
-## Feature
+## Features
 
-* Support rich data structures :  `string`, `list`, `hash`, `set`, `zset`.
-* Easy to embedded (`import "github.com/roseduan/rosedb"`).
-* Low latency and high throughput(see Benchmark).
-* Operations of various data types can be parallel.
-* Has builtin rosedb-cli for command line, also support redis-cli.
-* Support expiration and TTL.
-* Support prefix scan and range scan for string keys.
+* Supports all common data structures :  `string`, `list`, `hash`, `set`, `zset`.
+* Easy to embed (`import "github.com/roseduan/rosedb"`).
+* Low latency and high throughput (see Benchmark).
+* Has built-in parallel execution of data modification on many provided data structures.
+* Comes with rosedb-cli for command line access, that is compatible with redis-cli.
+* Supports TTL-based key eviction.
+* Supports prefix scan and range scan for string keys.
 
 ## Usage
 
 ### Cli example
 
-Change the directory to rosedb/cmd/server.
-
-Run the `main.go`
+Navigate to rosedb/cmd/server and run `main.go`
 
 ![Xnip2021-04-14_14-33-11.png](https://i.loli.net/2021/04/14/EsMFv48YB3P9j7k.png)
 
-Open a new shell, and change the directory to rosedb/cmd/cli, and run the `main.go`：
+Open a new terminal, navigate to rosedb/cmd/cli, and run `main.go`：
 
 ![Xnip2021-04-14_14-35-50.png](https://i.loli.net/2021/04/14/9uh1ElVF3C4D6dM.png)
 
@@ -40,7 +38,7 @@ Or you can just use `redis-cli` or any other redis client：
 
 ![2021-05-14 上午11.19.24.png](https://i.loli.net/2021/05/14/eYkMyTzl5CXUN83.png)
 
-### Embedded example
+### Embedding example
 
 Import rosedb in the application:
 
@@ -48,7 +46,7 @@ Import rosedb in the application:
 import "github.com/roseduan/rosedb"
 ```
 
-And open a database:
+Open a connection to the database:
 
 ```go
 package main
@@ -166,33 +164,33 @@ rosedb
 
 ## TODO
 
-+ [x] Support expiration and TTL
++ [x] Support TTL-based entry eviction
 + [x] Add prefix scan and range scan for string type
-+ [x] Cli for command line use
-+ [x] Improve the performance of reopening db.
-+ [x] Improve the performance of reclaim operation.
-+ [ ] Support transaction, ACID features
-+ [ ] Compress the written data
++ [x] Cli for command line access
++ [x] Improve the performance of reopening db
++ [x] Improve the performance of reclaim operation
++ [ ] Support transaction with ACID guarantee
++ [ ] On-disk data compression
 + [ ] Add cache elimination strategy (Such as LRU, LFU, Random, etc...)
-+ [ ] Improve related documents
++ [ ] Improve documentation
 
 ## Benchmark
 
-### Benchmark Environment
+### Environment
 
 * Go version：1.14.4
-* System: macOS Catalina 10.15.7
+* OS: macOS Catalina 10.15.7
 * CPU: 2.6GHz 6-Core Intel Core i7
 * Memory: 16 GB 2667 MHz DDR4
-* The benchmark code: [rosedb-bench](https://github.com/roseduan/rosedb-bench)
-* The test databases I choose:
+* Code: [rosedb-bench](https://github.com/roseduan/rosedb-bench)
+* Other databases for comparison:
   * Badger
   * GoLevelDB
   * Pudge
 
-### Benchmark Result
+### Result
 
-**execute 100w times**
+**1,000,000 iterations**
 
 ```
 go test -bench=. -benchtime=1000000x
@@ -216,7 +214,7 @@ PASS
 ok      rosedb-bench    46.388s
 ```
 
-**execute 250w times**
+**2,500,000 iterations**
 
 ```
 go test -bench=. -benchtime=2500000x
@@ -240,25 +238,25 @@ PASS
 ok      rosedb-bench    119.529s
 ```
 
-### Benchmark Conclusion
+### Conclusion
 
 **Badger**
 
-Its read and wirte performance are stable. Write: 11000+ ns/op. Read: 4000+ ns/op.
+Stable read and write performance. Write: 11000+ ns/op. Read: 4000+ ns/op.
 
 **GoLevelDB**
 
-Its write performance is almost 2.5x faster than Badger, and its read performance is almost 3000 ns/op, a little faster than Badger.
+Write performance is almost 2.5x that of Badger. Read is almost 3000 ns/op, a little faster than that of Badger.
 
 **Pudge**
 
-Its write performance is between GoLevelDB and Badger, almost 8500 ns/op, slower than GoLevelDB. Its read performance is very fast and stable, almost 2x faster than GoLevelDB.
+Write performance is between that of GoLevelDB and Badger, almost 8500 ns/op. Read is very fast and stable, almost twice as fast as that of GoLevelDB.
 
 **RoseDB**
 
-Its write performance is stable, alomost the same as GoLevelDB, 2.5x faster than Badger. 
+Write performance is stable, almost the same as that of GoLevelDB, 2.5x that of Badger. 
 
-In KeyValueRamMode, since the values are all in memory, so it is the fastest of all.
+In KeyValueRamMode, since the values are all in memory, it is the fastest of all.
 
 In KeyOnlyRamMode, it is almost the same as GoLevelDB.
 
