@@ -83,17 +83,17 @@ func (z *SortedSet) ZAdd(key string, score float64, member string) {
 
 // ZScore 返回集合key中对应member的score值，如果不存在则返回负无穷
 // Returns the score of member in the sorted set at key.
-func (z *SortedSet) ZScore(key string, member string) float64 {
+func (z *SortedSet) ZScore(key string, member string) (ok bool, score float64) {
 	if !z.exist(key) {
-		return math.MinInt64
+		return
 	}
 
 	node, exist := z.record[key].dict[member]
 	if !exist {
-		return math.MinInt64
+		return
 	}
 
-	return node.score
+	return true, node.score
 }
 
 // ZCard 返回指定集合key中的元素个数

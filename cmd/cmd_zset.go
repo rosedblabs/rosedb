@@ -30,8 +30,10 @@ func zScore(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		err = newWrongNumOfArgsError("zscore")
 		return
 	}
-	score := db.ZScore([]byte(args[0]), []byte(args[1]))
-	res = utils.Float64ToStr(score)
+	ok, score := db.ZScore([]byte(args[0]), []byte(args[1]))
+	if ok {
+		res = utils.Float64ToStr(score)
+	}
 	return
 }
 
