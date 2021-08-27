@@ -706,8 +706,8 @@ func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool
 		}
 		if mark == ZSetZAdd {
 			if val, err := utils.StrToFloat64(string(e.Meta.Extra)); err == nil {
-				score := db.ZScore(e.Meta.Key, e.Meta.Value)
-				if score == val {
+				ok, score := db.ZScore(e.Meta.Key, e.Meta.Value)
+				if ok && score == val {
 					return true
 				}
 			}

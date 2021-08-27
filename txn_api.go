@@ -6,7 +6,6 @@ import (
 	"github.com/roseduan/rosedb/index"
 	"github.com/roseduan/rosedb/storage"
 	"github.com/roseduan/rosedb/utils"
-	"math"
 	"time"
 )
 
@@ -338,11 +337,11 @@ func (tx *Txn) SRem(key []byte, members ...[]byte) (err error) {
 
 // ZScore see db_zset.go/ZAdd
 func (tx *Txn) ZAdd(key []byte, score float64, member []byte) (err error) {
-	oldScore, err := tx.ZScore(key, member)
+	ok, oldScore, err := tx.ZScore(key, member)
 	if err != nil {
 		return err
 	}
-	if oldScore == score {
+	if ok && oldScore == score {
 		return
 	}
 
@@ -358,12 +357,11 @@ func (tx *Txn) ZAdd(key []byte, score float64, member []byte) (err error) {
 }
 
 // ZScore see db_zset.go/ZScore
-func (tx *Txn) ZScore(key, member []byte) (score float64, err error) {
+func (tx *Txn) ZScore(key, member []byte) (exist bool, score float64, err error) {
 	encKey := tx.encodeKey(key, member, ZSet)
 	if idx, ok := tx.keysMap[encKey]; ok {
 		entry := tx.writeEntries[idx]
 		if entry.GetMark() == ZSetZRem {
-			score = math.MinInt64
 			return
 		}
 		score, err = utils.StrToFloat64(string(entry.Meta.Extra))
@@ -372,10 +370,11 @@ func (tx *Txn) ZScore(key, member []byte) (score float64, err error) {
 		}
 	}
 	if tx.db.checkExpired(key, ZSet) {
-		return math.MinInt64, ErrKeyExpired
+		err = ErrKeyExpired
+		return
 	}
 
-	score = tx.db.zsetIndex.indexes.ZScore(string(key), string(member))
+	exist, score = tx.db.zsetIndex.indexes.ZScore(string(key), string(member))
 	return
 }
 

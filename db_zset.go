@@ -4,7 +4,6 @@ import (
 	"github.com/roseduan/rosedb/ds/zset"
 	"github.com/roseduan/rosedb/storage"
 	"github.com/roseduan/rosedb/utils"
-	"math"
 	"sync"
 	"time"
 )
@@ -27,7 +26,7 @@ func (db *RoseDB) ZAdd(key []byte, score float64, member []byte) error {
 	}
 
 	// if the score corresponding to the key and member already exist, nothing will be done.
-	if oldScore := db.ZScore(key, member); oldScore == score {
+	if ok, oldScore := db.ZScore(key, member); ok && oldScore == score {
 		return nil
 	}
 
@@ -45,12 +44,12 @@ func (db *RoseDB) ZAdd(key []byte, score float64, member []byte) error {
 }
 
 // ZScore returns the score of member in the sorted set at key.
-func (db *RoseDB) ZScore(key, member []byte) float64 {
+func (db *RoseDB) ZScore(key, member []byte) (ok bool, score float64) {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
 	if db.checkExpired(key, ZSet) {
-		return math.MinInt64
+		return
 	}
 
 	return db.zsetIndex.indexes.ZScore(string(key), string(member))
