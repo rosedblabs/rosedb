@@ -43,8 +43,8 @@ func TestRoseDB_ZScore(t *testing.T) {
 	defer db.Close()
 	key := []byte("my_zset")
 
-	s := db.ZScore(key, []byte("roseduan"))
-	t.Log(s)
+	ok, s := db.ZScore(key, []byte("roseduan"))
+	t.Log(ok, s)
 }
 
 func TestRoseDB_ZCard(t *testing.T) {
