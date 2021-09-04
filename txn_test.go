@@ -527,8 +527,8 @@ func TestTxn_ZScore(t *testing.T) {
 	key := []byte("my_zset")
 
 	roseDB.TxnView(func(tx *Txn) error {
-		score, err := tx.ZScore(key, []byte("zset-val-11"))
-		t.Log(score)
+		exist, score, err := tx.ZScore(key, []byte("zset-val-11"))
+		t.Log(exist, score)
 		return err
 	})
 }
@@ -538,7 +538,7 @@ func TestTxn_ZRem(t *testing.T) {
 
 	t.Run("1", func(t *testing.T) {
 		roseDB.Txn(func(tx *Txn) error {
-			score, err := tx.ZScore(key, []byte("zset-val-11"))
+			_, score, err := tx.ZScore(key, []byte("zset-val-11"))
 			t.Log(score, err)
 			//
 			//err = tx.ZRem(key, []byte("zset-val-11"))
@@ -546,7 +546,7 @@ func TestTxn_ZRem(t *testing.T) {
 			//	return err
 			//}
 
-			score, err = tx.ZScore(key, []byte("zset-val-11"))
+			_, score, err = tx.ZScore(key, []byte("zset-val-11"))
 			t.Log(score, err)
 
 			return nil
@@ -685,11 +685,11 @@ func TestRoseDB_TxnView(t *testing.T) {
 
 		k5 := []byte("k5")
 		v5 := []byte("zset-val-5")
-		score, err := tx.ZScore(k5, v5)
+		exist, score, err := tx.ZScore(k5, v5)
 		if err != nil {
 			return err
 		}
-		t.Log(score)
+		t.Log(exist, score)
 		return nil
 	})
 }
