@@ -121,7 +121,7 @@ func (lis *List) LRem(key string, val []byte, count int) int {
 	ele = nil
 
 	if lis.values[key] != nil {
-		cnt := lis.values[key][string(val)] - 1
+		cnt := lis.values[key][string(val)] - length
 		if cnt <= 0 {
 			delete(lis.values[key], string(val))
 		} else {

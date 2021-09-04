@@ -279,6 +279,7 @@ func (db *RoseDB) Reclaim() (err error) {
 	// processing the different types of files in different goroutines.
 	newArchivedFiles := sync.Map{}
 	reclaimedTypes := sync.Map{}
+
 	wg := sync.WaitGroup{}
 	wg.Add(DataStructureNum)
 	for i := 0; i < DataStructureNum; i++ {
@@ -373,7 +374,15 @@ func (db *RoseDB) Reclaim() (err error) {
 	for dataType, files := range db.archFiles {
 		if _, exist := reclaimedTypes.Load(dataType); exist {
 			for _, f := range files {
-				_ = os.Remove(f.File.Name())
+				// close file before remove it.
+				if err = f.File.Close(); err != nil {
+					log.Println("close old db file err: ", err)
+					return
+				}
+				if err = os.Remove(f.File.Name()); err != nil {
+					log.Println("remove old db file err: ", err)
+					return
+				}
 			}
 		}
 	}
@@ -391,6 +400,10 @@ func (db *RoseDB) Reclaim() (err error) {
 	db.archFiles = dbArchivedFiles
 
 	// remove the txn meta file and create a new one.
+	if err = db.txnMeta.txnFile.File.Close(); err != nil {
+		log.Println("close txn file err: ", err)
+		return
+	}
 	if err = os.Remove(db.config.DirPath + dbTxMetaSaveFile); err == nil {
 		var txnMeta *TxnMeta
 		activeTxIds := db.txnMeta.ActiveTxIds
