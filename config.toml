@@ -17,15 +17,15 @@ rw_method = 0
 
 # 数据索引模式 0:键和值均存于内存中 1:只有键存于内存中
 # The index mode, 0: KeyValueMemMode, 1: KeyOnlyMemMode.
-idx_mode = 0
+idx_mode = 1
 
 # key的最大值
-# The max size of key: 128 bytes.
-max_key_size = 128
+# The max size of key: 1MB.
+max_key_size = 1048576
 
 # value的最大值
-# The max size of value: 1MB.
-max_value_size = 1048576
+# The max size of value: 8MB.
+max_value_size = 8388608
 
 # 是否数据同步
 # Flush the db file to disk of every write operation.
@@ -33,4 +33,4 @@ sync = false
 
 # reclaim的阈值
 # The threshold for db file reclaiming.
-reclaim_threshold = 4
+reclaim_threshold = 64

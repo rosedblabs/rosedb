@@ -14,7 +14,7 @@ const (
 	KeyValueMemMode DataIndexMode = iota
 
 	// KeyOnlyMemMode only key in memory, there is a disk seek while getting a value.
-	// Because the value is in db file.
+	// Because values are in db file on disk.
 	KeyOnlyMemMode
 )
 
@@ -26,23 +26,25 @@ const (
 	DefaultDirPath = "/tmp/rosedb_server"
 
 	// DefaultBlockSize default db file size: 16mb.
-	// If reach the size, db file will never opening for writing.
+	// If reach the size, db file will never be opened for writing.
 	DefaultBlockSize = 16 * 1024 * 1024
 
-	// DefaultMaxKeySize default max key size: 128 bytes.
-	DefaultMaxKeySize = uint32(128)
+	// DefaultMaxKeySize default max key size: 1mb.
+	DefaultMaxKeySize = uint32(1 * 1024 * 1024)
 
-	// DefaultMaxValueSize default max value size: 1mb.
-	DefaultMaxValueSize = uint32(1 * 1024 * 1024)
+	// DefaultMaxValueSize default max value size: 8mb.
+	DefaultMaxValueSize = uint32(8 * 1024 * 1024)
 
-	// DefaultReclaimThreshold default disk reclaim threshold: at least 4 archived db files.
-	DefaultReclaimThreshold = 4
+	// DefaultReclaimThreshold default disk files reclaim threshold: 64.
+	// This means that it will be reclaimed when there are at least 64 archived files on disk.
+	DefaultReclaimThreshold = 64
 )
 
-// Config the config options of rosedb.
+// Config the opening options of rosedb.
 type Config struct {
-	Addr         string               `json:"addr" toml:"addr"`             // server address
-	DirPath      string               `json:"dir_path" toml:"dir_path"`     // rosedb dir path of db file
+	Addr    string `json:"addr" toml:"addr"`         // server address
+	DirPath string `json:"dir_path" toml:"dir_path"` // rosedb dir path of db file
+	// Deprecated: don`t edit the option, it will be removed in future release.
 	BlockSize    int64                `json:"block_size" toml:"block_size"` // each db file size
 	RwMethod     storage.FileRWMethod `json:"rw_method" toml:"rw_method"`   // db file read and write method
 	IdxMode      DataIndexMode        `json:"idx_mode" toml:"idx_mode"`     // data index mode
