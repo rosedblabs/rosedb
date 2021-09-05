@@ -4,11 +4,11 @@
 
 [English](https://github.com/roseduan/rosedb#rosedb) | [简体中文](https://github.com/roseduan/rosedb/blob/main/README-CN.md)
 
-rosedb is a fast, stable and embedded key-value (k-v) database based on bitcask. Its on-disk files are organized as LSM trees, optimizing for write throughput. rosedb supports a variety of of data structures such as `string`, `list`, `hash`, `set` and `sorted set`.
+rosedb is a fast, stable and embedded key-value (k-v) database based on bitcask. Its on-disk files are organized as WAL(Write Ahead Log) in LSM trees, optimizing for write throughput. rosedb supports a variety of data structures such as `string`, `list`, `hash`, `set` and `sorted set`.
 
-rosedb is written in pure `Go`. It is production-ready.
+rosedb is written in pure `Go`, easy to understand and use.
 
-Our vision is to build an efficient k-v storage engine for Go-based applications. Feel free to give us any advices, and also please give us a star ✨，that means a lot to us, thanks!
+Our vision is to build an efficient k-v storage engine for Go-based applications. Feel free to give us any advices, and also please give us a star ✨，that helps a lot, thanks!
 
  [![Stargazers over time](https://starchart.cc/roseduan/rosedb.svg)](https://starchart.cc/roseduan/rosedb)      
 
@@ -21,6 +21,7 @@ Our vision is to build an efficient k-v storage engine for Go-based applications
 * Comes with rosedb-cli for command line access, that is compatible with redis-cli.
 * Supports TTL-based key eviction.
 * Supports prefix scan and range scan for string keys.
+* Support transaction, ACID features.
 
 ## Usage
 
@@ -74,8 +75,8 @@ func main() {
 ### Deploy and run on Docker
 
 ```shell
-docker build -t="rosedb:v1.2.7" .
-docker run --name=rosedb -itd -p 5200:5200 rosedb:v1.2.7
+docker build -t="rosedb:v1.2.9" .
+docker run --name=rosedb -itd -p 5200:5200 rosedb:v1.2.9
 docker exec -it rosedb sh
 
 $ rosedb-cli
@@ -164,15 +165,7 @@ rosedb
 
 ## TODO
 
-+ [x] Support TTL-based entry eviction
-+ [x] Add prefix scan and range scan for string type
-+ [x] Cli for command line access
-+ [x] Improve the performance of reopening db
-+ [x] Improve the performance of reclaim operation
-+ [ ] Support transaction with ACID guarantee
-+ [ ] On-disk data compression
-+ [ ] Add cache elimination strategy (Such as LRU, LFU, Random, etc...)
-+ [ ] Improve documentation
+see [here](https://github.com/roseduan/rosedb/projects/1).
 
 ## Benchmark
 

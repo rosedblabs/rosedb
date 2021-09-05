@@ -7,9 +7,9 @@
 
 rosedb 是一个稳定、高性能、快速、内嵌的 k-v 数据库，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`，接口名称风格和 Redis 类似。
 
-rosedb 基于简单的 bitcask 模型，数据文件布局类似 LSM Tree 中的 WAL 日志，纯 `Golang` 实现，易于使用、扩展。
+rosedb 基于简单的 bitcask 模型，数据文件布局类似 LSM Tree 中的 WAL 日志，纯 `Golang` 实现，易于理解和使用。
 
-我们的愿景是打造一个高效的 k-v 存储引擎，你可以给我们提任何建议，也请给我们一个 star ✨ 吧，非常感谢！
+我们的愿景是打造一个高效的 k-v 存储引擎，你可以给我们提任何建议，也请给我们一个 star ✨ 哦，非常感谢！
 
  ![Stargazers over time](https://starchart.cc/roseduan/rosedb.svg)
 
@@ -22,6 +22,7 @@ rosedb 基于简单的 bitcask 模型，数据文件布局类似 LSM Tree 中的
 * 支持客户端命令行操作。
 * 支持过期时间。
 * `String` 数据类型支持前缀和范围扫描。
+* 支持简单的事务操作，ACID 特性。
 
 ## 介绍
 
@@ -99,8 +100,8 @@ func main() {
 ### 在Docker上部署与运行
 
 ```shell
-docker build -t="rosedb:v1.2.7" .
-docker run --name=rosedb -itd -p 5200:5200 rosedb:v1.2.7
+docker build -t="rosedb:v1.2.9" .
+docker run --name=rosedb -itd -p 5200:5200 rosedb:v1.2.9
 docker exec -it rosedb sh
 
 $ rosedb-cli
@@ -189,18 +190,7 @@ rosedb
 
 ## 待办
 
-这个项目其实还有很多可以完善的地方，比如下面列举到的一些，如果你对这个项目比较熟悉了，可以挑选一个自己感兴趣的 Todo List，自己去实现，然后提 Pr，成为这个项目的 Contributor。
-
-+ [x] 支持 TTL
-+ [x] String 类型 key 加入前缀扫描
-+ [x] 写一个简单的客户端，支持命令行操作
-+ [ ] 数据库启动优化
-+ [ ] reclaim 性能优化
-+ [ ] 支持事务，ACID 特性
-+ [ ] 文件数据压缩存储（snappy、zstd、zlib）
-+ [ ] 缓存淘汰策略（LRU、LFU、Random）
-+ [ ] 支持更多的命令操作（type，keys，mset，mget，zcount，etc...）
-+ [ ] 完善相关文档
+可以参考这里：[待办](https://github.com/roseduan/rosedb/projects/1)。
 
 ## 教程
 
