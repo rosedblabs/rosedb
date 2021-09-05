@@ -779,3 +779,13 @@ func (db *RoseDB) getActiveFile(dType DataType) (file *storage.DBFile, err error
 	}
 	return
 }
+
+func (db *RoseDB) encode(key, value interface{}) (encKey, encVal []byte, err error) {
+	if encKey, err = utils.EncodeKey(key); err != nil {
+		return
+	}
+	if encVal, err = utils.EncodeValue(value); err != nil {
+		return
+	}
+	return
+}

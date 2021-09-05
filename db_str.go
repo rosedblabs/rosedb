@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/roseduan/rosedb/index"
 	"github.com/roseduan/rosedb/storage"
+	"github.com/roseduan/rosedb/utils"
 	"strings"
 	"sync"
 	"time"
@@ -23,34 +24,47 @@ func newStrIdx() *StrIdx {
 
 // Set set key to hold the string value. If key already holds a value, it is overwritten.
 // Any previous time to live associated with the key is discarded on successful Set operation.
-func (db *RoseDB) Set(key, value []byte) error {
-	return db.setVal(key, value)
+func (db *RoseDB) Set(key, value interface{}) error {
+	encKey, encVal, err := db.encode(key, value)
+	if err != nil {
+		return err
+	}
+	return db.setVal(encKey, encVal)
 }
 
 // SetNx is short for "Set if not exists", set key to hold string value if key does not exist.
 // In that case, it is equal to Set. When key already holds a value, no operation is performed.
-func (db *RoseDB) SetNx(key, value []byte) (res uint32, err error) {
-	if exist := db.StrExists(key); exist {
+func (db *RoseDB) SetNx(key, value interface{}) (res uint32, err error) {
+	encKey, encVal, err := db.encode(key, value)
+	if err != nil {
+		return 0, err
+	}
+	if exist := db.StrExists(encKey); exist {
 		return
 	}
 
-	if err = db.Set(key, value); err == nil {
+	if err = db.Set(encKey, encVal); err == nil {
 		res = 1
 	}
 	return
 }
 
 // SetEx set key to hold the string value and set key to timeout after a given number of seconds.
-func (db *RoseDB) SetEx(key, value []byte, duration int64) (err error) {
+func (db *RoseDB) SetEx(key, value interface{}, duration int64) (err error) {
 	if duration <= 0 {
 		return ErrInvalidTTL
+	}
+
+	encKey, encVal, err := db.encode(key, value)
+	if err != nil {
+		return err
 	}
 
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
 	deadline := time.Now().Unix() + duration
-	e := storage.NewEntryWithExpire(key, value, deadline, String, StringExpire)
+	e := storage.NewEntryWithExpire(encKey, encVal, deadline, String, StringExpire)
 	if err = db.store(e); err != nil {
 		return
 	}
@@ -60,25 +74,30 @@ func (db *RoseDB) SetEx(key, value []byte, duration int64) (err error) {
 		return
 	}
 	// set expired info.
-	db.expires[String][string(key)] = deadline
+	db.expires[String][string(encKey)] = deadline
 	return
 }
 
 // Get get the value of key. If the key does not exist an error is returned.
-func (db *RoseDB) Get(key []byte) ([]byte, error) {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) Get(key interface{}) ([]byte, error) {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return nil, err
 	}
 
 	db.strIndex.mu.RLock()
 	defer db.strIndex.mu.RUnlock()
 
-	return db.getVal(key)
+	return db.getVal(encKey)
 }
 
 // GetSet set key to value and returns the old value stored at key.
 // If the key not exist, return an err.
-func (db *RoseDB) GetSet(key, val []byte) (res []byte, err error) {
+func (db *RoseDB) GetSet(key, val interface{}) (res []byte, err error) {
 	res, err = db.Get(key)
 	if err != nil && err != ErrKeyNotExist {
 		return
@@ -91,8 +110,13 @@ func (db *RoseDB) GetSet(key, val []byte) (res []byte, err error) {
 
 // Append if key already exists and is a string, this command appends the value at the end of the string.
 // If key does not exist it is created and set as an empty string, so Append will be similar to Set in this special case.
-func (db *RoseDB) Append(key, value []byte) error {
-	if err := db.checkKeyValue(key, value); err != nil {
+func (db *RoseDB) Append(key, value interface{}) error {
+	encKey, encVal, err := db.encode(key, value)
+	if err != nil {
+		return err
+	}
+
+	if err := db.checkKeyValue(encKey, encVal); err != nil {
 		return err
 	}
 	existVal, err := db.Get(key)
@@ -101,51 +125,63 @@ func (db *RoseDB) Append(key, value []byte) error {
 	}
 
 	if len(existVal) > 0 {
-		existVal = append(existVal, value...)
+		existVal = append(existVal, encVal...)
 	} else {
-		existVal = value
+		existVal = encVal
 	}
-	return db.setVal(key, existVal)
+	return db.setVal(encKey, existVal)
 }
 
 // StrLen returns the length of the string value stored at key.
-func (db *RoseDB) StrLen(key []byte) int {
-	val, _ := db.getVal(key)
+func (db *RoseDB) StrLen(key interface{}) int {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return 0
+	}
+	val, _ := db.getVal(encKey)
 	return len(val)
 }
 
 // StrExists check whether the key exists.
-func (db *RoseDB) StrExists(key []byte) bool {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) StrExists(key interface{}) bool {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return false
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return false
 	}
 
 	db.strIndex.mu.RLock()
 	defer db.strIndex.mu.RUnlock()
 
-	exist := db.strIndex.idxList.Exist(key)
-	if exist && !db.checkExpired(key, String) {
+	exist := db.strIndex.idxList.Exist(encKey)
+	if exist && !db.checkExpired(encKey, String) {
 		return true
 	}
 	return false
 }
 
 // Remove remove the value stored at key.
-func (db *RoseDB) Remove(key []byte) error {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) Remove(key interface{}) error {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return err
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return err
 	}
 
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	e := storage.NewEntryNoExtra(key, nil, String, StringRem)
+	e := storage.NewEntryNoExtra(encKey, nil, String, StringRem)
 	if err := db.store(e); err != nil {
 		return err
 	}
 
-	db.strIndex.idxList.Remove(key)
-	delete(db.expires[String], string(key))
+	db.strIndex.idxList.Remove(encKey)
+	delete(db.expires[String], string(encKey))
 	return nil
 }
 
@@ -232,7 +268,11 @@ func (db *RoseDB) RangeScan(start, end []byte) (val [][]byte, err error) {
 }
 
 // Expire set the expiration time of the key.
-func (db *RoseDB) Expire(key []byte, duration int64) (err error) {
+func (db *RoseDB) Expire(key interface{}, duration int64) (err error) {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return err
+	}
 	if duration <= 0 {
 		return ErrInvalidTTL
 	}
@@ -241,22 +281,22 @@ func (db *RoseDB) Expire(key []byte, duration int64) (err error) {
 	defer db.strIndex.mu.Unlock()
 
 	var value []byte
-	if value, err = db.getVal(key); err != nil {
+	if value, err = db.getVal(encKey); err != nil {
 		return
 	}
 
 	deadline := time.Now().Unix() + duration
-	e := storage.NewEntryWithExpire(key, value, deadline, String, StringExpire)
+	e := storage.NewEntryWithExpire(encKey, value, deadline, String, StringExpire)
 	if err = db.store(e); err != nil {
 		return err
 	}
 
-	db.expires[String][string(key)] = deadline
+	db.expires[String][string(encKey)] = deadline
 	return
 }
 
 // Persist clear expiration time.
-func (db *RoseDB) Persist(key []byte) (err error) {
+func (db *RoseDB) Persist(key interface{}) (err error) {
 	val, err := db.Get(key)
 	if err != nil {
 		return err
@@ -265,25 +305,34 @@ func (db *RoseDB) Persist(key []byte) (err error) {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	e := storage.NewEntryNoExtra(key, val, String, StringPersist)
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return err
+	}
+	e := storage.NewEntryNoExtra(encKey, val, String, StringPersist)
 	if err = db.store(e); err != nil {
 		return
 	}
 
-	delete(db.expires[String], string(key))
+	delete(db.expires[String], string(encKey))
 	return
 }
 
 // TTL Time to live.
-func (db *RoseDB) TTL(key []byte) (ttl int64) {
+func (db *RoseDB) TTL(key interface{}) (ttl int64) {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return
+	}
+
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	deadline, exist := db.expires[String][string(key)]
+	deadline, exist := db.expires[String][string(encKey)]
 	if !exist {
 		return
 	}
-	if expired := db.checkExpired(key, String); expired {
+	if expired := db.checkExpired(encKey, String); expired {
 		return
 	}
 
