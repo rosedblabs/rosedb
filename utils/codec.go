@@ -40,6 +40,8 @@ func EncodeValue(value interface{}) (res []byte, err error) {
 	switch value.(type) {
 	case []byte:
 		return value.([]byte), nil
+	case string:
+		return []byte(value.(string)), err
 	default:
 		res, err = msgpack.Marshal(value)
 		return
@@ -51,6 +53,8 @@ func DecodeValue(value []byte, dest interface{}) (err error) {
 	switch dest.(type) {
 	case *[]byte:
 		*dest.(*[]byte) = value
+	case *string:
+		*dest.(*string) = string(value)
 	default:
 		err = msgpack.Unmarshal(value, dest)
 		return

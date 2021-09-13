@@ -92,13 +92,13 @@ func (h *Hash) HKeyExists(key string) bool {
 }
 
 // HExists returns if field is an existing field in the hash stored at key.
-func (h *Hash) HExists(key, field string) (res int) {
+func (h *Hash) HExists(key, field string) (ok bool) {
 	if !h.exist(key) {
 		return
 	}
 
 	if _, exist := h.record[key][field]; exist {
-		res = 1
+		ok = true
 	}
 	return
 }

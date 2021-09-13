@@ -141,16 +141,16 @@ func (db *RoseDB) HKeyExists(key []byte) (ok bool) {
 }
 
 // HExists returns if field is an existing field in the hash stored at key.
-func (db *RoseDB) HExists(key, field []byte) int {
+func (db *RoseDB) HExists(key, field []byte) (ok bool) {
 	if err := db.checkKeyValue(key, nil); err != nil {
-		return 0
+		return
 	}
 
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
 
 	if db.checkExpired(key, Hash) {
-		return 0
+		return
 	}
 
 	return db.hashIndex.indexes.HExists(string(key), string(field))

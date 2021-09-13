@@ -34,11 +34,11 @@ func get(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		err = newWrongNumOfArgsError("get")
 		return
 	}
+
 	key := args[0]
-	var val []byte
-	if val, err = db.Get([]byte(key)); err == nil {
-		res = string(val)
-	}
+	var val string
+	err = db.Get([]byte(key), &val)
+	res = val
 	return
 }
 
@@ -62,11 +62,11 @@ func getSet(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		err = newWrongNumOfArgsError("getset")
 		return
 	}
+
+	var val string
 	key, value := args[0], args[1]
-	var val []byte
-	if val, err = db.GetSet([]byte(key), []byte(value)); err == nil {
-		res = string(val)
-	}
+	err = db.GetSet([]byte(key), []byte(value), &val)
+	res = val
 	return
 }
 
@@ -75,20 +75,11 @@ func appendStr(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		err = newWrongNumOfArgsError("append")
 		return
 	}
+
 	key, value := args[0], args[1]
-	if err = db.Append([]byte(key), []byte(value)); err == nil {
+	if err = db.Append([]byte(key), value); err == nil {
 		res = okResult
 	}
-	return
-}
-
-func strLen(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
-	if len(args) != 1 {
-		err = newWrongNumOfArgsError("strlen")
-		return
-	}
-	length := db.StrLen([]byte(args[0]))
-	res = redcon.SimpleInt(length)
 	return
 }
 
@@ -188,7 +179,6 @@ func init() {
 	addExecCommand("setnx", setNx)
 	addExecCommand("getset", getSet)
 	addExecCommand("append", appendStr)
-	addExecCommand("strlen", strLen)
 	addExecCommand("strexists", strExists)
 	addExecCommand("remove", remove)
 	addExecCommand("prefixscan", prefixScan)

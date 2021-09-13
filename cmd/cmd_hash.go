@@ -79,7 +79,11 @@ func hExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		return
 	}
 	exists := db.HExists([]byte(args[0]), []byte(args[1]))
-	res = redcon.SimpleInt(exists)
+	if exists {
+		res = redcon.SimpleInt(1)
+	} else {
+		res = redcon.SimpleInt(0)
+	}
 	return
 }
 

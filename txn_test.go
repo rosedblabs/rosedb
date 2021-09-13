@@ -16,6 +16,7 @@ var roseDB *RoseDB
 func init() {
 	cfg := DefaultConfig()
 	cfg.DirPath = "/tmp/rosedb"
+	cfg.IdxMode = KeyOnlyMemMode
 	now := time.Now()
 	roseDB, _ = Open(cfg)
 	fmt.Println("open time : ", time.Since(now).Milliseconds())
@@ -36,116 +37,227 @@ func TestTxn_Set(t *testing.T) {
 	})
 
 	t.Run("2", func(t *testing.T) {
-		err := roseDB.Txn(func(tx *Txn) error {
-			for i := 0; i < 300000; i++ {
-				err := tx.Set(GetKey(i), GetValue())
-				if err != nil {
-					return err
-				}
+		//err := roseDB.Txn(func(tx *Txn) error {
+		//	for i := 0; i < 300000; i++ {
+		//		err := tx.Set(GetKey(i), GetValue())
+		//		if err != nil {
+		//			return err
+		//		}
+		//	}
+		//	return nil
+		//})
+		//if err != nil {
+		//	t.Error("write data err ", err)
+		//}
+	})
+
+	t.Run("3", func(t *testing.T) {
+		roseDB.Txn(func(tx *Txn) error {
+			err := tx.Set(1111111, "343")
+			assert.Equal(t, err, nil)
+
+			err = tx.Set("123", 9993)
+			assert.Equal(t, err, nil)
+
+			err = tx.Set(true, 9993)
+			assert.Equal(t, err, nil)
+
+			err = tx.Set(nil, 9993)
+			assert.Equal(t, err, nil)
+			err = tx.Set(nil, "jjjrrr")
+			assert.Equal(t, err, nil)
+
+			key := struct {
+				Key   int
+				Value string
+			}{
+				1, "aaa",
 			}
+
+			err = tx.Set(key, "rosedb")
+			assert.Equal(t, err, nil)
 			return nil
 		})
-		if err != nil {
-			t.Error("write data err ", err)
+
+		var r string
+		_ = roseDB.Get(nil, &r)
+
+		t.Log(r)
+		count := roseDB.strIndex.idxList.Len
+		assert.Equal(t, count, 5)
+	})
+
+	t.Run("4", func(t *testing.T) {
+		tests := []struct {
+			key   interface{}
+			value interface{}
+		}{
+			{1.332, "12"},
+			{1111, 33},
+			{"rose", "jack"},
+		}
+
+		for _, tt := range tests {
+			roseDB.Txn(func(tx *Txn) error {
+				err := tx.Set(tt.key, tt.value)
+				assert.Equal(t, err, nil)
+				return err
+			})
 		}
 	})
 }
 
 func TestTxn_SetNx(t *testing.T) {
+
 	t.Run("1", func(t *testing.T) {
 		key := []byte("k1")
 		val := []byte("val-1")
 		err := roseDB.Txn(func(tx *Txn) error {
 			res, err := tx.SetNx(key, val)
-			t.Log("res = ", res)
+
+			assert.Equal(t, res, true)
 			return err
 		})
 		if err != nil {
 			t.Error("write data err ", err)
 		}
+	})
+
+	t.Run("2", func(t *testing.T) {
+		roseDB.Set("k2", "v2")
+
+		roseDB.Txn(func(tx *Txn) error {
+			ok, err := tx.SetNx("k2", 2)
+			assert.Equal(t, err, nil)
+			assert.Equal(t, ok, false)
+			return nil
+		})
+	})
+
+	t.Run("3", func(t *testing.T) {
+		roseDB.Txn(func(tx *Txn) error {
+			tx.Set("k3", 3)
+			ok, err := tx.SetNx("k3", 2)
+
+			assert.Equal(t, err, nil)
+			assert.Equal(t, ok, false)
+			return nil
+		})
 	})
 }
 
 func TestTxn_Get(t *testing.T) {
-	key := []byte("k100")
-	err := roseDB.TxnView(func(tx *Txn) error {
-		v, err := tx.Get(key)
-		if err != nil {
-			return err
-		}
-		t.Log(string(v), err)
-		return nil
-	})
-	if err != nil {
-		t.Log(err)
-	}
-}
-
-func TestTxn_GetSet(t *testing.T) {
-	key := []byte("k1")
-	val := []byte("val-new-1")
 
 	t.Run("1", func(t *testing.T) {
-		err := roseDB.Txn(func(tx *Txn) error {
-			old, err := tx.GetSet(key, val)
-			if err != nil {
-				return err
-			}
-			t.Log(string(old), err)
+		roseDB.Txn(func(tx *Txn) error {
+			err := tx.Set(123, 345)
+			assert.Equal(t, err, nil)
+
+			var r int
+			err = tx.Get(123, &r)
+			assert.Equal(t, err, nil)
 			return nil
 		})
-		if err != nil {
-			t.Error("write data err ", err)
-		}
 	})
 
 	t.Run("2", func(t *testing.T) {
-		key := []byte("k2")
-		val := []byte("val-2")
-		err := roseDB.Txn(func(tx *Txn) error {
-			old, err := tx.GetSet(key, val)
-			if err != nil {
-				return err
-			}
-			t.Log(string(old), err)
+		err := roseDB.Set(11, "2233")
+		assert.Equal(t, err, nil)
+
+		roseDB.Txn(func(tx *Txn) error {
+			var r string
+			err = tx.Get(11, &r)
+			assert.Equal(t, err, nil)
+			assert.Equal(t, r, "2233")
 			return nil
 		})
-		if err != nil {
-			t.Error("write data err ", err)
-		}
 	})
 
 	t.Run("3", func(t *testing.T) {
-		key := []byte("k3")
-		val := []byte("val-3")
-		err := roseDB.Txn(func(tx *Txn) error {
-			err := tx.Set(key, val)
-			if err != nil {
-				return err
-			}
+		key := struct {
+			Key   int
+			Value string
+		}{
+			1, "aaa",
+		}
+		roseDB.Set(key, "12345")
 
-			old, err := tx.GetSet(key, []byte("val-new-33"))
-			if err != nil {
-				return err
-			}
-			t.Log(string(old), err)
+		roseDB.Txn(func(tx *Txn) error {
+			var r string
+			err := tx.Get(key, &r)
+			assert.Equal(t, err, nil)
+			assert.Equal(t, r, "12345")
 			return nil
 		})
-		if err != nil {
-			t.Error("write data err ", err)
-		}
+	})
+}
+
+func TestTxn_GetSet(t *testing.T) {
+
+	t.Run("1", func(t *testing.T) {
+		roseDB.Txn(func(tx *Txn) error {
+			val := struct {
+				F1 int
+				F2 string
+			}{
+				123, "111",
+			}
+
+			var r interface{}
+			err := tx.GetSet("gs-001", val, &r)
+			assert.Equal(t, err, nil)
+			return nil
+		})
+	})
+
+	t.Run("2", func(t *testing.T) {
+		roseDB.Set("gs-002", "234")
+		roseDB.Txn(func(tx *Txn) error {
+			var r string
+			err := tx.GetSet("gs-002", "abcd", &r)
+			assert.Equal(t, err, nil)
+			assert.Equal(t, r, "234")
+			return nil
+		})
+	})
+
+	t.Run("3", func(t *testing.T) {
+		roseDB.Txn(func(tx *Txn) error {
+			err := tx.GetSet("gs-003", "3", nil)
+			assert.Equal(t, err, nil)
+
+			var r1 string
+			err = tx.Get("gs-003", &r1)
+			assert.Equal(t, err, nil)
+			assert.Equal(t, r1, "3")
+
+			var r2 string
+			err = tx.GetSet("gs-003", "new-3", &r2)
+			assert.Equal(t, err, nil)
+			assert.Equal(t, r2, "3")
+			return nil
+		})
+
+		var r3 string
+		err := roseDB.Get("gs-003", &r3)
+		assert.Equal(t, err, nil)
+		assert.Equal(t, r3, "new-3")
 	})
 }
 
 func TestTxn_SetEx(t *testing.T) {
-	key := []byte("k2")
-	val := []byte("val-new-new-2")
+
 	t.Run("1", func(t *testing.T) {
 		err := roseDB.Txn(func(tx *Txn) error {
-			err := tx.SetEx(key, val, 200)
+			err := tx.SetEx("ex-001", 9.45, 200)
 			if err != nil {
 				return err
 			}
+
+			var r float64
+			err = tx.Get("ex-001", &r)
+			assert.Equal(t, err, nil)
+			assert.Equal(t, r, 9.45)
 			return nil
 		})
 		if err != nil {
@@ -154,11 +266,18 @@ func TestTxn_SetEx(t *testing.T) {
 	})
 
 	t.Run("2", func(t *testing.T) {
+		roseDB.Set("ex-002", false)
+
 		err := roseDB.Txn(func(tx *Txn) error {
-			err := tx.SetEx([]byte("k2"), []byte("val-ex-2"), 200)
+			err := tx.SetEx([]byte("ex-002"), true, 50)
 			if err != nil {
 				return err
 			}
+
+			var ok bool
+			err = tx.Get("ex-002", &ok)
+			assert.Equal(t, err, nil)
+			assert.Equal(t, ok, true)
 			return nil
 		})
 		if err != nil {
@@ -168,8 +287,8 @@ func TestTxn_SetEx(t *testing.T) {
 }
 
 func TestTxn_Append(t *testing.T) {
-	key := []byte("k5")
-	val := []byte("val-555-new")
+	key := []byte("app-1")
+	val := "app-v-1"
 
 	t.Run("1", func(t *testing.T) {
 		err := roseDB.Txn(func(tx *Txn) error {
@@ -177,6 +296,11 @@ func TestTxn_Append(t *testing.T) {
 			if err != nil {
 				return err
 			}
+
+			var r string
+			err = tx.Get(key, &r)
+			assert.Equal(t, r, val)
+			t.Log(r)
 			return nil
 		})
 		if err != nil {
@@ -185,8 +309,9 @@ func TestTxn_Append(t *testing.T) {
 	})
 
 	t.Run("2", func(t *testing.T) {
+		roseDB.Set("app-2", "23")
 		err := roseDB.Txn(func(tx *Txn) error {
-			err := tx.Append(key, []byte("  app-val"))
+			err := tx.Append("app-2", " app-val")
 			if err != nil {
 				return err
 			}
@@ -195,51 +320,51 @@ func TestTxn_Append(t *testing.T) {
 		if err != nil {
 			t.Error("write data err ", err)
 		}
-	})
-}
 
-func TestTxn_StrLen(t *testing.T) {
-	key := []byte("k5")
-	t.Run("1", func(t *testing.T) {
-		err := roseDB.Txn(func(tx *Txn) error {
-			strLen := tx.StrLen(key)
-			t.Log(strLen)
+		roseDB.TxnView(func(tx *Txn) error {
+			var r string
+			err := tx.Get("app-2", &r)
+			assert.Equal(t, err, nil)
+			assert.Equal(t, r, "23 app-val")
 			return nil
 		})
-		if err != nil {
-			t.Error("write data err ", err)
-		}
-	})
-
-	t.Run("2", func(t *testing.T) {
-		err := roseDB.Txn(func(tx *Txn) error {
-			strLen := tx.StrLen([]byte("not exist"))
-			t.Log(strLen)
-			return nil
-		})
-		if err != nil {
-			t.Error("write data err ", err)
-		}
 	})
 }
 
 func TestTxn_StrExists(t *testing.T) {
-	key := []byte("k5")
+
 	t.Run("1", func(t *testing.T) {
+		key := []byte("se-001")
+
 		err := roseDB.Txn(func(tx *Txn) error {
-			strLen := tx.StrExists(key)
-			t.Log(strLen)
+			ok := tx.StrExists(key)
+			assert.Equal(t, ok, false)
 			return nil
 		})
-		if err != nil {
-			t.Error("write data err ", err)
-		}
+		assert.Equal(t, err, nil)
+	})
+
+	t.Run("2", func(t *testing.T) {
+		roseDB.Txn(func(tx *Txn) error {
+			tx.Set("se-002", 1)
+
+			ok := tx.StrExists("se-002")
+			assert.Equal(t, ok, true)
+
+			err := tx.Remove("se-002")
+			assert.Equal(t, err, nil)
+
+			ok1 := tx.StrExists("se-002")
+			assert.Equal(t, ok1, false)
+			return nil
+		})
 	})
 }
 
 func TestTxn_StrRem(t *testing.T) {
+
 	t.Run("1", func(t *testing.T) {
-		key := []byte("k1")
+		key := []byte("sr-001")
 		err := roseDB.Txn(func(tx *Txn) error {
 			strLen := tx.Remove(key)
 			t.Log(strLen)
@@ -251,15 +376,14 @@ func TestTxn_StrRem(t *testing.T) {
 	})
 
 	t.Run("2", func(t *testing.T) {
-		key := []byte("k1")
+		key := []byte("sr-002")
+		roseDB.Set(key, 1)
 		err := roseDB.Txn(func(tx *Txn) error {
 			err := tx.Remove(key)
-			if err != nil {
-				return err
-			}
+			assert.Equal(t, err, nil)
 
-			val, err := tx.Get(key)
-			t.Log("---------", string(val), err)
+			err = tx.Get(key, nil)
+			assert.Equal(t, err, ErrKeyNotExist)
 			return nil
 		})
 		if err != nil {
@@ -268,84 +392,119 @@ func TestTxn_StrRem(t *testing.T) {
 	})
 
 	t.Run("3", func(t *testing.T) {
-		key := []byte("k3")
+		key := []byte("sr-003")
 		err := roseDB.Txn(func(tx *Txn) error {
-			err := tx.Set(key, []byte("roseduan"))
-			if err != nil {
-				return err
-			}
+			tx.Set(key, []byte("roseduan"))
 
-			err = tx.Remove(key)
-			if err != nil {
-				return err
-			}
+			err := tx.Remove(key)
+			assert.Equal(t, err, nil)
 
-			err = tx.Append(key, []byte("rosedb"))
-			if err != nil {
-				return err
-			}
-
-			val, err := tx.Get(key)
-			t.Log("---------", string(val), err)
+			err = tx.Get(key, nil)
+			assert.Equal(t, err, ErrKeyNotExist)
 			return nil
 		})
 		if err != nil {
 			t.Log(err)
 		}
 	})
+
+	t.Run("4", func(t *testing.T) {
+		roseDB.Txn(func(tx *Txn) error {
+			err := tx.GetSet("sr-004", 2233, nil)
+			assert.Equal(t, err, nil)
+
+			err = tx.Remove("sr-004")
+			assert.Equal(t, err, nil)
+			return nil
+		})
+		err := roseDB.Get("sr-004", nil)
+		assert.Equal(t, err, ErrKeyNotExist)
+	})
 }
 
 func TestTxn_LPush(t *testing.T) {
 	key := []byte("my_list")
 
-	t.Run("print data", func(t *testing.T) {
-		vals, err := roseDB.LRange(key, 0, -1)
-		if err != nil {
-			t.Error(err)
-		}
-		for _, v := range vals {
-			t.Log(string(v))
-		}
+	t.Run("temp", func(t *testing.T) {
+		v, err := roseDB.RPop(key)
+		assert.Equal(t, err, nil)
+		t.Log(v)
 	})
 
 	t.Run("1", func(t *testing.T) {
+		tests := []interface{}{
+			123,
+			34.12,
+			true,
+			[]byte("rosedb"),
+			"roseduan",
+			struct{}{},
+		}
+
 		err := roseDB.Txn(func(tx *Txn) error {
-			err := tx.LPush(key, []byte("val-1"), []byte("val-2"), []byte("val-3"))
-			if err != nil {
-				return err
+			for _, tt := range tests {
+				err := tx.LPush(key, tt)
+				assert.Equal(t, err, nil)
 			}
 			return nil
 		})
 		if err != nil {
 			t.Error("write data err ", err)
 		}
+		lLen := roseDB.LLen(key)
+		assert.Equal(t, lLen, 6)
 	})
+
 }
 
 func TestTxn_RPush(t *testing.T) {
-	key := []byte("my_list")
+	key := []byte("my_list_2")
 	t.Run("1", func(t *testing.T) {
-		err := roseDB.Txn(func(tx *Txn) error {
-			err := tx.RPush(key, []byte("val-4"), []byte("val-5"), []byte("val-6"))
-			if err != nil {
-				return err
+		roseDB.Txn(func(tx *Txn) error {
+			tests := []interface{}{
+				float32(134.3),
+				nil,
+				uint64(100),
+				struct {
+					F1 int
+					F2 string
+					F3 []byte
+				}{123, "rosedb", []byte("nb")},
+			}
+
+			for _, tt := range tests {
+				err := tx.RPush(key, tt)
+				assert.Equal(t, err, nil)
 			}
 			return nil
 		})
-		if err != nil {
-			t.Error("write data err ", err)
-		}
 	})
+
+	l := roseDB.LLen(key)
+	t.Log(l)
 }
 
 func TestTxn_HSet(t *testing.T) {
 	key := []byte("my_hash")
-	roseDB.Txn(func(tx *Txn) error {
-		err := tx.HSet(key, []byte("f1"), []byte("val-1"))
-		if err != nil {
-			return err
-		}
-		return nil
+
+	t.Run("1", func(t *testing.T) {
+		roseDB.Txn(func(tx *Txn) error {
+			tests := []struct {
+				Field interface{}
+				Value interface{}
+			}{
+				{123, 3.44},
+				{"h-v-1", "11"},
+				{[]byte("h-v-1"), 2443},
+				{true, 2443.23},
+			}
+
+			for _, tt := range tests {
+				err := tx.HSet(key, tt.Field, tt.Value)
+				assert.Equal(t, err, nil)
+			}
+			return nil
+		})
 	})
 }
 
@@ -371,7 +530,9 @@ func TestTxn_HSetNx(t *testing.T) {
 			}
 			err = tx.HSetNx(key, []byte("f1"), []byte("val--22"))
 
-			v := tx.HGet(key, []byte("f1"))
+			var v []byte
+			err = tx.HGet(key, []byte("f1"), &v)
+			assert.Equal(t, err, nil)
 			t.Log(string(v))
 			return err
 		})
@@ -394,8 +555,10 @@ func TestTxn_HSetNx(t *testing.T) {
 			//	return err
 			//}
 
-			res := tx.HGet(key, []byte("f1"))
-			t.Log(string(res))
+			var v []byte
+			err := tx.HGet(key, []byte("f1"), &v)
+			assert.Equal(t, err, nil)
+			t.Log(string(v))
 			return nil
 		})
 		if err != nil {
@@ -667,7 +830,8 @@ func TestRoseDB_Txn(t *testing.T) {
 func TestRoseDB_TxnView(t *testing.T) {
 	key := []byte("k1")
 	roseDB.TxnView(func(tx *Txn) error {
-		v, err := tx.Get(key)
+		var v []byte
+		err := tx.Get(key, &v)
 		if err != nil {
 			return err
 		}
@@ -675,7 +839,10 @@ func TestRoseDB_TxnView(t *testing.T) {
 
 		k3 := []byte("k3")
 		f1 := []byte("f1")
-		vv := tx.HGet(k3, f1)
+
+		var vv []byte
+		err = tx.HGet(k3, f1, &vv)
+		assert.Equal(t, err, nil)
 		t.Log(string(vv))
 
 		k4 := []byte("k4")

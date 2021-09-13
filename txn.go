@@ -182,12 +182,12 @@ func (tx *Txn) Commit() (err error) {
 
 	// build indexes.
 	for _, idx := range indexes {
-		if err = tx.db.buildIndex(tx.strEntries[string(idx.Meta.Key)], idx); err != nil {
+		if err = tx.db.buildIndex(tx.strEntries[string(idx.Meta.Key)], idx, false); err != nil {
 			return
 		}
 	}
 	for _, entry := range tx.writeEntries {
-		if err = tx.db.buildIndex(entry, nil); err != nil {
+		if err = tx.db.buildIndex(entry, nil, false); err != nil {
 			return
 		}
 	}

@@ -34,17 +34,17 @@ func (db *RoseDB) Set(key, value interface{}) error {
 
 // SetNx is short for "Set if not exists", set key to hold string value if key does not exist.
 // In that case, it is equal to Set. When key already holds a value, no operation is performed.
-func (db *RoseDB) SetNx(key, value interface{}) (res uint32, err error) {
+func (db *RoseDB) SetNx(key, value interface{}) (ok bool, err error) {
 	encKey, encVal, err := db.encode(key, value)
 	if err != nil {
-		return 0, err
+		return false, err
 	}
 	if exist := db.StrExists(encKey); exist {
 		return
 	}
 
 	if err = db.Set(encKey, encVal); err == nil {
-		res = 1
+		ok = true
 	}
 	return
 }
@@ -79,67 +79,59 @@ func (db *RoseDB) SetEx(key, value interface{}, duration int64) (err error) {
 }
 
 // Get get the value of key. If the key does not exist an error is returned.
-func (db *RoseDB) Get(key interface{}) ([]byte, error) {
+func (db *RoseDB) Get(key, dest interface{}) error {
 	encKey, err := utils.EncodeKey(key)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := db.checkKeyValue(encKey, nil); err != nil {
-		return nil, err
+		return err
 	}
 
 	db.strIndex.mu.RLock()
 	defer db.strIndex.mu.RUnlock()
 
-	return db.getVal(encKey)
+	val, err := db.getVal(encKey)
+	if err != nil {
+		return err
+	}
+
+	if len(val) > 0 {
+		err = utils.DecodeValue(val, dest)
+	}
+	return err
 }
 
 // GetSet set key to value and returns the old value stored at key.
 // If the key not exist, return an err.
-func (db *RoseDB) GetSet(key, val interface{}) (res []byte, err error) {
-	res, err = db.Get(key)
-	if err != nil && err != ErrKeyNotExist {
+func (db *RoseDB) GetSet(key, value, dest interface{}) (err error) {
+	err = db.Get(key, dest)
+	if err != nil && err != ErrKeyNotExist && err != ErrKeyExpired {
 		return
 	}
-	if err = db.Set(key, val); err != nil {
-		return
-	}
-	return
+	return db.Set(key, value)
 }
 
 // Append if key already exists and is a string, this command appends the value at the end of the string.
 // If key does not exist it is created and set as an empty string, so Append will be similar to Set in this special case.
-func (db *RoseDB) Append(key, value interface{}) error {
+func (db *RoseDB) Append(key interface{}, value string) (err error) {
 	encKey, encVal, err := db.encode(key, value)
 	if err != nil {
 		return err
 	}
-
 	if err := db.checkKeyValue(encKey, encVal); err != nil {
 		return err
 	}
-	existVal, err := db.Get(key)
+
+	var existVal []byte
+	err = db.Get(key, &existVal)
 	if err != nil && err != ErrKeyNotExist && err != ErrKeyExpired {
 		return err
 	}
 
-	if len(existVal) > 0 {
-		existVal = append(existVal, encVal...)
-	} else {
-		existVal = encVal
-	}
-	return db.setVal(encKey, existVal)
-}
-
-// StrLen returns the length of the string value stored at key.
-func (db *RoseDB) StrLen(key interface{}) int {
-	encKey, err := utils.EncodeKey(key)
-	if err != nil {
-		return 0
-	}
-	val, _ := db.getVal(encKey)
-	return len(val)
+	existVal = append(existVal, []byte(value)...)
+	return db.Set(encKey, existVal)
 }
 
 // StrExists check whether the key exists.
@@ -188,8 +180,8 @@ func (db *RoseDB) Remove(key interface{}) error {
 // PrefixScan find the value corresponding to all matching keys based on the prefix.
 // limit and offset control the range of value.
 // if limit is negative, all matched values will return.
-func (db *RoseDB) PrefixScan(prefix string, limit, offset int) (val [][]byte, err error) {
-	if limit == 0 {
+func (db *RoseDB) PrefixScan(prefix string, limit, offset int) (val []interface{}, err error) {
+	if limit <= 0 {
 		return
 	}
 	if offset < 0 {
@@ -212,11 +204,10 @@ func (db *RoseDB) PrefixScan(prefix string, limit, offset int) (val [][]byte, er
 
 	for e != nil && strings.HasPrefix(string(e.Key()), prefix) && limit != 0 {
 		item := e.Value().(*index.Indexer)
-		var value []byte
+		var value interface{}
 
 		if db.config.IdxMode == KeyOnlyMemMode {
-			value, err = db.Get(e.Key())
-			if err != nil {
+			if err = db.Get(e.Key(), &value); err != nil {
 				return
 			}
 		} else {
@@ -239,21 +230,30 @@ func (db *RoseDB) PrefixScan(prefix string, limit, offset int) (val [][]byte, er
 }
 
 // RangeScan find range of values from start to end.
-func (db *RoseDB) RangeScan(start, end []byte) (val [][]byte, err error) {
-	node := db.strIndex.idxList.Get(start)
+func (db *RoseDB) RangeScan(start, end interface{}) (val []interface{}, err error) {
+	startKey, err := utils.EncodeKey(start)
+	if err != nil {
+		return nil, err
+	}
+	endKey, err := utils.EncodeKey(end)
+	if err != nil {
+		return nil, err
+	}
+
+	node := db.strIndex.idxList.Get(startKey)
 
 	db.strIndex.mu.RLock()
 	defer db.strIndex.mu.RUnlock()
 
-	for node != nil && bytes.Compare(node.Key(), end) <= 0 {
+	for node != nil && bytes.Compare(node.Key(), endKey) <= 0 {
 		if db.checkExpired(node.Key(), String) {
 			node = node.Next()
 			continue
 		}
 
-		var value []byte
+		var value interface{}
 		if db.config.IdxMode == KeyOnlyMemMode {
-			value, err = db.Get(node.Key())
+			err = db.Get(node.Key(), &value)
 			if err != nil && err != ErrKeyNotExist {
 				return nil, err
 			}
@@ -297,19 +297,19 @@ func (db *RoseDB) Expire(key interface{}, duration int64) (err error) {
 
 // Persist clear expiration time.
 func (db *RoseDB) Persist(key interface{}) (err error) {
-	val, err := db.Get(key)
-	if err != nil {
-		return err
+	var val interface{}
+	if err = db.Get(key, &val); err != nil {
+		return
 	}
 
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	encKey, err := utils.EncodeKey(key)
+	encKey, encVal, err := db.encode(key, val)
 	if err != nil {
 		return err
 	}
-	e := storage.NewEntryNoExtra(encKey, val, String, StringPersist)
+	e := storage.NewEntryNoExtra(encKey, encVal, String, StringPersist)
 	if err = db.store(e); err != nil {
 		return
 	}
@@ -346,7 +346,13 @@ func (db *RoseDB) setVal(key, value []byte) (err error) {
 
 	// If the existed value is the same as the set value, nothing will be done.
 	if db.config.IdxMode == KeyValueMemMode {
-		if existVal, _ := db.Get(key); existVal != nil && bytes.Compare(existVal, value) == 0 {
+		var existVal []byte
+		existVal, err = db.getVal(key)
+		if err != nil && err != ErrKeyExpired && err != ErrKeyNotExist {
+			return
+		}
+
+		if bytes.Compare(existVal, value) == 0 {
 			return
 		}
 	}

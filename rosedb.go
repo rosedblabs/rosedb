@@ -558,13 +558,13 @@ func (db *RoseDB) saveConfig() (err error) {
 }
 
 // build the indexes for different data structures.
-func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer) (err error) {
+func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer, isOpen bool) (err error) {
 	if db.config.IdxMode == KeyValueMemMode && entry.GetType() == String {
 		idx.Meta.Value = entry.Meta.Value
 		idx.Meta.ValueSize = uint32(len(entry.Meta.Value))
 	}
 	// uncommitted entry is invalid.
-	if entry.TxId != 0 {
+	if entry.TxId != 0 && isOpen {
 		if _, ok := db.txnMeta.CommittedTxIds[entry.TxId]; !ok {
 			return
 		}
