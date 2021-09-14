@@ -242,7 +242,7 @@ func (tx *Txn) HSet(key, field, value interface{}) (err error) {
 		return
 	}
 
-	eKey := tx.encodeKey(encVal, encField, Hash)
+	eKey := tx.encodeKey(encKey, encField, Hash)
 	tx.keysMap[eKey] = len(tx.writeEntries) - 1
 	return
 }

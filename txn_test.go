@@ -509,16 +509,17 @@ func TestTxn_HSet(t *testing.T) {
 }
 
 func TestTxn_HSetNx(t *testing.T) {
+
 	t.Run("1", func(t *testing.T) {
 		key := []byte("my_hash")
-
 		err := roseDB.Txn(func(tx *Txn) error {
-			err := tx.HSetNx(key, []byte("f1"), []byte("val--1"))
+			err := tx.HSetNx(key, "f1", "val--1")
 			return err
 		})
-		if err != nil {
-			t.Log(err)
-		}
+		assert.Equal(t, err, nil)
+
+		vv := roseDB.HGet(key, []byte("f1"))
+		t.Log(string(vv))
 	})
 
 	t.Run("2", func(t *testing.T) {
@@ -533,7 +534,7 @@ func TestTxn_HSetNx(t *testing.T) {
 			var v []byte
 			err = tx.HGet(key, []byte("f1"), &v)
 			assert.Equal(t, err, nil)
-			t.Log(string(v))
+			assert.Equal(t, v, []byte("val--11"))
 			return err
 		})
 		if err != nil {
@@ -543,56 +544,92 @@ func TestTxn_HSetNx(t *testing.T) {
 
 	t.Run("3", func(t *testing.T) {
 		key := []byte("my_hash")
-
+		roseDB.HSet(key, []byte("f3"), []byte("val--3"))
 		err := roseDB.Txn(func(tx *Txn) error {
-			//err := tx.HSet(key, []byte("f1"), []byte("val--1"))
-			//if err != nil {
-			//	return err
-			//}
-			//
-			//err := tx.HDel(key, []byte("f1"))
-			//if err != nil {
-			//	return err
-			//}
+			tx.HSetNx(key, "f3", []byte("val--333"))
+			tx.HDel(key, "f3")
+
+			err := tx.HSetNx(key, "f3", []byte("val--444"))
+			assert.Equal(t, err, nil)
 
 			var v []byte
-			err := tx.HGet(key, []byte("f1"), &v)
+			err = tx.HGet(key, "f3", &v)
 			assert.Equal(t, err, nil)
 			t.Log(string(v))
 			return nil
 		})
-		if err != nil {
-			t.Log(err)
-		}
+		assert.Equal(t, err, nil)
 	})
 }
 
 func TestTxn_HDel(t *testing.T) {
+	key := []byte("my_hash")
+
 	t.Run("1", func(t *testing.T) {
-		key := []byte("my_hash")
 		roseDB.Txn(func(tx *Txn) error {
 			err := tx.HDel(key, []byte("f1"))
 			return err
 		})
 	})
+
+	t.Run("2", func(t *testing.T) {
+		roseDB.Txn(func(tx *Txn) error {
+			tx.HSet(key, "f4", "val-4")
+			tx.HDel(key, "f4")
+
+			err := tx.HGet(key, "f4", nil)
+			assert.Equal(t, err, nil)
+			return nil
+		})
+	})
+
+	t.Run("3", func(t *testing.T) {
+		roseDB.Txn(func(tx *Txn) error {
+			err := tx.HSetNx(key, "f5", "val-5")
+			assert.Equal(t, err, nil)
+
+			err = tx.HDel(key, "f5")
+			assert.Equal(t, err, nil)
+			return nil
+		})
+	})
 }
 
 func TestTxn_HGet(t *testing.T) {
-	roseDB.Txn(func(tx *Txn) error {
-		key := []byte("my_hash")
-		v := roseDB.HGet(key, []byte("f1"))
-		t.Log(string(v))
-		return nil
+	key := []byte("my_hash")
+
+	t.Run("1", func(t *testing.T) {
+		roseDB.HSet(key, []byte("f6"), []byte("val--6"))
+
+		roseDB.Txn(func(tx *Txn) error {
+			var r []byte
+			err := tx.HGet(key, "f6", &r)
+			assert.Equal(t, err, nil)
+			t.Log(string(r))
+			return nil
+		})
+	})
+
+	t.Run("2", func(t *testing.T) {
+		roseDB.Txn(func(tx *Txn) error {
+			tx.HSet(key, "f6", []byte("rosedb777"))
+
+			var r []byte
+			err := tx.HGet(key, "f6", &r)
+			assert.Equal(t, err, nil)
+			t.Log(string(r))
+			return nil
+		})
 	})
 }
 
 func TestTxn_HExists(t *testing.T) {
-	t.Run("1", func(t *testing.T) {
-		key := []byte("my_hash")
+	key := []byte("my_hash")
 
+	t.Run("1", func(t *testing.T) {
 		err := roseDB.Txn(func(tx *Txn) error {
-			res := tx.HExists(key, []byte("f1"))
-			t.Log(res)
+			ok := tx.HExists(key, 123.34)
+			assert.Equal(t, ok, false)
 			return nil
 		})
 		if err != nil {
@@ -601,21 +638,23 @@ func TestTxn_HExists(t *testing.T) {
 	})
 
 	t.Run("2", func(t *testing.T) {
-		key := []byte("my_hash")
+		roseDB.HSet(key, []byte("f7"), []byte("val--7"))
+
 		err := roseDB.Txn(func(tx *Txn) error {
-			//err := tx.HSet(key, []byte("f1"), []byte("val--1"))
-			//if err != nil {
-			//	return err
-			//}
-			//
-			//
-			//err := tx.HDel(key, []byte("f1"))
-			//if err != nil {
-			//	return err
-			//}
-			//
-			res := tx.HExists(key, []byte("f1"))
-			t.Log(res)
+			ok := tx.HExists(key, "f7")
+			assert.Equal(t, ok, true)
+			return nil
+		})
+		if err != nil {
+			t.Log(err)
+		}
+	})
+
+	t.Run("3", func(t *testing.T) {
+		err := roseDB.Txn(func(tx *Txn) error {
+			tx.HSet(key, "f8", 123.2)
+			ok := tx.HExists(key, "f8")
+			assert.Equal(t, ok, true)
 			return nil
 		})
 		if err != nil {
@@ -626,12 +665,23 @@ func TestTxn_HExists(t *testing.T) {
 
 func TestTxn_SAdd(t *testing.T) {
 	key := []byte("my_set")
-	err := roseDB.Txn(func(tx *Txn) error {
-		err := tx.SAdd(key, []byte("set-val-1"), []byte("set-val-2"))
-		return err
-	})
-	if err != nil {
-		t.Error(err)
+
+	tests := []struct {
+		Field interface{}
+		Value interface{}
+	}{
+		{123, 1.23},
+		{"aaa", []byte("jj")},
+		{true, true},
+		{nil, struct{}{}},
+	}
+
+	for _, tt := range tests {
+		roseDB.Txn(func(tx *Txn) error {
+			err := tx.SAdd(key, tt.Field, tt.Value)
+			assert.Equal(t, err, nil)
+			return err
+		})
 	}
 }
 
@@ -873,6 +923,20 @@ func TestTxn_Rollback(t *testing.T) {
 	}
 }
 
+const alphabet = "abcdefghijklmnopqrstuvwxyz"
+
+func GetKey(n int) []byte {
+	return []byte("test_key_" + fmt.Sprintf("%09d", n))
+}
+
+func GetValue() []byte {
+	var str bytes.Buffer
+	for i := 0; i < 12; i++ {
+		str.WriteByte(alphabet[rand.Int()%26])
+	}
+	return []byte("test_val-" + strconv.FormatInt(time.Now().UnixNano(), 10) + str.String())
+}
+
 func BenchmarkTxn_Set(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -898,44 +962,6 @@ func BenchmarkTxn_Set(b *testing.B) {
 		if err != nil {
 			b.Log("write err: ", err)
 		}
-	}
-}
-
-const alphabet = "abcdefghijklmnopqrstuvwxyz"
-
-func GetKey(n int) []byte {
-	return []byte("test_key_" + fmt.Sprintf("%09d", n))
-}
-
-func GetValue() []byte {
-	var str bytes.Buffer
-	for i := 0; i < 12; i++ {
-		str.WriteByte(alphabet[rand.Int()%26])
-	}
-	return []byte("test_val-" + strconv.FormatInt(time.Now().UnixNano(), 10) + str.String())
-}
-
-func TestOpen5(t *testing.T) {
-	now := time.Now()
-	err := roseDB.Txn(func(tx *Txn) error {
-		for i := 0; i < 1000000; i++ {
-			err := tx.Set(GetKey(i), GetValue())
-			if err != nil {
-				return err
-			}
-		}
-
-		//for i := 0; i < 2500000; i++ {
-		//	err := tx.LPush(GetKey(i), GetValue())
-		//	if err != nil {
-		//		return err
-		//	}
-		//}
-		return nil
-	})
-	t.Log("time spent : ", time.Since(now).Milliseconds())
-	if err != nil {
-		t.Error(err)
 	}
 }
 
