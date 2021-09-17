@@ -1,8 +1,10 @@
 package rosedb
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/roseduan/rosedb/utils"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRoseDB_Set(t *testing.T) {
@@ -317,6 +319,33 @@ func TestRoseDB_TTL(t *testing.T) {
 		err = roseDB.Get(k, &v)
 		assert.Equal(t, err, nil)
 		t.Log(v)
+	})
+}
+
+func TestRoseDB_MSet(t *testing.T) {
+	t.Run("wrong number", func(t *testing.T) {
+		err := roseDB.MSet("k1")
+		assert.NotEmpty(t, err)
+	})
+
+	t.Run("2", func(t *testing.T) {
+		err := roseDB.MSet("k1", "v1", "k2", 2)
+		assert.Empty(t, err)
+	})
+}
+
+func TestRoseDB_MGet(t *testing.T) {
+	t.Run("1", func(t *testing.T) {
+		err := roseDB.MSet("k1", "v1", "k2", 2)
+		assert.Empty(t, err)
+
+		vals, err := roseDB.MGet("k1", "k2")
+		assert.Empty(t, err)
+		assert.Equal(t, string(vals[0]), "v1")
+		var i int
+		err = utils.DecodeValue(vals[1], &i)
+		assert.Empty(t, err)
+		assert.Equal(t, i, 2)
 	})
 }
 

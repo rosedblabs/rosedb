@@ -2,12 +2,14 @@ package rosedb
 
 import (
 	"bytes"
-	"github.com/roseduan/rosedb/index"
-	"github.com/roseduan/rosedb/storage"
-	"github.com/roseduan/rosedb/utils"
+	"errors"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/roseduan/rosedb/index"
+	"github.com/roseduan/rosedb/storage"
+	"github.com/roseduan/rosedb/utils"
 )
 
 // StrIdx string index.
@@ -111,6 +113,56 @@ func (db *RoseDB) GetSet(key, value, dest interface{}) (err error) {
 		return
 	}
 	return db.Set(key, value)
+}
+
+func (db *RoseDB) MSet(values ...interface{}) error {
+	if len(values)%2 != 0 {
+		return errors.New("rosedb: wrong number of arguments for 'MSet' command")
+	}
+
+	for i := 0; i < len(values); i += 2 {
+		encKey, encVal, err := db.encode(values[i], values[i+1])
+		if err != nil {
+			return err
+		}
+
+		if err := db.setVal(encKey, encVal); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (db *RoseDB) MGet(keys ...interface{}) ([][]byte, error) {
+	encKeys := make([][]byte, 0)
+	for _, key := range keys {
+		encKey, err := utils.EncodeKey(key)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := db.checkKeyValue(encKey, nil); err != nil {
+			return nil, err
+		}
+
+		encKeys = append(encKeys, encKey)
+	}
+
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+
+	vals := make([][]byte, 0)
+	for _, encKey := range encKeys {
+		val, err := db.getVal(encKey)
+		if err != nil {
+			return nil, err
+		}
+
+		vals = append(vals, val)
+	}
+
+	return vals, nil
 }
 
 // Append if key already exists and is a string, this command appends the value at the end of the string.
