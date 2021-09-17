@@ -2,7 +2,6 @@ package rosedb
 
 import (
 	"bytes"
-	"errors"
 	"sync"
 	"time"
 
@@ -102,7 +101,7 @@ func (db *RoseDB) HGetAll(key []byte) [][]byte {
 
 func (db *RoseDB) HMSet(key []byte, values ...[]byte) error {
 	if len(values)%2 != 0 {
-		return errors.New("rosedb: wrong number of arguments for 'HMSet' command")
+		return ErrWrongNumberOfArgs
 	}
 
 	fields := make([][]byte, 0)

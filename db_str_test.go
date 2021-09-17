@@ -326,6 +326,7 @@ func TestRoseDB_MSet(t *testing.T) {
 	t.Run("wrong number", func(t *testing.T) {
 		err := roseDB.MSet("k1")
 		assert.NotEmpty(t, err)
+		assert.ErrorIs(t, err, ErrWrongNumberOfArgs)
 	})
 
 	t.Run("2", func(t *testing.T) {
@@ -347,6 +348,44 @@ func TestRoseDB_MGet(t *testing.T) {
 		assert.Empty(t, err)
 		assert.Equal(t, i, 2)
 	})
+}
+
+func BenchmarkRoseDB_MSet(b *testing.B) {
+	b.ReportAllocs()
+
+	values := make([]interface{}, 0, 20000)
+	for i := 0; i < 10000; i++ {
+		values = append(values, GetKey(i), GetValue())
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		err := roseDB.MSet(values...)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkRoseDB_MSetNormal(b *testing.B) {
+	b.ReportAllocs()
+
+	values := make([][]byte, 0, 20000)
+	for i := 0; i < 10000; i++ {
+		values = append(values, GetKey(i), GetValue())
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < len(values); j += 2 {
+			err := roseDB.Set(values[j], values[j+1])
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
 }
 
 func BenchmarkRoseDB_Set(b *testing.B) {

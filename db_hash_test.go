@@ -191,6 +191,7 @@ func TestRoseDB_HMSet(t *testing.T) {
 		key := []byte("hash_batch_key")
 		err := db.HMSet(key, []byte("field1"))
 		assert.NotNil(t, err)
+		assert.ErrorIs(t, err, ErrWrongNumberOfArgs)
 	})
 
 	t.Run("success", func(t *testing.T) {

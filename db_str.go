@@ -2,7 +2,6 @@ package rosedb
 
 import (
 	"bytes"
-	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -117,16 +116,58 @@ func (db *RoseDB) GetSet(key, value, dest interface{}) (err error) {
 
 func (db *RoseDB) MSet(values ...interface{}) error {
 	if len(values)%2 != 0 {
-		return errors.New("rosedb: wrong number of arguments for 'MSet' command")
+		return ErrWrongNumberOfArgs
 	}
 
-	for i := 0; i < len(values); i += 2 {
-		encKey, encVal, err := db.encode(values[i], values[i+1])
-		if err != nil {
+	keys := make([][]byte, 0)
+	vals := make([][]byte, 0)
+
+	// if the existed value is the same as the set value, pass this key and value
+	if db.config.IdxMode == KeyValueMemMode {
+		for i := 0; i < len(values); i += 2 {
+			encKey, encVal, err := db.encode(values[i], values[i+1])
+			if err != nil {
+				return err
+			}
+
+			existVal, err := db.getVal(encKey)
+			if err != nil && err != ErrKeyExpired && err != ErrKeyNotExist {
+				return err
+			}
+
+			if bytes.Compare(existVal, encVal) != 0 {
+				keys = append(keys, encKey)
+				vals = append(vals, encVal)
+			}
+		}
+	} else {
+		for i := 0; i < len(values); i += 2 {
+			encKey, encVal, err := db.encode(values[i], values[i+1])
+			if err != nil {
+				return err
+			}
+
+			keys = append(keys, encKey)
+			vals = append(vals, encVal)
+		}
+	}
+
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	for i := 0; i < len(keys); i++ {
+		e := storage.NewEntryNoExtra(keys[i], vals[i], String, StringSet)
+		if err := db.store(e); err != nil {
 			return err
 		}
 
-		if err := db.setVal(encKey, encVal); err != nil {
+		// clear expire time.
+		if _, ok := db.expires[String][string(keys[i])]; ok {
+			delete(db.expires[String], string(keys[i]))
+		}
+
+		// set String index info, stored at skip list.
+		if err := db.setIndexer(e); err != nil {
 			return err
 		}
 	}

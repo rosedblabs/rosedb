@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/roseduan/rosedb/index"
-	"github.com/roseduan/rosedb/storage"
-	"github.com/roseduan/rosedb/utils"
 	"io"
 	"io/ioutil"
 	"log"
@@ -16,6 +13,10 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/roseduan/rosedb/index"
+	"github.com/roseduan/rosedb/storage"
+	"github.com/roseduan/rosedb/utils"
 )
 
 var (
@@ -60,6 +61,9 @@ var (
 
 	// ErrActiveFileIsNil active file is nil.
 	ErrActiveFileIsNil = errors.New("rosedb: active file is nil")
+
+	// ErrWrongNumberOfArgs wrong number of arguments
+	ErrWrongNumberOfArgs = errors.New("rosedb: wrong number of arguments")
 )
 
 const (
