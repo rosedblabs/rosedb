@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -192,6 +193,34 @@ func TestRoseDB_HMSet(t *testing.T) {
 		err := db.HMSet(key, []byte("field1"))
 		assert.NotNil(t, err)
 		assert.ErrorIs(t, err, ErrWrongNumberOfArgs)
+	})
+
+	t.Run("wrong field", func(t *testing.T) {
+		largeValue := strings.Builder{}
+		// 9mb
+		largeValue.Grow(int(DefaultMaxValueSize + DefaultMaxKeySize))
+		for i := 0; i < int(DefaultMaxValueSize+DefaultMaxKeySize); i++ {
+			largeValue.WriteByte('A')
+		}
+
+		key := []byte("hash_batch_key")
+		err := db.HMSet(key, []byte(largeValue.String()), []byte("field"))
+		assert.NotNil(t, err)
+		assert.ErrorIs(t, err, ErrValueTooLarge)
+	})
+
+	t.Run("wrong values", func(t *testing.T) {
+		largeValue := strings.Builder{}
+		// 9mb
+		largeValue.Grow(int(DefaultMaxValueSize + DefaultMaxKeySize))
+		for i := 0; i < int(DefaultMaxValueSize+DefaultMaxKeySize); i++ {
+			largeValue.WriteByte('A')
+		}
+
+		key := []byte("hash_batch_key")
+		err := db.HMSet(key, []byte("field1"), []byte(largeValue.String()))
+		assert.NotNil(t, err)
+		assert.ErrorIs(t, err, ErrValueTooLarge)
 	})
 
 	t.Run("success", func(t *testing.T) {

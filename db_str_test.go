@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/roseduan/rosedb/utils"
@@ -325,27 +326,46 @@ func TestRoseDB_TTL(t *testing.T) {
 func TestRoseDB_MSet(t *testing.T) {
 	t.Run("wrong number", func(t *testing.T) {
 		err := roseDB.MSet("k1")
-		assert.NotEmpty(t, err)
+		assert.NotNil(t, err)
 		assert.ErrorIs(t, err, ErrWrongNumberOfArgs)
 	})
 
-	t.Run("2", func(t *testing.T) {
+	t.Run("wrong key", func(t *testing.T) {
+		err := roseDB.MSet("", "v1")
+		assert.NotNil(t, err)
+		assert.ErrorIs(t, err, ErrEmptyKey)
+	})
+
+	t.Run("wrong value", func(t *testing.T) {
+		largeValue := strings.Builder{}
+		// 9mb
+		largeValue.Grow(int(DefaultMaxValueSize + DefaultMaxKeySize))
+		for i := 0; i < int(DefaultMaxValueSize+DefaultMaxKeySize); i++ {
+			largeValue.WriteByte('A')
+		}
+
+		err := roseDB.MSet("k3", largeValue.String())
+		assert.NotNil(t, err)
+		assert.ErrorIs(t, err, ErrValueTooLarge)
+	})
+
+	t.Run("success", func(t *testing.T) {
 		err := roseDB.MSet("k1", "v1", "k2", 2)
-		assert.Empty(t, err)
+		assert.Nil(t, err)
 	})
 }
 
 func TestRoseDB_MGet(t *testing.T) {
 	t.Run("1", func(t *testing.T) {
 		err := roseDB.MSet("k1", "v1", "k2", 2)
-		assert.Empty(t, err)
+		assert.Nil(t, err)
 
 		vals, err := roseDB.MGet("k1", "k2")
-		assert.Empty(t, err)
+		assert.Nil(t, err)
 		assert.Equal(t, string(vals[0]), "v1")
 		var i int
 		err = utils.DecodeValue(vals[1], &i)
-		assert.Empty(t, err)
+		assert.Nil(t, err)
 		assert.Equal(t, i, 2)
 	})
 }

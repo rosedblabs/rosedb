@@ -99,9 +99,14 @@ func (db *RoseDB) HGetAll(key []byte) [][]byte {
 	return db.hashIndex.indexes.HGetAll(string(key))
 }
 
+// HMSet set multiple hash fields to multiple values
 func (db *RoseDB) HMSet(key []byte, values ...[]byte) error {
 	if len(values)%2 != 0 {
 		return ErrWrongNumberOfArgs
+	}
+
+	if err := db.checkKeyValue(key, nil); err != nil {
+		return err
 	}
 
 	fields := make([][]byte, 0)
@@ -109,17 +114,25 @@ func (db *RoseDB) HMSet(key []byte, values ...[]byte) error {
 		fields = append(fields, values[i])
 	}
 
-	vals := db.HMGet(key, fields...)
+	existVals := db.HMGet(key, fields...)
+	// field1 value1 field2 value2 ...
 	insertVals := make([][]byte, 0)
 
-	if vals == nil {
+	if existVals == nil {
+		// existVals means key expired
 		insertVals = values
 	} else {
-		for i := 0; i < len(vals); i++ {
-			if bytes.Compare(values[i*2+1], vals[i]) != 0 {
+		for i := 0; i < len(existVals); i++ {
+			// If the existed value is the same as the set value, pass this field and value
+			if bytes.Compare(values[i*2+1], existVals[i]) != 0 {
 				insertVals = append(insertVals, fields[i], values[i*2+1])
 			}
 		}
+	}
+
+	// check all fileds and values
+	if err := db.checkKeyValue(key, insertVals...); err != nil {
+		return err
 	}
 
 	db.hashIndex.mu.Lock()
@@ -137,6 +150,7 @@ func (db *RoseDB) HMSet(key []byte, values ...[]byte) error {
 	return nil
 }
 
+// HMGet get the values of all the given hash fields
 func (db *RoseDB) HMGet(key []byte, fields ...[]byte) [][]byte {
 	if err := db.checkKeyValue(key, nil); err != nil {
 		return nil

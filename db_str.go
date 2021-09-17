@@ -114,6 +114,7 @@ func (db *RoseDB) GetSet(key, value, dest interface{}) (err error) {
 	return db.Set(key, value)
 }
 
+// MSet set multiple keys to multiple values
 func (db *RoseDB) MSet(values ...interface{}) error {
 	if len(values)%2 != 0 {
 		return ErrWrongNumberOfArgs
@@ -122,11 +123,14 @@ func (db *RoseDB) MSet(values ...interface{}) error {
 	keys := make([][]byte, 0)
 	vals := make([][]byte, 0)
 
-	// if the existed value is the same as the set value, pass this key and value
 	if db.config.IdxMode == KeyValueMemMode {
 		for i := 0; i < len(values); i += 2 {
 			encKey, encVal, err := db.encode(values[i], values[i+1])
 			if err != nil {
+				return err
+			}
+
+			if err := db.checkKeyValue(encKey, encVal); err != nil {
 				return err
 			}
 
@@ -135,6 +139,7 @@ func (db *RoseDB) MSet(values ...interface{}) error {
 				return err
 			}
 
+			// if the existed value is the same as the set value, pass this key and value
 			if bytes.Compare(existVal, encVal) != 0 {
 				keys = append(keys, encKey)
 				vals = append(vals, encVal)
@@ -144,6 +149,10 @@ func (db *RoseDB) MSet(values ...interface{}) error {
 		for i := 0; i < len(values); i += 2 {
 			encKey, encVal, err := db.encode(values[i], values[i+1])
 			if err != nil {
+				return err
+			}
+
+			if err := db.checkKeyValue(encKey, encVal); err != nil {
 				return err
 			}
 
@@ -175,6 +184,7 @@ func (db *RoseDB) MSet(values ...interface{}) error {
 	return nil
 }
 
+// MGet get the values of all the given keys
 func (db *RoseDB) MGet(keys ...interface{}) ([][]byte, error) {
 	encKeys := make([][]byte, 0)
 	for _, key := range keys {
