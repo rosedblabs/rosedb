@@ -1,8 +1,9 @@
 package rosedb
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var key = "myhash"
@@ -180,4 +181,44 @@ func TestRoseDB_HClear(t *testing.T) {
 
 	err = db.HClear(key)
 	assert.Equal(t, err, nil)
+}
+
+func TestRoseDB_HMSet(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	t.Run("wrong number", func(t *testing.T) {
+		key := []byte("hash_batch_key")
+		err := db.HMSet(key, []byte("field1"))
+		assert.NotNil(t, err)
+	})
+
+	t.Run("success", func(t *testing.T) {
+		key := []byte("hash_batch_key")
+		err := db.HMSet(key, []byte("field1"), []byte("hello"), []byte("field2"), []byte("world"))
+		assert.Nil(t, err)
+	})
+}
+
+func TestRoseDB_HMGet(t *testing.T) {
+	db := InitDb()
+	defer db.Close()
+
+	key := []byte("hash_batch_key")
+
+	t.Run("empty", func(t *testing.T) {
+		res := db.HMGet(key, []byte("not"), []byte("found"))
+		assert.Equal(t, 2, len(res))
+		assert.Equal(t, 0, len(res[0]))
+		assert.Equal(t, 0, len(res[1]))
+	})
+
+	t.Run("success", func(t *testing.T) {
+		err := db.HMSet(key, []byte("field1"), []byte("hello"), []byte("field2"), []byte("world"))
+		assert.Nil(t, err)
+		res := db.HMGet(key, []byte("field1"), []byte("field2"))
+		assert.Equal(t, 2, len(res))
+		assert.Equal(t, "hello", string(res[0]))
+		assert.Equal(t, "world", string(res[1]))
+	})
 }

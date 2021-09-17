@@ -2,10 +2,12 @@ package rosedb
 
 import (
 	"bytes"
-	"github.com/roseduan/rosedb/ds/hash"
-	"github.com/roseduan/rosedb/storage"
+	"errors"
 	"sync"
 	"time"
+
+	"github.com/roseduan/rosedb/ds/hash"
+	"github.com/roseduan/rosedb/storage"
 )
 
 // HashIdx hash index.
@@ -96,6 +98,66 @@ func (db *RoseDB) HGetAll(key []byte) [][]byte {
 	}
 
 	return db.hashIndex.indexes.HGetAll(string(key))
+}
+
+func (db *RoseDB) HMSet(key []byte, values ...[]byte) error {
+	if len(values)%2 != 0 {
+		return errors.New("rosedb: wrong number of arguments for 'HMSet' command")
+	}
+
+	fields := make([][]byte, 0)
+	for i := 0; i < len(values); i += 2 {
+		fields = append(fields, values[i])
+	}
+
+	vals := db.HMGet(key, fields...)
+	insertVals := make([][]byte, 0)
+
+	if vals == nil {
+		insertVals = values
+	} else {
+		for i := 0; i < len(vals); i++ {
+			if bytes.Compare(values[i*2+1], vals[i]) != 0 {
+				insertVals = append(insertVals, fields[i], values[i*2+1])
+			}
+		}
+	}
+
+	db.hashIndex.mu.Lock()
+	defer db.hashIndex.mu.Unlock()
+
+	for i := 0; i < len(insertVals); i += 2 {
+		e := storage.NewEntry(key, insertVals[i+1], insertVals[i], Hash, HashHSet)
+		if err := db.store(e); err != nil {
+			return err
+		}
+
+		db.hashIndex.indexes.HSet(string(key), string(insertVals[i]), insertVals[i+1])
+	}
+
+	return nil
+}
+
+func (db *RoseDB) HMGet(key []byte, fields ...[]byte) [][]byte {
+	if err := db.checkKeyValue(key, nil); err != nil {
+		return nil
+	}
+
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	if db.checkExpired(key, Hash) {
+		return nil
+	}
+
+	values := make([][]byte, 0)
+
+	for _, field := range fields {
+		value := db.hashIndex.indexes.HGet(string(key), string(field))
+		values = append(values, value)
+	}
+
+	return values
 }
 
 // HDel removes the specified fields from the hash stored at key.
