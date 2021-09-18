@@ -2,10 +2,11 @@ package rosedb
 
 import (
 	"bytes"
-	"github.com/roseduan/rosedb/ds/hash"
-	"github.com/roseduan/rosedb/storage"
 	"sync"
 	"time"
+
+	"github.com/roseduan/rosedb/ds/hash"
+	"github.com/roseduan/rosedb/storage"
 )
 
 // HashIdx hash index.
@@ -96,6 +97,80 @@ func (db *RoseDB) HGetAll(key []byte) [][]byte {
 	}
 
 	return db.hashIndex.indexes.HGetAll(string(key))
+}
+
+// HMSet set multiple hash fields to multiple values
+func (db *RoseDB) HMSet(key []byte, values ...[]byte) error {
+	if len(values)%2 != 0 {
+		return ErrWrongNumberOfArgs
+	}
+
+	if err := db.checkKeyValue(key, nil); err != nil {
+		return err
+	}
+
+	fields := make([][]byte, 0)
+	for i := 0; i < len(values); i += 2 {
+		fields = append(fields, values[i])
+	}
+
+	existVals := db.HMGet(key, fields...)
+	// field1 value1 field2 value2 ...
+	insertVals := make([][]byte, 0)
+
+	if existVals == nil {
+		// existVals means key expired
+		insertVals = values
+	} else {
+		for i := 0; i < len(existVals); i++ {
+			// If the existed value is the same as the set value, pass this field and value
+			if bytes.Compare(values[i*2+1], existVals[i]) != 0 {
+				insertVals = append(insertVals, fields[i], values[i*2+1])
+			}
+		}
+	}
+
+	// check all fileds and values
+	if err := db.checkKeyValue(key, insertVals...); err != nil {
+		return err
+	}
+
+	db.hashIndex.mu.Lock()
+	defer db.hashIndex.mu.Unlock()
+
+	for i := 0; i < len(insertVals); i += 2 {
+		e := storage.NewEntry(key, insertVals[i+1], insertVals[i], Hash, HashHSet)
+		if err := db.store(e); err != nil {
+			return err
+		}
+
+		db.hashIndex.indexes.HSet(string(key), string(insertVals[i]), insertVals[i+1])
+	}
+
+	return nil
+}
+
+// HMGet get the values of all the given hash fields
+func (db *RoseDB) HMGet(key []byte, fields ...[]byte) [][]byte {
+	if err := db.checkKeyValue(key, nil); err != nil {
+		return nil
+	}
+
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	if db.checkExpired(key, Hash) {
+		return nil
+	}
+
+	values := make([][]byte, 0)
+
+	for _, field := range fields {
+		value := db.hashIndex.indexes.HGet(string(key), string(field))
+		values = append(values, value)
+	}
+
+	return values
 }
 
 // HDel removes the specified fields from the hash stored at key.

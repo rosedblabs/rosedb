@@ -1,8 +1,11 @@
 package rosedb
 
 import (
-	"github.com/stretchr/testify/assert"
+	"strings"
 	"testing"
+
+	"github.com/roseduan/rosedb/utils"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRoseDB_Set(t *testing.T) {
@@ -318,6 +321,91 @@ func TestRoseDB_TTL(t *testing.T) {
 		assert.Equal(t, err, nil)
 		t.Log(v)
 	})
+}
+
+func TestRoseDB_MSet(t *testing.T) {
+	t.Run("wrong number", func(t *testing.T) {
+		err := roseDB.MSet("k1")
+		assert.NotNil(t, err)
+		assert.ErrorIs(t, err, ErrWrongNumberOfArgs)
+	})
+
+	t.Run("wrong key", func(t *testing.T) {
+		err := roseDB.MSet("", "v1")
+		assert.NotNil(t, err)
+		assert.ErrorIs(t, err, ErrEmptyKey)
+	})
+
+	t.Run("wrong value", func(t *testing.T) {
+		largeValue := strings.Builder{}
+		// 9mb
+		largeValue.Grow(int(DefaultMaxValueSize + DefaultMaxKeySize))
+		for i := 0; i < int(DefaultMaxValueSize+DefaultMaxKeySize); i++ {
+			largeValue.WriteByte('A')
+		}
+
+		err := roseDB.MSet("k3", largeValue.String())
+		assert.NotNil(t, err)
+		assert.ErrorIs(t, err, ErrValueTooLarge)
+	})
+
+	t.Run("success", func(t *testing.T) {
+		err := roseDB.MSet("k1", "v1", "k2", 2)
+		assert.Nil(t, err)
+	})
+}
+
+func TestRoseDB_MGet(t *testing.T) {
+	t.Run("1", func(t *testing.T) {
+		err := roseDB.MSet("k1", "v1", "k2", 2)
+		assert.Nil(t, err)
+
+		vals, err := roseDB.MGet("k1", "k2")
+		assert.Nil(t, err)
+		assert.Equal(t, string(vals[0]), "v1")
+		var i int
+		err = utils.DecodeValue(vals[1], &i)
+		assert.Nil(t, err)
+		assert.Equal(t, i, 2)
+	})
+}
+
+func BenchmarkRoseDB_MSet(b *testing.B) {
+	b.ReportAllocs()
+
+	values := make([]interface{}, 0, 20000)
+	for i := 0; i < 10000; i++ {
+		values = append(values, GetKey(i), GetValue())
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		err := roseDB.MSet(values...)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkRoseDB_MSetNormal(b *testing.B) {
+	b.ReportAllocs()
+
+	values := make([][]byte, 0, 20000)
+	for i := 0; i < 10000; i++ {
+		values = append(values, GetKey(i), GetValue())
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < len(values); j += 2 {
+			err := roseDB.Set(values[j], values[j+1])
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
 }
 
 func BenchmarkRoseDB_Set(b *testing.B) {

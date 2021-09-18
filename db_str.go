@@ -2,12 +2,13 @@ package rosedb
 
 import (
 	"bytes"
-	"github.com/roseduan/rosedb/index"
-	"github.com/roseduan/rosedb/storage"
-	"github.com/roseduan/rosedb/utils"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/roseduan/rosedb/index"
+	"github.com/roseduan/rosedb/storage"
+	"github.com/roseduan/rosedb/utils"
 )
 
 // StrIdx string index.
@@ -111,6 +112,108 @@ func (db *RoseDB) GetSet(key, value, dest interface{}) (err error) {
 		return
 	}
 	return db.Set(key, value)
+}
+
+// MSet set multiple keys to multiple values
+func (db *RoseDB) MSet(values ...interface{}) error {
+	if len(values)%2 != 0 {
+		return ErrWrongNumberOfArgs
+	}
+
+	keys := make([][]byte, 0)
+	vals := make([][]byte, 0)
+
+	if db.config.IdxMode == KeyValueMemMode {
+		for i := 0; i < len(values); i += 2 {
+			encKey, encVal, err := db.encode(values[i], values[i+1])
+			if err != nil {
+				return err
+			}
+
+			if err := db.checkKeyValue(encKey, encVal); err != nil {
+				return err
+			}
+
+			existVal, err := db.getVal(encKey)
+			if err != nil && err != ErrKeyExpired && err != ErrKeyNotExist {
+				return err
+			}
+
+			// if the existed value is the same as the set value, pass this key and value
+			if bytes.Compare(existVal, encVal) != 0 {
+				keys = append(keys, encKey)
+				vals = append(vals, encVal)
+			}
+		}
+	} else {
+		for i := 0; i < len(values); i += 2 {
+			encKey, encVal, err := db.encode(values[i], values[i+1])
+			if err != nil {
+				return err
+			}
+
+			if err := db.checkKeyValue(encKey, encVal); err != nil {
+				return err
+			}
+
+			keys = append(keys, encKey)
+			vals = append(vals, encVal)
+		}
+	}
+
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	for i := 0; i < len(keys); i++ {
+		e := storage.NewEntryNoExtra(keys[i], vals[i], String, StringSet)
+		if err := db.store(e); err != nil {
+			return err
+		}
+
+		// clear expire time.
+		if _, ok := db.expires[String][string(keys[i])]; ok {
+			delete(db.expires[String], string(keys[i]))
+		}
+
+		// set String index info, stored at skip list.
+		if err := db.setIndexer(e); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// MGet get the values of all the given keys
+func (db *RoseDB) MGet(keys ...interface{}) ([][]byte, error) {
+	encKeys := make([][]byte, 0)
+	for _, key := range keys {
+		encKey, err := utils.EncodeKey(key)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := db.checkKeyValue(encKey, nil); err != nil {
+			return nil, err
+		}
+
+		encKeys = append(encKeys, encKey)
+	}
+
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+
+	vals := make([][]byte, 0)
+	for _, encKey := range encKeys {
+		val, err := db.getVal(encKey)
+		if err != nil {
+			return nil, err
+		}
+
+		vals = append(vals, val)
+	}
+
+	return vals, nil
 }
 
 // Append if key already exists and is a string, this command appends the value at the end of the string.
