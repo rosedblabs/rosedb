@@ -1,24 +1,102 @@
-syntax="proto3";
+syntax = "proto3";
 package proto;
 
 import "cmd/proto/pb_set.proto";
+import "cmd/proto/pb_hash.proto";
+import "cmd/proto/pb_list.proto";
+import "cmd/proto/pb_str.proto";
+import "cmd/proto/pb_zset.proto";
 
-option go_package="cmd/proto";
+option go_package = "cmd/proto";
 
 service rosedb {
-    // ******************** cmd_set ****************
-    rpc SAdd(SAddReq) returns (SAddRsp) {};
-    rpc SPop(SPopReq) returns (SPopRsp) {};
-    rpc SIsMember(SIsMemberReq) returns (SIsMemberRsp) {};
-    rpc SRandMember(SRandMemberReq) returns (SRandMemberRsp) {};
-    rpc SRem(SRemReq) returns (SRemRsp) {};
-    rpc SMove(SMoveReq) returns (SMoveRsp) {};
-    rpc SCard(SCardReq) returns (SCardRsp) {};
-    rpc SMembers(SMembersReq) returns (SMembersRsp) {};
-    rpc SUnion(SUnionReq) returns (SUnionRsp) {};
-    rpc SDiff(SDiffReq) returns (SDiffRsp) {};
-    rpc SKeyExists(SKeyExistsReq) returns (SKeyExistsRsp) {};
-    rpc SClear(SClearReq) returns (SClearRsp) {};
-    rpc SExpire(SExpireReq) returns (SExpireRsp) {};
-    rpc STTL(STTLReq) returns (STTLRsp) {};
+  // ******************** cmd_set ****************
+  rpc SAdd(SAddReq) returns (SAddRsp) {};
+  rpc SPop(SPopReq) returns (SPopRsp) {};
+  rpc SIsMember(SIsMemberReq) returns (SIsMemberRsp) {};
+  rpc SRandMember(SRandMemberReq) returns (SRandMemberRsp) {};
+  rpc SRem(SRemReq) returns (SRemRsp) {};
+  rpc SMove(SMoveReq) returns (SMoveRsp) {};
+  rpc SCard(SCardReq) returns (SCardRsp) {};
+  rpc SMembers(SMembersReq) returns (SMembersRsp) {};
+  rpc SUnion(SUnionReq) returns (SUnionRsp) {};
+  rpc SDiff(SDiffReq) returns (SDiffRsp) {};
+  rpc SKeyExists(SKeyExistsReq) returns (SKeyExistsRsp) {};
+  rpc SClear(SClearReq) returns (SClearRsp) {};
+  rpc SExpire(SExpireReq) returns (SExpireRsp) {};
+  rpc STTL(STTLReq) returns (STTLRsp) {};
+
+  // ******************** cmd_hash ****************
+  rpc HSet(HSetReq) returns (HSetRsp) {};
+  rpc HSetNx(HSetNxReq) returns (HSetNxRsp) {};
+  rpc HGet(HGetReq) returns (HGetRsp) {};
+  rpc HGetAll(HGetAllReq) returns (HGetAllRsp) {};
+  rpc HMSet(HMSetReq) returns (HMSetRsp) {};
+  rpc HMGet(HMGetReq) returns (HMGetRsp) {};
+  rpc HDel(HDelReq) returns (HDelRsp) {};
+  rpc HKeyExists(HKeyExistsReq) returns (HKeyExistsRsp) {};
+  rpc HExists(HExistsReq) returns (HExistsRsp) {};
+  rpc HLen(HLenReq) returns (HLenRsp) {};
+  rpc HKeys(HKeysReq) returns (HKeysRsp) {};
+  rpc HVals(HValsReq) returns (HValsRsp) {};
+  rpc HClear(HClearReq) returns (HClearRsp) {};
+  rpc HExpire(HExpireReq) returns (HExpireRsp) {};
+  rpc HTTL(HTTLReq) returns (HTTLRsp) {};
+
+  // ******************** cmd_list ****************
+  rpc LPush(LPushReq) returns (LPushRsp) {};
+  rpc RPush(RPushReq) returns (RPushRsp) {};
+  rpc LPop(LPopReq) returns (LPopRsp) {};
+  rpc RPop(RPopReq) returns (RPopRsp) {};
+  rpc LIndex(LIndexReq) returns (LIndexRsp) {};
+  rpc LRem(LRemReq) returns (LRemRsp) {};
+  rpc LInsert(LInsertReq) returns (LInsertRsp) {};
+  rpc LSet(LSetReq) returns (LSetRsp) {};
+  rpc LTrim(LTrimReq) returns (LTrimRsp) {};
+  rpc LRange(LRangeReq) returns (LRangeRsp) {};
+  rpc LLen(LLenReq) returns (LLenRsp) {};
+  rpc LKeyExists(LKeyExistsReq) returns (LKeyExistsRsp) {};
+  rpc LValExists(LValExistsReq) returns (LValExistsRsp) {};
+  rpc LClear(LClearReq) returns (LClearRsp) {};
+  rpc LExpire(LExpireReq) returns (LExpireRsp) {};
+  rpc LTTL(LTTLReq) returns (LTTLRsp) {};
+
+  // ******************** cmd_str ****************
+  rpc Set(SetReq) returns (SetRsp) {};
+  rpc SetNx(SetNxReq) returns (SetNxRsp) {};
+  rpc SetEx(SetExReq) returns (SetExRsp) {};
+  rpc Get(GetReq) returns (GetRsp) {};
+  rpc GetSet(GetSetReq) returns (GetSetRsp) {};
+  rpc MSet(MSetReq) returns (MSetRsp) {};
+  rpc MGet(MGetReq) returns (MGetRsp) {};
+  rpc Append(AppendReq) returns (AppendRsp) {};
+  rpc StrExists(StrExistsReq) returns (StrExistsRsp) {};
+  rpc Remove(RemoveReq) returns (RemoveRsp) {};
+  rpc PrefixScan(PrefixScanReq) returns (PrefixScanRsp) {};
+  rpc RangeScan(RangeScanReq) returns (RangeScanRsp) {};
+  rpc Expire(ExpireReq) returns (ExpireRsp) {};
+  rpc Persist(PersistReq) returns (PersistRsp) {};
+  rpc TTL(TTLReq) returns (TTLRsp) {};
+
+  // ******************** cmd_zset ****************
+  rpc ZAdd(ZAddReq) returns (ZAddRsp) {};
+  rpc ZScore(ZScoreReq) returns (ZScoreRsp) {};
+  rpc ZCard(ZCardReq) returns (ZCardRsp) {};
+  rpc ZRank(ZRankReq) returns (ZRankRsp) {};
+  rpc ZRevRank(ZRevRankReq) returns (ZRevRankRsp) {};
+  rpc ZIncrBy(ZIncrByReq) returns (ZIncrByRsp) {};
+  rpc ZRange(ZRangeReq) returns (ZRangeRsp) {};
+  rpc ZRangeWithScores(ZRangeWithScoresReq) returns (ZRangeWithScoresRsp) {};
+  rpc ZRevRange(ZRevRangeReq) returns (ZRevRangeRsp) {};
+  rpc ZRevRangeWithScores(ZRevRangeWithScoresReq)
+      returns (ZRevRangeWithScoresRsp) {};
+  rpc ZRem(ZRemReq) returns (ZRemRsp) {};
+  rpc ZGetByRank(ZGetByRankReq) returns (ZGetByRankRsp) {};
+  rpc ZRevGetByRank(ZRevGetByRankReq) returns (ZRevGetByRankRsp) {};
+  rpc ZScoreRange(ZScoreRangeReq) returns (ZScoreRangeRsp) {};
+  rpc ZRevScoreRange(ZRevScoreRangeReq) returns (ZRevScoreRangeRsp) {};
+  rpc ZKeyExists(ZKeyExistsReq) returns (ZKeyExistsRsp) {};
+  rpc ZClear(ZClearReq) returns (ZClearRsp) {};
+  rpc ZExpire(ZExpireReq) returns (ZExpireRsp) {};
+  rpc ZTTL(ZTTLReq) returns (ZTTLRsp) {};
 }

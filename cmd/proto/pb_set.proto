@@ -1,6 +1,6 @@
-syntax="proto3";
+syntax = "proto3";
 package proto;
-option go_package="cmd/proto";
+option go_package = "cmd/proto";
 
 message SAddReq {
   bytes key               = 1;

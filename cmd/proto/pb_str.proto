@@ -1,0 +1,13 @@
+syntax = "proto3";
+package proto;
+option go_package = "cmd/proto";
+
+
+message SetReq {
+  bytes key               = 1;
+  bytes values            = 2;
+}
+
+message SetRsp {
+  string errorMsg         = 1;
+}
