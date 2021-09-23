@@ -33,4 +33,4 @@ sync = false
 
 # reclaim的阈值
 # The threshold for db file reclaiming.
-reclaim_threshold = 64
+merge_threshold = 64

@@ -75,7 +75,7 @@ const (
 	dbTxMetaSaveFile = string(os.PathSeparator) + "DB.TX.META"
 
 	// rosedb reclaim path, a temporary dir, will be removed after reclaim.
-	reclaimPath = string(os.PathSeparator) + "rosedb_reclaim"
+	mergePath = string(os.PathSeparator) + "rosedb_merge"
 
 	// Separator of the extra info, some commands can`t contains it.
 	ExtraSeparator = "\\0"
@@ -98,11 +98,12 @@ type (
 		config             Config        // Config info of rosedb.
 		mu                 sync.RWMutex  // mutex.
 		expires            Expires       // Expired directory.
-		isReclaiming       bool          // Indicates whether the db is reclaiming, see Reclaim.
-		isSingleReclaiming bool          // Indicates whether the db is in single reclaiming, see SingleReclaim.
+		isReclaiming       bool          // Indicates whether the db is reclaiming, see StartMerge.
+		isSingleReclaiming bool          // Indicates whether the db is in single reclaiming, see SingleMerge.
 		lockMgr            *LockMgr      // lockMgr controls isolation of read and write.
 		txnMeta            *TxnMeta      // Txn meta info used in transaction.
 		closed             uint32
+		mergeChn           chan struct{} // mergeChn used for sending stop signal to merge func.
 	}
 
 	// ArchivedFiles define the archived files, which mean these files can only be read.
@@ -165,6 +166,25 @@ func Open(config Config) (*RoseDB, error) {
 	if err := db.loadIdxFromFiles(); err != nil {
 		return nil, err
 	}
+
+	// handle db merge.
+	go func() {
+		timer := time.NewTimer(config.MergeCheckInterval)
+		defer timer.Stop()
+
+		for {
+			select {
+			case <-timer.C:
+				timer.Reset(config.MergeCheckInterval)
+				err := db.StartMerge()
+				if err != nil && err != ErrDBisReclaiming && err != ErrReclaimUnreached {
+					log.Println("rosedb: merge err: ", err)
+					return
+				}
+			default:
+			}
+		}
+	}()
 
 	return db, nil
 }
@@ -246,32 +266,32 @@ func (db *RoseDB) Sync() (err error) {
 	return
 }
 
-// Reclaim reclaim db files`s redundant space in disk.
-// Reclaim operation will read all archived files, iterate all entries and find the valid.
+// StartMerge reclaim db files`s redundant space in disk.
+// StartMerge operation will read all archived files, iterate all entries and find the valid.
 // Then rewrite the valid entries to new db files.
 // So the time required for reclaim operation depend on the number of entries, you`d better execute it in low peak period.
-func (db *RoseDB) Reclaim() (err error) {
+func (db *RoseDB) StartMerge() (err error) {
 	// if single reclaiming is in progress, the reclaim operation can`t be executed.
-	if db.isSingleReclaiming {
+	if db.isSingleReclaiming || db.isReclaiming {
 		return ErrDBisReclaiming
 	}
-	var reclaimable bool
+	var mergeTypes int
 	for _, archFiles := range db.archFiles {
-		if len(archFiles) >= db.config.ReclaimThreshold {
-			reclaimable = true
-			break
+		if len(archFiles) >= db.config.MergeThreshold {
+			mergeTypes++
 		}
 	}
-	if !reclaimable {
+	if mergeTypes == 0 {
 		return ErrReclaimUnreached
 	}
 
 	// create a temporary directory for storing the new db files.
-	reclaimPath := db.config.DirPath + reclaimPath
-	if err := os.MkdirAll(reclaimPath, os.ModePerm); err != nil {
-		return err
+	mergePath := db.config.DirPath + mergePath
+	if !utils.Exist(mergePath) {
+		if err := os.MkdirAll(mergePath, os.ModePerm); err != nil {
+			return err
+		}
 	}
-	defer os.RemoveAll(reclaimPath)
 
 	db.mu.Lock()
 	defer func() {
@@ -284,76 +304,111 @@ func (db *RoseDB) Reclaim() (err error) {
 	newArchivedFiles := sync.Map{}
 	reclaimedTypes := sync.Map{}
 
+	mergedFiles, _, err := storage.Build(mergePath, db.config.RwMethod, db.config.BlockSize)
+	if err != nil {
+		return err
+	}
+
 	wg := sync.WaitGroup{}
 	wg.Add(DataStructureNum)
 	for i := 0; i < DataStructureNum; i++ {
 		go func(dType uint16) {
-			defer func() {
-				wg.Done()
-			}()
+			defer wg.Done()
 
-			if len(db.archFiles[dType]) < db.config.ReclaimThreshold {
+			if len(db.archFiles[dType]) < db.config.MergeThreshold {
 				newArchivedFiles.Store(dType, db.archFiles[dType])
 				return
 			}
 
 			var (
-				df        *storage.DBFile
-				fileId    uint32
-				archFiles = make(map[uint32]*storage.DBFile)
-				fileIds   []int
+				df      *storage.DBFile
+				fileId  uint32
+				fileIds []int
 			)
+			archFiles := mergedFiles[dType]
+			if archFiles == nil {
+				archFiles = make(map[uint32]*storage.DBFile)
+			}
+
+			// find the greatest file id in merged files.
+			for id := range archFiles {
+				if id > fileId {
+					fileId = id
+				}
+			}
 
 			for _, file := range db.archFiles[dType] {
-				fileIds = append(fileIds, int(file.Id))
+				// skip the merged files.
+				if _, exist := archFiles[file.Id]; !exist {
+					fileIds = append(fileIds, int(file.Id))
+				}
 			}
 			sort.Ints(fileIds)
 
 			for _, fid := range fileIds {
-				file := db.archFiles[dType][uint32(fid)]
-				var offset int64 = 0
-				var reclaimEntries []*storage.Entry
+				select {
+				case <-db.mergeChn:
+					log.Printf("receive a stop signal, merge stop, data type:%d\n", dType)
+					return
+				default:
+					file := db.archFiles[dType][uint32(fid)]
+					var offset int64 = 0
+					var reclaimEntries []*storage.Entry
 
-				// read all entries in db file, and find the valid entry.
-				for {
-					if e, err := file.Read(offset); err == nil {
-						if db.validEntry(e, offset, file.Id) {
-							reclaimEntries = append(reclaimEntries, e)
-						}
-						offset += int64(e.Size())
-					} else {
-						if err == io.EOF {
-							break
-						}
-						log.Fatalf("err occurred when read the entry: %+v", err)
-						return
-					}
-				}
-
-				// rewrite the valid entries to new db file.
-				for _, entry := range reclaimEntries {
-					if df == nil || int64(entry.Size())+df.Offset > db.config.BlockSize {
-						df, err = storage.NewDBFile(reclaimPath, fileId, db.config.RwMethod, db.config.BlockSize, dType)
-						if err != nil {
-							log.Fatalf("err occurred when create new db file: %+v", err)
+					// read all entries in db file, and find the valid entry.
+					for {
+						if e, err := file.Read(offset); err == nil {
+							if db.validEntry(e, offset, file.Id) {
+								reclaimEntries = append(reclaimEntries, e)
+							}
+							offset += int64(e.Size())
+						} else {
+							if err == io.EOF {
+								break
+							}
+							log.Fatalf("err occurred when read the entry: %+v", err)
 							return
 						}
-						archFiles[fileId] = df
-						fileId += 1
 					}
 
-					if err = df.Write(entry); err != nil {
-						log.Fatalf("err occurred when write the entry: %+v", err)
+					// rewrite the valid entries to new db file.
+					for _, entry := range reclaimEntries {
+						if df == nil || int64(entry.Size())+df.Offset > db.config.BlockSize {
+							df, err = storage.NewDBFile(mergePath, fileId, db.config.RwMethod, db.config.BlockSize, dType)
+							if err != nil {
+								log.Fatalf("err occurred when create new db file: %+v", err)
+								return
+							}
+							archFiles[fileId] = df
+							// todo: atomic update
+							db.archFiles[dType][fileId] = df
+							fileId += 1
+						}
+
+						if err = df.Write(entry); err != nil {
+							log.Fatalf("err occurred when write the entry: %+v", err)
+							return
+						}
+
+						// Since the str types value will be read from db file, so should update the index info.
+						// todo: atomic update
+						if dType == String {
+							item := db.strIndex.idxList.Get(entry.Meta.Key)
+							idx := item.Value().(*index.Indexer)
+							idx.Offset = df.Offset - int64(entry.Size())
+							idx.FileId = df.Id
+							db.strIndex.idxList.Put(idx.Meta.Key, idx)
+						}
+					}
+
+					// delete the original db file.
+					if err = file.Close(false); err != nil {
+						log.Println("close old db file err: ", err)
 						return
 					}
-
-					// Since the str types value will be read from db file, so should update the index info.
-					if dType == String {
-						item := db.strIndex.idxList.Get(entry.Meta.Key)
-						idx := item.Value().(*index.Indexer)
-						idx.Offset = df.Offset - int64(entry.Size())
-						idx.FileId = fileId
-						db.strIndex.idxList.Put(idx.Meta.Key, idx)
+					if err = os.Remove(file.File.Name()); err != nil {
+						log.Println("remove old db file err: ", err)
+						return
 					}
 				}
 			}
@@ -362,6 +417,16 @@ func (db *RoseDB) Reclaim() (err error) {
 		}(uint16(i))
 	}
 	wg.Wait()
+
+	var mergedCount int
+	reclaimedTypes.Range(func(key, value interface{}) bool {
+		mergedCount++
+		return true
+	})
+	if mergedCount < mergeTypes {
+		log.Printf("rosedb: merge stopped(total:%d, finished:%d), it will continue in next interval.\n", mergeTypes, mergedCount)
+		return
+	}
 
 	dbArchivedFiles := make(ArchivedFiles)
 	for i := 0; i < DataStructureNum; i++ {
@@ -374,31 +439,17 @@ func (db *RoseDB) Reclaim() (err error) {
 		dbArchivedFiles[dType] = value.(map[uint32]*storage.DBFile)
 	}
 
-	// delete the old db files.
-	for dataType, files := range db.archFiles {
-		if _, exist := reclaimedTypes.Load(dataType); exist {
-			for _, f := range files {
-				// close file before remove it.
-				if err = f.File.Close(); err != nil {
-					log.Println("close old db file err: ", err)
-					return
-				}
-				if err = os.Remove(f.File.Name()); err != nil {
-					log.Println("remove old db file err: ", err)
-					return
-				}
-			}
-		}
-	}
-
 	// copy the temporary reclaim directory as new db files.
 	for dataType, files := range dbArchivedFiles {
 		if _, exist := reclaimedTypes.Load(dataType); exist {
 			for _, f := range files {
 				name := storage.PathSeparator + fmt.Sprintf(storage.DBFileFormatNames[dataType], f.Id)
-				os.Rename(reclaimPath+name, db.config.DirPath+name)
+				os.Rename(mergePath+name, db.config.DirPath+name)
 			}
 		}
+	}
+	if err = os.RemoveAll(mergePath); err != nil {
+		return
 	}
 
 	db.archFiles = dbArchivedFiles
@@ -430,21 +481,35 @@ func (db *RoseDB) Reclaim() (err error) {
 	return
 }
 
-// SingleReclaim reclaim a single db file`s space according to the param fileId.
+// StopMerge send a stop signal to merge process.
+// Then the merge operation will quit.
+func (db *RoseDB) StopMerge() {
+	if db.mergeChn == nil {
+		db.mergeChn = make(chan struct{}, DataStructureNum)
+	}
+
+	go func() {
+		for i := 0; i < DataStructureNum; i++ {
+			db.mergeChn <- struct{}{}
+		}
+	}()
+}
+
+// SingleMerge reclaim a single db file`s space according to the param fileId.
 // File id is the non-zero part of a db file`s name prefix, such as 000000000.data.str (fileId is 0), 000000101.data.str (fileId is 101), etc.
 // Only support String type now.
-func (db *RoseDB) SingleReclaim(fileId uint32) (err error) {
+func (db *RoseDB) SingleMerge(fileId uint32) (err error) {
 	// if reclaim operation is in progress, single reclaim can`t be executed.
 	if db.isReclaiming {
 		return ErrDBisReclaiming
 	}
 
 	// create a temporary directory for storing the new db files.
-	reclaimPath := db.config.DirPath + reclaimPath
-	if err := os.MkdirAll(reclaimPath, os.ModePerm); err != nil {
+	mergePath := db.config.DirPath + mergePath
+	if err := os.MkdirAll(mergePath, os.ModePerm); err != nil {
 		return err
 	}
-	defer os.RemoveAll(reclaimPath)
+	defer os.RemoveAll(mergePath)
 
 	db.mu.Lock()
 	defer func() {
@@ -493,7 +558,7 @@ func (db *RoseDB) SingleReclaim(fileId uint32) (err error) {
 	}
 
 	// rewrite the valid entry.
-	df, err := storage.NewDBFile(reclaimPath, fileId, db.config.RwMethod, db.config.BlockSize, String)
+	df, err := storage.NewDBFile(mergePath, fileId, db.config.RwMethod, db.config.BlockSize, String)
 	if err != nil {
 		return err
 	}
@@ -514,7 +579,7 @@ func (db *RoseDB) SingleReclaim(fileId uint32) (err error) {
 	os.Remove(file.File.Name())
 	// copy the temporary file as new archived file.
 	name := storage.PathSeparator + fmt.Sprintf(storage.DBFileFormatNames[String], fileId)
-	os.Rename(reclaimPath+name, db.config.DirPath+name)
+	os.Rename(mergePath+name, db.config.DirPath+name)
 
 	// update the archived file.
 	db.archFiles[String][fileId] = df

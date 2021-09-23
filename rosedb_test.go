@@ -146,12 +146,12 @@ func TestRoseDB_Reclaim(t *testing.T) {
 	writeMultiLargeData(db)
 
 	// another case
-	db.config.ReclaimThreshold = 10
-	db.Reclaim()
+	db.config.MergeThreshold = 10
+	db.StartMerge()
 
 	//for test
-	db.config.ReclaimThreshold = 1
-	err = db.Reclaim()
+	db.config.MergeThreshold = 1
+	err = db.StartMerge()
 	if err != nil {
 		log.Println(err)
 	}
@@ -242,7 +242,7 @@ func TestOpen4(t *testing.T) {
 
 	start = time.Now()
 	//writeMultiLargeData(db)
-	//err = db.SingleReclaim(0)
+	//err = db.SingleMerge(0)
 	//if err != nil {
 	//	log.Fatal("reclaim err: ", err)
 	//}
@@ -254,4 +254,76 @@ func TestOpen4(t *testing.T) {
 
 	v := db.LIndex([]byte("my_list"), 199384)
 	t.Log("-----==", string(v))
+}
+
+func TestRoseDB_Reclaim2(t *testing.T) {
+	now := time.Now()
+	for i := 0; i <= 2000000; i++ {
+		value := GetValue()
+		err := roseDB.Set(GetKey(i%500000), value)
+		if err != nil {
+			panic(err)
+		}
+		if i == 44091 {
+			err := roseDB.Set("test-key", "rosedb")
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		_, err = roseDB.HSet(GetKey(100), []byte("h1"), GetValue())
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	for i := 0; i <= 2000000; i++ {
+		listKey := []byte("my-list")
+		_, err := roseDB.LPush(listKey, GetValue())
+		if err != nil {
+			panic(err)
+		}
+		if i > 200 {
+			_, err = roseDB.LPop(listKey)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+	t.Log("time spend --- ", time.Since(now).Milliseconds())
+
+	lLen := roseDB.LLen([]byte("my-list"))
+	t.Log(lLen)
+}
+
+func TestRoseDB_SingleMerge(t *testing.T) {
+	lLen := roseDB.LLen([]byte("my-list"))
+	t.Log(lLen)
+}
+
+func TestRoseDB_StartMerge(t *testing.T) {
+	var err error
+
+	//go func() {
+	//	time.Sleep(4 * time.Second)
+	//	fmt.Println("发送终止信号")
+	//	roseDB.StopMerge()
+	//}()
+
+	//now := time.Now()
+	//err = roseDB.StartMerge()
+	//if err != nil {
+	//	panic(err)
+	//}
+	//t.Log("merge spend --- ", time.Since(now).Milliseconds())
+
+	var r string
+	err = roseDB.Get("test-key", &r)
+	//assert.Equal(t, err, nil)
+	t.Log(r, err)
+	l := roseDB.strIndex.idxList.Len
+	t.Log("string 数据量 : ", l)
+
+	lLen := roseDB.LLen([]byte("my-list"))
+	t.Log("List 数据量 : ", lLen)
 }
