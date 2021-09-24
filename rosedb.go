@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"sort"
@@ -35,11 +34,8 @@ var (
 	// ErrNilIndexer the indexer is nil
 	ErrNilIndexer = errors.New("rosedb: indexer is nil")
 
-	// ErrCfgNotExist the config is not exist
-	ErrCfgNotExist = errors.New("rosedb: the config file not exist")
-
-	// ErrReclaimUnreached not ready to reclaim
-	ErrReclaimUnreached = errors.New("rosedb: unused space not reach the threshold")
+	// ErrMergeUnreached not ready to reclaim
+	ErrMergeUnreached = errors.New("rosedb: unused space not reach the threshold")
 
 	// ErrExtraContainsSeparator extra contains separator
 	ErrExtraContainsSeparator = errors.New("rosedb: extra contains separator \\0")
@@ -50,8 +46,8 @@ var (
 	// ErrKeyExpired the key is expired
 	ErrKeyExpired = errors.New("rosedb: key is expired")
 
-	// ErrDBisReclaiming reclaim and single reclaim can`t execute at the same time.
-	ErrDBisReclaiming = errors.New("rosedb: can`t do reclaim and single reclaim at the same time")
+	// ErrDBisMerging merge and single merge can`t execute at the same time.
+	ErrDBisMerging = errors.New("rosedb: can`t do reclaim and single reclaim at the same time")
 
 	// ErrDBIsClosed db can`t be used after closed.
 	ErrDBIsClosed = errors.New("rosedb: db is closed, reopen it")
@@ -88,22 +84,22 @@ type (
 	// RoseDB the rosedb struct, represents a db instance.
 	RoseDB struct {
 		// Current active files of different data types, stored like this: map[DataType]*storage.DBFile.
-		activeFile         *sync.Map
-		archFiles          ArchivedFiles // The archived files.
-		strIndex           *StrIdx       // String indexes(a skip list).
-		listIndex          *ListIdx      // List indexes.
-		hashIndex          *HashIdx      // Hash indexes.
-		setIndex           *SetIdx       // Set indexes.
-		zsetIndex          *ZsetIdx      // Sorted set indexes.
-		config             Config        // Config info of rosedb.
-		mu                 sync.RWMutex  // mutex.
-		expires            Expires       // Expired directory.
-		isReclaiming       bool          // Indicates whether the db is reclaiming, see StartMerge.
-		isSingleReclaiming bool          // Indicates whether the db is in single reclaiming, see SingleMerge.
-		lockMgr            *LockMgr      // lockMgr controls isolation of read and write.
-		txnMeta            *TxnMeta      // Txn meta info used in transaction.
-		closed             uint32
-		mergeChn           chan struct{} // mergeChn used for sending stop signal to merge func.
+		activeFile      *sync.Map
+		archFiles       ArchivedFiles // The archived files.
+		strIndex        *StrIdx       // String indexes(a skip list).
+		listIndex       *ListIdx      // List indexes.
+		hashIndex       *HashIdx      // Hash indexes.
+		setIndex        *SetIdx       // Set indexes.
+		zsetIndex       *ZsetIdx      // Sorted set indexes.
+		config          Config        // Config info of rosedb.
+		mu              sync.RWMutex  // mutex.
+		expires         Expires       // Expired directory.
+		isMerging       bool          // Indicates whether the db is merging, see StartMerge.
+		isSingleMerging bool          // Indicates whether the db is in single merging, see SingleMerge.
+		lockMgr         *LockMgr      // lockMgr controls isolation of read and write.
+		txnMeta         *TxnMeta      // Txn meta info used in transaction.
+		closed          uint32
+		mergeChn        chan struct{} // mergeChn used for sending stop signal to merge func.
 	}
 
 	// ArchivedFiles define the archived files, which mean these files can only be read.
@@ -177,7 +173,7 @@ func Open(config Config) (*RoseDB, error) {
 			case <-timer.C:
 				timer.Reset(config.MergeCheckInterval)
 				err := db.StartMerge()
-				if err != nil && err != ErrDBisReclaiming && err != ErrReclaimUnreached {
+				if err != nil && err != ErrDBisMerging && err != ErrMergeUnreached {
 					log.Println("rosedb: merge err: ", err)
 					return
 				}
@@ -185,26 +181,7 @@ func Open(config Config) (*RoseDB, error) {
 			}
 		}
 	}()
-
 	return db, nil
-}
-
-// Reopen the db according to the specific config path.
-func Reopen(path string) (*RoseDB, error) {
-	if exist := utils.Exist(path + configSaveFile); !exist {
-		return nil, ErrCfgNotExist
-	}
-
-	var config Config
-
-	b, err := ioutil.ReadFile(path + configSaveFile)
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(b, &config); err != nil {
-		return nil, err
-	}
-	return Open(config)
 }
 
 // Close db and save relative configs.
@@ -272,8 +249,8 @@ func (db *RoseDB) Sync() (err error) {
 // So the time required for reclaim operation depend on the number of entries, you`d better execute it in low peak period.
 func (db *RoseDB) StartMerge() (err error) {
 	// if single reclaiming is in progress, the reclaim operation can`t be executed.
-	if db.isSingleReclaiming || db.isReclaiming {
-		return ErrDBisReclaiming
+	if db.isSingleMerging || db.isMerging {
+		return ErrDBisMerging
 	}
 	var mergeTypes int
 	for _, archFiles := range db.archFiles {
@@ -282,7 +259,7 @@ func (db *RoseDB) StartMerge() (err error) {
 		}
 	}
 	if mergeTypes == 0 {
-		return ErrReclaimUnreached
+		return ErrMergeUnreached
 	}
 
 	// create a temporary directory for storing the new db files.
@@ -295,10 +272,10 @@ func (db *RoseDB) StartMerge() (err error) {
 
 	db.mu.Lock()
 	defer func() {
-		db.isReclaiming = false
+		db.isMerging = false
 		db.mu.Unlock()
 	}()
-	db.isReclaiming = true
+	db.isMerging = true
 
 	// processing the different types of files in different goroutines.
 	newArchivedFiles := sync.Map{}
@@ -433,7 +410,7 @@ func (db *RoseDB) StartMerge() (err error) {
 		dType := uint16(i)
 		value, ok := newArchivedFiles.Load(dType)
 		if !ok {
-			log.Printf("one type of data(%d) is missed after reclaiming.", dType)
+			log.Printf("one type of data(%d) is missed after merge.", dType)
 			return
 		}
 		dbArchivedFiles[dType] = value.(map[uint32]*storage.DBFile)
@@ -500,12 +477,12 @@ func (db *RoseDB) StopMerge() {
 // Only support String type now.
 func (db *RoseDB) SingleMerge(fileId uint32) (err error) {
 	// if reclaim operation is in progress, single reclaim can`t be executed.
-	if db.isReclaiming {
-		return ErrDBisReclaiming
+	mergePath := db.config.DirPath + mergePath
+	if db.isMerging || utils.Exist(mergePath) {
+		return ErrDBisMerging
 	}
 
 	// create a temporary directory for storing the new db files.
-	mergePath := db.config.DirPath + mergePath
 	if err := os.MkdirAll(mergePath, os.ModePerm); err != nil {
 		return err
 	}
@@ -513,11 +490,11 @@ func (db *RoseDB) SingleMerge(fileId uint32) (err error) {
 
 	db.mu.Lock()
 	defer func() {
-		db.isSingleReclaiming = false
+		db.isSingleMerging = false
 		db.mu.Unlock()
 	}()
 
-	db.isSingleReclaiming = true
+	db.isSingleMerging = true
 	var exist bool
 	for _, file := range db.archFiles[String] {
 		if file.Id == fileId {
