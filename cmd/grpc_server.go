@@ -98,27 +98,42 @@ func (g *GrpcServer) SMembers(_ context.Context, req *proto.SMembersReq) (*proto
 }
 
 func (g *GrpcServer) SUnion(_ context.Context, req *proto.SUnionReq) (*proto.SUnionRsp, error) {
-	panic("implement me")
+	rsp := &proto.SUnionRsp{}
+	rsp.Values = g.db.SUnion(req.Keys...)
+	return rsp, nil
 }
 
 func (g *GrpcServer) SDiff(_ context.Context, req *proto.SDiffReq) (*proto.SDiffRsp, error) {
-	panic("implement me")
+	rsp := &proto.SDiffRsp{}
+	rsp.Values = g.db.SDiff(req.Keys...)
+	return rsp, nil
 }
 
 func (g *GrpcServer) SKeyExists(_ context.Context, req *proto.SKeyExistsReq) (*proto.SKeyExistsRsp, error) {
-	panic("implement me")
+	rsp := &proto.SKeyExistsRsp{}
+	rsp.Ok = g.db.SKeyExists(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) SClear(_ context.Context, req *proto.SClearReq) (*proto.SClearRsp, error) {
-	panic("implement me")
+	rsp := &proto.SClearRsp{}
+	rsp.Ok = g.db.SKeyExists(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) SExpire(_ context.Context, req *proto.SExpireReq) (*proto.SExpireRsp, error) {
-	panic("implement me")
+	rsp := &proto.SExpireRsp{}
+	err := g.db.SExpire(req.Key, req.Duration)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) STTL(_ context.Context, req *proto.STTLReq) (*proto.STTLRsp, error) {
-	panic("implement me")
+	rsp := &proto.STTLRsp{}
+	rsp.Ttl = g.db.STTL(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) HSet(_ context.Context, req *proto.HSetReq) (*proto.HSetRsp, error) {

@@ -113,7 +113,8 @@ message SClearReq {
 }
 
 message SClearRsp {
-  string errorMsg         = 1;
+  bool ok                 = 1;
+  string errorMsg         = 2;
 }
 
 message SExpireReq {
