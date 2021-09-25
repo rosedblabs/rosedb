@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"github.com/roseduan/rosedb/storage"
+	"time"
 )
 
 // DataIndexMode the data index mode.
@@ -35,9 +36,13 @@ const (
 	// DefaultMaxValueSize default max value size: 8mb.
 	DefaultMaxValueSize = uint32(8 * 1024 * 1024)
 
-	// DefaultReclaimThreshold default disk files reclaim threshold: 64.
+	// DefaultMergeThreshold default disk files reclaim threshold: 64.
 	// This means that it will be reclaimed when there are at least 64 archived files on disk.
-	DefaultReclaimThreshold = 64
+	DefaultMergeThreshold = 64
+
+	// DefaultMergeCheckInterval a timer will be set according to the check interval.
+	// Then merge operation will execute periodically.
+	DefaultMergeCheckInterval = time.Hour * 24
 )
 
 // Config the opening options of rosedb.
@@ -59,20 +64,23 @@ type Config struct {
 	// The default value is false.
 	Sync bool `json:"sync" toml:"sync"`
 
-	ReclaimThreshold int `json:"reclaim_threshold" toml:"reclaim_threshold"` // threshold to reclaim disk
+	MergeThreshold int `json:"merge_threshold" toml:"merge_threshold"` // threshold to reclaim disk
+
+	MergeCheckInterval time.Duration `json:"merge_check_interval"`
 }
 
 // DefaultConfig get the default config.
 func DefaultConfig() Config {
 	return Config{
-		Addr:             DefaultAddr,
-		DirPath:          DefaultDirPath,
-		BlockSize:        DefaultBlockSize,
-		RwMethod:         storage.FileIO,
-		IdxMode:          KeyValueMemMode,
-		MaxKeySize:       DefaultMaxKeySize,
-		MaxValueSize:     DefaultMaxValueSize,
-		Sync:             false,
-		ReclaimThreshold: DefaultReclaimThreshold,
+		Addr:               DefaultAddr,
+		DirPath:            DefaultDirPath,
+		BlockSize:          DefaultBlockSize,
+		RwMethod:           storage.FileIO,
+		IdxMode:            KeyValueMemMode,
+		MaxKeySize:         DefaultMaxKeySize,
+		MaxValueSize:       DefaultMaxValueSize,
+		Sync:               false,
+		MergeThreshold:     DefaultMergeThreshold,
+		MergeCheckInterval: DefaultMergeCheckInterval,
 	}
 }

@@ -18,6 +18,8 @@ const (
 
 	// PathSeparator the default path separator.
 	PathSeparator = string(os.PathSeparator)
+
+	mergeDir = "rosedb_merge"
 )
 
 var (
@@ -54,7 +56,7 @@ const (
 // DBFile define the data file of rosedb.
 type DBFile struct {
 	Id     uint32
-	path   string
+	Path   string
 	File   *os.File
 	mmap   mmap.MMap
 	Offset int64
@@ -74,7 +76,7 @@ func NewDBFile(path string, fileId uint32, method FileRWMethod, blockSize int64,
 		return nil, err
 	}
 
-	df := &DBFile{Id: fileId, path: path, Offset: stat.Size(), method: method}
+	df := &DBFile{Id: fileId, Path: path, Offset: stat.Size(), method: method}
 
 	if method == FileIO {
 		df.File = file
@@ -218,6 +220,21 @@ func Build(path string, method FileRWMethod, blockSize int64) (map[uint16]map[ui
 		return nil, nil, err
 	}
 
+	// build merged files if necessary.
+	// merge path is a sub directory in path.
+	var (
+		mergedFiles map[uint16]map[uint32]*DBFile
+		mErr        error
+	)
+	for _, d := range dir {
+		if d.IsDir() && strings.Contains(d.Name(), mergeDir) {
+			mergePath := path + string(os.PathSeparator) + d.Name()
+			if mergedFiles, _, mErr = Build(mergePath, method, blockSize); mErr != nil {
+				return nil, nil, mErr
+			}
+		}
+	}
+
 	fileIdsMap := make(map[uint16][]int)
 	for _, d := range dir {
 		if strings.Contains(d.Name(), ".data") {
@@ -253,7 +270,11 @@ func Build(path string, method FileRWMethod, blockSize int64) (map[uint16]map[ui
 		if len(fileIDs) > 0 {
 			activeFileId = uint32(fileIDs[len(fileIDs)-1])
 
-			for i := 0; i < len(fileIDs)-1; i++ {
+			length := len(fileIDs) - 1
+			if strings.Contains(path, mergeDir) {
+				length++
+			}
+			for i := 0; i < length; i++ {
 				id := fileIDs[i]
 
 				file, err := NewDBFile(path, uint32(id), method, blockSize, dataType)
@@ -265,6 +286,17 @@ func Build(path string, method FileRWMethod, blockSize int64) (map[uint16]map[ui
 		}
 		archFiles[dataType] = files
 		activeFileIds[dataType] = activeFileId
+	}
+
+	// merged files are also archived files.
+	if mergedFiles != nil {
+		for dType, file := range archFiles {
+			if mergedFile, ok := mergedFiles[dType]; ok {
+				for id, f := range mergedFile {
+					file[id] = f
+				}
+			}
+		}
 	}
 	return archFiles, activeFileIds, nil
 }

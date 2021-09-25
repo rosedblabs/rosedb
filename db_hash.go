@@ -130,7 +130,7 @@ func (db *RoseDB) HMSet(key []byte, values ...[]byte) error {
 		}
 	}
 
-	// check all fileds and values
+	// check all fields and values.
 	if err := db.checkKeyValue(key, insertVals...); err != nil {
 		return err
 	}
