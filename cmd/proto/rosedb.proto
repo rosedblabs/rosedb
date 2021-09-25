@@ -88,8 +88,7 @@ service rosedb {
   rpc ZRange(ZRangeReq) returns (ZRangeRsp) {};
   rpc ZRangeWithScores(ZRangeWithScoresReq) returns (ZRangeWithScoresRsp) {};
   rpc ZRevRange(ZRevRangeReq) returns (ZRevRangeRsp) {};
-  rpc ZRevRangeWithScores(ZRevRangeWithScoresReq)
-      returns (ZRevRangeWithScoresRsp) {};
+  rpc ZRevRangeWithScores(ZRevRangeWithScoresReq) returns (ZRevRangeWithScoresRsp) {};
   rpc ZRem(ZRemReq) returns (ZRemRsp) {};
   rpc ZGetByRank(ZGetByRankReq) returns (ZGetByRankRsp) {};
   rpc ZRevGetByRank(ZRevGetByRankReq) returns (ZRevGetByRankRsp) {};
