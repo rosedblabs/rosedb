@@ -137,63 +137,119 @@ func (g *GrpcServer) STTL(_ context.Context, req *proto.STTLReq) (*proto.STTLRsp
 }
 
 func (g *GrpcServer) HSet(_ context.Context, req *proto.HSetReq) (*proto.HSetRsp, error) {
-	panic("implement me")
+	rsp := &proto.HSetRsp{}
+	resInt, err := g.db.HSet(req.Key, req.Field, req.Value)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	rsp.Res = int64(resInt)
+	return rsp, nil
 }
 
 func (g *GrpcServer) HSetNx(_ context.Context, req *proto.HSetNxReq) (*proto.HSetNxRsp, error) {
-	panic("implement me")
+	rsp := &proto.HSetNxRsp{}
+	resInt, err := g.db.HSetNx(req.Key, req.Field, req.Value)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	rsp.Res = int64(resInt)
+	return rsp, nil
 }
 
 func (g *GrpcServer) HGet(_ context.Context, req *proto.HGetReq) (*proto.HGetRsp, error) {
-	panic("implement me")
+	rsp := &proto.HGetRsp{}
+	rsp.Value = g.db.HGet(req.Key, req.Field)
+	return rsp, nil
 }
 
 func (g *GrpcServer) HGetAll(_ context.Context, req *proto.HGetAllReq) (*proto.HGetAllRsp, error) {
-	panic("implement me")
+	rsp := &proto.HGetAllRsp{}
+	rsp.Values = g.db.HGetAll(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) HMSet(_ context.Context, req *proto.HMSetReq) (*proto.HMSetRsp, error) {
-	panic("implement me")
+	rsp := &proto.HMSetRsp{}
+	err := g.db.HMSet(req.Key, req.Values...)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) HMGet(_ context.Context, req *proto.HMGetReq) (*proto.HMGetRsp, error) {
-	panic("implement me")
+	rsp := &proto.HMGetRsp{}
+	rsp.Values = g.db.HMGet(req.Key, req.Fields...)
+	return rsp, nil
 }
 
 func (g *GrpcServer) HDel(_ context.Context, req *proto.HDelReq) (*proto.HDelRsp, error) {
-	panic("implement me")
+	rsp := &proto.HDelRsp{}
+	resInt ,err := g.db.HDel(req.Key, req.Fields...)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	rsp.Res = int64(resInt)
+	return rsp, nil
 }
 
 func (g *GrpcServer) HKeyExists(_ context.Context, req *proto.HKeyExistsReq) (*proto.HKeyExistsRsp, error) {
-	panic("implement me")
+	rsp := &proto.HKeyExistsRsp{}
+	rsp.Ok = g.db.HKeyExists(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) HExists(_ context.Context, req *proto.HExistsReq) (*proto.HExistsRsp, error) {
-	panic("implement me")
+	rsp := &proto.HExistsRsp{}
+	rsp.Ok = g.db.HExists(req.Key, req.Field)
+	return rsp, nil
 }
 
 func (g *GrpcServer) HLen(_ context.Context, req *proto.HLenReq) (*proto.HLenRsp, error) {
-	panic("implement me")
+	rsp := &proto.HLenRsp{}
+	length := g.db.HLen(req.Key)
+	rsp.Length = int64(length)
+	return rsp, nil
 }
 
 func (g *GrpcServer) HKeys(_ context.Context, req *proto.HKeysReq) (*proto.HKeysRsp, error) {
-	panic("implement me")
+	rsp := &proto.HKeysRsp{}
+	valuesStr := g.db.HKeys(req.Key)
+	rsp.Values = make([][]byte, 0)
+	for _, v := range valuesStr {
+		rsp.Values = append(rsp.Values, []byte(v))
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) HVals(_ context.Context, req *proto.HValsReq) (*proto.HValsRsp, error) {
-	panic("implement me")
+	rsp := &proto.HValsRsp{}
+	rsp.Values = g.db.HVals(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) HClear(_ context.Context, req *proto.HClearReq) (*proto.HClearRsp, error) {
-	panic("implement me")
+	rsp := &proto.HClearRsp{}
+	err := g.db.HClear(req.Key)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) HExpire(_ context.Context, req *proto.HExpireReq) (*proto.HExpireRsp, error) {
-	panic("implement me")
+	rsp := &proto.HExpireRsp{}
+	err := g.db.HExpire(req.Key, req.Duration)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) HTTL(_ context.Context, req *proto.HTTLReq) (*proto.HTTLRsp, error) {
-	panic("implement me")
+	rsp := &proto.HTTLRsp{}
+	rsp.Ttl = g.db.HTTL(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) LPush(_ context.Context, req *proto.LPushReq) (*proto.LPushRsp, error) {

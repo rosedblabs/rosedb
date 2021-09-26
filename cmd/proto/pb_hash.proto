@@ -40,6 +40,7 @@ message HGetAllReq {
 
 message HGetAllRsp {
   repeated bytes values = 1;
+  string errorMsg       = 2;
 }
 
 message HMSetReq {
@@ -58,6 +59,7 @@ message HMGetReq {
 
 message HMGetRsp {
   repeated bytes values = 1;
+  string errorMsg       = 2;
 }
 
 message HDelReq {
