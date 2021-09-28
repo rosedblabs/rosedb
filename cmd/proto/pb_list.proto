@@ -53,6 +53,7 @@ message LIndexReq {
 
 message LIndexRsp {
   bytes value             = 1;
+  string errorMsg         = 2;
 }
 
 message LRemReq {

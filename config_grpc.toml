@@ -1,0 +1,39 @@
+# 服务器监听的地址
+# Default rosedb server address and port.
+addr = "127.0.0.1:5200"
+# rosedb grpc server address and port,
+# if you don't define it in config file, grpc server will not enable
+grpc_addr = "127.0.0.1:5221"
+
+# 数据库文件路径
+# Default rosedb data dir: /tmp/rosedb_server.
+# Do not use the default path before you use it in production.
+dir_path = "tmp/rosedb_server"
+
+# 默认数据文件大小16MB
+# Default db file size: 16MB.
+block_size = 16777216
+
+# 读写模式 0:FileIO 1:MMap
+# DB file read and write method, 0:FileIO 1:MMap.
+rw_method = 0
+
+# 数据索引模式 0:键和值均存于内存中 1:只有键存于内存中
+# The index mode, 0: KeyValueMemMode, 1: KeyOnlyMemMode.
+idx_mode = 1
+
+# key的最大值
+# The max size of key: 1MB.
+max_key_size = 1048576
+
+# value的最大值
+# The max size of value: 8MB.
+max_value_size = 8388608
+
+# 是否数据同步
+# Flush the db file to disk of every write operation.
+sync = false
+
+# reclaim的阈值
+# The threshold for db file reclaiming.
+merge_threshold = 64

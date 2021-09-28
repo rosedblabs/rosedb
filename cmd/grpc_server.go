@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/roseduan/rosedb"
 	"github.com/roseduan/rosedb/cmd/proto"
+	"github.com/roseduan/rosedb/ds/list"
 	"log"
 	"sync"
 )
@@ -253,67 +254,142 @@ func (g *GrpcServer) HTTL(_ context.Context, req *proto.HTTLReq) (*proto.HTTLRsp
 }
 
 func (g *GrpcServer) LPush(_ context.Context, req *proto.LPushReq) (*proto.LPushRsp, error) {
-	panic("implement me")
+	rsp := &proto.LPushRsp{}
+	resInt, err := g.db.LPush(req.Key, req.Values...)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	rsp.Res = int64(resInt)
+	return rsp, nil
 }
 
 func (g *GrpcServer) RPush(_ context.Context, req *proto.RPushReq) (*proto.RPushRsp, error) {
-	panic("implement me")
+	rsp := &proto.RPushRsp{}
+	resInt, err := g.db.RPush(req.Key, req.Values...)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	rsp.Res = int64(resInt)
+	return rsp, nil
 }
 
 func (g *GrpcServer) LPop(_ context.Context, req *proto.LPopReq) (*proto.LPopRsp, error) {
-	panic("implement me")
+	rsp := &proto.LPopRsp{}
+	var err error
+	rsp.Value, err = g.db.LPop(req.Key)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) RPop(_ context.Context, req *proto.RPopReq) (*proto.RPopRsp, error) {
-	panic("implement me")
+	rsp := &proto.RPopRsp{}
+	var err error
+	rsp.Value, err = g.db.RPop(req.Key)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
+
 }
 
 func (g *GrpcServer) LIndex(_ context.Context, req *proto.LIndexReq) (*proto.LIndexRsp, error) {
-	panic("implement me")
+	rsp := &proto.LIndexRsp{}
+	rsp.Value = g.db.LIndex(req.Key, int(req.Idx))
+	return rsp, nil
 }
 
 func (g *GrpcServer) LRem(_ context.Context, req *proto.LRemReq) (*proto.LRemRsp, error) {
-	panic("implement me")
+	rsp := &proto.LRemRsp{}
+	resInt, err := g.db.LRem(req.Key, req.Value, int(req.Count))
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	rsp.Res = int64(resInt)
+	return rsp, nil
 }
 
 func (g *GrpcServer) LInsert(_ context.Context, req *proto.LInsertReq) (*proto.LInsertRsp, error) {
-	panic("implement me")
+	rsp := &proto.LInsertRsp{}
+	count, err := g.db.LInsert(string(req.Key), list.InsertOption(req.Option), req.Pivot, req.Value)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	rsp.Count = int64(count)
+	return rsp, nil
 }
 
 func (g *GrpcServer) LSet(_ context.Context, req *proto.LSetReq) (*proto.LSetRsp, error) {
-	panic("implement me")
+	rsp := &proto.LSetRsp{}
+	var err error
+	rsp.Ok, err = g.db.LSet(req.Key, int(req.Idx), req.Value)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) LTrim(_ context.Context, req *proto.LTrimReq) (*proto.LTrimRsp, error) {
-	panic("implement me")
+	rsp := &proto.LTrimRsp{}
+	err := g.db.LTrim(req.Key, int(req.Start), int(req.End))
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) LRange(_ context.Context, req *proto.LRangeReq) (*proto.LRangeRsp, error) {
-	panic("implement me")
+	rsp := &proto.LRangeRsp{}
+	var err error
+	rsp.Values, err = g.db.LRange(req.Key, int(req.Start), int(req.End))
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
+
 }
 
 func (g *GrpcServer) LLen(_ context.Context, req *proto.LLenReq) (*proto.LLenRsp, error) {
-	panic("implement me")
+	rsp := &proto.LLenRsp{}
+	rsp.Length = int64(g.db.LLen(req.Key))
+	return rsp, nil
 }
 
 func (g *GrpcServer) LKeyExists(_ context.Context, req *proto.LKeyExistsReq) (*proto.LKeyExistsRsp, error) {
-	panic("implement me")
+	rsp := &proto.LKeyExistsRsp{}
+	rsp.Ok = g.db.LKeyExists(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) LValExists(_ context.Context, req *proto.LValExistsReq) (*proto.LValExistsRsp, error) {
-	panic("implement me")
+	rsp := &proto.LValExistsRsp{}
+	rsp.Ok = g.db.LValExists(req.Key, req.Value)
+	return rsp, nil
 }
 
 func (g *GrpcServer) LClear(_ context.Context, req *proto.LClearReq) (*proto.LClearRsp, error) {
-	panic("implement me")
+	rsp := &proto.LClearRsp{}
+	err := g.db.LClear(req.Key)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) LExpire(_ context.Context, req *proto.LExpireReq) (*proto.LExpireRsp, error) {
-	panic("implement me")
+	rsp := &proto.LExpireRsp{}
+	err := g.db.LExpire(req.Key, req.Duration)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) LTTL(_ context.Context, req *proto.LTTLReq) (*proto.LTTLRsp, error) {
-	panic("implement me")
+	rsp := &proto.LTTLRsp{}
+	rsp.Ttl = g.db.LTTL(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) Set(_ context.Context, req *proto.SetReq) (*proto.SetRsp, error) {
@@ -365,15 +441,27 @@ func (g *GrpcServer) RangeScan(_ context.Context, req *proto.RangeScanReq) (*pro
 }
 
 func (g *GrpcServer) Expire(_ context.Context, req *proto.ExpireReq) (*proto.ExpireRsp, error) {
-	panic("implement me")
+	rsp := &proto.ExpireRsp{}
+	err := g.db.Expire(req.Key, req.Duration)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) Persist(_ context.Context, req *proto.PersistReq) (*proto.PersistRsp, error) {
-	panic("implement me")
+	rsp := &proto.PersistRsp{}
+	err := g.db.Persist(req.Key)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) TTL(_ context.Context, req *proto.TTLReq) (*proto.TTLRsp, error) {
-	panic("implement me")
+	rsp := &proto.TTLRsp{}
+	rsp.Ttl = g.db.TTL(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZAdd(_ context.Context, req *proto.ZAddReq) (*proto.ZAddRsp, error) {
@@ -437,17 +525,28 @@ func (g *GrpcServer) ZRevScoreRange(_ context.Context, req *proto.ZRevScoreRange
 }
 
 func (g *GrpcServer) ZKeyExists(_ context.Context, req *proto.ZKeyExistsReq) (*proto.ZKeyExistsRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZKeyExistsRsp{}
+	rsp.Ok = g.db.ZKeyExists(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZClear(_ context.Context, req *proto.ZClearReq) (*proto.ZClearRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZClearRsp{}
+	rsp.Ok = g.db.ZKeyExists(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZExpire(_ context.Context, req *proto.ZExpireReq) (*proto.ZExpireRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZExpireRsp{}
+	err := g.db.ZExpire(req.Key, req.Duration)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZTTL(_ context.Context, req *proto.ZTTLReq) (*proto.ZTTLRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZTTLRsp{}
+	rsp.Ttl = g.db.ZTTL(req.Key)
+	return rsp, nil
 }
