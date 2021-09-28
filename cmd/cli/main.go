@@ -129,43 +129,36 @@ func main() {
 			fmt.Println(err)
 			break
 		}
-
 		cmd = strings.TrimSpace(cmd)
 		if len(cmd) == 0 {
 			continue
 		}
-		lowerCmd := strings.ToLower(cmd)
-
-		c := strings.Split(cmd, " ")
-		// print help or quit.
-		if lowerCmd == "help" {
-			printCmdHelp()
-		} else if lowerCmd == "quit" {
+		command, args := parseCommandLine(cmd)
+		if command == "quit" {
+			// TODO flush page cache if have
 			break
-		} else if strings.ToLower(c[0]) == "help" && len(c) == 2 {
-			helpCmd := strings.ToLower(c[1])
-			if !commandSet[helpCmd] {
-				fmt.Println("command not found")
-				continue
-			}
-
-			for _, command := range commandList {
-				if strings.ToLower(command[0]) == helpCmd {
-					fmt.Println()
-					fmt.Println(" --usage: " + helpCmd + " " + command[1])
-					fmt.Println(" --group: " + command[2] + "\n")
+		} else if command == "help" {
+			if len(args) == 0 {
+				printCmdHelp()
+			} else {
+				helpCmd := strings.ToLower(fmt.Sprintf("%s", args[0]))
+				if !commandSet[helpCmd] {
+					fmt.Println("command not found")
+					continue
+				}
+				for _, perCmd := range commandList {
+					if strings.ToLower(perCmd[0]) == helpCmd {
+						fmt.Println()
+						fmt.Println(" --usage: " + helpCmd + " " + perCmd[1])
+						fmt.Println(" --group: " + perCmd[2] + "\n")
+					}
 				}
 			}
 		} else {
-			// execute the command and print the reply.
 			line.AppendHistory(cmd)
-
-			lowerC := strings.ToLower(strings.TrimSpace(c[0]))
-			if !commandSet[lowerC] && lowerC != "quit" {
+			if !commandSet[command] {
 				continue
 			}
-
-			command, args := parseCommandLine(cmd)
 			rawResp, err := conn.Do(command, args...)
 			if err != nil {
 				fmt.Printf("(error) %v \n", err)
@@ -204,9 +197,9 @@ func printCmdHelp() {
  Thanks for using RoseDB
  rosedb-cli
  To get help about command:
-	Type: "help <command>" for help on command
+    Type: "help <command>" for help on command
  To quit:
-	<ctrl+c> or <quit>`
+    <ctrl+c> or <quit>`
 	fmt.Println(help)
 }
 
@@ -216,8 +209,11 @@ func parseCommandLine(cmdLine string) (string, []interface{}) {
 		return "", nil
 	}
 	args := make([]interface{}, 0)
-	for i := 1; i < len(arr); i++ {
-		args = append(args, arr[i])
+	for i := 0; i < len(arr); i++ {
+		if arr[i] == "" {
+			continue
+		}
+		args = append(args, strings.ToLower(arr[i]))
 	}
-	return arr[0], args
+	return fmt.Sprintf("%s", args[0]), args[1:]
 }
