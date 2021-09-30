@@ -48,7 +48,7 @@ message ZRevRankReq {
 }
 
 message ZRevRankRsp {
-  int32 rank                = 1;
+  int64 rank                = 1;
   string errorMsg           = 2;
 }
 

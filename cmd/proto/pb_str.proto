@@ -5,7 +5,7 @@ option go_package = "cmd/proto";
 
 message SetReq {
   bytes key               = 1;
-  bytes values            = 2;
+  bytes value             = 2;
 }
 
 message SetRsp {

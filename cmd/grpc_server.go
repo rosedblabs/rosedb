@@ -5,6 +5,7 @@ import (
 	"github.com/roseduan/rosedb"
 	"github.com/roseduan/rosedb/cmd/proto"
 	"github.com/roseduan/rosedb/ds/list"
+	"github.com/roseduan/rosedb/utils"
 	"log"
 	"sync"
 )
@@ -393,51 +394,141 @@ func (g *GrpcServer) LTTL(_ context.Context, req *proto.LTTLReq) (*proto.LTTLRsp
 }
 
 func (g *GrpcServer) Set(_ context.Context, req *proto.SetReq) (*proto.SetRsp, error) {
-	panic("implement me")
+	rsp := &proto.SetRsp{}
+	err := g.db.Set(req.Key, req.Value)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) SetNx(_ context.Context, req *proto.SetNxReq) (*proto.SetNxRsp, error) {
-	panic("implement me")
+	rsp := &proto.SetNxRsp{}
+	ok, err := g.db.SetNx(req.Key, req.Value)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	rsp.Ok = ok
+	return rsp, nil
 }
 
 func (g *GrpcServer) SetEx(_ context.Context, req *proto.SetExReq) (*proto.SetExRsp, error) {
-	panic("implement me")
+	rsp := &proto.SetExRsp{}
+	err := g.db.SetEx(req.Key, req.Value, req.Duration)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) Get(_ context.Context, req *proto.GetReq) (*proto.GetRsp, error) {
-	panic("implement me")
+	rsp := &proto.GetRsp{}
+	err := g.db.Get(req.Key, &rsp.Dest)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) GetSet(_ context.Context, req *proto.GetSetReq) (*proto.GetSetRsp, error) {
-	panic("implement me")
+	rsp := &proto.GetSetRsp{}
+	err := g.db.GetSet(req.Key, req.Value, rsp.Dest)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) MSet(_ context.Context, req *proto.MSetReq) (*proto.MSetRsp, error) {
-	panic("implement me")
+	rsp := &proto.MSetRsp{}
+	if len(req.Keys) != len(req.Values) {
+		rsp.ErrorMsg = "len(keys) != len(values)"
+		return rsp, nil
+	}
+	mulkv := make([][]byte, 0)
+	for i := 0; i < len(req.Keys); i++ {
+		mulkv = append(mulkv, req.Keys[i])
+		mulkv = append(mulkv, req.Values[i])
+	}
+ 	err := g.db.MSet(mulkv)
+ 	if err != nil {
+ 		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) MGet(_ context.Context, req *proto.MGetReq) (*proto.MGetRsp, error) {
-	panic("implement me")
+	rsp := &proto.MGetRsp{}
+	values, err := g.db.MGet(req.Keys)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	} else {
+		rsp.Values = values
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) Append(_ context.Context, req *proto.AppendReq) (*proto.AppendRsp, error) {
-	panic("implement me")
+	rsp := &proto.AppendRsp{}
+	err := g.db.Append(req.Key, string(req.Value))
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) StrExists(_ context.Context, req *proto.StrExistsReq) (*proto.StrExistsRsp, error) {
-	panic("implement me")
+	rsp := &proto.StrExistsRsp{}
+	rsp.Ok = g.db.StrExists(req.Key)
+	return rsp, nil
 }
 
 func (g *GrpcServer) Remove(_ context.Context, req *proto.RemoveReq) (*proto.RemoveRsp, error) {
-	panic("implement me")
+	rsp := &proto.RemoveRsp{}
+	err := g.db.Remove(req.Key)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) PrefixScan(_ context.Context, req *proto.PrefixScanReq) (*proto.PrefixScanRsp, error) {
-	panic("implement me")
+	rsp := &proto.PrefixScanRsp{}
+	valueInterface, err := g.db.PrefixScan(string(req.Prefix), int(req.Limit), int(req.Offset))
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+		return rsp, nil
+	}
+	rsp.Values = make([][]byte, 0)
+	for _, v := range valueInterface {
+		vEncode, err := utils.EncodeValue(v)
+		if err != nil {
+			rsp.ErrorMsg = err.Error()
+			return rsp, nil
+		}
+		rsp.Values = append(rsp.Values, vEncode)
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) RangeScan(_ context.Context, req *proto.RangeScanReq) (*proto.RangeScanRsp, error) {
-	panic("implement me")
+	rsp := &proto.RangeScanRsp{}
+	rsp.Values = make([][]byte, 0)
+	valueInterface, err := g.db.RangeScan(req.Start, req.End)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+		return rsp, nil
+	}
+	rsp.Values = make([][]byte, 0)
+	for _, v := range valueInterface {
+		vEncode, err := utils.EncodeValue(v)
+		if err != nil {
+			rsp.ErrorMsg = err.Error()
+			return rsp, nil
+		}
+		rsp.Values = append(rsp.Values, vEncode)
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) Expire(_ context.Context, req *proto.ExpireReq) (*proto.ExpireRsp, error) {
@@ -465,63 +556,186 @@ func (g *GrpcServer) TTL(_ context.Context, req *proto.TTLReq) (*proto.TTLRsp, e
 }
 
 func (g *GrpcServer) ZAdd(_ context.Context, req *proto.ZAddReq) (*proto.ZAddRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZAddRsp{}
+	err := g.db.ZAdd(req.Key, req.Score, req.Member)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZScore(_ context.Context, req *proto.ZScoreReq) (*proto.ZScoreRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZScoreRsp{}
+	rsp.Ok, rsp.Score = g.db.ZScore(req.Key, req.Member)
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZCard(_ context.Context, req *proto.ZCardReq) (*proto.ZCardRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZCardRsp{}
+	sz := g.db.ZCard(req.Key)
+	rsp.Size = int64(sz)
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZRank(_ context.Context, req *proto.ZRankReq) (*proto.ZRankRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZRankRsp{}
+	rsp.Rank = g.db.ZRank(req.Key, req.Member)
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZRevRank(_ context.Context, req *proto.ZRevRankReq) (*proto.ZRevRankRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZRevRankRsp{}
+	rsp.Rank = g.db.ZRevRank(req.Key, req.Member)
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZIncrBy(_ context.Context, req *proto.ZIncrByReq) (*proto.ZIncrByRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZIncrByRsp{}
+	var err error
+	rsp.Scores, err = g.db.ZIncrBy(req.Key, req.Increment, req.Member)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZRange(_ context.Context, req *proto.ZRangeReq) (*proto.ZRangeRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZRangeRsp{}
+	values := g.db.ZRange(req.Key, int(req.Start), int(req.End))
+	rsp.Values = make([][]byte, 0)
+	for _, v := range values {
+		vEncode, err := utils.EncodeValue(v)
+		if err != nil {
+			rsp.ErrorMsg = err.Error()
+			return rsp, nil
+		} else {
+			rsp.Values = append(rsp.Values, vEncode)
+		}
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZRangeWithScores(_ context.Context, req *proto.ZRangeWithScoresReq) (*proto.ZRangeWithScoresRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZRangeWithScoresRsp{}
+	values := g.db.ZRangeWithScores(req.Key, int(req.Start), int(req.End))
+	rsp.Values = make([][]byte, 0)
+	for _, v := range values {
+		vEncode, err := utils.EncodeValue(v)
+		if err != nil {
+			rsp.ErrorMsg = err.Error()
+			return rsp, nil
+		} else {
+			rsp.Values = append(rsp.Values, vEncode)
+		}
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZRevRange(_ context.Context, req *proto.ZRevRangeReq) (*proto.ZRevRangeRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZRevRangeRsp{}
+	values := g.db.ZRevRange(req.Key, int(req.Start), int(req.End))
+	rsp.Values = make([][]byte, 0)
+	for _, v := range values {
+		vEncode, err := utils.EncodeValue(v)
+		if err != nil {
+			rsp.ErrorMsg = err.Error()
+			return rsp, nil
+		} else {
+			rsp.Values = append(rsp.Values, vEncode)
+		}
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZRevRangeWithScores(_ context.Context, req *proto.ZRevRangeWithScoresReq) (*proto.ZRevRangeWithScoresRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZRevRangeWithScoresRsp{}
+	values := g.db.ZRevRangeWithScores(req.Key, int(req.Start), int(req.End))
+	rsp.Values = make([][]byte, 0)
+	for _, v := range values {
+		vEncode, err := utils.EncodeValue(v)
+		if err != nil {
+			rsp.ErrorMsg = err.Error()
+			return rsp, nil
+		} else {
+			rsp.Values = append(rsp.Values, vEncode)
+		}
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZRem(_ context.Context, req *proto.ZRemReq) (*proto.ZRemRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZRemRsp{}
+	ok, err := g.db.ZRem(req.Key, req.Member)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
+		return rsp, nil
+	}
+	rsp.Ok = ok
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZGetByRank(_ context.Context, req *proto.ZGetByRankReq) (*proto.ZGetByRankRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZGetByRankRsp{}
+	values := g.db.ZGetByRank(req.Key, int(req.Rank))
+	rsp.Values = make([][]byte, 0)
+	for _, v := range values {
+		vEncode, err := utils.EncodeValue(v)
+		if err != nil {
+			rsp.ErrorMsg = err.Error()
+			return rsp, nil
+		} else {
+			rsp.Values = append(rsp.Values, vEncode)
+		}
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZRevGetByRank(_ context.Context, req *proto.ZRevGetByRankReq) (*proto.ZRevGetByRankRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZRevGetByRankRsp{}
+	values := g.db.ZRevGetByRank(req.Key, int(req.Rank))
+	rsp.Values = make([][]byte, 0)
+	for _, v := range values {
+		vEncode, err := utils.EncodeValue(v)
+		if err != nil {
+			rsp.ErrorMsg = err.Error()
+			return rsp, nil
+		} else {
+			rsp.Values = append(rsp.Values, vEncode)
+		}
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZScoreRange(_ context.Context, req *proto.ZScoreRangeReq) (*proto.ZScoreRangeRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZScoreRangeRsp{}
+	values := g.db.ZScoreRange(req.Key, req.Min, req.Max)
+	rsp.Values = make([][]byte, 0)
+	for _, v := range values {
+		vEncode, err := utils.EncodeValue(v)
+		if err != nil {
+			rsp.ErrorMsg = err.Error()
+			return rsp, nil
+		} else {
+			rsp.Values = append(rsp.Values, vEncode)
+		}
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZRevScoreRange(_ context.Context, req *proto.ZRevScoreRangeReq) (*proto.ZRevScoreRangeRsp, error) {
-	panic("implement me")
+	rsp := &proto.ZRevScoreRangeRsp{}
+	values := g.db.ZRevScoreRange(req.Key, req.Max, req.Min)
+	rsp.Values = make([][]byte, 0)
+	for _, v := range values {
+		vEncode, err := utils.EncodeValue(v)
+		if err != nil {
+			rsp.ErrorMsg = err.Error()
+			return rsp, nil
+		} else {
+			rsp.Values = append(rsp.Values, vEncode)
+		}
+	}
+	return rsp, nil
 }
 
 func (g *GrpcServer) ZKeyExists(_ context.Context, req *proto.ZKeyExistsReq) (*proto.ZKeyExistsRsp, error) {
