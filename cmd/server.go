@@ -36,6 +36,10 @@ func NewServer(config rosedb.Config) (*Server, error) {
 	return &Server{db: db}, nil
 }
 
+func NewServerUseDbPtr(db *rosedb.RoseDB) *Server {
+	return &Server{db: db}
+}
+
 // Listen listen the server.
 func (s *Server) Listen(addr string) {
 	svr := redcon.NewServerNetwork("tcp", addr,

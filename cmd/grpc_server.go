@@ -6,7 +6,9 @@ import (
 	"github.com/roseduan/rosedb/cmd/proto"
 	"github.com/roseduan/rosedb/ds/list"
 	"github.com/roseduan/rosedb/utils"
+	"google.golang.org/grpc"
 	"log"
+	"net"
 	"sync"
 )
 
@@ -20,6 +22,21 @@ func NewGrpcServer(db *rosedb.RoseDB) *GrpcServer {
 	return &GrpcServer{
 		db: db,
 		closed: false,
+	}
+}
+
+func (g *GrpcServer) Listen(addr string) {
+	s := grpc.NewServer()
+	proto.RegisterRosedbServer(s, g)
+	lis, err := net.Listen("tcp", addr)
+	log.Printf("grpc server serve in addr %s", addr)
+	if err != nil {
+		log.Printf("listen to %s err: %+v", addr, err)
+		return
+	}
+	if err = s.Serve(lis); err != nil {
+		log.Printf("grpc server err: %+v", err)
+		return
 	}
 }
 

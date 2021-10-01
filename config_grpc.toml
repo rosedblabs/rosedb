@@ -8,7 +8,7 @@ grpc_addr = "127.0.0.1:5221"
 # 数据库文件路径
 # Default rosedb data dir: /tmp/rosedb_server.
 # Do not use the default path before you use it in production.
-dir_path = "tmp/rosedb_server"
+dir_path = "/tmp/rosedb_server"
 
 # 默认数据文件大小16MB
 # Default db file size: 16MB.
