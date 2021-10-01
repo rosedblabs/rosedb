@@ -1,3 +1,4 @@
 .idea/
 rosedb.iml
 test/
+cmd/proto/*.pb.go
