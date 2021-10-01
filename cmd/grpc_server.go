@@ -20,7 +20,7 @@ type GrpcServer struct {
 
 func NewGrpcServer(db *rosedb.RoseDB) *GrpcServer {
 	return &GrpcServer{
-		db: db,
+		db:     db,
 		closed: false,
 	}
 }
@@ -52,10 +52,10 @@ func (g *GrpcServer) Stop() {
 	}
 }
 
-func (g *GrpcServer) SAdd(_ context.Context,req *proto.SAddReq) (*proto.SAddRsp, error) {
+func (g *GrpcServer) SAdd(_ context.Context, req *proto.SAddReq) (*proto.SAddRsp, error) {
 	rsp := &proto.SAddRsp{}
 	var resInt int
-	resInt, err := g.db.SAdd(req.Key, req.Members ...)
+	resInt, err := g.db.SAdd(req.Key, req.Members...)
 	rsp.Res = int64(resInt)
 	if err != nil {
 		rsp.ErrorMsg = err.Error()
@@ -63,7 +63,7 @@ func (g *GrpcServer) SAdd(_ context.Context,req *proto.SAddReq) (*proto.SAddRsp,
 	return rsp, nil
 }
 
-func (g *GrpcServer) SPop(_ context.Context,req *proto.SPopReq) (rsp *proto.SPopRsp,err error) {
+func (g *GrpcServer) SPop(_ context.Context, req *proto.SPopReq) (rsp *proto.SPopRsp, err error) {
 	rsp = &proto.SPopRsp{}
 	rsp.Values, err = g.db.SPop(req.Key, int(req.Count))
 	if err != nil {
@@ -72,13 +72,13 @@ func (g *GrpcServer) SPop(_ context.Context,req *proto.SPopReq) (rsp *proto.SPop
 	return rsp, nil
 }
 
-func (g *GrpcServer) SIsMember(_ context.Context,req *proto.SIsMemberReq) (*proto.SIsMemberRsp, error) {
+func (g *GrpcServer) SIsMember(_ context.Context, req *proto.SIsMemberReq) (*proto.SIsMemberRsp, error) {
 	rsp := &proto.SIsMemberRsp{}
 	rsp.IsMember = g.db.SIsMember(req.Key, req.Member)
 	return rsp, nil
 }
 
-func (g *GrpcServer) SRandMember(_ context.Context,req *proto.SRandMemberReq) (*proto.SRandMemberRsp, error) {
+func (g *GrpcServer) SRandMember(_ context.Context, req *proto.SRandMemberReq) (*proto.SRandMemberRsp, error) {
 	rsp := &proto.SRandMemberRsp{}
 	g.db.SRandMember(req.Key, int(req.Count))
 	return rsp, nil
@@ -204,7 +204,7 @@ func (g *GrpcServer) HMGet(_ context.Context, req *proto.HMGetReq) (*proto.HMGet
 
 func (g *GrpcServer) HDel(_ context.Context, req *proto.HDelReq) (*proto.HDelRsp, error) {
 	rsp := &proto.HDelRsp{}
-	resInt ,err := g.db.HDel(req.Key, req.Fields...)
+	resInt, err := g.db.HDel(req.Key, req.Fields...)
 	if err != nil {
 		rsp.ErrorMsg = err.Error()
 	}
@@ -467,9 +467,9 @@ func (g *GrpcServer) MSet(_ context.Context, req *proto.MSetReq) (*proto.MSetRsp
 		mulkv = append(mulkv, req.Keys[i])
 		mulkv = append(mulkv, req.Values[i])
 	}
- 	err := g.db.MSet(mulkv)
- 	if err != nil {
- 		rsp.ErrorMsg = err.Error()
+	err := g.db.MSet(mulkv)
+	if err != nil {
+		rsp.ErrorMsg = err.Error()
 	}
 	return rsp, nil
 }
