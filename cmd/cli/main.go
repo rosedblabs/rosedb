@@ -105,8 +105,8 @@ var commandList = [][]string{
 	{"ZEXPIRE", "key", "ZSET"},
 	{"ZTTL", "key", "ZSET"},
 
-	{"MULTI", "key transaction start", "TRANSACTION"},
-	{"EXEC", "key transaction end", "TRANSACTION"},
+	{"MULTI", "Transaction start", "TRANSACTION"},
+	{"EXEC", "Transaction end", "TRANSACTION"},
 }
 
 var host = flag.String("h", "127.0.0.1", "the rosedb server host, default 127.0.0.1")
@@ -212,7 +212,7 @@ func main() {
 				continue
 			}
 
-			rawResp, err := conn.Do("transaction", transArgs...)
+			rawResp, err := conn.Do("txn", transArgs...)
 			if err != nil {
 				fmt.Printf("(error) %v \n", err)
 				fmt.Printf("(error) %v \n", execAbortErr)

@@ -6,13 +6,13 @@ import (
 	"strings"
 )
 
-func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 
 	var result []interface{}
 
 	txnCommand := parseTxnArgs(args)
 
-	var txn = db.NewTransaction()
+	var transaction = db.NewTransaction()
 	for _, txnCmd := range txnCommand {
 		if len(txnCmd) == 0 {
 			continue
@@ -24,9 +24,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				err = newWrongNumOfArgsError("set")
 				return
 			}
-			err = txn.Set(txnCmd[1], txnCmd[2])
+			err = transaction.Set(txnCmd[1], txnCmd[2])
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -37,9 +37,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			_, err = txn.SetNx(txnCmd[1], txnCmd[2])
+			_, err = transaction.SetNx(txnCmd[1], txnCmd[2])
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -56,9 +56,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			err = txn.SetEx(txnCmd[1], txnCmd[3], dur)
+			err = transaction.SetEx(txnCmd[1], txnCmd[3], dur)
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -70,9 +70,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 			}
 
 			var val string
-			err = txn.Get(txnCmd[1], &val)
+			err = transaction.Get(txnCmd[1], &val)
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, val)
@@ -84,9 +84,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 			}
 
 			var val string
-			err = txn.GetSet(txnCmd[1], txnCmd[2], &val)
+			err = transaction.GetSet(txnCmd[1], txnCmd[2], &val)
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, val)
@@ -97,9 +97,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			err = txn.Append(txnCmd[1], txnCmd[2].(string))
+			err = transaction.Append(txnCmd[1], txnCmd[2].(string))
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -111,7 +111,7 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 			}
 
 			var exist bool
-			exist = txn.StrExists(txnCmd[1])
+			exist = transaction.StrExists(txnCmd[1])
 			if exist {
 				result = append(result, "OK")
 			}
@@ -123,9 +123,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			err = txn.Remove(txnCmd[1])
+			err = transaction.Remove(txnCmd[1])
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -136,9 +136,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			err = txn.LPush(txnCmd[1], txnCmd[1:]...)
+			err = transaction.LPush(txnCmd[1], txnCmd[1:]...)
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -149,9 +149,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			err = txn.RPush(txnCmd[1], txnCmd[1:]...)
+			err = transaction.RPush(txnCmd[1], txnCmd[1:]...)
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -162,9 +162,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			err = txn.HSet(txnCmd[1], txnCmd[2], txnCmd[3])
+			err = transaction.HSet(txnCmd[1], txnCmd[2], txnCmd[3])
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -175,9 +175,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			err = txn.HSetNx(txnCmd[1], txnCmd[2], txnCmd[3])
+			err = transaction.HSetNx(txnCmd[1], txnCmd[2], txnCmd[3])
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -189,9 +189,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 			}
 
 			var dest string
-			err = txn.HGet(txnCmd[1], txnCmd[2], &dest)
+			err = transaction.HGet(txnCmd[1], txnCmd[2], &dest)
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, dest)
@@ -202,9 +202,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			err = txn.HDel(txnCmd[1], txnCmd[1:]...)
+			err = transaction.HDel(txnCmd[1], txnCmd[1:]...)
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -215,7 +215,7 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			ok := txn.HExists(txnCmd[1], txnCmd[2])
+			ok := transaction.HExists(txnCmd[1], txnCmd[2])
 			if ok {
 				result = append(result, "OK")
 			}
@@ -228,7 +228,7 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			err = txn.SAdd(txnCmd[1], txnCmd[1:]...)
+			err = transaction.SAdd(txnCmd[1], txnCmd[1:]...)
 			if err != nil {
 				return
 			}
@@ -241,7 +241,7 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			ok := txn.SIsMember(txnCmd[1], txnCmd[2])
+			ok := transaction.SIsMember(txnCmd[1], txnCmd[2])
 			if ok {
 				result = append(result, "OK")
 			}
@@ -254,9 +254,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			err = txn.SRem(txnCmd[1], txnCmd[1:]...)
+			err = transaction.SRem(txnCmd[1], txnCmd[1:]...)
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -273,9 +273,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			err = txn.ZAdd(txnCmd[1], score, txnCmd[3])
+			err = transaction.ZAdd(txnCmd[1], score, txnCmd[3])
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -286,9 +286,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			_, score, err1 := txn.ZScore(txnCmd[1], txnCmd[2])
+			_, score, err1 := transaction.ZScore(txnCmd[1], txnCmd[2])
 			if err1 != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, strconv.FormatFloat(score, 'f', -1, 64))
@@ -299,9 +299,9 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 				return
 			}
 
-			err = txn.ZRem(txnCmd[1], txnCmd[2])
+			err = transaction.ZRem(txnCmd[1], txnCmd[2])
 			if err != nil {
-				txn.Rollback()
+				transaction.Rollback()
 				return
 			}
 			result = append(result, "OK")
@@ -309,7 +309,7 @@ func transaction(db *rosedb.RoseDB, args []string) (res interface{}, err error) 
 		}
 	}
 
-	err = txn.Commit()
+	err = transaction.Commit()
 
 	res = result
 
@@ -335,5 +335,5 @@ func parseTxnArgs(args []string) [][]interface{} {
 }
 
 func init() {
-	addExecCommand("transaction", transaction)
+	addExecCommand("txn", txn)
 }
