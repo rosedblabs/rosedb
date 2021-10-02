@@ -57,6 +57,27 @@ func setNx(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	return
 }
 
+func setEx(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 3 {
+		err = newWrongNumOfArgsError("setex")
+		return
+	}
+
+	var dur int64
+	dur, err = strconv.ParseInt(args[1], 10, 64)
+	if err != nil {
+		err = ErrSyntaxIncorrect
+		return
+	}
+
+	key, value := args[0], args[2]
+	if err = db.SetEx([]byte(key), []byte(value), dur); err == nil {
+		res = "OK"
+	}
+
+	return
+}
+
 func getSet(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
 		err = newWrongNumOfArgsError("getset")
@@ -67,6 +88,39 @@ func getSet(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	key, value := args[0], args[1]
 	err = db.GetSet([]byte(key), []byte(value), &val)
 	res = val
+	return
+}
+
+func mSet(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args)%2 != 0 {
+		err = newWrongNumOfArgsError("mset")
+		return
+	}
+
+	var values []interface{}
+	for i := 0; i < len(args); i++ {
+		values = append(values, []byte(args[i]))
+	}
+
+	if err = db.MSet(values...); err == nil {
+		res = "OK"
+	}
+	return
+}
+
+func mGet(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) <= 0 {
+		err = newWrongNumOfArgsError("mget")
+		return
+	}
+
+	var values []interface{}
+	for i := 0; i < len(args); i++ {
+		values = append(values, []byte(args[i]))
+	}
+
+	res, err = db.MGet(values...)
+
 	return
 }
 
@@ -167,9 +221,8 @@ func ttl(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
 		err = newWrongNumOfArgsError("ttl")
 	}
-
 	ttlVal := db.TTL([]byte(args[0]))
-	res = strconv.FormatInt(int64(ttlVal), 10)
+	res = redcon.SimpleInt(ttlVal)
 	return
 }
 
@@ -177,7 +230,10 @@ func init() {
 	addExecCommand("set", set)
 	addExecCommand("get", get)
 	addExecCommand("setnx", setNx)
+	addExecCommand("setex", setEx)
 	addExecCommand("getset", getSet)
+	addExecCommand("mset", mSet)
+	addExecCommand("mget", mGet)
 	addExecCommand("append", appendStr)
 	addExecCommand("strexists", strExists)
 	addExecCommand("remove", remove)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
@@ -10,12 +11,25 @@ import (
 	"strings"
 )
 
+var (
+	nestedMultiErr  = errors.New("ERR MULTI calls can not be nested")
+	withoutMultiErr = errors.New("ERR EXEC without MULTI")
+	execAbortErr    = errors.New("EXECABORT Transaction discarded because of previous errors.")
+)
+
+func newCommandError(cmd string) string {
+	return fmt.Sprintf("ERR unknown command '%s'", cmd)
+}
+
 // all supported commands.
 var commandList = [][]string{
 	{"SET", "key value", "STRING"},
 	{"GET", "key", "STRING"},
-	{"SETNX", "key value", "STRING"},
+	{"SETNX", "key seconds value", "STRING"},
+	{"SETEX", "key value", "STRING"},
 	{"GETSET", "key value", "STRING"},
+	{"MSET", "[key value...]", "STRING"},
+	{"MGET", "[key...]", "STRING"},
 	{"APPEND", "key value", "STRING"},
 	{"STREXISTS", "key", "STRING"},
 	{"REMOVE", "key", "STRING"},
@@ -38,16 +52,25 @@ var commandList = [][]string{
 	{"LLEN", "key", "LIST"},
 	{"LKEYEXISTS", "key", "LIST"},
 	{"LVALEXISTS", "key value", "LIST"},
+	{"LClear", "key", "LIST"},
+	{"LExpire", "key seconds", "LIST"},
+	{"LTTL", "key", "LIST"},
 
 	{"HSET", "key field value", "HASH"},
 	{"HSETNX", "key field value", "HASH"},
 	{"HGET", "key field", "HASH"},
+	{"HMSET", "[key field...]", "HASH"},
+	{"HMGET", "[key...]", "HASH"},
 	{"HGETALL", "key", "HASH"},
 	{"HDEL", "key field [field...]", "HASH"},
+	{"HKEYEXISTS", "key", "HASH"},
 	{"HEXISTS", "key field", "HASH"},
 	{"HLEN", "key", "HASH"},
 	{"HKEYS", "key", "HASH"},
 	{"HVALS", "key", "HASH"},
+	{"HCLEAR", "key", "HASH"},
+	{"HEXPIRE", "key seconds", "HASH"},
+	{"HTTL", "key", "HASH"},
 
 	{"SADD", "key members [members...]", "SET"},
 	{"SPOP", "key count", "SET"},
@@ -59,6 +82,10 @@ var commandList = [][]string{
 	{"SMEMBERS", "key", "SET"},
 	{"SUNION", "key [key...]", "SET"},
 	{"SDIFF", "key [key...]", "SET"},
+	{"SKEYEXISTS", "key", "SET"},
+	{"SCLEAR", "key", "SET"},
+	{"SEXPIRE", "key seconds", "SET"},
+	{"STTL", "key", "SET"},
 
 	{"ZADD", "key score member", "ZSET"},
 	{"ZSCORE", "key member", "ZSET"},
@@ -73,6 +100,13 @@ var commandList = [][]string{
 	{"ZREVGETBYRANK", "key rank", "ZSET"},
 	{"ZSCORERANGE", "key min max", "ZSET"},
 	{"ZREVSCORERANGE", "key max min", "ZSET"},
+	{"ZKEYEXISTS", "key", "ZSET"},
+	{"ZCLEAR", "key", "ZSET"},
+	{"ZEXPIRE", "key", "ZSET"},
+	{"ZTTL", "key", "ZSET"},
+
+	{"MULTI", "key transaction start", "TRANSACTION"},
+	{"EXEC", "key transaction end", "TRANSACTION"},
 }
 
 var host = flag.String("h", "127.0.0.1", "the rosedb server host, default 127.0.0.1")
@@ -122,6 +156,9 @@ func main() {
 		commandSet[strings.ToLower(cmd[0])] = true
 	}
 
+	var IsExistMulti = false
+	var transArgs []interface{}
+
 	prompt := addr + ">"
 	for {
 		cmd, err := line.Prompt(prompt)
@@ -154,40 +191,88 @@ func main() {
 					}
 				}
 			}
+		} else if command == "multi" {
+			line.AppendHistory(cmd)
+			if IsExistMulti {
+				fmt.Printf("(error) %v \n", nestedMultiErr)
+				continue
+			}
+			IsExistMulti = true
+
+		} else if command == "exec" {
+			line.AppendHistory(cmd)
+			if !IsExistMulti {
+				fmt.Printf("(error) %v \n", withoutMultiErr)
+				continue
+			}
+			IsExistMulti = false
+
+			if len(transArgs) == 0 {
+				fmt.Println("(empty list or set)")
+				continue
+			}
+
+			rawResp, err := conn.Do("transaction", transArgs...)
+			if err != nil {
+				fmt.Printf("(error) %v \n", err)
+				fmt.Printf("(error) %v \n", execAbortErr)
+				IsExistMulti = false
+				continue
+			}
+			transArgs = []interface{}{}
+
+			printReply(rawResp)
+
 		} else {
 			line.AppendHistory(cmd)
 			if !commandSet[command] {
+				fmt.Printf("(error) %v \n", newCommandError(command))
+				if IsExistMulti {
+					fmt.Printf("(error) %v \n", execAbortErr)
+					IsExistMulti = false
+				}
 				continue
 			}
+
+			if IsExistMulti {
+				transArgs = append(transArgs, parseTxnCommandLine(cmd))
+				continue
+			}
+
 			rawResp, err := conn.Do(command, args...)
 			if err != nil {
 				fmt.Printf("(error) %v \n", err)
 				continue
 			}
-			switch reply := rawResp.(type) {
-			case []byte:
-				println(string(reply))
-			case string:
-				println(reply)
-			case nil:
-				println("(nil)")
-			case redis.Error:
-				fmt.Printf("(error) %v \n", reply)
-			case int64:
-				fmt.Printf("(integer) %d \n", reply)
-			case []interface{}:
-				for i, e := range reply {
-					switch element := e.(type) {
-					case string:
-						fmt.Printf("%d) %s\n", i+1, element)
-					case []byte:
-						fmt.Printf("%d) %s\n", i+1, string(element))
-					default:
-						fmt.Printf("%d) %v\n", i+1, element)
-					}
 
-				}
+			printReply(rawResp)
+		}
+	}
+}
+
+func printReply(rawResp interface{}) {
+	switch reply := rawResp.(type) {
+	case []byte:
+		println(string(reply))
+	case string:
+		println(reply)
+	case nil:
+		println("(nil)")
+	case redis.Error:
+		fmt.Printf("(error) %v \n", reply)
+	case int64:
+		fmt.Printf("(integer) %d \n", reply)
+	case []interface{}:
+		for i, e := range reply {
+			switch element := e.(type) {
+			case string:
+				fmt.Printf("%d) %s\n", i+1, element)
+			case []byte:
+				fmt.Printf("%d) %s\n", i+1, string(element))
+			default:
+				fmt.Printf("%d) %v\n", i+1, element)
 			}
+
 		}
 	}
 }
@@ -216,4 +301,19 @@ func parseCommandLine(cmdLine string) (string, []interface{}) {
 		args = append(args, strings.ToLower(arr[i]))
 	}
 	return fmt.Sprintf("%s", args[0]), args[1:]
+}
+
+func parseTxnCommandLine(cmdLine string) []interface{} {
+	arr := strings.Split(cmdLine, " ")
+	if len(arr) == 0 {
+		return nil
+	}
+	args := make([]interface{}, 0)
+	for i := 0; i < len(arr); i++ {
+		if arr[i] == "" {
+			continue
+		}
+		args = append(args, strings.ToLower(arr[i]))
+	}
+	return args
 }
