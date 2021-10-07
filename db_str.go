@@ -525,8 +525,13 @@ func (db *RoseDB) getVal(key []byte) ([]byte, error) {
 	}
 
 	// In KeyOnlyMemMode, the value not in memory.
-	// So get the value from the db file at the offset.
+	// So get the value from cache if exists in lru cache.
+	// Otherwise, get the value from the db file at the offset.
 	if db.config.IdxMode == KeyOnlyMemMode {
+		if value, ok := db.cache.Get(key); ok {
+			return value, nil
+		}
+
 		df, err := db.getActiveFile(String)
 		if err != nil {
 			return nil, err
@@ -539,7 +544,9 @@ func (db *RoseDB) getVal(key []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		return e.Meta.Value, nil
+		value := e.Meta.Value
+		db.cache.Set(key, value)
+		return value, nil
 	}
 	return nil, ErrKeyNotExist
 }

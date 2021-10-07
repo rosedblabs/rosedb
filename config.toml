@@ -34,3 +34,7 @@ sync = false
 # reclaim的阈值
 # The threshold for db file reclaiming.
 merge_threshold = 64
+
+# cache容量
+# The capacity of cache
+cache_capacity = 64

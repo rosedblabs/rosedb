@@ -435,3 +435,23 @@ func BenchmarkRoseDB_Get(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkRoseDB_CacheGet(b *testing.B) {
+	for i := 0; i < 50; i++ {
+		roseDB.Set(GetKey(i), GetValue())
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < 50; j++ {
+			var res interface{}
+			err := roseDB.Get(GetKey(j), &res)
+			if err != nil && err != ErrKeyNotExist {
+				panic(err)
+			}
+		}
+	}
+	// noCache BenchmarkRoseDB_CacheGet-6   	    6424	    191100 ns/op	   18837 B/op	     500 allocs/op
+	// map 	   BenchmarkRoseDB_CacheGet-6   	    7688	    162494 ns/op	   15241 B/op	    1350 allocs/op
+}
