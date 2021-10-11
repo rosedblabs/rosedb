@@ -177,7 +177,6 @@ func Open(config Config) (*RoseDB, error) {
 					log.Println("rosedb: merge err: ", err)
 					return
 				}
-			default:
 			}
 		}
 	}()
