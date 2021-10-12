@@ -3,13 +3,14 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"github.com/roseduan/mmap-go"
 	"hash/crc32"
 	"io/ioutil"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/roseduan/mmap-go"
 )
 
 const (
@@ -39,6 +40,8 @@ var (
 var (
 	// ErrEmptyEntry the entry is empty.
 	ErrEmptyEntry = errors.New("storage/db_file: entry or the Key of entry is empty")
+	// ErrEmptyEntry the entry is empty.
+	ErrEntryTooLarge = errors.New("storage/db_file: entry is too large to store in mmap mode")
 )
 
 // FileRWMethod db file read and write method.
@@ -180,6 +183,9 @@ func (df *DBFile) Write(e *Entry) error {
 		}
 	}
 	if method == MMap {
+		if writeOff+int64(len(encVal)) > int64(len(df.mmap)) {
+			return ErrEntryTooLarge
+		}
 		copy(df.mmap[writeOff:], encVal)
 	}
 	df.Offset += int64(e.Size())
