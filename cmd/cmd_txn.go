@@ -3,28 +3,25 @@ package cmd
 import (
 	"github.com/roseduan/rosedb"
 	"strconv"
-	"strings"
 )
 
-func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+func txn(db *rosedb.RoseDB, txnCmds [][]string) (res interface{}, err error) {
 
 	var result []interface{}
 
-	txnCommand := parseTxnArgs(args)
-
 	var transaction = db.NewTransaction()
-	for _, txnCmd := range txnCommand {
+	for _, txnCmd := range txnCmds {
 		if len(txnCmd) == 0 {
 			continue
 		}
 
-		switch txnCmd[0].(string) {
+		switch txnCmd[0] {
 		case "set":
 			if len(txnCmd) != 3 {
 				err = newWrongNumOfArgsError("set")
 				return
 			}
-			err = transaction.Set(txnCmd[1], txnCmd[2])
+			err = transaction.Set([]byte(txnCmd[1]), []byte(txnCmd[2]))
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -37,7 +34,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			_, err = transaction.SetNx(txnCmd[1], txnCmd[2])
+			_, err = transaction.SetNx([]byte(txnCmd[1]), []byte(txnCmd[2]))
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -50,13 +47,13 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			dur, err1 := strconv.ParseInt(txnCmd[2].(string), 10, 64)
+			dur, err1 := strconv.ParseInt(txnCmd[2], 10, 64)
 			if err1 != nil {
 				err = ErrSyntaxIncorrect
 				return
 			}
 
-			err = transaction.SetEx(txnCmd[1], txnCmd[3], dur)
+			err = transaction.SetEx([]byte(txnCmd[1]), []byte(txnCmd[3]), dur)
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -70,10 +67,15 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 			}
 
 			var val string
-			err = transaction.Get(txnCmd[1], &val)
+			err = transaction.Get([]byte(txnCmd[1]), &val)
 			if err != nil {
-				transaction.Rollback()
-				return
+				if err == rosedb.ErrKeyNotExist {
+					err = nil
+					val = "(nil)"
+				} else {
+					transaction.Rollback()
+					return
+				}
 			}
 			result = append(result, val)
 
@@ -84,7 +86,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 			}
 
 			var val string
-			err = transaction.GetSet(txnCmd[1], txnCmd[2], &val)
+			err = transaction.GetSet([]byte(txnCmd[1]), []byte(txnCmd[2]), &val)
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -97,7 +99,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			err = transaction.Append(txnCmd[1], txnCmd[2].(string))
+			err = transaction.Append([]byte(txnCmd[1]), txnCmd[2])
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -111,11 +113,12 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 			}
 
 			var exist bool
-			exist = transaction.StrExists(txnCmd[1])
+			exist = transaction.StrExists([]byte(txnCmd[1]))
 			if exist {
 				result = append(result, "OK")
+			} else {
+				result = append(result, "nil")
 			}
-			result = append(result, "nil")
 
 		case "remove":
 			if len(txnCmd) != 2 {
@@ -123,7 +126,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			err = transaction.Remove(txnCmd[1])
+			err = transaction.Remove([]byte(txnCmd[1]))
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -136,7 +139,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			err = transaction.LPush(txnCmd[1], txnCmd[1:]...)
+			err = transaction.LPush([]byte(txnCmd[1]), strToInterface(txnCmd[2:])...)
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -148,8 +151,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				err = newWrongNumOfArgsError("rpush")
 				return
 			}
-
-			err = transaction.RPush(txnCmd[1], txnCmd[1:]...)
+			err = transaction.RPush([]byte(txnCmd[1]), strToInterface(txnCmd[2:])...)
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -162,7 +164,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			err = transaction.HSet(txnCmd[1], txnCmd[2], txnCmd[3])
+			err = transaction.HSet([]byte(txnCmd[1]), []byte(txnCmd[2]), []byte(txnCmd[3]))
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -175,7 +177,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			err = transaction.HSetNx(txnCmd[1], txnCmd[2], txnCmd[3])
+			err = transaction.HSetNx([]byte(txnCmd[1]), []byte(txnCmd[2]), []byte(txnCmd[3]))
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -189,7 +191,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 			}
 
 			var dest string
-			err = transaction.HGet(txnCmd[1], txnCmd[2], &dest)
+			err = transaction.HGet([]byte(txnCmd[1]), []byte(txnCmd[2]), &dest)
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -202,7 +204,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			err = transaction.HDel(txnCmd[1], txnCmd[1:]...)
+			err = transaction.HDel([]byte(txnCmd[1]), strToInterface(txnCmd[2:])...)
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -215,12 +217,12 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			ok := transaction.HExists(txnCmd[1], txnCmd[2])
+			ok := transaction.HExists([]byte(txnCmd[1]), []byte(txnCmd[2]))
 			if ok {
 				result = append(result, "OK")
+			} else {
+				result = append(result, "nil")
 			}
-
-			result = append(result, "nil")
 
 		case "sadd":
 			if len(txnCmd) <= 2 {
@@ -228,7 +230,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			err = transaction.SAdd(txnCmd[1], txnCmd[1:]...)
+			err = transaction.SAdd([]byte(txnCmd[1]), strToInterface(txnCmd[2:])...)
 			if err != nil {
 				return
 			}
@@ -241,12 +243,12 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			ok := transaction.SIsMember(txnCmd[1], txnCmd[2])
+			ok := transaction.SIsMember([]byte(txnCmd[1]), []byte(txnCmd[2]))
 			if ok {
 				result = append(result, "OK")
+			} else {
+				result = append(result, "nil")
 			}
-
-			result = append(result, "nil")
 
 		case "srem":
 			if len(txnCmd) <= 2 {
@@ -254,7 +256,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			err = transaction.SRem(txnCmd[1], txnCmd[1:]...)
+			err = transaction.SRem([]byte(txnCmd[1]), strToInterface(txnCmd[2:])...)
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -267,13 +269,13 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			score, err1 := strconv.ParseFloat(txnCmd[2].(string), 64)
+			score, err1 := strconv.ParseFloat(txnCmd[2], 64)
 			if err1 != nil {
 				err = ErrSyntaxIncorrect
 				return
 			}
 
-			err = transaction.ZAdd(txnCmd[1], score, txnCmd[3])
+			err = transaction.ZAdd([]byte(txnCmd[1]), score, []byte(txnCmd[3]))
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -286,7 +288,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			_, score, err1 := transaction.ZScore(txnCmd[1], txnCmd[2])
+			_, score, err1 := transaction.ZScore([]byte(txnCmd[1]), []byte(txnCmd[2]))
 			if err1 != nil {
 				transaction.Rollback()
 				return
@@ -299,7 +301,7 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 				return
 			}
 
-			err = transaction.ZRem(txnCmd[1], txnCmd[2])
+			err = transaction.ZRem([]byte(txnCmd[1]), []byte(txnCmd[2]))
 			if err != nil {
 				transaction.Rollback()
 				return
@@ -316,24 +318,11 @@ func txn(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	return
 }
 
-func parseTxnArgs(args []string) [][]interface{} {
-	var txnCommands [][]interface{}
-
-	for _, arg := range args {
-		arg = strings.Trim(arg, "[")
-		arg = strings.Trim(arg, "]")
-
-		var txnCmd []interface{}
-		for _, sli := range strings.Split(arg, " ") {
-			txnCmd = append(txnCmd, sli)
-		}
-
-		txnCommands = append(txnCommands, txnCmd)
+func strToInterface(txnCmd []string) []interface{} {
+	var values []interface{}
+	for i := 0; i < len(txnCmd); i++ {
+		values = append(values, []byte(txnCmd[i]))
 	}
 
-	return txnCommands
-}
-
-func init() {
-	addExecCommand("txn", txn)
+	return values
 }

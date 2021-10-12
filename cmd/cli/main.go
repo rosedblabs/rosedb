@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
@@ -10,16 +9,6 @@ import (
 	"os"
 	"strings"
 )
-
-var (
-	nestedMultiErr  = errors.New("ERR MULTI calls can not be nested")
-	withoutMultiErr = errors.New("ERR EXEC without MULTI")
-	execAbortErr    = errors.New("EXECABORT Transaction discarded because of previous errors.")
-)
-
-func newCommandError(cmd string) string {
-	return fmt.Sprintf("ERR unknown command '%s'", cmd)
-}
 
 // all supported commands.
 var commandList = [][]string{
@@ -156,9 +145,6 @@ func main() {
 		commandSet[strings.ToLower(cmd[0])] = true
 	}
 
-	var IsExistMulti = false
-	var transArgs []interface{}
-
 	prompt := addr + ">"
 	for {
 		cmd, err := line.Prompt(prompt)
@@ -191,88 +177,40 @@ func main() {
 					}
 				}
 			}
-		} else if command == "multi" {
-			line.AppendHistory(cmd)
-			if IsExistMulti {
-				fmt.Printf("(error) %v \n", nestedMultiErr)
-				continue
-			}
-			IsExistMulti = true
-
-		} else if command == "exec" {
-			line.AppendHistory(cmd)
-			if !IsExistMulti {
-				fmt.Printf("(error) %v \n", withoutMultiErr)
-				continue
-			}
-			IsExistMulti = false
-
-			if len(transArgs) == 0 {
-				fmt.Println("(empty list or set)")
-				continue
-			}
-
-			rawResp, err := conn.Do("txn", transArgs...)
-			if err != nil {
-				fmt.Printf("(error) %v \n", err)
-				fmt.Printf("(error) %v \n", execAbortErr)
-				IsExistMulti = false
-				continue
-			}
-			transArgs = []interface{}{}
-
-			printReply(rawResp)
-
 		} else {
 			line.AppendHistory(cmd)
-			if !commandSet[command] {
-				fmt.Printf("(error) %v \n", newCommandError(command))
-				if IsExistMulti {
-					fmt.Printf("(error) %v \n", execAbortErr)
-					IsExistMulti = false
-				}
-				continue
-			}
-
-			if IsExistMulti {
-				transArgs = append(transArgs, parseTxnCommandLine(cmd))
-				continue
-			}
-
+			//if !commandSet[command] {
+			//	continue
+			//}
 			rawResp, err := conn.Do(command, args...)
 			if err != nil {
 				fmt.Printf("(error) %v \n", err)
 				continue
 			}
-
-			printReply(rawResp)
-		}
-	}
-}
-
-func printReply(rawResp interface{}) {
-	switch reply := rawResp.(type) {
-	case []byte:
-		println(string(reply))
-	case string:
-		println(reply)
-	case nil:
-		println("(nil)")
-	case redis.Error:
-		fmt.Printf("(error) %v \n", reply)
-	case int64:
-		fmt.Printf("(integer) %d \n", reply)
-	case []interface{}:
-		for i, e := range reply {
-			switch element := e.(type) {
-			case string:
-				fmt.Printf("%d) %s\n", i+1, element)
+			switch reply := rawResp.(type) {
 			case []byte:
-				fmt.Printf("%d) %s\n", i+1, string(element))
-			default:
-				fmt.Printf("%d) %v\n", i+1, element)
-			}
+				println(string(reply))
+			case string:
+				println(reply)
+			case nil:
+				println("(nil)")
+			case redis.Error:
+				fmt.Printf("(error) %v \n", reply)
+			case int64:
+				fmt.Printf("(integer) %d \n", reply)
+			case []interface{}:
+				for i, e := range reply {
+					switch element := e.(type) {
+					case string:
+						fmt.Printf("%d) %s\n", i+1, element)
+					case []byte:
+						fmt.Printf("%d) %s\n", i+1, string(element))
+					default:
+						fmt.Printf("%d) %v\n", i+1, element)
+					}
 
+				}
+			}
 		}
 	}
 }
@@ -301,19 +239,4 @@ func parseCommandLine(cmdLine string) (string, []interface{}) {
 		args = append(args, strings.ToLower(arr[i]))
 	}
 	return fmt.Sprintf("%s", args[0]), args[1:]
-}
-
-func parseTxnCommandLine(cmdLine string) []interface{} {
-	arr := strings.Split(cmdLine, " ")
-	if len(arr) == 0 {
-		return nil
-	}
-	args := make([]interface{}, 0)
-	for i := 0; i < len(arr); i++ {
-		if arr[i] == "" {
-			continue
-		}
-		args = append(args, strings.ToLower(arr[i]))
-	}
-	return args
 }

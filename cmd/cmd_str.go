@@ -39,6 +39,12 @@ func get(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	var val string
 	err = db.Get([]byte(key), &val)
 	res = val
+
+	if err == rosedb.ErrKeyNotExist {
+		err = nil
+		res = "(nil)"
+	}
+
 	return
 }
 
