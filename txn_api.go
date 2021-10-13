@@ -423,7 +423,7 @@ func (tx *Txn) SIsMember(key, member interface{}) (ok bool) {
 }
 
 // SRem see db_set.go:SRem
-func (tx *Txn) SRem(key interface{}, members ...[]interface{}) (err error) {
+func (tx *Txn) SRem(key interface{}, members ...interface{}) (err error) {
 	encKey, err := utils.EncodeKey(key)
 	if err != nil {
 		return err

@@ -14,8 +14,11 @@ import (
 var commandList = [][]string{
 	{"SET", "key value", "STRING"},
 	{"GET", "key", "STRING"},
-	{"SETNX", "key value", "STRING"},
+	{"SETNX", "key seconds value", "STRING"},
+	{"SETEX", "key value", "STRING"},
 	{"GETSET", "key value", "STRING"},
+	{"MSET", "[key value...]", "STRING"},
+	{"MGET", "[key...]", "STRING"},
 	{"APPEND", "key value", "STRING"},
 	{"STREXISTS", "key", "STRING"},
 	{"REMOVE", "key", "STRING"},
@@ -38,16 +41,25 @@ var commandList = [][]string{
 	{"LLEN", "key", "LIST"},
 	{"LKEYEXISTS", "key", "LIST"},
 	{"LVALEXISTS", "key value", "LIST"},
+	{"LClear", "key", "LIST"},
+	{"LExpire", "key seconds", "LIST"},
+	{"LTTL", "key", "LIST"},
 
 	{"HSET", "key field value", "HASH"},
 	{"HSETNX", "key field value", "HASH"},
 	{"HGET", "key field", "HASH"},
+	{"HMSET", "[key field...]", "HASH"},
+	{"HMGET", "[key...]", "HASH"},
 	{"HGETALL", "key", "HASH"},
 	{"HDEL", "key field [field...]", "HASH"},
+	{"HKEYEXISTS", "key", "HASH"},
 	{"HEXISTS", "key field", "HASH"},
 	{"HLEN", "key", "HASH"},
 	{"HKEYS", "key", "HASH"},
 	{"HVALS", "key", "HASH"},
+	{"HCLEAR", "key", "HASH"},
+	{"HEXPIRE", "key seconds", "HASH"},
+	{"HTTL", "key", "HASH"},
 
 	{"SADD", "key members [members...]", "SET"},
 	{"SPOP", "key count", "SET"},
@@ -59,6 +71,10 @@ var commandList = [][]string{
 	{"SMEMBERS", "key", "SET"},
 	{"SUNION", "key [key...]", "SET"},
 	{"SDIFF", "key [key...]", "SET"},
+	{"SKEYEXISTS", "key", "SET"},
+	{"SCLEAR", "key", "SET"},
+	{"SEXPIRE", "key seconds", "SET"},
+	{"STTL", "key", "SET"},
 
 	{"ZADD", "key score member", "ZSET"},
 	{"ZSCORE", "key member", "ZSET"},
@@ -73,6 +89,13 @@ var commandList = [][]string{
 	{"ZREVGETBYRANK", "key rank", "ZSET"},
 	{"ZSCORERANGE", "key min max", "ZSET"},
 	{"ZREVSCORERANGE", "key max min", "ZSET"},
+	{"ZKEYEXISTS", "key", "ZSET"},
+	{"ZCLEAR", "key", "ZSET"},
+	{"ZEXPIRE", "key", "ZSET"},
+	{"ZTTL", "key", "ZSET"},
+
+	{"MULTI", "Transaction start", "TRANSACTION"},
+	{"EXEC", "Transaction end", "TRANSACTION"},
 }
 
 var host = flag.String("h", "127.0.0.1", "the rosedb server host, default 127.0.0.1")
@@ -156,9 +179,9 @@ func main() {
 			}
 		} else {
 			line.AppendHistory(cmd)
-			if !commandSet[command] {
-				continue
-			}
+			//if !commandSet[command] {
+			//	continue
+			//}
 			rawResp, err := conn.Do(command, args...)
 			if err != nil {
 				fmt.Printf("(error) %v \n", err)

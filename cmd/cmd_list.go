@@ -196,7 +196,7 @@ func lLen(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	return
 }
 
-func LKeyExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+func lKeyExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 1 {
 		err = newWrongNumOfArgsError("lkeyexists")
 		return
@@ -211,7 +211,7 @@ func LKeyExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	return
 }
 
-func LValExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+func lValExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
 		err = newWrongNumOfArgsError("lvalexists")
 		return
@@ -222,6 +222,57 @@ func LValExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	} else {
 		res = redcon.SimpleInt(0)
 	}
+	return
+}
+
+func lClear(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 1 {
+		err = newWrongNumOfArgsError("lclear")
+		return
+	}
+
+	if err = db.LClear([]byte(args[0])); err == nil {
+		res = redcon.SimpleInt(1)
+	} else {
+		res = redcon.SimpleInt(0)
+	}
+
+	return
+}
+
+func lExpire(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 2 {
+		err = newWrongNumOfArgsError("lexpire")
+		return
+	}
+
+	var dur int64
+	dur, err = strconv.ParseInt(args[1], 10, 64)
+	if err != nil {
+		err = ErrSyntaxIncorrect
+		return
+	}
+
+	if err = db.LExpire([]byte(args[0]), dur); err == nil {
+		res = redcon.SimpleInt(1)
+	} else {
+		res = redcon.SimpleInt(0)
+	}
+
+	return
+}
+
+func lTTL(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 1 {
+		err = newWrongNumOfArgsError("lttl")
+		return
+	}
+
+	var ttl int64
+	ttl = db.LTTL([]byte(args[0]))
+
+	res = redcon.SimpleInt(ttl)
+
 	return
 }
 
@@ -237,6 +288,9 @@ func init() {
 	addExecCommand("ltrim", lTrim)
 	addExecCommand("lrange", lRange)
 	addExecCommand("llen", lLen)
-	addExecCommand("lkeyexists", LKeyExists)
-	addExecCommand("lvalexists", LValExists)
+	addExecCommand("lkeyexists", lKeyExists)
+	addExecCommand("lvalexists", lValExists)
+	addExecCommand("lclear", lClear)
+	addExecCommand("lexpire", lExpire)
+	addExecCommand("lttl", lTTL)
 }

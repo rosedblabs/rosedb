@@ -136,6 +136,72 @@ func sDiff(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	return
 }
 
+func sKeyExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) <= 0 {
+		err = newWrongNumOfArgsError("skeyexists")
+		return
+	}
+
+	if ok := db.SKeyExists([]byte(args[0])); ok {
+		res = redcon.SimpleInt(1)
+	} else {
+		res = redcon.SimpleInt(0)
+	}
+
+	return
+}
+
+func sClear(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 1 {
+		err = newWrongNumOfArgsError("sclear")
+		return
+	}
+
+	if err = db.SClear([]byte(args[0])); err == nil {
+		res = redcon.SimpleInt(1)
+	} else {
+		res = redcon.SimpleInt(0)
+	}
+
+	return
+}
+
+func sExpire(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 2 {
+		err = newWrongNumOfArgsError("sexpire")
+		return
+	}
+
+	var dur int64
+	dur, err = strconv.ParseInt(args[1], 10, 64)
+	if err != nil {
+		err = ErrSyntaxIncorrect
+		return
+	}
+
+	if err = db.SExpire([]byte(args[0]), dur); err == nil {
+		res = redcon.SimpleInt(1)
+	} else {
+		res = redcon.SimpleInt(0)
+	}
+
+	return
+}
+
+func sTTL(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 1 {
+		err = newWrongNumOfArgsError("sttl")
+		return
+	}
+
+	var ttl int64
+	ttl = db.STTL([]byte(args[0]))
+
+	res = redcon.SimpleInt(ttl)
+
+	return
+}
+
 func init() {
 	addExecCommand("sadd", sAdd)
 	addExecCommand("spop", sPop)
@@ -147,4 +213,8 @@ func init() {
 	addExecCommand("smembers", sMembers)
 	addExecCommand("sunion", sUnion)
 	addExecCommand("sdiff", sDiff)
+	addExecCommand("skeyexists", sKeyExists)
+	addExecCommand("sclear", sClear)
+	addExecCommand("sexpire", sExpire)
+	addExecCommand("sttl", sTTL)
 }
