@@ -310,6 +310,7 @@ func txn(db *rosedb.RoseDB, txnCmds [][]string) (res interface{}, err error) {
 
 		default:
 			result = append(result, "unsupported command")
+
 		}
 	}
 
