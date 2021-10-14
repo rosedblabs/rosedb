@@ -44,7 +44,37 @@ func TestNewDBFile(t *testing.T) {
 		}
 	})
 }
-
+func TestMMapWrite(t *testing.T) {
+	var pathMMptest = "/tmp/rosedb-mmap/"
+	os.MkdirAll(pathMMptest, os.ModePerm)
+	entry := NewEntryNoExtra(make([]byte, 11), make([]byte, 10), String, 0)
+	var maxEntrySize int64 = entryHeaderSize + 20
+	t.Run("new db file mmap", func(t *testing.T) {
+		for i := 0; i < 5; i++ {
+			fd, err := NewDBFile(pathMMptest, 0, MMap, maxEntrySize, uint16(i))
+			if err != nil {
+				t.Error("new db file error ", err)
+			}
+			err = fd.Write(entry)
+			if err != ErrEntryTooLarge {
+				t.Error("entry write should be ErrEntryTooLarge")
+			}
+		}
+	})
+	entry2 := NewEntryNoExtra(make([]byte, 10), make([]byte, 10), String, 0)
+	t.Run("new db file mmap", func(t *testing.T) {
+		for i := 0; i < 5; i++ {
+			fd, err := NewDBFile(pathMMptest, 1, MMap, maxEntrySize, uint16(i))
+			if err != nil {
+				t.Error("new db file error ", err)
+			}
+			err = fd.Write(entry2)
+			if err != nil {
+				t.Error("entry write should be success")
+			}
+		}
+	})
+}
 func TestDBFile_Sync(t *testing.T) {
 	df, err := NewDBFile(path1, fileID1, FileIO, defaultBlockSize, 1)
 	if err != nil {
