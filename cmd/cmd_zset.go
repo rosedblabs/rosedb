@@ -242,6 +242,71 @@ func zRawScoreRange(db *rosedb.RoseDB, args []string, rev bool) (res interface{}
 	return
 }
 
+func zKeyExists(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 2 {
+		err = newWrongNumOfArgsError("zvalexists")
+		return
+	}
+
+	if ok := db.ZKeyExists([]byte(args[0])); ok {
+		res = redcon.SimpleInt(1)
+	} else {
+		res = redcon.SimpleInt(0)
+	}
+	return
+}
+
+func zClear(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 1 {
+		err = newWrongNumOfArgsError("zclear")
+		return
+	}
+
+	if err = db.ZClear([]byte(args[0])); err == nil {
+		res = redcon.SimpleInt(1)
+	} else {
+		res = redcon.SimpleInt(0)
+	}
+
+	return
+}
+
+func zExpire(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 2 {
+		err = newWrongNumOfArgsError("zexpire")
+		return
+	}
+
+	var dur int64
+	dur, err = strconv.ParseInt(args[1], 10, 64)
+	if err != nil {
+		err = ErrSyntaxIncorrect
+		return
+	}
+
+	if err = db.ZExpire([]byte(args[0]), dur); err == nil {
+		res = redcon.SimpleInt(1)
+	} else {
+		res = redcon.SimpleInt(0)
+	}
+
+	return
+}
+
+func zTTL(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
+	if len(args) != 1 {
+		err = newWrongNumOfArgsError("zttl")
+		return
+	}
+
+	var ttl int64
+	ttl = db.ZTTL([]byte(args[0]))
+
+	res = redcon.SimpleInt(ttl)
+
+	return
+}
+
 func init() {
 	addExecCommand("zadd", zAdd)
 	addExecCommand("zscore", zScore)
@@ -256,4 +321,8 @@ func init() {
 	addExecCommand("zrevgetbyrank", zRevGetByRank)
 	addExecCommand("zscorerange", zScoreRange)
 	addExecCommand("zrevscorerange", zSRevScoreRange)
+	addExecCommand("zkeyexists", zKeyExists)
+	addExecCommand("zclear", zClear)
+	addExecCommand("zexpire", zExpire)
+	addExecCommand("zttl", zTTL)
 }
