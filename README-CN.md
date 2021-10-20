@@ -5,7 +5,7 @@
 
 [English](https://github.com/roseduan/rosedb#rosedb) | [简体中文](https://github.com/roseduan/rosedb/blob/main/README.md)
 
-rosedb 是一个稳定、高性能、快速、内嵌的 k-v 数据库，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`，接口名称风格和 Redis 类似。
+rosedb 是一个稳定、高性能、快速、内嵌的 k-v 存储引擎，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`，接口名称风格和 Redis 类似。
 
 rosedb 基于简单的 bitcask 模型，数据文件布局类似 LSM Tree 中的 WAL 日志，纯 `Golang` 实现，易于理解和使用。
 
@@ -23,26 +23,7 @@ rosedb 基于简单的 bitcask 模型，数据文件布局类似 LSM Tree 中的
 * 支持过期时间。
 * `String` 数据类型支持前缀和范围扫描。
 * 支持简单的事务操作，ACID 特性。
-
-## 介绍
-
-一个 rosedb 实例，其实就是系统上的一个文件夹，在这个文件夹中，除了一些配置外，最主要的便是数据文件。一个实例中，只会存在一个活跃的数据文件进行写操作，如果这个文件的大小达到了设置的上限，那么这个文件会被关闭，然后创建一个新的活跃文件。
-
-其余的文件，称之为已归档文件，这些文件都是已经被关闭，不能在上面进行写操作，但是可以进行读操作。
-
-所以整个数据库实例就是当前活跃文件、已归档文件和其他配置的一个集合：
-
-![db_instance.png](https://i.loli.net/2021/03/14/2WpobcYO43x1FHR.png)
-
-在每一个文件中，写数据的操作只会追加到文件的末尾，这保证了写操作不会进行额外的磁盘寻址。写入的数据是以一个个被称为 Entry 的结构组织起来的，Entry 的主要数据结构如下：
-
-![entry.png](https://i.loli.net/2021/03/14/cVIGPa14feKloJ2.png)
-
-因此一个数据文件可以看做是多个 Entry 的集合：
-
-![db_file.png](https://i.loli.net/2021/03/14/f3KOnNgEhmbetxa.png)
-
-所有的写入、删除、更新操作，都会被封装成一个 Entry，追加到数据文件的末尾。一个 key 可能会被多次更新，或者被删除，因此数据文件当中可能存在冗余的 Entry 数据。在这种情况下，我们需要合并数据文件，来清除冗余的 Entry 数据，回收磁盘空间。
+* 数据文件 merge 可手动停止。
 
 ## 使用
 
@@ -194,7 +175,7 @@ rosedb
 
 ## 教程
 
-我在 B 站录制了这个项目的视频，你可以跟着视频来学习这个项目，期待你给这个项目提出宝贵的意见和建议！
+我在 B 站录制了这个项目的视频，你可以跟着视频来学习这个项目。
 
 [使用 Go 写一个数据库—1 基本结构](https://www.bilibili.com/video/BV1aZ4y1w7Uz)
 
@@ -207,6 +188,8 @@ rosedb
 [使用 Go 写一个数据库—5 命令行](https://www.bilibili.com/video/BV1gN411f7SR?spm_id_from=333.788.b_636f6d6d656e74.33)
 
 [使用 Go 写一个数据库—6 完结撒花](https://www.bilibili.com/video/BV1VQ4y1o7AV/?spm_id_from=333.788.recommend_more_video.5)
+
+**做为一个个人开源项目，rosedb 还有很多不完善的地方，期待你提出宝贵的意见和建议，感兴趣的话也非常欢迎参与到 rosedb 的开发中！**
 
 ## 参与贡献
 
