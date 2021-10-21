@@ -171,9 +171,7 @@ func (db *RoseDB) MSet(values ...interface{}) error {
 		}
 
 		// clear expire time.
-		if _, ok := db.expires[String][string(keys[i])]; ok {
-			delete(db.expires[String], string(keys[i]))
-		}
+		delete(db.expires[String], string(keys[i]))
 
 		// set String index info, stored at skip list.
 		if err := db.setIndexer(e); err != nil {
@@ -469,9 +467,7 @@ func (db *RoseDB) setVal(key, value []byte) (err error) {
 	}
 
 	// clear expire time.
-	if _, ok := db.expires[String][string(key)]; ok {
-		delete(db.expires[String], string(key))
-	}
+	delete(db.expires[String], string(key))
 	// set String index info, stored at skip list.
 	if err = db.setIndexer(e); err != nil {
 		return
