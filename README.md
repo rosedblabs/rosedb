@@ -4,7 +4,9 @@
 
 [English](https://github.com/roseduan/rosedb#rosedb) | [简体中文](https://github.com/roseduan/rosedb/blob/main/README-CN.md)
 
-rosedb is a fast, stable and embedded key-value (k-v) database based on bitcask. Its on-disk files are organized as WAL(Write Ahead Log) in LSM trees, optimizing for write throughput. rosedb supports a variety of data structures such as `string`, `list`, `hash`, `set` and `sorted set`.
+rosedb is a fast, stable and embedded key-value (k-v) storage engine based on `bitcask`. Its on-disk files are organized as WAL(Write Ahead Log) in LSM trees, optimizing for write throughput. 
+
+rosedb supports a variety of data structures such as `string`, `list`, `hash`, `set` and `sorted set`.
 
 rosedb is written in pure `Go`, easy to understand and use.
 
@@ -21,7 +23,8 @@ Our vision is to build an efficient k-v storage engine for Go-based applications
 * Comes with rosedb-cli for command line access, that is compatible with redis-cli.
 * Supports TTL-based key eviction.
 * Supports prefix scan and range scan for string keys.
-* Support transaction, ACID features.
+* Support simple transaction, ACID features.
+* Merge operation can be stopped manually.
 
 ## Usage
 

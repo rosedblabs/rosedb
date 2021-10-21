@@ -177,7 +177,6 @@ func Open(config Config) (*RoseDB, error) {
 					log.Println("rosedb: merge err: ", err)
 					return
 				}
-			default:
 			}
 		}
 	}()
@@ -609,8 +608,12 @@ func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer, isOpen bo
 		idx.Meta.Value = entry.Meta.Value
 		idx.Meta.ValueSize = uint32(len(entry.Meta.Value))
 	}
+
 	// uncommitted entry is invalid.
 	if entry.TxId != 0 && isOpen {
+		if entry.TxId > db.txnMeta.MaxTxId {
+			db.txnMeta.MaxTxId = entry.TxId
+		}
 		if _, ok := db.txnMeta.CommittedTxIds[entry.TxId]; !ok {
 			return
 		}
