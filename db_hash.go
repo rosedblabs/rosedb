@@ -71,10 +71,10 @@ func (db *RoseDB) HSetNx(key, field, value []byte) (res int, err error) {
 	return
 }
 
-func (db *RoseDB) setHashIndexer(e *storage.Entry, onlyNotExist bool) (res int) {
+func (db *RoseDB) setHashIndexer(e *storage.Entry, onlyNotExist bool) int {
 	activeFile, err := db.getActiveFile(Hash)
 	if err != nil {
-		return
+		return 0
 	}
 
 	idx := &index.Indexer{
@@ -90,8 +90,7 @@ func (db *RoseDB) setHashIndexer(e *storage.Entry, onlyNotExist bool) (res int) 
 	if db.config.IdxMode == KeyValueMemMode {
 		idx.Meta.Value = e.Meta.Value
 	}
-	db.hashIndex.indexes.HSetVal(string(idx.Meta.Key), string(idx.Meta.Extra), idx, onlyNotExist)
-	return
+	return db.hashIndex.indexes.HSetIndexer(idx, onlyNotExist)
 }
 
 // HGet returns the value associated with field in the hash stored at key.
@@ -155,14 +154,15 @@ func (db *RoseDB) HGetAll(key []byte) [][]byte {
 }
 
 func (db *RoseDB) getValSliByIndexers(idxSli []*index.Indexer, f func(idx *index.Indexer) []byte) [][]byte {
-	ret := make([][]byte, len(idxSli))
+	ret := make([][]byte, 0, len(idxSli))
 	for _, idx := range idxSli {
 		ret = append(ret, f(idx))
 	}
 	return ret
 }
 
-// HMSet set multiple hash fields to multiple values
+// HMSet set multiple hash fields to multiple values.
+// Example: key, field1, value1, field2, value2 ... -> key: {field1 -> value1, field2 -> value2 ...}
 func (db *RoseDB) HMSet(key []byte, values ...[]byte) error {
 	if len(values)%2 != 0 {
 		return ErrWrongNumberOfArgs

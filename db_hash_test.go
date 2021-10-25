@@ -144,8 +144,8 @@ func TestRoseDB_HExpire(t *testing.T) {
 
 	key := []byte("hash_key")
 	res, err := db.HSet(key, []byte("a"), []byte("hash-val-1"))
-	assert.Equal(t, err, nil)
-	assert.Equal(t, res, 1)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, 1, res)
 
 	err = db.HExpire(key, 10)
 	assert.Equal(t, err, nil)
