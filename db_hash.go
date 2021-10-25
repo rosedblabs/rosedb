@@ -46,7 +46,7 @@ func (db *RoseDB) HSet(key []byte, field []byte, value []byte) (res int, err err
 		return
 	}
 
-	res = db.setHashIndexer(e, false)
+	res = db.setHashIndexer(e)
 	return
 }
 
@@ -60,18 +60,21 @@ func (db *RoseDB) HSetNx(key, field, value []byte) (res int, err error) {
 
 	db.hashIndex.mu.Lock()
 	defer db.hashIndex.mu.Unlock()
-	e := storage.NewEntry(key, value, field, Hash, HashHSet)
 
-	if res = db.setHashIndexer(e, true); res == 1 {
-		// db store
-		if err = db.store(e); err != nil {
-			return
-		}
+	if db.HKeyExists(key) {
+		return
 	}
+
+	e := storage.NewEntry(key, value, field, Hash, HashHSet)
+	if err = db.store(e); err != nil {
+		return
+	}
+
+	res = db.setHashIndexer(e)
 	return
 }
 
-func (db *RoseDB) setHashIndexer(e *storage.Entry, onlyNotExist bool) int {
+func (db *RoseDB) setHashIndexer(e *storage.Entry) int {
 	activeFile, err := db.getActiveFile(Hash)
 	if err != nil {
 		return 0
@@ -90,7 +93,7 @@ func (db *RoseDB) setHashIndexer(e *storage.Entry, onlyNotExist bool) int {
 	if db.config.IdxMode == KeyValueMemMode {
 		idx.Meta.Value = e.Meta.Value
 	}
-	return db.hashIndex.indexes.HSetIndexer(idx, onlyNotExist)
+	return db.hashIndex.indexes.HSet(idx)
 }
 
 // HGet returns the value associated with field in the hash stored at key.
@@ -207,7 +210,7 @@ func (db *RoseDB) HMSet(key []byte, values ...[]byte) error {
 			return err
 		}
 
-		db.setHashIndexer(e, false)
+		db.setHashIndexer(e)
 	}
 
 	return nil

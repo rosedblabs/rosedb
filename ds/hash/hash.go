@@ -19,38 +19,20 @@ func New() *Hash {
 	return &Hash{make(Record)}
 }
 
-// HSet Sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
-// If field already exists in the hash, it is overwritten.
+// HSet put indexer in memory.
 func (h *Hash) HSet(idx *index.Indexer) (res int) {
-	return h.HSetIndexer(idx, false)
-}
-
-// HSetNx sets field in the hash stored at key to indexer, only if field does not yet exist.
-// If key does not exist, a new key holding a hash is created. If field already exists, this operation has no effect.
-// Return if the operation successful
-func (h *Hash) HSetNx(idx *index.Indexer) int {
-	return h.HSetIndexer(idx, true)
-}
-
-// HSetIndexer set indexer,
-func (h *Hash) HSetIndexer(idx *index.Indexer, onlyNotExist bool) int {
 	key := string(idx.Meta.Key)
 	field := string(idx.Meta.Extra)
 	if !h.exist(key) {
 		h.record[key] = make(map[string]*index.Indexer)
 	}
 
-	// If key does exist, both set-cmd and setnx-cmd will set idx and return operation successful.
 	if _, exist := h.record[key][field]; !exist {
-		h.record[key][field] = idx
-		return 1
-	}
-	// if key exist, set-cmd will update val.
-	if !onlyNotExist {
-		h.record[key][field] = idx
+		res = 1
 	}
 
-	return 0
+	h.record[key][field] = idx
+	return
 }
 
 // HGet returns the value associated with field in the hash stored at key.

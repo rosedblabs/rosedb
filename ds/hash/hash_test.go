@@ -44,41 +44,21 @@ func TestNew(t *testing.T) {
 
 func TestHash_HSet(t *testing.T) {
 	hash := InitHash()
+
+	// onlyNotExist is false, equals to HSet function.
 	r1 := hash.HSet(getTestIndexer(key, "d", "123"))
 	assert.Equal(t, r1, 1)
 	r2 := hash.HSet(getTestIndexer(key, "d", "123"))
 	assert.Equal(t, r2, 0)
 	r3 := hash.HSet(getTestIndexer(key, "e", "234"))
 	assert.Equal(t, r3, 1)
-}
-
-func TestHash_HSetNx(t *testing.T) {
-	hash := InitHash()
-	r1 := hash.HSetNx(getTestIndexer(key, "a", "new one"))
-	assert.Equal(t, r1, 0)
-	r2 := hash.HSetNx(getTestIndexer(key, "f", "d-new one"))
-	assert.Equal(t, r2, 1)
-	r3 := hash.HSetNx(getTestIndexer(key, "f", "d-new one"))
-	assert.Equal(t, r3, 0)
-}
-
-func TestHash_HSetIndexer(t *testing.T) {
-	hash := InitHash()
-
-	// onlyNotExist is false, equals to HSet function.
-	r1 := hash.HSetIndexer(getTestIndexer(key, "d", "123"), false)
-	assert.Equal(t, r1, 1)
-	r2 := hash.HSetIndexer(getTestIndexer(key, "d", "123"), false)
-	assert.Equal(t, r2, 0)
-	r3 := hash.HSetIndexer(getTestIndexer(key, "e", "234"), false)
-	assert.Equal(t, r3, 1)
 
 	// onlyNotExist is true, equals to HSetNx function.
-	r4 := hash.HSetIndexer(getTestIndexer(key, "a", "new one"), true)
+	r4 := hash.HSet(getTestIndexer(key, "a", "new one"))
 	assert.Equal(t, r4, 0)
-	r5 := hash.HSetIndexer(getTestIndexer(key, "f", "d-new one"), true)
+	r5 := hash.HSet(getTestIndexer(key, "f", "d-new one"))
 	assert.Equal(t, r5, 1)
-	r6 := hash.HSetIndexer(getTestIndexer(key, "f", "d-new one"), true)
+	r6 := hash.HSet(getTestIndexer(key, "f", "d-new one"))
 	assert.Equal(t, r6, 0)
 }
 

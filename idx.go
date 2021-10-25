@@ -160,7 +160,7 @@ func (db *RoseDB) buildHashIndex(idx *index.Indexer, entry *storage.Entry) {
 	key := string(entry.Meta.Key)
 	switch entry.GetMark() {
 	case HashHSet:
-		db.hashIndex.indexes.HSetIndexer(idx, false)
+		db.hashIndex.indexes.HSet(idx)
 	case HashHDel:
 		db.hashIndex.indexes.HDel(key, string(entry.Meta.Extra))
 	case HashHClear:
