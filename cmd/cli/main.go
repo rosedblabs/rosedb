@@ -7,6 +7,7 @@ import (
 	"github.com/peterh/liner"
 	"log"
 	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -160,7 +161,9 @@ func main() {
 		if command == "quit" {
 			// TODO flush page cache if have
 			break
-		} else if command == "help" {
+		} else if command == "clear"{
+			clear()
+		}else if command == "help" {
 			if len(args) == 0 {
 				printCmdHelp()
 			} else {
@@ -225,6 +228,15 @@ func printCmdHelp() {
     <ctrl+c> or <quit>`
 	fmt.Println(help)
 }
+func clear(){
+	cmd := exec.Command("clear")
+	cmd.Stdout = os.Stdout
+	err := cmd.Run()
+	if err != nil{
+		return
+	}
+}
+
 
 func parseCommandLine(cmdLine string) (string, []interface{}) {
 	arr := strings.Split(cmdLine, " ")
