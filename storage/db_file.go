@@ -40,7 +40,7 @@ var (
 var (
 	// ErrEmptyEntry the entry is empty.
 	ErrEmptyEntry = errors.New("storage/db_file: entry or the Key of entry is empty")
-	// ErrEmptyEntry the entry is empty.
+	// ErrEntryTooLarge the entry is too large.
 	ErrEntryTooLarge = errors.New("storage/db_file: entry is too large to store in mmap mode")
 )
 
