@@ -1,6 +1,8 @@
 package hash
 
 import (
+	"github.com/roseduan/rosedb/index"
+	"github.com/roseduan/rosedb/storage"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
@@ -8,12 +10,29 @@ import (
 
 var key = "my_hash"
 
+const (
+	testFileId = 0
+	testOffset = -1
+)
+
+func getTestIndexer(key string, field string, testVal string) *index.Indexer {
+	return &index.Indexer{
+		Meta: &storage.Meta{
+			Key:   []byte(key),
+			Extra: []byte(field),
+			Value: []byte(testVal),
+		},
+		FileId: testFileId,
+		Offset: testOffset,
+	}
+}
+
 func InitHash() *Hash {
 	hash := New()
 
-	hash.HSet(key, "a", []byte("hash_data_001"))
-	hash.HSet(key, "b", []byte("hash_data_002"))
-	hash.HSet(key, "c", []byte("hash_data_003"))
+	hash.HSet(getTestIndexer(key, "a", "hash_data_001"))
+	hash.HSet(getTestIndexer(key, "b", "hash_data_002"))
+	hash.HSet(getTestIndexer(key, "c", "hash_data_003"))
 
 	return hash
 }
@@ -25,31 +44,51 @@ func TestNew(t *testing.T) {
 
 func TestHash_HSet(t *testing.T) {
 	hash := InitHash()
-	r1 := hash.HSet("my_hash", "d", []byte("123"))
+	r1 := hash.HSet(getTestIndexer(key, "d", "123"))
 	assert.Equal(t, r1, 1)
-	r2 := hash.HSet("my_hash", "d", []byte("123"))
+	r2 := hash.HSet(getTestIndexer(key, "d", "123"))
 	assert.Equal(t, r2, 0)
-	r3 := hash.HSet("my_hash", "e", []byte("234"))
+	r3 := hash.HSet(getTestIndexer(key, "e", "234"))
 	assert.Equal(t, r3, 1)
 }
 
 func TestHash_HSetNx(t *testing.T) {
 	hash := InitHash()
-	r1 := hash.HSetNx(key, "a", []byte("new one"))
+	r1 := hash.HSetNx(getTestIndexer(key, "a", "new one"))
 	assert.Equal(t, r1, 0)
-	r2 := hash.HSetNx(key, "f", []byte("d-new one"))
+	r2 := hash.HSetNx(getTestIndexer(key, "f", "d-new one"))
 	assert.Equal(t, r2, 1)
-	r3 := hash.HSetNx(key, "f", []byte("d-new one"))
+	r3 := hash.HSetNx(getTestIndexer(key, "f", "d-new one"))
 	assert.Equal(t, r3, 0)
+}
+
+func TestHash_HSetIndexer(t *testing.T) {
+	hash := InitHash()
+
+	// onlyNotExist is false, equals to HSet function.
+	r1 := hash.HSetIndexer(getTestIndexer(key, "d", "123"), false)
+	assert.Equal(t, r1, 1)
+	r2 := hash.HSetIndexer(getTestIndexer(key, "d", "123"), false)
+	assert.Equal(t, r2, 0)
+	r3 := hash.HSetIndexer(getTestIndexer(key, "e", "234"), false)
+	assert.Equal(t, r3, 1)
+
+	// onlyNotExist is true, equals to HSetNx function.
+	r4 := hash.HSetIndexer(getTestIndexer(key, "a", "new one"), true)
+	assert.Equal(t, r4, 0)
+	r5 := hash.HSetIndexer(getTestIndexer(key, "f", "d-new one"), true)
+	assert.Equal(t, r5, 1)
+	r6 := hash.HSetIndexer(getTestIndexer(key, "f", "d-new one"), true)
+	assert.Equal(t, r6, 0)
 }
 
 func TestHash_HGet(t *testing.T) {
 	hash := InitHash()
 
-	val := hash.HGet(key, "a")
-	assert.Equal(t, []byte("hash_data_001"), val)
+	idx := hash.HGet(key, "a")
+	assert.Equal(t, []byte("hash_data_001"), idx.Meta.Value)
 	valNotExist := hash.HGet(key, "m")
-	assert.Equal(t, []byte(nil), valNotExist)
+	assert.Equal(t, (*index.Indexer)(nil), valNotExist)
 }
 
 func TestHash_HGetAll(t *testing.T) {
@@ -57,7 +96,7 @@ func TestHash_HGetAll(t *testing.T) {
 
 	vals := hash.HGetAll(key)
 	for _, v := range vals {
-		t.Log(string(v))
+		t.Log(string(v.Meta.Value))
 	}
 }
 
@@ -78,12 +117,12 @@ func TestHash_HExists(t *testing.T) {
 	hash := InitHash()
 	// key and field both exist
 	exist := hash.HExists(key, "a")
-	assert.Equal(t, 1, exist)
+	assert.Equal(t, true, exist)
 	// key is non existing
 	keyNot := hash.HExists("non exiting key", "a")
-	assert.Equal(t, 0, keyNot)
+	assert.Equal(t, false, keyNot)
 	not := hash.HExists(key, "m")
-	assert.Equal(t, 0, not)
+	assert.Equal(t, false, not)
 
 }
 
@@ -103,8 +142,8 @@ func TestHash_HVals(t *testing.T) {
 	hash := InitHash()
 	values := hash.HVals(key)
 	for i, v := range values {
-		assert.Equal(t, []byte("hash_data_00"+strconv.Itoa(i+1)), v)
-		t.Log(string(v))
+		assert.Equal(t, []byte("hash_data_00"+strconv.Itoa(i+1)), v.Meta.Value)
+		t.Log(string(v.Meta.Value))
 	}
 }
 
@@ -118,7 +157,7 @@ func TestHash_HClear(t *testing.T) {
 	hash.HClear(key)
 
 	v := hash.HGet(key, "a")
-	assert.Equal(t, len(v), 0)
+	assert.Empty(t, v)
 }
 
 func TestHash_HKeyExists(t *testing.T) {
