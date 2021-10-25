@@ -605,7 +605,7 @@ func (db *RoseDB) saveConfig() (err error) {
 
 // build the indexes for different data structures.
 func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer, isOpen bool) (err error) {
-	if db.config.IdxMode == KeyValueMemMode && entry.GetType() == String {
+	if db.config.IdxMode == KeyValueMemMode && (entry.GetType() == String || entry.GetType() == Hash) {
 		idx.Meta.Value = entry.Meta.Value
 		idx.Meta.ValueSize = uint32(len(entry.Meta.Value))
 	}
@@ -622,7 +622,7 @@ func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer, isOpen bo
 	case storage.List:
 		db.buildListIndex(entry)
 	case storage.Hash:
-		db.buildHashIndex(entry)
+		db.buildHashIndex(idx, entry)
 	case storage.Set:
 		db.buildSetIndex(entry)
 	case storage.ZSet:

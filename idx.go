@@ -152,7 +152,7 @@ func (db *RoseDB) buildListIndex(entry *storage.Entry) {
 }
 
 // build hash indexes.
-func (db *RoseDB) buildHashIndex(entry *storage.Entry) {
+func (db *RoseDB) buildHashIndex(idx *index.Indexer, entry *storage.Entry) {
 	if db.hashIndex == nil || entry == nil {
 		return
 	}
@@ -160,7 +160,7 @@ func (db *RoseDB) buildHashIndex(entry *storage.Entry) {
 	key := string(entry.Meta.Key)
 	switch entry.GetMark() {
 	case HashHSet:
-		db.setHashIndexer(entry, false)
+		db.hashIndex.indexes.HSetIndexer(idx, false)
 	case HashHDel:
 		db.hashIndex.indexes.HDel(key, string(entry.Meta.Extra))
 	case HashHClear:
