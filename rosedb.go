@@ -835,3 +835,21 @@ func (db *RoseDB) encode(key, value interface{}) (encKey, encVal []byte, err err
 	}
 	return
 }
+
+func (db *RoseDB) readValFromDbFile(idx *index.Indexer, dataType DataType) []byte {
+	if idx == nil {
+		return nil
+	}
+	df, err := db.getActiveFile(dataType)
+	if err != nil {
+		return nil
+	}
+	if idx.FileId != df.Id {
+		df = db.archFiles[dataType][idx.FileId]
+	}
+	e, err := df.Read(idx.Offset)
+	if err != nil {
+		return nil
+	}
+	return e.Meta.Value
+}

@@ -308,7 +308,7 @@ func (tx *Txn) hGetVal(key, field interface{}) (val []byte, err error) {
 		return
 	}
 
-	val = tx.db.hashIndex.indexes.HGet(string(encKey), string(encField))
+	val = tx.db.HGet(encKey, encField)
 	return
 }
 

@@ -1,5 +1,7 @@
 package hash
 
+import "github.com/roseduan/rosedb/index"
+
 // the implementation of hash table.
 
 type (
@@ -9,7 +11,7 @@ type (
 	}
 
 	// Record hash records to save.
-	Record map[string]map[string][]byte
+	Record map[string]map[string]*index.Indexer
 )
 
 // New create a new hash ds.
@@ -19,39 +21,37 @@ func New() *Hash {
 
 // HSet Sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
 // If field already exists in the hash, it is overwritten.
-func (h *Hash) HSet(key string, field string, value []byte) (res int) {
-	if !h.exist(key) {
-		h.record[key] = make(map[string][]byte)
-	}
-
-	if h.record[key][field] != nil {
-		// if this field exists, overwritten it.
-		h.record[key][field] = value
-	} else {
-		// create if this field not exists.
-		h.record[key][field] = value
-		res = 1
-	}
-	return
+func (h *Hash) HSet(key string, field string, idx *index.Indexer) (res int) {
+	return h.HSetVal(key, field, idx, false)
 }
 
-// HSetNx sets field in the hash stored at key to value, only if field does not yet exist.
+// HSetNx sets field in the hash stored at key to indexer, only if field does not yet exist.
 // If key does not exist, a new key holding a hash is created. If field already exists, this operation has no effect.
 // Return if the operation successful
-func (h *Hash) HSetNx(key string, field string, value []byte) int {
+func (h *Hash) HSetNx(key string, field string, idx *index.Indexer) int {
+	return h.HSetVal(key, field, idx, true)
+}
+
+func (h *Hash) HSetVal(key string, field string, idx *index.Indexer, onlyNotExist bool) int {
 	if !h.exist(key) {
-		h.record[key] = make(map[string][]byte)
+		h.record[key] = make(map[string]*index.Indexer)
 	}
 
+	// If key does exist, both set-cmd and setnx-cmd will set idx and return operation successful.
 	if _, exist := h.record[key][field]; !exist {
-		h.record[key][field] = value
+		h.record[key][field] = idx
 		return 1
 	}
+	// if key exist, set-cmd will update val.
+	if !onlyNotExist {
+		h.record[key][field] = idx
+	}
+
 	return 0
 }
 
 // HGet returns the value associated with field in the hash stored at key.
-func (h *Hash) HGet(key, field string) []byte {
+func (h *Hash) HGet(key, field string) *index.Indexer {
 	if !h.exist(key) {
 		return nil
 	}
@@ -61,13 +61,13 @@ func (h *Hash) HGet(key, field string) []byte {
 
 // HGetAll returns all fields and values of the hash stored at key.
 // In the returned value, every field name is followed by its value, so the length of the reply is twice the size of the hash.
-func (h *Hash) HGetAll(key string) (res [][]byte) {
+func (h *Hash) HGetAll(key string) (res []*index.Indexer) {
 	if !h.exist(key) {
 		return
 	}
 
-	for k, v := range h.record[key] {
-		res = append(res, []byte(k), v)
+	for _, v := range h.record[key] {
+		res = append(res, v)
 	}
 	return
 }
@@ -124,7 +124,7 @@ func (h *Hash) HKeys(key string) (val []string) {
 }
 
 // HVals returns all values in the hash stored at key.
-func (h *Hash) HVals(key string) (val [][]byte) {
+func (h *Hash) HVals(key string) (val []*index.Indexer) {
 	if !h.exist(key) {
 		return
 	}

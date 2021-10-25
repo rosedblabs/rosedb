@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"bytes"
+	"github.com/roseduan/rosedb/index"
 	"sync"
 	"time"
 
@@ -28,10 +29,13 @@ func (db *RoseDB) HSet(key []byte, field []byte, value []byte) (res int, err err
 		return
 	}
 
+	// In KeyValueMemMode, value stored in memory.
 	// If the existed value is the same as the set value, nothing will be done.
-	oldVal := db.HGet(key, field)
-	if bytes.Compare(oldVal, value) == 0 {
-		return
+	if db.config.IdxMode == KeyValueMemMode {
+		oldVal := db.HGet(key, field)
+		if bytes.Compare(oldVal, value) == 0 {
+			return
+		}
 	}
 
 	db.hashIndex.mu.Lock()
@@ -42,7 +46,7 @@ func (db *RoseDB) HSet(key []byte, field []byte, value []byte) (res int, err err
 		return
 	}
 
-	res = db.hashIndex.indexes.HSet(string(key), string(field), value)
+	res = db.setHashIndexer(e, false)
 	return
 }
 
@@ -56,13 +60,37 @@ func (db *RoseDB) HSetNx(key, field, value []byte) (res int, err error) {
 
 	db.hashIndex.mu.Lock()
 	defer db.hashIndex.mu.Unlock()
+	e := storage.NewEntry(key, value, field, Hash, HashHSet)
 
-	if res = db.hashIndex.indexes.HSetNx(string(key), string(field), value); res == 1 {
-		e := storage.NewEntry(key, value, field, Hash, HashHSet)
+	if res = db.setHashIndexer(e, true); res == 1 {
+		// db store
 		if err = db.store(e); err != nil {
 			return
 		}
 	}
+	return
+}
+
+func (db *RoseDB) setHashIndexer(e *storage.Entry, onlyNotExist bool) (res int) {
+	activeFile, err := db.getActiveFile(Hash)
+	if err != nil {
+		return
+	}
+
+	idx := &index.Indexer{
+		Meta: &storage.Meta{
+			Key:   e.Meta.Key,
+			Extra: e.Meta.Extra,
+		},
+		FileId: activeFile.Id,
+		Offset: activeFile.Offset - int64(e.Size()),
+	}
+
+	// in KeyValueMemMode, both key and value will store in memory.
+	if db.config.IdxMode == KeyValueMemMode {
+		idx.Meta.Value = e.Meta.Value
+	}
+	db.hashIndex.indexes.HSetVal(string(idx.Meta.Key), string(idx.Meta.Extra), idx, onlyNotExist)
 	return
 }
 
@@ -78,8 +106,19 @@ func (db *RoseDB) HGet(key, field []byte) []byte {
 	if db.checkExpired(key, Hash) {
 		return nil
 	}
+	idx := db.hashIndex.indexes.HGet(string(key), string(field))
 
-	return db.hashIndex.indexes.HGet(string(key), string(field))
+	//In KeyValueMemMode, value stored in memory.
+	if db.config.IdxMode == KeyValueMemMode {
+		return idx.Meta.Value
+	}
+
+	// In KeyOnlyMemMode, value not in memory.
+	// Read value from db file according to idx.
+	if db.config.IdxMode == KeyOnlyMemMode {
+		return db.readValFromDbFile(idx, Hash)
+	}
+	return nil
 }
 
 // HGetAll returns all fields and values of the hash stored at key.
@@ -96,7 +135,31 @@ func (db *RoseDB) HGetAll(key []byte) [][]byte {
 		return nil
 	}
 
-	return db.hashIndex.indexes.HGetAll(string(key))
+	idxSli := db.hashIndex.indexes.HGetAll(string(key))
+
+	//In KeyValueMemMode, value stored in memory.
+	if db.config.IdxMode == KeyValueMemMode {
+		return db.getValSliByIndexers(idxSli, func(idx *index.Indexer) []byte {
+			return idx.Meta.Value
+		})
+	}
+
+	// In KeyOnlyMemMode, value not in memory.
+	// Read value from db file according to idx.
+	if db.config.IdxMode == KeyOnlyMemMode {
+		return db.getValSliByIndexers(idxSli, func(idx *index.Indexer) []byte {
+			return db.readValFromDbFile(idx, Hash)
+		})
+	}
+	return nil
+}
+
+func (db *RoseDB) getValSliByIndexers(idxSli []*index.Indexer, f func(idx *index.Indexer) []byte) [][]byte {
+	ret := make([][]byte, len(idxSli))
+	for _, idx := range idxSli {
+		ret = append(ret, f(idx))
+	}
+	return ret
 }
 
 // HMSet set multiple hash fields to multiple values
@@ -144,7 +207,7 @@ func (db *RoseDB) HMSet(key []byte, values ...[]byte) error {
 			return err
 		}
 
-		db.hashIndex.indexes.HSet(string(key), string(insertVals[i]), insertVals[i+1])
+		db.setHashIndexer(e, false)
 	}
 
 	return nil
@@ -163,14 +226,26 @@ func (db *RoseDB) HMGet(key []byte, fields ...[]byte) [][]byte {
 		return nil
 	}
 
-	values := make([][]byte, 0)
+	idxSli := make([]*index.Indexer, 0)
 
 	for _, field := range fields {
 		value := db.hashIndex.indexes.HGet(string(key), string(field))
-		values = append(values, value)
+		idxSli = append(idxSli, value)
 	}
 
-	return values
+	if db.config.IdxMode == KeyValueMemMode {
+		return db.getValSliByIndexers(idxSli, func(idx *index.Indexer) []byte {
+			return idx.Meta.Value
+		})
+	}
+
+	if db.config.IdxMode == KeyOnlyMemMode {
+		return db.getValSliByIndexers(idxSli, func(idx *index.Indexer) []byte {
+			return db.readValFromDbFile(idx, Hash)
+		})
+	}
+
+	return nil
 }
 
 // HDel removes the specified fields from the hash stored at key.
@@ -276,7 +351,21 @@ func (db *RoseDB) HVals(key []byte) (val [][]byte) {
 		return nil
 	}
 
-	return db.hashIndex.indexes.HVals(string(key))
+	idxSli := db.hashIndex.indexes.HVals(string(key))
+
+	if db.config.IdxMode == KeyValueMemMode {
+		return db.getValSliByIndexers(idxSli, func(idx *index.Indexer) []byte {
+			return idx.Meta.Value
+		})
+	}
+
+	if db.config.IdxMode == KeyOnlyMemMode {
+		return db.getValSliByIndexers(idxSli, func(idx *index.Indexer) []byte {
+			return db.readValFromDbFile(idx, Hash)
+		})
+	}
+
+	return nil
 }
 
 // HClear clear the key in hash.

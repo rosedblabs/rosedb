@@ -527,19 +527,7 @@ func (db *RoseDB) getVal(key []byte) ([]byte, error) {
 	// In KeyOnlyMemMode, the value not in memory.
 	// So get the value from the db file at the offset.
 	if db.config.IdxMode == KeyOnlyMemMode {
-		df, err := db.getActiveFile(String)
-		if err != nil {
-			return nil, err
-		}
-		if idx.FileId != df.Id {
-			df = db.archFiles[String][idx.FileId]
-		}
-
-		e, err := df.Read(idx.Offset)
-		if err != nil {
-			return nil, err
-		}
-		return e.Meta.Value, nil
+		return db.readValFromDbFile(idx, String), nil
 	}
 	return nil, ErrKeyNotExist
 }
