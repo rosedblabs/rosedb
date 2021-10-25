@@ -141,6 +141,22 @@ func TestDBFile_Write(t *testing.T) {
 	writeEntry([]byte("mmap_key_002"), []byte("mmap_val_002"))
 }
 
+func TestDBFile_ReadAll(t *testing.T) {
+	archFiles, _, err :=  Build("/tmp/rosedb_server", FileIO, 16 * 1024 * 1024)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	for _, file := range archFiles {
+		entries, err := file.ReadAll()
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		if len(entries) != 3 {
+			t.Fatal("want 3 entries, got ", len(entries))
+		}
+	}
+}
+
 func TestDBFile_Read(t *testing.T) {
 	//readEntry := func(offset int64) {
 	//	if e, err := df.Read(offset); err != nil {

@@ -4,7 +4,6 @@ import (
 	"github.com/roseduan/rosedb/ds/list"
 	"github.com/roseduan/rosedb/index"
 	"github.com/roseduan/rosedb/utils"
-	"io"
 	"sort"
 	"strconv"
 	"strings"
@@ -196,25 +195,21 @@ func (db *RoseDB) loadIdxFromFiles() error {
 	for i := 0; i < len(fileIds); i++ {
 		fid := uint32(fileIds[i])
 		df := dbFile[fid]
-		var offset int64 = 0
 
-		for offset <= db.config.BlockSize {
-			if e, err := df.Read(offset); err == nil {
-				idx := &index.Indexer{
-					Meta:      e.Meta,
-					FileId:    fid,
-					EntrySize: e.Size(),
-					Offset:    offset,
-				}
-				offset += int64(e.Size())
+		entries, err := df.ReadAll()
+		if err != nil {
+			return err
+		}
 
-				if err := db.buildIndex(e, idx); err != nil {
-					return err
-				}
-			} else {
-				if err == io.EOF {
-					break
-				}
+		for offset, entry := range entries {
+			idx := &index.Indexer{
+				Meta:      entry.Meta,
+				FileId:    fid,
+				EntrySize: entry.Size(),
+				Offset:    offset,
+			}
+
+			if err = db.buildIndex(entry, idx); err != nil {
 				return err
 			}
 		}

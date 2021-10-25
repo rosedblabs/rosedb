@@ -346,9 +346,34 @@ func (db *RoseDB) buildIndex(e *storage.Entry, idx *index.Indexer) error {
 // store 写数据
 func (db *RoseDB) store(e *storage.Entry) error {
 
-	//如果数据文件空间不够，则关闭该文件，并新打开一个文件
+	//写入数据至文件中
+	if err := db.activeFile.Write(e); err != nil {
+		return err
+	}
+
+	db.meta.ActiveWriteOff = db.activeFile.Offset
+
+	// 考虑到这样一种情况: 当前entry过大, 并且超出BlockSize稍许。因此采用类似mysql binlog对于事务的处理方式:
+	// 如果当前空间不够, 那么最后一个entry可以超出Size限制, 优化空间。
+	if err := db.tryChangeStoreFile(); err != nil {
+		// 如果change失败, 那么此时会返回失败, 此时我们仅需将ActiveWriteOff回退表明数据写入失败即可
+		db.meta.ActiveWriteOff -= int64(e.Size())
+		return err
+	}
+
+	//数据持久化
+	if db.config.Sync {
+		if err := db.activeFile.Sync(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (db *RoseDB) tryChangeStoreFile() error {
 	config := db.config
-	if db.activeFile.Offset+int64(e.Size()) > config.BlockSize {
+	if db.activeFile.Offset > config.BlockSize {
 		if err := db.activeFile.Close(true); err != nil {
 			return err
 		}
@@ -366,21 +391,6 @@ func (db *RoseDB) store(e *storage.Entry) error {
 			db.meta.ActiveWriteOff = 0
 		}
 	}
-
-	//写入数据至文件中
-	if err := db.activeFile.Write(e); err != nil {
-		return err
-	}
-
-	db.meta.ActiveWriteOff = db.activeFile.Offset
-
-	//数据持久化
-	if config.Sync {
-		if err := db.activeFile.Sync(); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 

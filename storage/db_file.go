@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/roseduan/mmap-go"
@@ -121,6 +122,56 @@ func (df *DBFile) Read(offset int64) (e *Entry, err error) {
 	}
 
 	return
+}
+
+func (df *DBFile) ReadAll() (map[int64]*Entry, error) {
+
+	bf := bytes.Buffer{}
+	if _, err := bf.ReadFrom(df.File); err != nil {
+		return nil, err
+	}
+
+	byt := bf.Bytes()
+
+	entryOffset := int64(0)
+	totalLen := int64(len(byt))
+	entries := make(map[int64]*Entry)
+	for entryOffset < totalLen {
+		endPos := entryHeaderSize
+
+		e, err := Decode(byt[:endPos])
+		if err != nil {
+			return nil, err
+		}
+		byt = byt[endPos:]
+
+		if e.Meta.KeySize > 0 {
+			endPos = int(e.Meta.KeySize)
+			e.Meta.Key = byt[:endPos]
+			byt = byt[endPos:]
+		}
+
+		if e.Meta.ValueSize > 0 {
+			endPos = int(e.Meta.ValueSize)
+			e.Meta.Value = byt[:endPos]
+			byt = byt[endPos:]
+		}
+
+		if e.Meta.ExtraSize > 0 {
+			endPos = int(e.Meta.ExtraSize)
+			e.Meta.Extra = byt[:endPos]
+			byt = byt[endPos:]
+		}
+
+		checkCrc := crc32.ChecksumIEEE(e.Meta.Value)
+		if checkCrc != e.crc32 {
+			return nil, ErrInvalidCrc
+		}
+
+		entries[entryOffset] = e
+		entryOffset += int64(e.Size())
+	}
+	return entries, nil
 }
 
 func (df *DBFile) readBuf(offset int64, n int64) ([]byte, error) {
