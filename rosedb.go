@@ -643,6 +643,18 @@ func (db *RoseDB) store(e *storage.Entry) error {
 		return err
 	}
 
+	// Note that we need to reset offset when error happened, because we do this just like write failed too.
+	activeFile, changed, err := db.tryChangeActiveFile(e, activeFile)
+	if err != nil {
+		//activeFile.File.Truncate()
+		return err
+	}
+
+	// need change, then store new File
+	if changed {
+		db.activeFile.Store(e.GetType(), activeFile)
+	}
+
 	// write entry to db file.
 	if err = activeFile.Write(e); err != nil {
 		return err
@@ -653,19 +665,6 @@ func (db *RoseDB) store(e *storage.Entry) error {
 		if err = activeFile.Sync(); err != nil {
 			return err
 		}
-	}
-
-	// Come here means that write operation was success. And then we try to change ActiveFile.
-	// Note that we need to reset offset when error happened, because we do this just like write failed too.
-	newActiveFile, changed, err := db.tryChangeActiveFile(e, activeFile)
-	if err != nil {
-		activeFile.Offset -= int64(e.Size())
-		return err
-	}
-
-	// need change, then store new File
-	if changed {
-		db.activeFile.Store(e.GetType(), newActiveFile)
 	}
 
 	return nil
@@ -687,7 +686,7 @@ func (db *RoseDB) tryChangeActiveFile(e *storage.Entry, curActiveFile *storage.D
 		return newDbFile, true, err
 	}
 
-	return nil, false, nil
+	return curActiveFile, false, nil
 }
 
 // validEntry check whether entry is valid(contains add and update types of operations).
