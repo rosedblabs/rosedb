@@ -643,35 +643,51 @@ func (db *RoseDB) store(e *storage.Entry) error {
 		return err
 	}
 
-	if activeFile.Offset+int64(e.Size()) > config.BlockSize {
-		if err := activeFile.Sync(); err != nil {
-			return err
-		}
-
-		// save the old db file as arched file.
-		activeFileId := activeFile.Id
-		db.archFiles[e.GetType()][activeFileId] = activeFile
-
-		newDbFile, err := storage.NewDBFile(config.DirPath, activeFileId+1, config.RwMethod, config.BlockSize, e.GetType())
-		if err != nil {
-			return err
-		}
-		activeFile = newDbFile
-	}
-
 	// write entry to db file.
-	if err := activeFile.Write(e); err != nil {
+	if err = activeFile.Write(e); err != nil {
 		return err
 	}
-	db.activeFile.Store(e.GetType(), activeFile)
 
 	// persist db file according to the config.
 	if config.Sync {
-		if err := activeFile.Sync(); err != nil {
+		if err = activeFile.Sync(); err != nil {
 			return err
 		}
 	}
+
+	// Come here means that write operation was success. And then we try to change ActiveFile.
+	// Note that we need to reset offset when error happened, because we do this just like write failed too.
+	newActiveFile, changed, err := db.tryChangeActiveFile(e, activeFile)
+	if err != nil {
+		activeFile.Offset -= int64(e.Size())
+		return err
+	}
+
+	// need change, then store new File
+	if changed {
+		db.activeFile.Store(e.GetType(), newActiveFile)
+	}
+
 	return nil
+}
+
+func (db *RoseDB) tryChangeActiveFile(e *storage.Entry, curActiveFile *storage.DBFile) (*storage.DBFile, bool, error) {
+	config := db.config
+
+	if curActiveFile.Offset > config.BlockSize {
+		if err := curActiveFile.Sync(); err != nil {
+			return nil, true, err
+		}
+
+		// save the old db file as arched file.
+		activeFileId := curActiveFile.Id
+		db.archFiles[e.GetType()][activeFileId] = curActiveFile
+
+		newDbFile, err := storage.NewDBFile(config.DirPath, activeFileId+1, config.RwMethod, config.BlockSize, e.GetType())
+		return newDbFile, true, err
+	}
+
+	return nil, false, nil
 }
 
 // validEntry check whether entry is valid(contains add and update types of operations).
