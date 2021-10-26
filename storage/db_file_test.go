@@ -188,3 +188,18 @@ func TestDBFile_Read(t *testing.T) {
 	readEntry(0)
 	readEntry(44)
 }
+
+
+func TestDBFile_ReadAll(t *testing.T) {
+	archFiles, _, err :=  Build("/tmp/rosedb_server", FileIO, 16 * 1024 * 1024)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	entries, err := archFiles[0][0].ReadAll()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if len(entries) != 3 {
+		t.Fatal("want 3 entries, got ", len(entries))
+	}
+}
