@@ -24,62 +24,84 @@ func newListIdx() *ListIdx {
 
 // LPush insert all the specified values at the head of the list stored at key.
 // If key does not exist, it is created as empty list before performing the push operations.
-func (db *RoseDB) LPush(key []byte, values ...[]byte) (res int, err error) {
-	if err = db.checkKeyValue(key, values...); err != nil {
-		return
+func (db *RoseDB) LPush(key interface{}, values ...interface{}) (res int, err error) {
+	encKey := make([]byte, 0)
+	encVals := make([][]byte, 0)
+	for i := 0; i < len(values); i++ {
+		ekey, eval, err := db.encode(key, values[i])
+		if err != nil {
+			return -1, err
+		}
+		if err := db.checkKeyValue(ekey, eval); err != nil {
+			return -1, err
+		}
+		encKey = ekey
+		encVals = append(encVals, eval)
 	}
-
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
-	for _, val := range values {
-		e := storage.NewEntryNoExtra(key, val, List, ListLPush)
+	for _, val := range encVals {
+		e := storage.NewEntryNoExtra(encKey, val, List, ListLPush)
 		if err = db.store(e); err != nil {
 			return
 		}
 
-		res = db.listIndex.indexes.LPush(string(key), val)
+		res = db.listIndex.indexes.LPush(string(encKey), val)
 	}
 	return
 }
 
 // RPush insert all the specified values at the tail of the list stored at key.
 // If key does not exist, it is created as empty list before performing the push operation.
-func (db *RoseDB) RPush(key []byte, values ...[]byte) (res int, err error) {
-	if err = db.checkKeyValue(key, values...); err != nil {
-		return
+func (db *RoseDB) RPush(key interface{}, values ...interface{}) (res int, err error) {
+	encKey := make([]byte, 0)
+	encVals := make([][]byte, 0)
+	for i := 0; i < len(values); i++ {
+		ekey, eval, err := db.encode(key, values[i])
+		if err != nil {
+			return -1, err
+		}
+		if err := db.checkKeyValue(ekey, eval); err != nil {
+			return -1, err
+		}
+		encKey = ekey
+		encVals = append(encVals, eval)
 	}
-
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
-	for _, val := range values {
-		e := storage.NewEntryNoExtra(key, val, List, ListRPush)
+	for _, val := range encVals {
+		e := storage.NewEntryNoExtra(encKey, val, List, ListRPush)
 		if err = db.store(e); err != nil {
 			return
 		}
 
-		res = db.listIndex.indexes.RPush(string(key), val)
+		res = db.listIndex.indexes.RPush(string(encKey), val)
 	}
 	return
 }
 
 // LPop removes and returns the first elements of the list stored at key.
-func (db *RoseDB) LPop(key []byte) ([]byte, error) {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) LPop(key interface{}) ([]byte, error) {
+	encKey, _, err := db.encode(key, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return nil, err
 	}
 
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
-	if db.checkExpired(key, List) {
+	if db.checkExpired(encKey, List) {
 		return nil, ErrKeyExpired
 	}
 
-	val := db.listIndex.indexes.LPop(string(key))
+	val := db.listIndex.indexes.LPop(string(encKey))
 	if val != nil {
-		e := storage.NewEntryNoExtra(key, val, List, ListLPop)
+		e := storage.NewEntryNoExtra(encKey, val, List, ListLPop)
 		if err := db.store(e); err != nil {
 			return nil, err
 		}
@@ -88,21 +110,25 @@ func (db *RoseDB) LPop(key []byte) ([]byte, error) {
 }
 
 // Removes and returns the last elements of the list stored at key.
-func (db *RoseDB) RPop(key []byte) ([]byte, error) {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) RPop(key interface{}) ([]byte, error) {
+	encKey, _, err := db.encode(key, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return nil, err
 	}
 
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
-	if db.checkExpired(key, List) {
+	if db.checkExpired(encKey, List) {
 		return nil, ErrKeyExpired
 	}
 
-	val := db.listIndex.indexes.RPop(string(key))
+	val := db.listIndex.indexes.RPop(string(encKey))
 	if val != nil {
-		e := storage.NewEntryNoExtra(key, val, List, ListRPop)
+		e := storage.NewEntryNoExtra(encKey, val, List, ListRPop)
 		if err := db.store(e); err != nil {
 			return nil, err
 		}
@@ -113,15 +139,19 @@ func (db *RoseDB) RPop(key []byte) ([]byte, error) {
 // LIndex returns the element at index index in the list stored at key.
 // The index is zero-based, so 0 means the first element, 1 the second element and so on.
 // Negative indices can be used to designate elements starting at the tail of the list. Here, -1 means the last element, -2 means the penultimate and so forth.
-func (db *RoseDB) LIndex(key []byte, idx int) []byte {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) LIndex(key interface{}, idx int) []byte {
+	encKey, _, err := db.encode(key, nil)
+	if err != nil {
+		return nil
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return nil
 	}
 
 	db.listIndex.mu.RLock()
 	defer db.listIndex.mu.RUnlock()
 
-	return db.listIndex.indexes.LIndex(string(key), idx)
+	return db.listIndex.indexes.LIndex(string(encKey), idx)
 }
 
 // LRem removes the first count occurrences of elements equal to element from the list stored at key.
@@ -153,27 +183,35 @@ func (db *RoseDB) LRem(key, value []byte, count int) (int, error) {
 }
 
 // LInsert inserts element in the list stored at key either before or after the reference value pivot.
-func (db *RoseDB) LInsert(key string, option list.InsertOption, pivot, val []byte) (count int, err error) {
-	if err = db.checkKeyValue([]byte(key), val); err != nil {
+func (db *RoseDB) LInsert(key string, option list.InsertOption, pivot, val interface{}) (count int, err error) {
+	_, encVal, err := db.encode(nil, val)
+	if err != nil {
+		return
+	}
+	_, envPivot, err := db.encode(nil, pivot)
+	if err != nil {
+		return
+	}
+	if err = db.checkKeyValue([]byte(key), encVal); err != nil {
 		return
 	}
 
-	if strings.Contains(string(pivot), ExtraSeparator) {
+	if strings.Contains(string(envPivot), ExtraSeparator) {
 		return 0, ErrExtraContainsSeparator
 	}
 
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
-	count = db.listIndex.indexes.LInsert(key, option, pivot, val)
+	count = db.listIndex.indexes.LInsert(key, option, envPivot, encVal)
 	if count != -1 {
 		var buf bytes.Buffer
-		buf.Write(pivot)
+		buf.Write(envPivot)
 		buf.Write([]byte(ExtraSeparator))
 		opt := strconv.Itoa(int(option))
 		buf.Write([]byte(opt))
 
-		e := storage.NewEntry([]byte(key), val, buf.Bytes(), List, ListLInsert)
+		e := storage.NewEntry([]byte(key), encVal, buf.Bytes(), List, ListLInsert)
 		if err = db.store(e); err != nil {
 			return
 		}
@@ -183,17 +221,21 @@ func (db *RoseDB) LInsert(key string, option list.InsertOption, pivot, val []byt
 
 // LSet sets the list element at index to element.
 // returns whether is successful.
-func (db *RoseDB) LSet(key []byte, idx int, val []byte) (ok bool, err error) {
-	if err := db.checkKeyValue(key, val); err != nil {
+func (db *RoseDB) LSet(key interface{}, idx int, val interface{}) (ok bool, err error) {
+	encKey, encVal, err := db.encode(key, val)
+	if err != nil {
+		return false, err
+	}
+	if err := db.checkKeyValue(encKey, encVal); err != nil {
 		return false, err
 	}
 
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
-	if ok = db.listIndex.indexes.LSet(string(key), idx, val); ok {
+	if ok = db.listIndex.indexes.LSet(string(encKey), idx, encVal); ok {
 		i := strconv.Itoa(idx)
-		e := storage.NewEntry(key, val, []byte(i), List, ListLSet)
+		e := storage.NewEntry(encKey, encVal, []byte(i), List, ListLSet)
 		if err := db.store(e); err != nil {
 			return false, err
 		}
@@ -203,25 +245,29 @@ func (db *RoseDB) LSet(key []byte, idx int, val []byte) (ok bool, err error) {
 
 // LTrim trim an existing list so that it will contain only the specified range of elements specified.
 // Both start and stop are zero-based indexes, where 0 is the first element of the list (the head), 1 the next element and so on.
-func (db *RoseDB) LTrim(key []byte, start, end int) error {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) LTrim(key interface{}, start, end int) error {
+	encKey, _, err := db.encode(key, nil)
+	if err != nil {
+		return err
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return err
 	}
 
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
-	if db.checkExpired(key, List) {
+	if db.checkExpired(encKey, List) {
 		return ErrKeyExpired
 	}
 
-	if res := db.listIndex.indexes.LTrim(string(key), start, end); res {
+	if res := db.listIndex.indexes.LTrim(string(encKey), start, end); res {
 		var buf bytes.Buffer
 		buf.Write([]byte(strconv.Itoa(start)))
 		buf.Write([]byte(ExtraSeparator))
 		buf.Write([]byte(strconv.Itoa(end)))
 
-		e := storage.NewEntry(key, nil, buf.Bytes(), List, ListLTrim)
+		e := storage.NewEntry(encKey, nil, buf.Bytes(), List, ListLTrim)
 		if err := db.store(e); err != nil {
 			return err
 		}
@@ -233,93 +279,117 @@ func (db *RoseDB) LTrim(key []byte, start, end int) error {
 // The offsets start and stop are zero-based indexes, with 0 being the first element of the list (the head of the list), 1 being the next element and so on.
 // These offsets can also be negative numbers indicating offsets starting at the end of the list.
 // For example, -1 is the last element of the list, -2 the penultimate, and so on.
-func (db *RoseDB) LRange(key []byte, start, end int) ([][]byte, error) {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) LRange(key interface{}, start, end int) ([][]byte, error) {
+	encKey, _, err := db.encode(key, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return nil, err
 	}
 
 	db.listIndex.mu.RLock()
 	defer db.listIndex.mu.RUnlock()
 
-	return db.listIndex.indexes.LRange(string(key), start, end), nil
+	return db.listIndex.indexes.LRange(string(encKey), start, end), nil
 }
 
 // LLen returns the length of the list stored at key.
 // If key does not exist, it is interpreted as an empty list and 0 is returned.
-func (db *RoseDB) LLen(key []byte) int {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) LLen(key interface{}) int {
+	encKey, _, err := db.encode(key, nil)
+	if err != nil {
+		return 0
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return 0
 	}
 
 	db.listIndex.mu.RLock()
 	defer db.listIndex.mu.RUnlock()
 
-	return db.listIndex.indexes.LLen(string(key))
+	return db.listIndex.indexes.LLen(string(encKey))
 }
 
 // LKeyExists check if the key of a List exists.
-func (db *RoseDB) LKeyExists(key []byte) (ok bool) {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) LKeyExists(key interface{}) (ok bool) {
+	encKey, _, err := db.encode(key, nil)
+	if err != nil {
+		return false
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return
 	}
 
 	db.listIndex.mu.RLock()
 	defer db.listIndex.mu.RUnlock()
 
-	if db.checkExpired(key, List) {
+	if db.checkExpired(encKey, List) {
 		return false
 	}
 
-	ok = db.listIndex.indexes.LKeyExists(string(key))
+	ok = db.listIndex.indexes.LKeyExists(string(encKey))
 	return
 }
 
 // LValExists check if the val exists in a specified List stored at key.
-func (db *RoseDB) LValExists(key []byte, val []byte) (ok bool) {
-	if err := db.checkKeyValue(key, val); err != nil {
+func (db *RoseDB) LValExists(key interface{}, val interface{}) (ok bool) {
+	encKey, encVal, err := db.encode(key, val)
+	if err != nil {
+		return false
+	}
+	if err := db.checkKeyValue(encKey, encVal); err != nil {
 		return
 	}
 
 	db.listIndex.mu.RLock()
 	defer db.listIndex.mu.RUnlock()
 
-	if db.checkExpired(key, List) {
+	if db.checkExpired(encKey, List) {
 		return false
 	}
 
-	ok = db.listIndex.indexes.LValExists(string(key), val)
+	ok = db.listIndex.indexes.LValExists(string(encKey), encVal)
 	return
 }
 
 // LClear clear a specified key.
-func (db *RoseDB) LClear(key []byte) (err error) {
-	if err = db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) LClear(key interface{}) (err error) {
+	encKey, _, err := db.encode(key, nil)
+	if err != nil {
+		return
+	}
+	if err = db.checkKeyValue(encKey, nil); err != nil {
 		return
 	}
 
-	if !db.LKeyExists(key) {
+	if !db.LKeyExists(encKey) {
 		return ErrKeyNotExist
 	}
 
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
-	e := storage.NewEntryNoExtra(key, nil, List, ListLClear)
+	e := storage.NewEntryNoExtra(encKey, nil, List, ListLClear)
 	if err = db.store(e); err != nil {
 		return err
 	}
 
-	db.listIndex.indexes.LClear(string(key))
-	delete(db.expires[List], string(key))
+	db.listIndex.indexes.LClear(string(encKey))
+	delete(db.expires[List], string(encKey))
 	return
 }
 
 // LExpire set expired time for a specified key of List.
-func (db *RoseDB) LExpire(key []byte, duration int64) (err error) {
+func (db *RoseDB) LExpire(key interface{}, duration int64) (err error) {
 	if duration <= 0 {
 		return ErrInvalidTTL
 	}
-	if !db.LKeyExists(key) {
+	encKey, _, err := db.encode(key, nil)
+	if err != nil {
+		return
+	}
+	if !db.LKeyExists(encKey) {
 		return ErrKeyNotExist
 	}
 
@@ -327,25 +397,28 @@ func (db *RoseDB) LExpire(key []byte, duration int64) (err error) {
 	defer db.listIndex.mu.Unlock()
 
 	deadline := time.Now().Unix() + duration
-	e := storage.NewEntryWithExpire(key, nil, deadline, List, ListLExpire)
+	e := storage.NewEntryWithExpire(encKey, nil, deadline, List, ListLExpire)
 	if err = db.store(e); err != nil {
 		return err
 	}
 
-	db.expires[List][string(key)] = deadline
+	db.expires[List][string(encKey)] = deadline
 	return
 }
 
 // LTTL return time to live.
-func (db *RoseDB) LTTL(key []byte) (ttl int64) {
+func (db *RoseDB) LTTL(key interface{}) (ttl int64) {
 	db.listIndex.mu.RLock()
 	defer db.listIndex.mu.RUnlock()
-
-	if db.checkExpired(key, List) {
+	encKey, _, err := db.encode(key, nil)
+	if err != nil {
+		return
+	}
+	if db.checkExpired(encKey, List) {
 		return
 	}
 
-	deadline, exist := db.expires[List][string(key)]
+	deadline, exist := db.expires[List][string(encKey)]
 	if !exist {
 		return
 	}
