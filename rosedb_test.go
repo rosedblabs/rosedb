@@ -30,6 +30,67 @@ func ReopenDb() *RoseDB {
 	return InitDb()
 }
 
+func TestRoseDb_Save(t *testing.T) {
+	config := DefaultConfig()
+	config.DirPath = "/tmp/testRoseDB"
+	config.BlockSize = 3
+	db, err := Open(config)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	testKey := []byte("test_key1")
+	testVal := []byte("test_val1")
+	e := &storage.Entry{
+		Meta: &storage.Meta{
+			Key:       testKey,
+			Value:     testVal,
+			Extra:     nil,
+			KeySize:   uint32(len(testKey)),
+			ValueSize: uint32(len(testVal)),
+			ExtraSize: 0,
+		},
+		Timestamp: 0,
+		TxId:      0,
+	}
+	err = db.store(e)
+	//if err != nil {
+	//	t.Fatal(err.Error())
+	//}
+	testKey = []byte("test_key2")
+	testVal = []byte("test_val2")
+	e2 := &storage.Entry{
+		Meta: &storage.Meta{
+			Key:       testKey,
+			Value:     testVal,
+			Extra:     nil,
+			KeySize:   uint32(len(testKey)),
+			ValueSize: uint32(len(testVal)),
+			ExtraSize: 0,
+		},
+		Timestamp: 0,
+		TxId:      0,
+	}
+	err = db.store(e2)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	testKey = []byte("test_key3")
+	testVal = []byte("test_val3")
+	e3 := &storage.Entry{
+		Meta: &storage.Meta{
+			Key:       testKey,
+			Value:     testVal,
+			Extra:     nil,
+			KeySize:   uint32(len(testKey)),
+			ValueSize: uint32(len(testVal)),
+			ExtraSize: 0,
+		},
+		Timestamp: 0,
+		TxId:      0,
+	}
+	err = db.store(e3)
+}
+
 func TestOpen(t *testing.T) {
 
 	opendb := func(method storage.FileRWMethod) {
