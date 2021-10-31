@@ -44,8 +44,9 @@ const (
 	// Then merge operation will execute periodically.
 	DefaultMergeCheckInterval = time.Hour * 24
 
-	// DefaultCacheCapacity default cache capacity: 64.
-	DefaultCacheCapacity = 64
+	// DefaultCacheCapacity default cache capacity: 0, which means we don`t use it by default.
+	// You can only open the cache in KeyOnlyMemMode, because values are in disk in this mode.
+	DefaultCacheCapacity = 0
 )
 
 // Config the opening options of rosedb.

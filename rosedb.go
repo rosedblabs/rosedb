@@ -100,8 +100,8 @@ type (
 		lockMgr         *LockMgr      // lockMgr controls isolation of read and write.
 		txnMeta         *TxnMeta      // Txn meta info used in transaction.
 		closed          uint32
-		mergeChn        chan struct{} // mergeChn used for sending stop signal to merge func.
-		cache           *cache.Cache  // lru cache for db_str.
+		mergeChn        chan struct{}   // mergeChn used for sending stop signal to merge func.
+		cache           *cache.LruCache // lru cache for db_str.
 	}
 
 	// ArchivedFiles define the archived files, which mean these files can only be read.
@@ -154,7 +154,7 @@ func Open(config Config) (*RoseDB, error) {
 		zsetIndex:  newZsetIdx(),
 		expires:    make(Expires),
 		txnMeta:    txnMeta,
-		cache:      cache.NewCache(config.CacheCapacity),
+		cache:      cache.NewLruCache(config.CacheCapacity),
 	}
 	for i := 0; i < DataStructureNum; i++ {
 		db.expires[uint16(i)] = make(map[string]int64)

@@ -37,4 +37,4 @@ merge_threshold = 64
 
 # cache容量
 # The capacity of cache
-cache_capacity = 64
+cache_capacity = 0

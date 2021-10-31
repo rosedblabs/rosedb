@@ -2,14 +2,13 @@ package cache
 
 import (
 	"container/list"
-	"fmt"
-	"strings"
 	"sync"
 )
 
-type Cache struct {
+// LruCache stands for a least recently used cache.
+type LruCache struct {
 	capacity  int
-	cacheMap  map[interface{}]*list.Element
+	cacheMap  map[string]*list.Element
 	cacheList *list.List
 	mu        sync.Mutex
 }
@@ -19,29 +18,38 @@ type lruItem struct {
 	value []byte
 }
 
-func NewCache(capacity int) *Cache {
-	return &Cache{
-		capacity:  capacity,
-		cacheMap:  make(map[interface{}]*list.Element),
-		cacheList: list.New(),
+// NewLruCache create a new LRU cache.
+func NewLruCache(capacity int) *LruCache {
+	lru := &LruCache{}
+	if capacity > 0 {
+		lru.capacity = capacity
+		lru.cacheMap = make(map[string]*list.Element)
+		lru.cacheList = list.New()
 	}
+	return lru
 }
 
-func (c *Cache) Get(key []byte) ([]byte, bool) {
-	keyStr := convert(key)
+// Get ...
+func (c *LruCache) Get(key []byte) ([]byte, bool) {
+	if c.capacity <= 0 || len(c.cacheMap) <= 0 {
+		return nil, false
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.get(keyStr)
+	return c.get(string(key))
 }
 
-func (c *Cache) Set(key, value []byte) {
-	keyStr := convert(key)
+// Set ...
+func (c *LruCache) Set(key, value []byte) {
+	if c.capacity <= 0 || key == nil {
+		return
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.set(keyStr, value)
+	c.set(string(key), value)
 }
 
-func (c *Cache) get(key interface{}) ([]byte, bool) {
+func (c *LruCache) get(key string) ([]byte, bool) {
 	ele, ok := c.cacheMap[key]
 	if ok {
 		c.cacheList.MoveToFront(ele)
@@ -51,7 +59,7 @@ func (c *Cache) get(key interface{}) ([]byte, bool) {
 	return nil, false
 }
 
-func (c *Cache) set(key string, value []byte) {
+func (c *LruCache) set(key string, value []byte) {
 	ele, ok := c.cacheMap[key]
 	if ok {
 		item := c.cacheMap[key].Value.(*lruItem)
@@ -67,17 +75,9 @@ func (c *Cache) set(key string, value []byte) {
 	}
 }
 
-func (c *Cache) removeOldest() {
+func (c *LruCache) removeOldest() {
 	ele := c.cacheList.Back()
 	c.cacheList.Remove(ele)
 	item := ele.Value.(*lruItem)
 	delete(c.cacheMap, item.key)
-}
-
-func convert(bytes []byte) string {
-	var str strings.Builder
-	for _, b := range bytes {
-		str.WriteString(fmt.Sprintf("%d,", int(b)))
-	}
-	return str.String()[:str.Len()-1]
 }

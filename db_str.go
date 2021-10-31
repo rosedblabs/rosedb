@@ -472,6 +472,9 @@ func (db *RoseDB) setVal(key, value []byte) (err error) {
 	if err = db.setIndexer(e); err != nil {
 		return
 	}
+
+	// set into cache if necessary.
+	db.cache.Set(key, value)
 	return
 }
 
@@ -524,6 +527,7 @@ func (db *RoseDB) getVal(key []byte) ([]byte, error) {
 	// So get the value from cache if exists in lru cache.
 	// Otherwise, get the value from the db file at the offset.
 	if db.config.IdxMode == KeyOnlyMemMode {
+		// get from cache if necessary.
 		if value, ok := db.cache.Get(key); ok {
 			return value, nil
 		}
@@ -541,6 +545,8 @@ func (db *RoseDB) getVal(key []byte) ([]byte, error) {
 			return nil, err
 		}
 		value := e.Meta.Value
+
+		// set value into cache.
 		db.cache.Set(key, value)
 		return value, nil
 	}

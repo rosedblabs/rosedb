@@ -204,12 +204,13 @@ func TestRoseDB_Append(t *testing.T) {
 }
 
 func TestRoseDB_StrExists(t *testing.T) {
-	ok1 := roseDB.StrExists(1)
+	ok1 := roseDB.StrExists("exis-0001")
 	assert.Equal(t, ok1, false)
 
-	roseDB.Set(1, 100)
+	err := roseDB.Set("exis-0001", 100)
+	assert.Nil(t, err)
 
-	ok2 := roseDB.StrExists(1)
+	ok2 := roseDB.StrExists("exis-0001")
 	assert.Equal(t, ok2, true)
 }
 
