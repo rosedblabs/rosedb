@@ -4,6 +4,8 @@
 
 [English](https://github.com/roseduan/rosedb#rosedb) | [简体中文](https://github.com/roseduan/rosedb/blob/main/README-CN.md)
 
+### rosedb is not production-ready, we are doing more test now.
+
 rosedb is a fast, stable and embedded key-value (k-v) storage engine based on `bitcask`. Its on-disk files are organized as WAL(Write Ahead Log) in LSM trees, optimizing for write throughput. 
 
 rosedb supports a variety of data structures such as `string`, `list`, `hash`, `set` and `sorted set`.
