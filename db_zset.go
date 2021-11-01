@@ -20,13 +20,17 @@ func newZsetIdx() *ZsetIdx {
 }
 
 // ZAdd adds the specified member with the specified score to the sorted set stored at key.
-func (db *RoseDB) ZAdd(key []byte, score float64, member []byte) error {
-	if err := db.checkKeyValue(key, member); err != nil {
+func (db *RoseDB) ZAdd(key interface{}, score float64, member interface{}) error {
+	encKey, encMember, err := db.encode(key, member)
+	if err != nil {
+		return err
+	}
+	if err := db.checkKeyValue(encKey, encMember); err != nil {
 		return err
 	}
 
 	// if the score corresponding to the key and member already exist, nothing will be done.
-	if ok, oldScore := db.ZScore(key, member); ok && oldScore == score {
+	if ok, oldScore := db.ZScore(encKey, encMember); ok && oldScore == score {
 		return nil
 	}
 
@@ -34,88 +38,109 @@ func (db *RoseDB) ZAdd(key []byte, score float64, member []byte) error {
 	defer db.zsetIndex.mu.Unlock()
 
 	extra := []byte(utils.Float64ToStr(score))
-	e := storage.NewEntry(key, member, extra, ZSet, ZSetZAdd)
+	e := storage.NewEntry(encKey, encMember, extra, ZSet, ZSetZAdd)
 	if err := db.store(e); err != nil {
 		return err
 	}
 
-	db.zsetIndex.indexes.ZAdd(string(key), score, string(member))
+	db.zsetIndex.indexes.ZAdd(string(encKey), score, string(encMember))
 	return nil
 }
 
 // ZScore returns the score of member in the sorted set at key.
-func (db *RoseDB) ZScore(key, member []byte) (ok bool, score float64) {
+func (db *RoseDB) ZScore(key, member interface{}) (ok bool, score float64) {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
-	if db.checkExpired(key, ZSet) {
+	encKey, encMember, err := db.encode(key, member)
+	if err != nil {
+		return false, -1
+	}
+	if db.checkExpired(encKey, ZSet) {
 		return
 	}
 
-	return db.zsetIndex.indexes.ZScore(string(key), string(member))
+	return db.zsetIndex.indexes.ZScore(string(encKey), string(encMember))
 }
 
 // ZCard returns the sorted set cardinality (number of elements) of the sorted set stored at key.
-func (db *RoseDB) ZCard(key []byte) int {
+func (db *RoseDB) ZCard(key interface{}) int {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
-	if db.checkExpired(key, ZSet) {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return 0
+	}
+	if db.checkExpired(encKey, ZSet) {
 		return 0
 	}
 
-	return db.zsetIndex.indexes.ZCard(string(key))
+	return db.zsetIndex.indexes.ZCard(string(encKey))
 }
 
 // ZRank returns the rank of member in the sorted set stored at key, with the scores ordered from low to high.
 // The rank (or index) is 0-based, which means that the member with the lowest score has rank 0.
-func (db *RoseDB) ZRank(key, member []byte) int64 {
-	if err := db.checkKeyValue(key, member); err != nil {
+func (db *RoseDB) ZRank(key, member interface{}) int64 {
+	encKey, encMember, err := db.encode(key, member)
+	if err != nil {
+		return -1
+	}
+
+	if err := db.checkKeyValue(encKey, encMember); err != nil {
 		return -1
 	}
 
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
-	if db.checkExpired(key, ZSet) {
+	if db.checkExpired(encKey, ZSet) {
 		return -1
 	}
 
-	return db.zsetIndex.indexes.ZRank(string(key), string(member))
+	return db.zsetIndex.indexes.ZRank(string(encKey), string(encMember))
 }
 
 // ZRevRank returns the rank of member in the sorted set stored at key, with the scores ordered from high to low.
 // The rank (or index) is 0-based, which means that the member with the highest score has rank 0.
-func (db *RoseDB) ZRevRank(key, member []byte) int64 {
-	if err := db.checkKeyValue(key, member); err != nil {
+func (db *RoseDB) ZRevRank(key, member interface{}) int64 {
+	encKey, encMember, err := db.encode(key, member)
+	if err != nil {
+		return -1
+	}
+	if err := db.checkKeyValue(encKey, encMember); err != nil {
 		return -1
 	}
 
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
-	if db.checkExpired(key, ZSet) {
+	if db.checkExpired(encKey, ZSet) {
 		return -1
 	}
 
-	return db.zsetIndex.indexes.ZRevRank(string(key), string(member))
+	return db.zsetIndex.indexes.ZRevRank(string(encKey), string(encMember))
 }
 
 // ZIncrBy increments the score of member in the sorted set stored at key by increment.
 // If member does not exist in the sorted set, it is added with increment as its score (as if its previous score was 0.0).
 // If key does not exist, a new sorted set with the specified member as its sole member is created.
-func (db *RoseDB) ZIncrBy(key []byte, increment float64, member []byte) (float64, error) {
-	if err := db.checkKeyValue(key, member); err != nil {
+func (db *RoseDB) ZIncrBy(key interface{}, increment float64, member interface{}) (float64, error) {
+	encKey, encMember, err := db.encode(key, member)
+	if err != nil {
+		return increment, err
+	}
+	if err := db.checkKeyValue(encKey, encMember); err != nil {
 		return increment, err
 	}
 
 	db.zsetIndex.mu.Lock()
 	defer db.zsetIndex.mu.Unlock()
 
-	increment = db.zsetIndex.indexes.ZIncrBy(string(key), increment, string(member))
+	increment = db.zsetIndex.indexes.ZIncrBy(string(encKey), increment, string(encMember))
 
 	extra := utils.Float64ToStr(increment)
-	e := storage.NewEntry(key, member, []byte(extra), ZSet, ZSetZAdd)
+	e := storage.NewEntry(encKey, encMember, []byte(extra), ZSet, ZSetZAdd)
 	if err := db.store(e); err != nil {
 		return increment, err
 	}
@@ -124,89 +149,109 @@ func (db *RoseDB) ZIncrBy(key []byte, increment float64, member []byte) (float64
 }
 
 // ZRange returns the specified range of elements in the sorted set stored at key.
-func (db *RoseDB) ZRange(key []byte, start, stop int) []interface{} {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) ZRange(key interface{}, start, stop int) []interface{} {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return nil
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return nil
 	}
 
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
-	if db.checkExpired(key, ZSet) {
+	if db.checkExpired(encKey, ZSet) {
 		return nil
 	}
 
-	return db.zsetIndex.indexes.ZRange(string(key), start, stop)
+	return db.zsetIndex.indexes.ZRange(string(encKey), start, stop)
 }
 
 // ZRangeWithScores returns the specified range of elements in the sorted set stored at key.
-func (db *RoseDB) ZRangeWithScores(key []byte, start, stop int) []interface{} {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) ZRangeWithScores(key interface{}, start, stop int) []interface{} {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return nil
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return nil
 	}
 
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
-	if db.checkExpired(key, ZSet) {
+	if db.checkExpired(encKey, ZSet) {
 		return nil
 	}
 
-	return db.zsetIndex.indexes.ZRangeWithScores(string(key), start, stop)
+	return db.zsetIndex.indexes.ZRangeWithScores(string(encKey), start, stop)
 }
 
 // ZRevRange returns the specified range of elements in the sorted set stored at key.
 // The elements are considered to be ordered from the highest to the lowest score.
 // Descending lexicographical order is used for elements with equal score.
-func (db *RoseDB) ZRevRange(key []byte, start, stop int) []interface{} {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) ZRevRange(key interface{}, start, stop int) []interface{} {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return nil
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return nil
 	}
 
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
-	if db.checkExpired(key, ZSet) {
+	if db.checkExpired(encKey, ZSet) {
 		return nil
 	}
 
-	return db.zsetIndex.indexes.ZRevRange(string(key), start, stop)
+	return db.zsetIndex.indexes.ZRevRange(string(encKey), start, stop)
 }
 
 // ZRevRangeWithScores returns the specified range of elements in the sorted set stored at key.
 // The elements are considered to be ordered from the highest to the lowest score.
 // Descending lexicographical order is used for elements with equal score.
-func (db *RoseDB) ZRevRangeWithScores(key []byte, start, stop int) []interface{} {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) ZRevRangeWithScores(key interface{}, start, stop int) []interface{} {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return nil
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return nil
 	}
 
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
-	if db.checkExpired(key, ZSet) {
+	if db.checkExpired(encKey, ZSet) {
 		return nil
 	}
 
-	return db.zsetIndex.indexes.ZRevRangeWithScores(string(key), start, stop)
+	return db.zsetIndex.indexes.ZRevRangeWithScores(string(encKey), start, stop)
 }
 
 // ZRem removes the specified members from the sorted set stored at key. Non existing members are ignored.
 // An error is returned when key exists and does not hold a sorted set.
-func (db *RoseDB) ZRem(key, member []byte) (ok bool, err error) {
-	if err = db.checkKeyValue(key, member); err != nil {
+func (db *RoseDB) ZRem(key, member interface{}) (ok bool, err error) {
+	encKey, encMember, err := db.encode(key, member)
+	if err != nil {
+		return
+	}
+	if err = db.checkKeyValue(encKey, encMember); err != nil {
 		return
 	}
 
 	db.zsetIndex.mu.Lock()
 	defer db.zsetIndex.mu.Unlock()
 
-	if db.checkExpired(key, ZSet) {
+	if db.checkExpired(encKey, ZSet) {
 		return
 	}
 
-	if ok = db.zsetIndex.indexes.ZRem(string(key), string(member)); ok {
-		e := storage.NewEntryNoExtra(key, member, ZSet, ZSetZRem)
+	if ok = db.zsetIndex.indexes.ZRem(string(encKey), string(encMember)); ok {
+		e := storage.NewEntryNoExtra(encKey, encMember, ZSet, ZSetZRem)
 		if err = db.store(e); err != nil {
 			return
 		}
@@ -217,104 +262,130 @@ func (db *RoseDB) ZRem(key, member []byte) (ok bool, err error) {
 
 // ZGetByRank get the member at key by rank, the rank is ordered from lowest to highest.
 // The rank of lowest is 0 and so on.
-func (db *RoseDB) ZGetByRank(key []byte, rank int) []interface{} {
+func (db *RoseDB) ZGetByRank(key interface{}, rank int) []interface{} {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
-
-	if db.checkExpired(key, ZSet) {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return nil
+	}
+	if db.checkExpired(encKey, ZSet) {
 		return nil
 	}
 
-	return db.zsetIndex.indexes.ZGetByRank(string(key), rank)
+	return db.zsetIndex.indexes.ZGetByRank(string(encKey), rank)
 }
 
 // ZRevGetByRank get the member at key by rank, the rank is ordered from highest to lowest.
 // The rank of highest is 0 and so on.
-func (db *RoseDB) ZRevGetByRank(key []byte, rank int) []interface{} {
+func (db *RoseDB) ZRevGetByRank(key interface{}, rank int) []interface{} {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
-
-	if db.checkExpired(key, ZSet) {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return nil
+	}
+	if db.checkExpired(encKey, ZSet) {
 		return nil
 	}
 
-	return db.zsetIndex.indexes.ZRevGetByRank(string(key), rank)
+	return db.zsetIndex.indexes.ZRevGetByRank(string(encKey), rank)
 }
 
 // ZScoreRange returns all the elements in the sorted set at key with a score between min and max (including elements with score equal to min or max).
 // The elements are considered to be ordered from low to high scores.
-func (db *RoseDB) ZScoreRange(key []byte, min, max float64) []interface{} {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) ZScoreRange(key interface{}, min, max float64) []interface{} {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return nil
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return nil
 	}
 
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
-	if db.checkExpired(key, ZSet) {
+	if db.checkExpired(encKey, ZSet) {
 		return nil
 	}
 
-	return db.zsetIndex.indexes.ZScoreRange(string(key), min, max)
+	return db.zsetIndex.indexes.ZScoreRange(string(encKey), min, max)
 }
 
 // ZRevScoreRange returns all the elements in the sorted set at key with a score between max and min (including elements with score equal to max or min).
 // In contrary to the default ordering of sorted sets, for this command the elements are considered to be ordered from high to low scores.
-func (db *RoseDB) ZRevScoreRange(key []byte, max, min float64) []interface{} {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) ZRevScoreRange(key interface{}, max, min float64) []interface{} {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return nil
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return nil
 	}
 
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
-	if db.checkExpired(key, ZSet) {
+	if db.checkExpired(encKey, ZSet) {
 		return nil
 	}
 
-	return db.zsetIndex.indexes.ZRevScoreRange(string(key), max, min)
+	return db.zsetIndex.indexes.ZRevScoreRange(string(encKey), max, min)
 }
 
 // ZKeyExists check if the key exists in zset.
-func (db *RoseDB) ZKeyExists(key []byte) (ok bool) {
-	if err := db.checkKeyValue(key, nil); err != nil {
+func (db *RoseDB) ZKeyExists(key interface{}) (ok bool) {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return false
+	}
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return
 	}
 
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
-	if db.checkExpired(key, ZSet) {
+	if db.checkExpired(encKey, ZSet) {
 		return
 	}
 
-	ok = db.zsetIndex.indexes.ZKeyExists(string(key))
+	ok = db.zsetIndex.indexes.ZKeyExists(string(encKey))
 	return
 }
 
 // ZClear clear the specified key in zset.
-func (db *RoseDB) ZClear(key []byte) (err error) {
-	if !db.ZKeyExists(key) {
+func (db *RoseDB) ZClear(key interface{}) (err error) {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return err
+	}
+	if !db.ZKeyExists(encKey) {
 		return ErrKeyNotExist
 	}
 
 	db.zsetIndex.mu.Lock()
 	defer db.zsetIndex.mu.Unlock()
 
-	e := storage.NewEntryNoExtra(key, nil, ZSet, ZSetZClear)
+	e := storage.NewEntryNoExtra(encKey, nil, ZSet, ZSetZClear)
 	if err = db.store(e); err != nil {
 		return
 	}
-	db.zsetIndex.indexes.ZClear(string(key))
+	db.zsetIndex.indexes.ZClear(string(encKey))
 	return
 }
 
 // ZExpire set expired time for the key in zset.
-func (db *RoseDB) ZExpire(key []byte, duration int64) (err error) {
+func (db *RoseDB) ZExpire(key interface{}, duration int64) (err error) {
 	if duration <= 0 {
 		return ErrInvalidTTL
 	}
-	if !db.ZKeyExists(key) {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return err
+	}
+	if !db.ZKeyExists(encKey) {
 		return ErrKeyNotExist
 	}
 
@@ -322,25 +393,29 @@ func (db *RoseDB) ZExpire(key []byte, duration int64) (err error) {
 	defer db.zsetIndex.mu.Unlock()
 
 	deadline := time.Now().Unix() + duration
-	e := storage.NewEntryWithExpire(key, nil, deadline, ZSet, ZSetZExpire)
+	e := storage.NewEntryWithExpire(encKey, nil, deadline, ZSet, ZSetZExpire)
 	if err = db.store(e); err != nil {
 		return err
 	}
 
-	db.expires[ZSet][string(key)] = deadline
+	db.expires[ZSet][string(encKey)] = deadline
 	return
 }
 
 // ZTTL return time to live of the key.
-func (db *RoseDB) ZTTL(key []byte) (ttl int64) {
-	if !db.ZKeyExists(key) {
+func (db *RoseDB) ZTTL(key interface{}) (ttl int64) {
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return
+	}
+	if !db.ZKeyExists(encKey) {
 		return
 	}
 
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
-	deadline, exist := db.expires[ZSet][string(key)]
+	deadline, exist := db.expires[ZSet][string(encKey)]
 	if !exist {
 		return
 	}
