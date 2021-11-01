@@ -37,6 +37,22 @@ func TestRoseDB_LPush(t *testing.T) {
 		}
 		t.Log(res)
 	})
+
+	t.Run("multi data insert", func(t *testing.T) {
+		db := InitDb()
+		defer db.Close()
+
+		key := []byte("mylist")
+		// empty
+		_, _ = db.LPush(nil)
+
+		res, err := db.LPush(key, []byte("list_data_001"), []byte("list_data_002"), []byte("list_data_003"), "123", 1, false, "2222-333")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		t.Log(res)
+	})
 	//
 	//t.Run("large data", func(t *testing.T) {
 	//	db := ReopenDb()
@@ -114,6 +130,22 @@ func TestRoseDB_RPush(t *testing.T) {
 		if err != nil {
 			log.Fatal(err)
 		}
+	})
+
+	t.Run("multi data insert", func(t *testing.T) {
+		db := InitDb()
+		defer db.Close()
+
+		key := []byte("mylist")
+		// empty
+		_, _ = db.RPush(nil)
+
+		res, err := db.RPush(key, []byte("list_data_001"), []byte("list_data_002"), []byte("list_data_003"), "123", 1, false, "2222-333")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		t.Log(res)
 	})
 	//
 	//t.Run("large data", func(t *testing.T) {
@@ -209,7 +241,7 @@ func TestRoseDB_LRem(t *testing.T) {
 		defer db.Close()
 
 		key := []byte("mylist")
-		_, err := db.RPush(key, []byte("list_data_0011"), []byte("list_data_0022"), []byte("list_data_0033"))
+		_, err := db.RPush(key, []byte("list_data_0011"), []byte("list_data_0022"), []byte("list_data_0033"), "123", 11, 22)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -220,6 +252,14 @@ func TestRoseDB_LRem(t *testing.T) {
 		}
 
 		t.Log(res)
+
+		res, err = db.LRem(key, "123", 0)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		t.Log(res)
+
 	})
 
 	t.Run("reopen", func(t *testing.T) {
@@ -272,6 +312,10 @@ func TestRoseDB_LSet(t *testing.T) {
 	ok, err = db.LSet(key, 5, []byte("list_data_new_005"))
 	t.Log(ok, err)
 	ok, err = db.LSet(key, -3, []byte("list_data_new_00-3"))
+	t.Log(ok, err)
+	ok, err = db.LSet(key, -2, "123")
+	t.Log(ok, err)
+	ok, err = db.LSet(key, -2, 2222)
 	t.Log(ok, err)
 }
 
@@ -328,9 +372,9 @@ func TestRoseDB_LClear(t *testing.T) {
 	defer db.Close()
 
 	key := []byte("my_list")
-	res, err := db.LPush(key, []byte("val-1"), []byte("val-2"), []byte("val-3"))
+	res, err := db.LPush(key, []byte("val-1"), []byte("val-2"), []byte("val-3"), "123", "222", 111)
 	assert.Equal(t, err, nil)
-	assert.Equal(t, res, 3)
+	assert.Equal(t, res, 6)
 
 	err = db.LClear(key)
 	assert.Equal(t, err, nil)
@@ -343,9 +387,9 @@ func TestRoseDB_LExpire(t *testing.T) {
 	defer db.Close()
 
 	key := []byte("my_list")
-	res, err := db.LPush(key, []byte("val-1"), []byte("val-2"), []byte("val-3"))
+	res, err := db.LPush(key, []byte("val-1"), []byte("val-2"), []byte("val-3"), "123", "222", 111)
 	assert.Equal(t, err, nil)
-	assert.Equal(t, res, 3)
+	assert.Equal(t, res, 6)
 
 	err = db.LExpire(key, 300)
 	assert.Equal(t, err, nil)
@@ -358,9 +402,9 @@ func TestRoseDB_LTTL(t *testing.T) {
 	defer db.Close()
 
 	key := []byte("my_list")
-	res, err := db.LPush(key, []byte("val-1"), []byte("val-2"), []byte("val-3"))
+	res, err := db.LPush(key, []byte("val-1"), []byte("val-2"), []byte("val-3"), "123", "222", 111)
 	assert.Equal(t, err, nil)
-	assert.Equal(t, res, 3)
+	assert.Equal(t, res, 6)
 
 	db.LExpire(key, 20)
 	t.Log(db.LTTL(key))

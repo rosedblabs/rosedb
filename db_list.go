@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/roseduan/rosedb/ds/list"
 	"github.com/roseduan/rosedb/storage"
+	"github.com/roseduan/rosedb/utils"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,17 +26,19 @@ func newListIdx() *ListIdx {
 // LPush insert all the specified values at the head of the list stored at key.
 // If key does not exist, it is created as empty list before performing the push operations.
 func (db *RoseDB) LPush(key interface{}, values ...interface{}) (res int, err error) {
-	encKey := make([]byte, 0)
-	encVals := make([][]byte, 0)
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return -1, err
+	}
+	var encVals [][]byte
 	for i := 0; i < len(values); i++ {
-		ekey, eval, err := db.encode(key, values[i])
+		eval, err := utils.EncodeValue(values[i])
 		if err != nil {
 			return -1, err
 		}
-		if err := db.checkKeyValue(ekey, eval); err != nil {
+		if err := db.checkKeyValue(encKey, eval); err != nil {
 			return -1, err
 		}
-		encKey = ekey
 		encVals = append(encVals, eval)
 	}
 	db.listIndex.mu.Lock()
@@ -55,17 +58,19 @@ func (db *RoseDB) LPush(key interface{}, values ...interface{}) (res int, err er
 // RPush insert all the specified values at the tail of the list stored at key.
 // If key does not exist, it is created as empty list before performing the push operation.
 func (db *RoseDB) RPush(key interface{}, values ...interface{}) (res int, err error) {
-	encKey := make([]byte, 0)
-	encVals := make([][]byte, 0)
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return -1, err
+	}
+	var encVals [][]byte
 	for i := 0; i < len(values); i++ {
-		ekey, eval, err := db.encode(key, values[i])
+		eval, err := utils.EncodeValue(values[i])
 		if err != nil {
 			return -1, err
 		}
-		if err := db.checkKeyValue(ekey, eval); err != nil {
+		if err := db.checkKeyValue(encKey, eval); err != nil {
 			return -1, err
 		}
-		encKey = ekey
 		encVals = append(encVals, eval)
 	}
 	db.listIndex.mu.Lock()
@@ -84,7 +89,7 @@ func (db *RoseDB) RPush(key interface{}, values ...interface{}) (res int, err er
 
 // LPop removes and returns the first elements of the list stored at key.
 func (db *RoseDB) LPop(key interface{}) ([]byte, error) {
-	encKey, _, err := db.encode(key, nil)
+	encKey, err := utils.EncodeKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +116,7 @@ func (db *RoseDB) LPop(key interface{}) ([]byte, error) {
 
 // Removes and returns the last elements of the list stored at key.
 func (db *RoseDB) RPop(key interface{}) ([]byte, error) {
-	encKey, _, err := db.encode(key, nil)
+	encKey, err := utils.EncodeKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +145,7 @@ func (db *RoseDB) RPop(key interface{}) ([]byte, error) {
 // The index is zero-based, so 0 means the first element, 1 the second element and so on.
 // Negative indices can be used to designate elements starting at the tail of the list. Here, -1 means the last element, -2 means the penultimate and so forth.
 func (db *RoseDB) LIndex(key interface{}, idx int) []byte {
-	encKey, _, err := db.encode(key, nil)
+	encKey, err := utils.EncodeKey(key)
 	if err != nil {
 		return nil
 	}
@@ -159,22 +164,26 @@ func (db *RoseDB) LIndex(key interface{}, idx int) []byte {
 // count > 0: Remove elements equal to element moving from head to tail.
 // count < 0: Remove elements equal to element moving from tail to head.
 // count = 0: Remove all elements equal to element.
-func (db *RoseDB) LRem(key, value []byte, count int) (int, error) {
-	if err := db.checkKeyValue(key, value); err != nil {
+func (db *RoseDB) LRem(key, value interface{}, count int) (int, error) {
+	encKey, encVal, err := db.encode(key, value)
+	if err != nil {
+		return 0, nil
+	}
+	if err := db.checkKeyValue(encKey, encVal); err != nil {
 		return 0, nil
 	}
 
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
-	if db.checkExpired(key, List) {
+	if db.checkExpired(encKey, List) {
 		return 0, ErrKeyExpired
 	}
 
-	res := db.listIndex.indexes.LRem(string(key), value, count)
+	res := db.listIndex.indexes.LRem(string(encKey), encVal, count)
 	if res > 0 {
 		c := strconv.Itoa(count)
-		e := storage.NewEntry(key, value, []byte(c), List, ListLRem)
+		e := storage.NewEntry(encKey, encVal, []byte(c), List, ListLRem)
 		if err := db.store(e); err != nil {
 			return res, err
 		}
@@ -184,11 +193,11 @@ func (db *RoseDB) LRem(key, value []byte, count int) (int, error) {
 
 // LInsert inserts element in the list stored at key either before or after the reference value pivot.
 func (db *RoseDB) LInsert(key string, option list.InsertOption, pivot, val interface{}) (count int, err error) {
-	_, encVal, err := db.encode(nil, val)
+	encVal, err := utils.EncodeValue(val)
 	if err != nil {
 		return
 	}
-	_, envPivot, err := db.encode(nil, pivot)
+	envPivot, err := utils.EncodeValue( pivot)
 	if err != nil {
 		return
 	}
@@ -246,7 +255,7 @@ func (db *RoseDB) LSet(key interface{}, idx int, val interface{}) (ok bool, err 
 // LTrim trim an existing list so that it will contain only the specified range of elements specified.
 // Both start and stop are zero-based indexes, where 0 is the first element of the list (the head), 1 the next element and so on.
 func (db *RoseDB) LTrim(key interface{}, start, end int) error {
-	encKey, _, err := db.encode(key, nil)
+	encKey, err := utils.EncodeKey(key)
 	if err != nil {
 		return err
 	}
@@ -280,7 +289,7 @@ func (db *RoseDB) LTrim(key interface{}, start, end int) error {
 // These offsets can also be negative numbers indicating offsets starting at the end of the list.
 // For example, -1 is the last element of the list, -2 the penultimate, and so on.
 func (db *RoseDB) LRange(key interface{}, start, end int) ([][]byte, error) {
-	encKey, _, err := db.encode(key, nil)
+	encKey, err := utils.EncodeKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +306,7 @@ func (db *RoseDB) LRange(key interface{}, start, end int) ([][]byte, error) {
 // LLen returns the length of the list stored at key.
 // If key does not exist, it is interpreted as an empty list and 0 is returned.
 func (db *RoseDB) LLen(key interface{}) int {
-	encKey, _, err := db.encode(key, nil)
+	encKey, err := utils.EncodeKey(key)
 	if err != nil {
 		return 0
 	}
@@ -313,7 +322,7 @@ func (db *RoseDB) LLen(key interface{}) int {
 
 // LKeyExists check if the key of a List exists.
 func (db *RoseDB) LKeyExists(key interface{}) (ok bool) {
-	encKey, _, err := db.encode(key, nil)
+	encKey, err := utils.EncodeKey(key)
 	if err != nil {
 		return false
 	}
@@ -355,7 +364,7 @@ func (db *RoseDB) LValExists(key interface{}, val interface{}) (ok bool) {
 
 // LClear clear a specified key.
 func (db *RoseDB) LClear(key interface{}) (err error) {
-	encKey, _, err := db.encode(key, nil)
+	encKey, err := utils.EncodeKey(key)
 	if err != nil {
 		return
 	}
@@ -385,7 +394,7 @@ func (db *RoseDB) LExpire(key interface{}, duration int64) (err error) {
 	if duration <= 0 {
 		return ErrInvalidTTL
 	}
-	encKey, _, err := db.encode(key, nil)
+	encKey, err := utils.EncodeKey(key)
 	if err != nil {
 		return
 	}
@@ -410,7 +419,7 @@ func (db *RoseDB) LExpire(key interface{}, duration int64) (err error) {
 func (db *RoseDB) LTTL(key interface{}) (ttl int64) {
 	db.listIndex.mu.RLock()
 	defer db.listIndex.mu.RUnlock()
-	encKey, _, err := db.encode(key, nil)
+	encKey, err := utils.EncodeKey(key)
 	if err != nil {
 		return
 	}
