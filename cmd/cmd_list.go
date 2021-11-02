@@ -13,7 +13,7 @@ func lPush(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		return
 	}
 
-	var values [][]byte
+	var values []interface{}
 	for i := 1; i < len(args); i++ {
 		values = append(values, []byte(args[i]))
 	}
@@ -31,7 +31,7 @@ func rPush(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		return
 	}
 
-	var values [][]byte
+	var values []interface{}
 	for i := 1; i < len(args); i++ {
 		values = append(values, []byte(args[i]))
 	}

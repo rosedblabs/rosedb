@@ -273,7 +273,12 @@ func (g *GrpcServer) HTTL(_ context.Context, req *proto.HTTLReq) (*proto.HTTLRsp
 
 func (g *GrpcServer) LPush(_ context.Context, req *proto.LPushReq) (*proto.LPushRsp, error) {
 	rsp := &proto.LPushRsp{}
-	resInt, err := g.db.LPush(req.Key, req.Values...)
+	var values []interface{}
+	for _, v := range req.Values {
+		values = append(values, v)
+	}
+
+	resInt, err := g.db.LPush(req.Key, values...)
 	if err != nil {
 		rsp.ErrorMsg = err.Error()
 	}
@@ -283,7 +288,11 @@ func (g *GrpcServer) LPush(_ context.Context, req *proto.LPushReq) (*proto.LPush
 
 func (g *GrpcServer) RPush(_ context.Context, req *proto.RPushReq) (*proto.RPushRsp, error) {
 	rsp := &proto.RPushRsp{}
-	resInt, err := g.db.RPush(req.Key, req.Values...)
+	var values []interface{}
+	for _, v := range req.Values {
+		values = append(values, v)
+	}
+	resInt, err := g.db.RPush(req.Key, values...)
 	if err != nil {
 		rsp.ErrorMsg = err.Error()
 	}
