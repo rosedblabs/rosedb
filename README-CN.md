@@ -32,6 +32,9 @@ rosedb 基于简单的 bitcask 模型，数据文件布局类似 LSM Tree 中的
 ## 使用
 
 ### 命令行操作
+使用前请先安装protobuf
+
+在根目录运行 `bash gen_pb_go.sh`
 
 切换目录到 `rosedb/cmd/server`
 

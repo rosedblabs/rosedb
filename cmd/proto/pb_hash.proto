@@ -1,0 +1,144 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "cmd/proto";
+
+message HSetReq {   
+  bytes key             = 1;
+  bytes field           = 2;
+  bytes value           = 3;
+}
+
+message HSetRsp {   
+  int64 res             = 1;
+  string errorMsg       = 2;
+}
+
+message HSetNxReq {   
+  bytes key             = 1;
+  bytes field           = 2;
+  bytes value           = 3;
+}
+
+message HSetNxRsp {   
+  int64 res             = 1;
+  string errorMsg       = 2;
+}
+
+message HGetReq {   
+  bytes key             = 1;
+  bytes field           = 2;
+}
+
+message HGetRsp {   
+  bytes value           = 1;
+}
+
+message HGetAllReq {
+  bytes key             = 1;
+}
+
+message HGetAllRsp {
+  repeated bytes values = 1;
+  string errorMsg       = 2;
+}
+
+message HMSetReq {
+  bytes key             = 1;
+  repeated bytes values = 2;
+}
+
+message HMSetRsp {
+  string errorMsg       = 1;
+}
+
+message HMGetReq {
+  bytes key             = 1;
+  repeated bytes fields = 2;
+}
+
+message HMGetRsp {
+  repeated bytes values = 1;
+  string errorMsg       = 2;
+}
+
+message HDelReq {
+  bytes key             = 1;
+  repeated bytes fields = 2;
+}
+
+message HDelRsp {
+  int64 res             = 1;
+  string errorMsg       = 2;
+}
+
+message HKeyExistsReq {
+  bytes key             = 1;
+}
+
+message HKeyExistsRsp {
+  bool ok               = 1;
+  string errorMsg       = 2;
+}
+
+message HExistsReq {
+  bytes key             = 1;
+  bytes field           = 2;
+}
+
+message HExistsRsp {
+  bool ok               = 1;
+  string errorMsg       = 2;
+}
+
+message HLenReq {
+  bytes key             = 1;
+}
+
+message HLenRsp {
+  int64 length          = 1;
+  string errorMsg       = 2;
+}
+
+message HKeysReq {
+  bytes key             = 1;
+}
+
+message HKeysRsp {
+  repeated bytes values = 1;
+  string errorMsg       = 2;
+}
+
+message HValsReq {
+  bytes key             = 1;
+}
+
+message HValsRsp {
+  repeated bytes values = 1;
+  string errorMsg       = 2;
+}
+
+message HClearReq {
+  bytes key             = 1;
+}
+
+message HClearRsp {
+  string errorMsg       = 1;
+}
+
+message HExpireReq {
+  bytes key             = 1;
+  int64 duration        = 2;
+}
+
+message HExpireRsp {
+  string errorMsg       = 1;
+}
+
+message HTTLReq {
+  bytes key             = 1;
+}
+
+message HTTLRsp {
+  int64 ttl             = 1;
+}

@@ -1,0 +1,196 @@
+syntax = "proto3";
+package proto;
+option go_package = "cmd/proto";
+
+message ZAddReq {
+  bytes key                 = 1;
+  double score              = 2;
+  bytes member              = 3;
+}
+
+message ZAddRsp {
+  string errorMsg           = 1;
+}
+
+message ZScoreReq {
+  bytes key                 = 1;
+  bytes member              = 2;
+}
+
+message ZScoreRsp {
+  bool ok                   = 1;
+  double score              = 2;
+  string errorMsg           = 3;
+}
+
+message ZCardReq {
+  bytes key                 = 1;
+}
+
+message ZCardRsp {
+  int64 size                = 1;
+  string errorMsg           = 2;
+}
+
+message ZRankReq {
+  bytes key                 = 1;
+  bytes member              = 2;
+}
+
+message ZRankRsp {
+  int64 rank                = 1;
+  string errorMsg           = 2;
+}
+
+message ZRevRankReq {
+  bytes key                 = 1;
+  bytes member              = 2;
+}
+
+message ZRevRankRsp {
+  int64 rank                = 1;
+  string errorMsg           = 2;
+}
+
+message ZIncrByReq {
+  bytes key                 = 1;
+  double increment          = 2;
+  bytes member              = 3;
+}
+
+message ZIncrByRsp {
+  double scores             = 1;
+  string errorMsg           = 2;
+}
+
+message ZRangeReq {
+  bytes key                 = 1;
+  int64 start               = 2;
+  int64 end                 = 3;
+}
+
+message ZRangeRsp {
+  repeated bytes values     = 1;
+  string errorMsg           = 2;
+}
+
+message ZRangeWithScoresReq {
+  bytes key                 = 1;
+  int64 start               = 2;
+  int64 end                 = 3;
+}
+
+message ZRangeWithScoresRsp {
+  repeated bytes values     = 1;
+  string errorMsg           = 2;
+}
+
+message ZRevRangeReq {
+  bytes key                 = 1;
+  int64 start               = 2;
+  int64 end                 = 3;
+}
+
+message ZRevRangeRsp {
+  repeated bytes values     = 1;
+  string errorMsg           = 2;
+}
+
+message ZRevRangeWithScoresReq {
+  bytes key                 = 1;
+  int64 start               = 2;
+  int64 end                 = 3;
+}
+
+message ZRevRangeWithScoresRsp {
+  repeated bytes values     = 1;
+  string errorMsg           = 2;
+}
+
+message ZRemReq {
+  bytes key                 = 1;
+  bytes member              = 2;
+}
+
+message ZRemRsp {
+  bool ok                   = 1;
+  string errorMsg           = 2;
+}
+
+message ZGetByRankReq {
+  bytes key                 = 1;
+  int64 rank                = 2;
+}
+
+message ZGetByRankRsp {
+  repeated bytes values     = 1;
+  string errorMsg           = 2;
+}
+
+message ZRevGetByRankReq {
+  bytes key                 = 1;
+  int64 rank                = 2;
+}
+
+message ZRevGetByRankRsp {
+  repeated bytes values     = 1;
+  string errorMsg           = 2;
+}
+
+message ZScoreRangeReq {
+  bytes key                 = 1;
+  double min                = 2;
+  double max                = 3;
+}
+
+message ZScoreRangeRsp {
+  repeated bytes values     = 1;
+  string errorMsg           = 2;
+}
+
+message ZRevScoreRangeReq {
+  bytes key                 = 1;
+  double max                = 2;
+  double min                = 3;
+}
+
+message ZRevScoreRangeRsp {
+  repeated bytes values     = 1;
+  string errorMsg           = 2;
+}
+
+message ZKeyExistsReq {
+  bytes key                 = 1;
+}
+
+message ZKeyExistsRsp {
+  bool ok                   = 1;
+  string errorMsg           = 2;
+}
+
+message ZClearReq {
+  bytes key                 = 1;
+}
+
+message ZClearRsp {
+  bool ok                   = 1;
+  string errorMsg           = 2;
+}
+
+message ZExpireReq {
+  bytes key                 = 1;
+  int64 duration            = 2;
+}
+
+message ZExpireRsp {
+  string errorMsg           = 1;
+}
+
+message ZTTLReq {
+  bytes key                 = 1;
+}
+
+message ZTTLRsp {
+  int64 ttl                 = 1;
+  string errorMsg           = 2;
+}

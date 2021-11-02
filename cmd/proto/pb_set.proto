@@ -1,0 +1,135 @@
+syntax = "proto3";
+package proto;
+option go_package = "cmd/proto";
+
+message SAddReq {
+  bytes key               = 1;
+  repeated bytes members  = 2;
+}
+
+message SAddRsp {
+  int64 res               = 1;
+  string errorMsg         = 2;
+}
+
+message SPopReq {
+  bytes key               = 1;
+  int64 count             = 2;
+}
+
+message SPopRsp {
+  repeated bytes values   = 1;
+  string errorMsg         = 2;
+}
+
+message SIsMemberReq {
+ bytes key                = 1;
+ bytes member             = 2;
+}
+
+message SIsMemberRsp {
+  bool isMember           = 1;
+  string errorMsg         = 2;
+}
+
+message SRandMemberReq {
+  bytes key               = 1;
+  int64 count             = 2;
+}
+
+message SRandMemberRsp {
+  repeated bytes values   = 1;
+  string errorMsg         = 2;
+}
+
+message SRemReq {
+  bytes key               = 1;
+  repeated bytes members  = 2;
+}
+
+message SRemRsp {
+  int64 res               = 1;
+  string errorMsg         = 2;
+}
+
+message SMoveReq {
+  bytes src               = 1;
+  bytes dst               = 2;
+  bytes member            = 3;
+}
+
+message SMoveRsp {
+  string errorMsg         = 1;
+}
+
+message SCardReq {
+  bytes key               = 1;
+}
+
+message SCardRsp {
+  int64 res               = 1;
+  string errorMsg         = 2;
+}
+
+message SMembersReq {
+  bytes key               = 1;
+}
+
+message SMembersRsp {
+  repeated bytes values   = 1;
+  string errorMsg         = 2;
+}
+
+message SUnionReq {
+  repeated bytes keys     = 1;
+  string errorMsg         = 2;
+}
+
+message SUnionRsp {
+  repeated bytes values   = 1;
+  string errorMsg         = 2;
+}
+
+message SDiffReq {
+  repeated bytes keys     = 1;
+}
+
+message SDiffRsp {
+  repeated bytes values   = 1;
+  string errorMsg         = 2;
+}
+
+message SKeyExistsReq {
+  bytes key               = 1;
+}
+
+message SKeyExistsRsp {
+  bool ok                 = 1;
+  string errorMsg         = 2;
+}
+
+message SClearReq {
+  bytes key               = 1;
+}
+
+message SClearRsp {
+  bool ok                 = 1;
+  string errorMsg         = 2;
+}
+
+message SExpireReq {
+  bytes key               = 1;
+  int64 duration          = 2;
+}
+
+message SExpireRsp {
+  string errorMsg         = 1;
+}
+
+message STTLReq {
+  bytes key               = 1;
+}
+
+message STTLRsp {
+  int64 ttl               = 1;
+}

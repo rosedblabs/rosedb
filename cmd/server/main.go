@@ -54,13 +54,16 @@ func main() {
 	signal.Notify(sig, os.Interrupt, os.Kill, syscall.SIGHUP,
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	server, err := cmd.NewServer(cfg)
+	db, err := rosedb.Open(cfg)
 	if err != nil {
-		log.Printf("create rosedb server err: %+v\n", err)
+		log.Printf("create rosedb err: %+v\n", err)
 		return
 	}
-	go server.Listen(cfg.Addr)
 
+	server := cmd.NewServerUseDbPtr(db)
+	grpcServer := cmd.NewGrpcServer(db)
+	go server.Listen(cfg.Addr)
+	go grpcServer.Listen(cfg.GrpcAddr)
 	<-sig
 	server.Stop()
 	log.Println("rosedb is ready to exit, bye...")

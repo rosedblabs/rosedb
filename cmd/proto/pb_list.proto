@@ -1,0 +1,164 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "cmd/proto";
+
+enum InsertOption {
+  Before                  = 0;
+  After                   = 1;
+}
+
+message LPushReq {
+  bytes key               = 1;
+  repeated bytes values   = 2;
+}
+
+message LPushRsp {
+  int64 res               = 1;
+  string errorMsg         = 2;
+}
+
+message RPushReq {
+  bytes key               = 1;
+  repeated bytes values   = 2;
+}
+
+message RPushRsp {
+  int64 res               = 1;
+  string errorMsg         = 2;
+}
+
+message LPopReq {
+  bytes key               = 1;
+}
+
+message LPopRsp {
+  bytes value             = 1;
+  string errorMsg         = 2;
+}
+
+message RPopReq {
+  bytes key               = 1;
+}
+
+message RPopRsp {
+  bytes value             = 1;
+  string errorMsg         = 2;
+}
+
+message LIndexReq {
+  bytes key               = 1;
+  int64 idx               = 2;
+}
+
+message LIndexRsp {
+  bytes value             = 1;
+  string errorMsg         = 2;
+}
+
+message LRemReq {
+  bytes key               = 1;
+  bytes value             = 2;
+  int64 count             = 3;
+}
+
+message LRemRsp {
+  int64 res               = 1;
+  string errorMsg         = 2;
+}
+
+message LInsertReq {
+  bytes key               = 1;
+  InsertOption option     = 2;
+  bytes pivot             = 3;
+  bytes value             = 4;
+}
+
+message LInsertRsp {
+  int64 count             = 1;
+  string errorMsg         = 2;
+}
+
+message LSetReq {
+  bytes key               = 1;
+  int64 idx               = 2;
+  bytes value             = 3;
+}
+
+message LSetRsp {
+  bool ok                 = 1;
+  string errorMsg         = 2;
+}
+
+message LTrimReq {
+  bytes key               = 1;
+  int64 start             = 2;
+  int64 end               = 3;
+}
+
+message LTrimRsp {
+  string errorMsg         = 1;
+}
+
+message LRangeReq {
+  bytes key               = 1;
+  int64 start             = 2;
+  int64 end               = 3;
+}
+
+message LRangeRsp {
+  repeated bytes values   = 1;
+  string errorMsg         = 2;
+}
+
+message LLenReq {
+  bytes key               = 1;
+}
+
+message LLenRsp {
+  int64 length            = 1;
+}
+
+message LKeyExistsReq {
+  bytes key               = 1;
+}
+
+message LKeyExistsRsp {
+  bool ok                 = 1;
+  string errorMsg         = 2;
+}
+
+message LValExistsReq {
+  bytes key               = 1;
+  bytes value             = 2;
+}
+
+message LValExistsRsp {
+  bool ok                 = 1;
+  string errorMsg         = 2;
+}
+
+message LClearReq {
+  bytes key               = 1;
+}
+
+message LClearRsp {
+  string errorMsg         = 1;
+}
+
+message LExpireReq {
+  bytes key               = 1;
+  int64 duration          = 2;
+}
+
+message LExpireRsp {
+  string errorMsg         = 1;
+}
+
+message LTTLReq {
+  bytes key               = 1;
+}
+
+message LTTLRsp {
+  int64 ttl               = 1;
+}
