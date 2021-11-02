@@ -275,6 +275,7 @@ func (db *RoseDB) Remove(key interface{}) error {
 
 	db.strIndex.idxList.Remove(encKey)
 	delete(db.expires[String], string(encKey))
+	db.cache.Remove(encKey)
 	return nil
 }
 

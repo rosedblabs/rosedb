@@ -49,6 +49,20 @@ func (c *LruCache) Set(key, value []byte) {
 	c.set(string(key), value)
 }
 
+// Remove ...
+func (c *LruCache) Remove(key []byte) {
+	if c.cacheMap == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if ele, ok := c.cacheMap[string(key)]; ok {
+		delete(c.cacheMap, string(key))
+		c.cacheList.Remove(ele)
+	}
+}
+
 func (c *LruCache) get(key string) ([]byte, bool) {
 	ele, ok := c.cacheMap[key]
 	if ok {

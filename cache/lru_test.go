@@ -35,19 +35,50 @@ func TestLruCache_Set(t *testing.T) {
 	lru.Set(nil, nil)
 }
 
-func BenchmarkCache_Set(b *testing.B) {
-	cache := NewLruCache(500)
+func TestLruCache_Remove(t *testing.T) {
+	lru := NewLruCache(10)
+	lru.Remove(nil)
 
+	t.Run("1", func(t *testing.T) {
+		lru.Set([]byte("1"), []byte("1"))
+		lru.Remove([]byte("1"))
+
+		assert.Equal(t, lru.cacheList.Len(), 0)
+		assert.Equal(t, len(lru.cacheMap), 0)
+	})
+
+	t.Run("2", func(t *testing.T) {
+		lru.Set([]byte("22"), []byte("aa"))
+		lru.Set([]byte("2233"), []byte("aa"))
+
+		lru.Remove([]byte("100"))
+		assert.Equal(t, lru.cacheList.Len(), 2)
+		assert.Equal(t, len(lru.cacheMap), 2)
+
+		lru.Remove([]byte("22"))
+		assert.Equal(t, lru.cacheList.Len(), 1)
+		assert.Equal(t, len(lru.cacheMap), 1)
+	})
+
+	t.Run("3", func(t *testing.T) {
+		lru.Set([]byte("33"), []byte("aa"))
+		lru.Set([]byte("3344"), []byte("aa"))
+		lru.Remove([]byte("33"))
+		lru.Remove([]byte("3344"))
+	})
+}
+
+func BenchmarkLruCache_Set(b *testing.B) {
+	cache := NewLruCache(500)
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	//k, v := []byte("test-key"), []byte("test-value")
 	for i := 0; i < b.N; i++ {
 		cache.Set(GetKey(i), GetValue())
 	}
 }
 
-func BenchmarkCache_Get(b *testing.B) {
+func BenchmarkLruCache_Get(b *testing.B) {
 	cache := NewLruCache(1024)
 	for i := 0; i < 10000; i++ {
 		cache.Set(GetKey(i), GetValue())
@@ -58,6 +89,20 @@ func BenchmarkCache_Get(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		cache.Get(GetKey(i))
+	}
+}
+
+func BenchmarkLruCache_Remove(b *testing.B) {
+	cache := NewLruCache(1024)
+	for i := 0; i < 10000; i++ {
+		cache.Set(GetKey(i), GetValue())
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		cache.Remove(GetKey(i))
 	}
 }
 

@@ -19,7 +19,7 @@ var ExecCmd = make(map[string]ExecCmdFunc)
 var (
 	nestedMultiErr  = errors.New("ERR MULTI calls can not be nested")
 	withoutMultiErr = errors.New("ERR EXEC without MULTI")
-	execAbortErr    = errors.New("EXECABORT Transaction discarded because of previous errors.")
+	execAbortErr    = errors.New("EXECABORT Transaction discarded because of previous errors")
 )
 
 func addExecCommand(cmd string, cmdFunc ExecCmdFunc) {
@@ -103,11 +103,8 @@ func (s *Server) handleCmd(conn redcon.Conn, cmd redcon.Command) {
 			var txnList TxnList
 			s.TxnLists.Store(conn.RemoteAddr(), &txnList)
 			reply = "OK"
-
 		} else {
-
 			err = nestedMultiErr
-
 		}
 	} else if command == "exec" {
 		if value, ok := s.TxnLists.Load(conn.RemoteAddr()); ok {
@@ -122,17 +119,12 @@ func (s *Server) handleCmd(conn redcon.Conn, cmd redcon.Command) {
 				} else {
 					reply, err = txn(s.db, txnList.cmdArgs)
 				}
-
 			}
-
 		} else {
 			err = withoutMultiErr
 		}
-
 	} else {
-
 		if value, ok := s.TxnLists.Load(conn.RemoteAddr()); ok {
-
 			txnList := value.(*TxnList)
 			_, exist := ExecCmd[command]
 
@@ -141,13 +133,10 @@ func (s *Server) handleCmd(conn redcon.Conn, cmd redcon.Command) {
 				conn.WriteError(txnList.err.Error())
 				return
 			}
-
 			txnList.cmdArgs = append(txnList.cmdArgs, parseTxnArgs(cmd.Args))
 
 			reply = "QUEUED"
-
 		} else {
-
 			exec, exist := ExecCmd[command]
 			if !exist {
 				conn.WriteError(fmt.Sprintf("ERR unknown command '%s'", command))
@@ -156,9 +145,7 @@ func (s *Server) handleCmd(conn redcon.Conn, cmd redcon.Command) {
 
 			args := parseArgs(cmd.Args)
 			reply, err = exec(s.db, args)
-
 		}
-
 	}
 
 	if err != nil {
