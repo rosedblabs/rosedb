@@ -21,6 +21,7 @@ const (
 	// PathSeparator the default path separator.
 	PathSeparator = string(os.PathSeparator)
 
+	// It is a temporary directory, only exists when merging.
 	mergeDir = "rosedb_merge"
 )
 
@@ -97,7 +98,7 @@ func NewDBFile(path string, fileId uint32, method FileRWMethod, blockSize int64,
 	return df, nil
 }
 
-// Read read data from the db file, offset is the start position of reading.
+// Read data from the db file, offset is the start position of reading.
 func (df *DBFile) Read(offset int64) (e *Entry, err error) {
 	var buf []byte
 
@@ -215,22 +216,21 @@ func (df *DBFile) readBuf(offset int64, n int64) ([]byte, error) {
 	return buf, nil
 }
 
-// Write write data into db file from offset.
-func (df *DBFile) Write(e *Entry) error {
+// Write data into db file from offset.
+func (df *DBFile) Write(e *Entry) (err error) {
 	if e == nil || e.Meta.KeySize == 0 {
 		return ErrEmptyEntry
 	}
 
-	method := df.method
-	writeOff := df.Offset
-	encVal, err := e.Encode()
-	if err != nil {
-		return err
+	method, writeOff := df.method, df.Offset
+	var encVal []byte
+	if encVal, err = e.Encode(); err != nil {
+		return
 	}
 
 	if method == FileIO {
-		if _, err := df.File.WriteAt(encVal, writeOff); err != nil {
-			return err
+		if _, err = df.File.WriteAt(encVal, writeOff); err != nil {
+			return
 		}
 	}
 	if method == MMap {
@@ -240,7 +240,7 @@ func (df *DBFile) Write(e *Entry) error {
 		copy(df.mmap[writeOff:], encVal)
 	}
 	df.Offset += int64(e.Size())
-	return nil
+	return
 }
 
 // Close close the db file, sync means whether to persist data before closing.

@@ -1,205 +1,318 @@
 package storage
 
 import (
-	"log"
+	"github.com/roseduan/mmap-go"
+	"github.com/stretchr/testify/assert"
 	"os"
+	"reflect"
 	"testing"
 )
 
-const (
-	path1            = "/tmp/rosedb"
-	fileID1          = 0
-	path2            = "/tmp/rosedb"
-	fileID2          = 1
-	defaultBlockSize = 8 * 1024 * 1024
-)
-
-func init() {
-	os.MkdirAll(path1, os.ModePerm)
-	_, err := os.OpenFile("/tmp/rosedb/000000000.data.str", os.O_CREATE|os.O_RDWR, os.ModePerm)
-	if err != nil {
-		log.Println("create file err. ", err)
+func TestBuild(t *testing.T) {
+	type args struct {
+		path      string
+		method    FileRWMethod
+		blockSize int64
 	}
-	os.OpenFile("/tmp/rosedb/000000001.data.list", os.O_CREATE|os.O_RDWR, os.ModePerm)
-}
-
-func TestNewDBFile(t *testing.T) {
-	os.MkdirAll(path1, os.ModePerm)
-	newOne := func(method FileRWMethod, dataType uint16) {
-		_, err := NewDBFile(path1, fileID1, method, defaultBlockSize, dataType)
-		if err != nil {
-			t.Error("new db file error ", err)
-		}
+	tests := []struct {
+		name    string
+		args    args
+		want    map[uint16]map[uint32]*DBFile
+		want1   map[uint16]uint32
+		wantErr bool
+	}{
+		// TODO: Add test cases.
 	}
-
-	t.Run("new db file file io", func(t *testing.T) {
-		for i := 0; i < 5; i++ {
-			newOne(FileIO, uint16(i))
-		}
-	})
-
-	t.Run("new db file mmap", func(t *testing.T) {
-		for i := 0; i < 5; i++ {
-			newOne(MMap, uint16(i))
-		}
-	})
-}
-func TestMMapWrite(t *testing.T) {
-	var pathMMptest = "/tmp/rosedb-mmap/"
-	os.MkdirAll(pathMMptest, os.ModePerm)
-	entry := NewEntryNoExtra(make([]byte, 11), make([]byte, 10), String, 0)
-	var maxEntrySize int64 = entryHeaderSize + 20
-	t.Run("new db file mmap", func(t *testing.T) {
-		for i := 0; i < 5; i++ {
-			fd, err := NewDBFile(pathMMptest, 0, MMap, maxEntrySize, uint16(i))
-			if err != nil {
-				t.Error("new db file error ", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, err := Build(tt.args.path, tt.args.method, tt.args.blockSize)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Build() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
-			err = fd.Write(entry)
-			if err != ErrEntryTooLarge {
-				t.Error("entry write should be ErrEntryTooLarge")
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Build() got = %v, want %v", got, tt.want)
 			}
-		}
-	})
-	entry2 := NewEntryNoExtra(make([]byte, 10), make([]byte, 10), String, 0)
-	t.Run("new db file mmap", func(t *testing.T) {
-		for i := 0; i < 5; i++ {
-			fd, err := NewDBFile(pathMMptest, 1, MMap, maxEntrySize, uint16(i))
-			if err != nil {
-				t.Error("new db file error ", err)
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("Build() got1 = %v, want %v", got1, tt.want1)
 			}
-			err = fd.Write(entry2)
-			if err != nil {
-				t.Error("entry write should be success")
-			}
-		}
-	})
-}
-func TestDBFile_Sync(t *testing.T) {
-	df, err := NewDBFile(path1, fileID1, FileIO, defaultBlockSize, 1)
-	if err != nil {
-		t.Error(err)
+		})
 	}
-	df.Sync()
 }
 
 func TestDBFile_Close(t *testing.T) {
-	df, err := NewDBFile(path1, fileID1, FileIO, defaultBlockSize, 3)
-	if err != nil {
-		t.Error(err)
+	type fields struct {
+		Id     uint32
+		Path   string
+		File   *os.File
+		mmap   mmap.MMap
+		Offset int64
+		method FileRWMethod
 	}
-	df.Close(true)
-}
-
-func TestBuild(t *testing.T) {
-	path := "/tmp/rosedb"
-	_, _, err := Build(path, FileIO, defaultBlockSize)
-	if err != nil {
-		log.Fatal(err)
+	type args struct {
+		sync bool
 	}
-}
-
-func TestDBFile_Write2(t *testing.T) {
-	df, err := NewDBFile(path1, fileID1, FileIO, defaultBlockSize, 0)
-	if err != nil {
-		t.Error(err)
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		// TODO: Add test cases.
 	}
-
-	entry1 := &Entry{
-		Meta: &Meta{
-			Key:   []byte("test001"),
-			Value: []byte("test001"),
-		},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			df := &DBFile{
+				Id:     tt.fields.Id,
+				Path:   tt.fields.Path,
+				File:   tt.fields.File,
+				mmap:   tt.fields.mmap,
+				Offset: tt.fields.Offset,
+				method: tt.fields.method,
+			}
+			if err := df.Close(tt.args.sync); (err != nil) != tt.wantErr {
+				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
-	entry1.Meta.KeySize = uint32(len(entry1.Meta.Key))
-	entry1.Meta.ValueSize = uint32(len(entry1.Meta.Value))
-
-	entry2 := &Entry{
-		Meta: &Meta{
-			Key:   []byte("test_key_002"),
-			Value: []byte("test_val_002"),
-		},
-	}
-
-	entry2.Meta.KeySize = uint32(len(entry2.Meta.Key))
-	entry2.Meta.ValueSize = uint32(len(entry2.Meta.Value))
-	err = df.Write(entry1)
-	err = df.Write(entry2)
-
-	defer func() {
-		err = df.Close(true)
-	}()
-
-	if err != nil {
-		t.Error("write data err: ", err)
-	}
-}
-
-func TestDBFile_Read2(t *testing.T) {
-	df, _ := NewDBFile(path1, fileID1, FileIO, defaultBlockSize, 0)
-
-	readEntry := func(offset int64) *Entry {
-		if e, err := df.Read(offset); err != nil {
-			t.Error("read db File error ", err)
-		} else {
-			return e
-		}
-		return nil
-	}
-
-	_ = readEntry(0)
-	_ = readEntry(34)
-	defer df.Close(false)
-}
-
-func TestDBFile_Write(t *testing.T) {
-
-	var df, _ = NewDBFile(path2, fileID2, MMap, defaultBlockSize, 1)
-
-	writeEntry := func(key, value []byte) {
-		defer df.Sync()
-		e := &Entry{
-			Meta: &Meta{
-				Key:   key,
-				Value: value,
-			},
-		}
-		e.Meta.KeySize = uint32(len(e.Meta.Key))
-		e.Meta.ValueSize = uint32(len(e.Meta.Value))
-
-		if err := df.Write(e); err != nil {
-			t.Error("write data err: ", err)
-		}
-	}
-	writeEntry([]byte("mmap_key_001"), []byte("mmap_val_001"))
-	writeEntry([]byte("mmap_key_002"), []byte("mmap_val_002"))
 }
 
 func TestDBFile_Read(t *testing.T) {
-	var df, _ = NewDBFile(path2, fileID2, MMap, defaultBlockSize, 1)
-
-	readEntry := func(offset int64) {
-		if e, err := df.Read(offset); err != nil {
-			t.Error("数据读取失败", err)
-		} else {
-			t.Log(string(e.Meta.Key), e.Meta.KeySize, string(e.Meta.Value), e.Meta.ValueSize, e.crc32)
-		}
+	type fields struct {
+		Id     uint32
+		Path   string
+		File   *os.File
+		mmap   mmap.MMap
+		Offset int64
+		method FileRWMethod
 	}
-	readEntry(0)
-	readEntry(44)
+	type args struct {
+		offset int64
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantE   *Entry
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			df := &DBFile{
+				Id:     tt.fields.Id,
+				Path:   tt.fields.Path,
+				File:   tt.fields.File,
+				mmap:   tt.fields.mmap,
+				Offset: tt.fields.Offset,
+				method: tt.fields.method,
+			}
+			gotE, err := df.Read(tt.args.offset)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Read() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotE, tt.wantE) {
+				t.Errorf("Read() gotE = %v, want %v", gotE, tt.wantE)
+			}
+		})
+	}
 }
 
-
 func TestDBFile_ReadAll(t *testing.T) {
-	archFiles, _, err :=  Build("/tmp/rosedb_server", FileIO, 16 * 1024 * 1024)
-	if err != nil {
-		t.Fatal(err.Error())
+	type fields struct {
+		Id     uint32
+		Path   string
+		File   *os.File
+		mmap   mmap.MMap
+		Offset int64
+		method FileRWMethod
 	}
-	entries, err := archFiles[0][0].ReadAll()
-	if err != nil {
-		t.Fatal(err.Error())
+	tests := []struct {
+		name    string
+		fields  fields
+		want    map[int64]*Entry
+		wantErr bool
+	}{
+		// TODO: Add test cases.
 	}
-	if len(entries) != 3 {
-		t.Fatal("want 3 entries, got ", len(entries))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			df := &DBFile{
+				Id:     tt.fields.Id,
+				Path:   tt.fields.Path,
+				File:   tt.fields.File,
+				mmap:   tt.fields.mmap,
+				Offset: tt.fields.Offset,
+				method: tt.fields.method,
+			}
+			got, err := df.ReadAll()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReadAll() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ReadAll() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDBFile_Sync(t *testing.T) {
+	type fields struct {
+		Id     uint32
+		Path   string
+		File   *os.File
+		mmap   mmap.MMap
+		Offset int64
+		method FileRWMethod
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			df := &DBFile{
+				Id:     tt.fields.Id,
+				Path:   tt.fields.Path,
+				File:   tt.fields.File,
+				mmap:   tt.fields.mmap,
+				Offset: tt.fields.Offset,
+				method: tt.fields.method,
+			}
+			if err := df.Sync(); (err != nil) != tt.wantErr {
+				t.Errorf("Sync() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDBFile_Write(t *testing.T) {
+	type fields struct {
+		Id     uint32
+		Path   string
+		File   *os.File
+		mmap   mmap.MMap
+		Offset int64
+		method FileRWMethod
+	}
+
+	type args struct {
+		e *Entry
+	}
+
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			df := &DBFile{
+				Id:     tt.fields.Id,
+				Path:   tt.fields.Path,
+				File:   tt.fields.File,
+				mmap:   tt.fields.mmap,
+				Offset: tt.fields.Offset,
+				method: tt.fields.method,
+			}
+			if err := df.Write(tt.args.e); (err != nil) != tt.wantErr {
+				t.Errorf("Write() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDBFile_readBuf(t *testing.T) {
+	type fields struct {
+		Id     uint32
+		Path   string
+		File   *os.File
+		mmap   mmap.MMap
+		Offset int64
+		method FileRWMethod
+	}
+	type args struct {
+		offset int64
+		n      int64
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []byte
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			df := &DBFile{
+				Id:     tt.fields.Id,
+				Path:   tt.fields.Path,
+				File:   tt.fields.File,
+				mmap:   tt.fields.mmap,
+				Offset: tt.fields.Offset,
+				method: tt.fields.method,
+			}
+			got, err := df.readBuf(tt.args.offset, tt.args.n)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("readBuf() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("readBuf() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewDBFile(t *testing.T) {
+	path := "/tmp/rosedb"
+	_ = os.MkdirAll("/tmp/rosedb", os.ModePerm)
+	defer os.RemoveAll(path)
+
+	type args struct {
+		path      string
+		fileId    uint32
+		method    FileRWMethod
+		blockSize int64
+		eType     uint16
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		want    *DBFile
+		wantErr bool
+	}{
+		{"f-string", args{"/tmp/rosedb", 0, FileIO, 1 * 1024 * 1024, String}, nil, false},
+		{"f-list", args{"/tmp/rosedb", 0, FileIO, 1 * 1024 * 1024, List}, nil, false},
+		{"f-hash", args{"/tmp/rosedb", 0, FileIO, 1 * 1024 * 1024, Hash}, nil, false},
+		{"f-set", args{"/tmp/rosedb", 0, FileIO, 1 * 1024 * 1024, Set}, nil, false},
+		{"f-zset", args{"/tmp/rosedb", 0, FileIO, 1 * 1024 * 1024, ZSet}, nil, false},
+
+		{"m-zset", args{"/tmp/rosedb", 1, MMap, 1 * 1024 * 1024, String}, nil, false},
+		{"m-zset", args{"/tmp/rosedb", 2, MMap, 2 * 1024 * 1024, List}, nil, false},
+		{"m-zset", args{"/tmp/rosedb", 3, MMap, 3 * 1024 * 1024, Hash}, nil, false},
+		{"m-zset", args{"/tmp/rosedb", 4, MMap, 4 * 1024 * 1024, Set}, nil, false},
+		{"m-zset", args{"/tmp/rosedb", 5, MMap, 5 * 1024 * 1024, ZSet}, nil, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewDBFile(tt.args.path, tt.args.fileId, tt.args.method, tt.args.blockSize, tt.args.eType)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewDBFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.NotNil(t, got)
+		})
 	}
 }
