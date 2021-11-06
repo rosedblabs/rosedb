@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"io"
 	"log"
 	"sort"
 	"strconv"
@@ -258,27 +259,32 @@ func (db *RoseDB) loadIdxFromFiles() error {
 			for i := 0; i < len(fileIds); i++ {
 				fid := uint32(fileIds[i])
 				df := dbFile[fid]
+				var offset int64 = 0
 
-				entries, err := df.ReadAll()
-				if err != nil {
-					log.Fatalf("a fatal err occurred, gen entries from file failed: %s", err.Error())
-				}
-
-				for offset, entry := range entries {
-					idx := &index.Indexer{
-						Meta:   entry.Meta,
-						FileId: fid,
-						Offset: offset,
-					}
-
-					if len(entry.Meta.Key) > 0 {
-						if err := db.buildIndex(entry, idx, true); err != nil {
-							log.Fatalf("a fatal err occurred, the db can not open.[%+v]", err)
+				for offset <= db.config.BlockSize {
+					if e, err := df.Read(offset); err == nil {
+						idx := &index.Indexer{
+							Meta:   e.Meta,
+							FileId: fid,
+							Offset: offset,
 						}
+						offset += int64(e.Size())
 
-						if i == len(fileIds)-1 && entry.TxId != 0 {
-							db.txnMeta.ActiveTxIds.Store(entry.TxId, struct{}{})
+						if len(e.Meta.Key) > 0 {
+							if err := db.buildIndex(e, idx, true); err != nil {
+								log.Fatalf("a fatal err occurred, the db can not open.[%+v]", err)
+							}
+
+							// save active tx ids.
+							if i == len(fileIds)-1 && e.TxId != 0 {
+								db.txnMeta.ActiveTxIds.Store(e.TxId, struct{}{})
+							}
 						}
+					} else {
+						if err == io.EOF {
+							break
+						}
+						log.Fatalf("a fatal err occurred, the db can not open.[%+v]", err)
 					}
 				}
 			}

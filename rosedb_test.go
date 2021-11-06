@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"log"
+	"os"
 	"testing"
 	"time"
 )
@@ -24,6 +25,24 @@ func InitDb() *RoseDB {
 		log.Fatal(err)
 	}
 	return db
+}
+
+func InitDB(cfg Config) *RoseDB {
+	db, err := Open(cfg)
+	if err != nil {
+		panic(fmt.Sprintf("open rosedb err.%+v", err))
+	}
+	return db
+}
+
+func DestroyDB(db *RoseDB) {
+	if db == nil {
+		return
+	}
+	err := os.RemoveAll(db.config.DirPath)
+	if err != nil {
+		log.Fatalf("destroy db err.%+v", err)
+	}
 }
 
 func ReopenDb() *RoseDB {

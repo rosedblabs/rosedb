@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"github.com/roseduan/rosedb/storage"
 	"strings"
 	"testing"
 
@@ -9,38 +10,11 @@ import (
 )
 
 func TestRoseDB_Set(t *testing.T) {
+	roseDB := InitDB(DefaultConfig())
+	defer DestroyDB(roseDB)
 
 	t.Run("1", func(t *testing.T) {
-		tests := []struct {
-			key interface{}
-			val interface{}
-		}{
-			{nil, nil},
-			{"aaa", nil},
-			{nil, "bbb"},
-
-			{[]byte("kk"), []byte("rosedb1")},
-			{[]byte("kk"), []byte("rosedb2")},
-			{[]byte("kk"), []byte("rosedb3")},
-			{[]byte("kk1"), []byte("rosedb4")},
-			{[]byte("kk2"), []byte("rosedb5")},
-
-			{true, 1232},
-			{true, 1232},
-
-			{float32(4.4122), float32(9102.22)},
-			{float32(4.4122), []byte("1")},
-
-			{float64(3.132), float64(4443)},
-
-			{"kk33", "a"},
-			{"kk33", "b"},
-			{"kk44", "c"},
-
-			{1, 34},
-			{-3921, 34},
-		}
-
+		tests := generateMultiTypesTestData()
 		for _, tt := range tests {
 			err := roseDB.Set(tt.key, tt.val)
 			assert.Equal(t, err, nil)
@@ -48,31 +22,72 @@ func TestRoseDB_Set(t *testing.T) {
 	})
 
 	t.Run("2", func(t *testing.T) {
-		type KeyVal struct {
-			Field1 []byte
-			Field2 float64
-			Field3 int
-			Field4 string
+		// slice
+		sli := []int{1, 3, 43}
+		err := roseDB.Set(sli, "slice-val-1")
+		assert.Equal(t, err, nil)
+
+		// map
+		m := map[string]interface{}{
+			"m1": "a",
+			"m2": "b",
 		}
 
-		tests := []KeyVal{
-			{[]byte("a"), 343.33, 33, "rosedb"},
-			{[]byte("b"), 343.33, 33, "rosedb"},
-			{[]byte("c"), 343.33, 33, "rosedb"},
-			{[]byte("d"), 343.33, 33, "rosedb"},
-		}
+		err = roseDB.Set(m, "map-val-1")
+		assert.Equal(t, err, nil)
 
+		// struct
+		sk1 := struct {
+			f1 string
+			f2 int
+			f3 []byte
+		}{
+			"1", 23, []byte("aa"),
+		}
+		err = roseDB.Set(sk1, "struct-val-1")
+		assert.Equal(t, err, nil)
+	})
+}
+
+func TestRoseDB_Set_MMap(t *testing.T) {
+	config := DefaultConfig()
+	config.RwMethod = storage.MMap
+	roseDB := InitDB(config)
+	defer DestroyDB(roseDB)
+
+	t.Run("1", func(t *testing.T) {
+		tests := generateMultiTypesTestData()
 		for _, tt := range tests {
-			err := roseDB.Set(tt.Field1, tt)
+			err := roseDB.Set(tt.key, tt.val)
 			assert.Equal(t, err, nil)
 		}
+	})
 
-		for _, tt := range tests {
-			err := roseDB.Set(tt, tt.Field1)
-			assert.Equal(t, err, nil)
+	t.Run("2", func(t *testing.T) {
+		// slice
+		sli := []int{1, 3, 43}
+		err := roseDB.Set(sli, "slice-val-1")
+		assert.Equal(t, err, nil)
+
+		// map
+		m := map[string]interface{}{
+			"m1": "a",
+			"m2": "b",
 		}
 
-		t.Log(roseDB.strIndex.idxList.Len)
+		err = roseDB.Set(m, "map-val-1")
+		assert.Equal(t, err, nil)
+
+		// struct
+		sk1 := struct {
+			f1 string
+			f2 int
+			f3 []byte
+		}{
+			"1", 23, []byte("aa"),
+		}
+		err = roseDB.Set(sk1, "struct-val-1")
+		assert.Equal(t, err, nil)
 	})
 }
 
@@ -421,38 +436,43 @@ func BenchmarkRoseDB_Set(b *testing.B) {
 	}
 }
 
-func BenchmarkRoseDB_Get(b *testing.B) {
-	for i := 0; i < 10000; i++ {
-		roseDB.Set(GetKey(i), GetValue())
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		var res interface{}
-		err := roseDB.Get(GetKey(i), &res)
-		if err != nil && err != ErrKeyNotExist {
-			panic(err)
-		}
-	}
+type KeyValue struct {
+	key interface{}
+	val interface{}
 }
 
-func BenchmarkRoseDB_CacheGet(b *testing.B) {
-	for i := 0; i < 50; i++ {
-		roseDB.Set(GetKey(i), GetValue())
-	}
+func generateMultiTypesTestData() []KeyValue {
+	tests := []KeyValue{
+		// with nil value
+		{nil, nil},
+		{"set-key-1", nil},
+		{nil, "set-val-1"},
 
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		for j := 0; j < 50; j++ {
-			var res interface{}
-			err := roseDB.Get(GetKey(j), &res)
-			if err != nil && err != ErrKeyNotExist {
-				panic(err)
-			}
-		}
+		// with bool value.
+		{true, 1232},
+		{false, 1232},
+		{"bool-key-1", true},
+		{"bool-key-2", false},
+
+		// int value.
+		{1, 34.34},
+		{-3921, 34.444},
+		{uint8(123), 34.123},
+
+		// float value.
+		{float32(1.990), float32(9102.22)},
+		{float32(5.4122), []byte("1")},
+		{3.132, float64(4443)},
+
+		// byte value.
+		{[]byte("byte-key-1"), []byte("byte-val-1")},
+		{[]byte("kk1"), []byte("rosedb1")},
+		{[]byte("kk2"), []byte("rosedb2")},
+
+		// string value.
+		{"str-key-1", "str-value-1"},
+		{"str-key-2", "str-value-2"},
+		{"str-key-3", "str-value-3"},
 	}
-	// noCache BenchmarkRoseDB_CacheGet-6   	    6424	    191100 ns/op	   18837 B/op	     500 allocs/op
-	// map 	   BenchmarkRoseDB_CacheGet-6   	    7688	    162494 ns/op	   15241 B/op	    1350 allocs/op
+	return tests
 }

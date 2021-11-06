@@ -24,10 +24,11 @@ const (
 	DefaultAddr = "127.0.0.1:5200"
 
 	// defaultGrpcAddr server address and port.
-	DefaultGrpcAddr = "127.0.0.1:5221"
+	DefaultGrpcAddr = "127.0.0.1:5300"
 
 	// DefaultDirPath default rosedb data dir.
-	DefaultDirPath = "/tmp/rosedb_server"
+	// Don`t forget to change the path when using.
+	DefaultDirPath = "/tmp/rosedb"
 
 	// DefaultBlockSize default db file size: 16mb.
 	// If reach the size, db file will never be opened for writing.

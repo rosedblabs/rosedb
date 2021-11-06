@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"hash/crc32"
@@ -149,56 +148,6 @@ func (df *DBFile) Read(offset int64) (e *Entry, err error) {
 	return
 }
 
-func (df *DBFile) ReadAll() (map[int64]*Entry, error) {
-
-	bf := bytes.Buffer{}
-	if _, err := bf.ReadFrom(df.File); err != nil {
-		return nil, err
-	}
-
-	byt := bf.Bytes()
-
-	entryOffset := int64(0)
-	totalLen := int64(len(byt))
-	entries := make(map[int64]*Entry)
-	for entryOffset < totalLen {
-		endPos := entryHeaderSize
-
-		e, err := Decode(byt[:endPos])
-		if err != nil {
-			return nil, err
-		}
-		byt = byt[endPos:]
-
-		if e.Meta.KeySize > 0 {
-			endPos = int(e.Meta.KeySize)
-			e.Meta.Key = byt[:endPos]
-			byt = byt[endPos:]
-		}
-
-		if e.Meta.ValueSize > 0 {
-			endPos = int(e.Meta.ValueSize)
-			e.Meta.Value = byt[:endPos]
-			byt = byt[endPos:]
-		}
-
-		if e.Meta.ExtraSize > 0 {
-			endPos = int(e.Meta.ExtraSize)
-			e.Meta.Extra = byt[:endPos]
-			byt = byt[endPos:]
-		}
-
-		checkCrc := crc32.ChecksumIEEE(e.Meta.Value)
-		if checkCrc != e.crc32 {
-			return nil, ErrInvalidCrc
-		}
-
-		entries[entryOffset] = e
-		entryOffset += int64(e.Size())
-	}
-	return entries, nil
-}
-
 func (df *DBFile) readBuf(offset int64, n int64) ([]byte, error) {
 	buf := make([]byte, n)
 
@@ -222,22 +171,22 @@ func (df *DBFile) Write(e *Entry) (err error) {
 		return ErrEmptyEntry
 	}
 
-	method, writeOff := df.method, df.Offset
+	method, offset := df.method, df.Offset
 	var encVal []byte
 	if encVal, err = e.Encode(); err != nil {
 		return
 	}
 
 	if method == FileIO {
-		if _, err = df.File.WriteAt(encVal, writeOff); err != nil {
+		if _, err = df.File.WriteAt(encVal, offset); err != nil {
 			return
 		}
 	}
 	if method == MMap {
-		if writeOff+int64(len(encVal)) > int64(len(df.mmap)) {
+		if offset+int64(len(encVal)) > int64(len(df.mmap)) {
 			return ErrEntryTooLarge
 		}
-		copy(df.mmap[writeOff:], encVal)
+		copy(df.mmap[offset:], encVal)
 	}
 	df.Offset += int64(e.Size())
 	return

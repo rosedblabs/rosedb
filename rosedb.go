@@ -646,50 +646,35 @@ func (db *RoseDB) store(e *storage.Entry) error {
 		return err
 	}
 
-	// Note that we need to reset offset when error happened, because we do this just like write failed too.
-	activeFile, changed, err := db.tryChangeActiveFile(e, activeFile)
-	if err != nil {
-		//activeFile.File.Truncate()
-		return err
-	}
-
-	// need change, then store new File
-	if changed {
-		db.activeFile.Store(e.GetType(), activeFile)
-	}
-
-	// write entry to db file.
-	if err = activeFile.Write(e); err != nil {
-		return err
-	}
-
-	// persist db file according to the config.
-	if config.Sync {
-		if err = activeFile.Sync(); err != nil {
+	if activeFile.Offset+int64(e.Size()) > config.BlockSize {
+		if err := activeFile.Sync(); err != nil {
 			return err
-		}
-	}
-
-	return nil
-}
-
-func (db *RoseDB) tryChangeActiveFile(e *storage.Entry, curActiveFile *storage.DBFile) (*storage.DBFile, bool, error) {
-	config := db.config
-
-	if curActiveFile.Offset > config.BlockSize {
-		if err := curActiveFile.Sync(); err != nil {
-			return nil, true, err
 		}
 
 		// save the old db file as arched file.
-		activeFileId := curActiveFile.Id
-		db.archFiles[e.GetType()][activeFileId] = curActiveFile
+		activeFileId := activeFile.Id
+		db.archFiles[e.GetType()][activeFileId] = activeFile
 
 		newDbFile, err := storage.NewDBFile(config.DirPath, activeFileId+1, config.RwMethod, config.BlockSize, e.GetType())
-		return newDbFile, true, err
+		if err != nil {
+			return err
+		}
+		activeFile = newDbFile
 	}
 
-	return curActiveFile, false, nil
+	// write entry to db file.
+	if err := activeFile.Write(e); err != nil {
+		return err
+	}
+	db.activeFile.Store(e.GetType(), activeFile)
+
+	// persist db file according to the config.
+	if config.Sync {
+		if err := activeFile.Sync(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // validEntry check whether entry is valid(contains add and update types of operations).
