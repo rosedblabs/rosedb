@@ -120,45 +120,38 @@ func (db *RoseDB) MSet(values ...interface{}) error {
 		return ErrWrongNumberOfArgs
 	}
 
-	keys := make([][]byte, 0)
-	vals := make([][]byte, 0)
+	var keys [][]byte
+	var vals [][]byte
 
-	if db.config.IdxMode == KeyValueMemMode {
-		for i := 0; i < len(values); i += 2 {
-			encKey, encVal, err := db.encode(values[i], values[i+1])
-			if err != nil {
-				return err
-			}
+	for i := 0; i < len(values); i += 2 {
+		encKey, encVal, err := db.encode(values[i], values[i+1])
+		if err != nil {
+			return err
+		}
+		if err := db.checkKeyValue(encKey, encVal); err != nil {
+			return err
+		}
 
-			if err := db.checkKeyValue(encKey, encVal); err != nil {
-				return err
-			}
-
+		var skip bool
+		if db.config.IdxMode == KeyValueMemMode {
 			existVal, err := db.getVal(encKey)
 			if err != nil && err != ErrKeyExpired && err != ErrKeyNotExist {
 				return err
 			}
 
-			// if the existed value is the same as the set value, pass this key and value
-			if bytes.Compare(existVal, encVal) != 0 {
-				keys = append(keys, encKey)
-				vals = append(vals, encVal)
+			// if the existed value is the same as the set value, pass this key and value.
+			if bytes.Compare(existVal, encVal) == 0 {
+				skip = true
 			}
 		}
-	} else {
-		for i := 0; i < len(values); i += 2 {
-			encKey, encVal, err := db.encode(values[i], values[i+1])
-			if err != nil {
-				return err
-			}
 
-			if err := db.checkKeyValue(encKey, encVal); err != nil {
-				return err
-			}
-
+		if !skip {
 			keys = append(keys, encKey)
 			vals = append(vals, encVal)
 		}
+	}
+	if len(keys) == 0 || len(vals) == 0 {
+		return nil
 	}
 
 	db.strIndex.mu.Lock()
@@ -177,20 +170,21 @@ func (db *RoseDB) MSet(values ...interface{}) error {
 		if err := db.setIndexer(e); err != nil {
 			return err
 		}
-	}
 
+		// set into cache if necessary.
+		db.cache.Set(keys[i], vals[i])
+	}
 	return nil
 }
 
 // MGet get the values of all the given keys
-func (db *RoseDB) MGet(keys ...interface{}) ([][]byte, error) {
-	encKeys := make([][]byte, 0)
+func (db *RoseDB) MGet(keys ...interface{}) ([]interface{}, error) {
+	var encKeys [][]byte
 	for _, key := range keys {
 		encKey, err := utils.EncodeKey(key)
 		if err != nil {
 			return nil, err
 		}
-
 		if err := db.checkKeyValue(encKey, nil); err != nil {
 			return nil, err
 		}
@@ -201,21 +195,20 @@ func (db *RoseDB) MGet(keys ...interface{}) ([][]byte, error) {
 	db.strIndex.mu.RLock()
 	defer db.strIndex.mu.RUnlock()
 
-	vals := make([][]byte, 0)
+	var vals []interface{}
 	for _, encKey := range encKeys {
 		val, err := db.getVal(encKey)
-		if err != nil {
+		if err != nil && err != ErrKeyNotExist && err != ErrKeyExpired {
 			return nil, err
 		}
-
 		vals = append(vals, val)
 	}
-
 	return vals, nil
 }
 
 // Append if key already exists and is a string, this command appends the value at the end of the string.
 // If key does not exist it is created and set as an empty string, so Append will be similar to Set in this special case.
+// The original type of the value must be string, otherwise you will get a wrong value after appending.
 func (db *RoseDB) Append(key interface{}, value string) (err error) {
 	encKey, encVal, err := db.encode(key, value)
 	if err != nil {
@@ -497,6 +490,7 @@ func (db *RoseDB) setIndexer(e *storage.Entry) error {
 	if db.config.IdxMode == KeyValueMemMode {
 		idx.Meta.Value = e.Meta.Value
 	}
+
 	db.strIndex.idxList.Put(idx.Meta.Key, idx)
 	return nil
 }
@@ -508,7 +502,7 @@ func (db *RoseDB) getVal(key []byte) ([]byte, error) {
 		return nil, ErrKeyNotExist
 	}
 
-	idx := node.Value().(*index.Indexer)
+	idx, _ := node.Value().(*index.Indexer)
 	if idx == nil {
 		return nil, ErrNilIndexer
 	}

@@ -17,7 +17,6 @@ func init() {
 	cfg := DefaultConfig()
 	cfg.DirPath = "/tmp/rosedb"
 	cfg.MergeThreshold = 1
-	cfg.IdxMode = KeyOnlyMemMode
 	now := time.Now()
 	roseDB, _ = Open(cfg)
 	fmt.Println("open time : ", time.Since(now).Milliseconds())

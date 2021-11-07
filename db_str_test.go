@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/roseduan/rosedb/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -92,141 +91,255 @@ func TestRoseDB_Set_MMap(t *testing.T) {
 }
 
 func TestRoseDB_SetNx(t *testing.T) {
-	ok, err := roseDB.SetNx("set-nx", 1)
-	assert.Equal(t, err, nil)
-	assert.Equal(t, ok, true)
+	write := func(method storage.FileRWMethod) {
+		config := DefaultConfig()
+		config.RwMethod = method
+		roseDB := InitDB(config)
+		defer DestroyDB(roseDB)
 
-	ok, err = roseDB.SetNx("set-nx", 2)
-	assert.Equal(t, err, nil)
-	assert.Equal(t, ok, false)
+		ok, err := roseDB.SetNx("set-nx-key-1", "nx-val-1")
+		assert.Nil(t, err)
+		assert.True(t, ok)
+
+		ok1, err := roseDB.SetNx("set-nx-key-1", "nx-val-2")
+		assert.Nil(t, err)
+		assert.False(t, ok1)
+	}
+
+	t.Run("fileio", func(t *testing.T) {
+		write(storage.FileIO)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		write(storage.MMap)
+	})
 }
 
 func TestRoseDB_SetEx(t *testing.T) {
-	err := roseDB.SetEx(934, 1, -4)
-	assert.NotEmpty(t, err)
+	write := func(method storage.FileRWMethod) {
+		config := DefaultConfig()
+		config.RwMethod = method
+		roseDB := InitDB(config)
+		defer DestroyDB(roseDB)
 
-	err = roseDB.SetEx(934, 1, 993)
-	assert.Empty(t, err)
+		err := roseDB.SetEx("set-ex-key-1", "ex-val-1", 10)
+		assert.Nil(t, err)
+
+		err = roseDB.SetEx("set-ex-key-2", "ex-val-2", 100)
+		assert.Nil(t, err)
+
+		ttl1 := roseDB.TTL("set-ex-key-1")
+		ttl2 := roseDB.TTL("set-ex-key-2")
+		t.Log(ttl1, ttl2)
+
+		err = roseDB.SetEx("set-ex-key-3", "ex-val-3", -100)
+		assert.Equal(t, err, ErrInvalidTTL)
+	}
+
+	write(storage.FileIO)
+	write(storage.MMap)
+}
+
+func TestRoseDB_Get_Temporary(t *testing.T) {
+	config := DefaultConfig()
+	config.RwMethod = storage.FileIO
+	roseDB := InitDB(config)
+
+	ttl1 := roseDB.TTL("set-ex-key-1")
+	ttl2 := roseDB.TTL("set-ex-key-2")
+	t.Log(ttl1, ttl2)
+
+	var r int
+	err = roseDB.Get(444, &r)
+	t.Log(err, r)
 }
 
 func TestRoseDB_Get(t *testing.T) {
+	testGet := func(method storage.FileRWMethod, cache bool) {
+		config := DefaultConfig()
+		config.RwMethod = method
+		if cache {
+			config.CacheCapacity = 100
+		}
+		roseDB := InitDB(config)
+		defer DestroyDB(roseDB)
 
-	t.Run("1", func(t *testing.T) {
-		tests := []struct {
-			key interface{}
-			val interface{}
-		}{
-			{"aaa", nil},
-			{nil, "bbb"},
-			{[]byte("kk2"), []byte("rosedb5")},
-			{true, 1232},
-			{false, 1232},
-			{float32(4.4122), float32(9102.22)},
-			{"kk44", "c"},
-			{1, 34},
+		tests := generateMultiTypesTestData()
+		for _, tt := range tests {
+			err := roseDB.Set(tt.key, tt.val)
+			assert.Nil(t, err)
 		}
 
 		for _, tt := range tests {
-			err := roseDB.Set(tt.key, tt.val)
-			assert.Equal(t, err, nil)
+			var i interface{}
+			err := roseDB.Get(tt.key, &i)
+			assert.Nil(t, err)
 		}
 
-		var v0 interface{}
-		err := roseDB.Get(tests[0].key, &v0)
-		assert.Empty(t, err)
-		assert.Equal(t, v0, nil)
+		// test get from cache.
+		if cache {
+			for _, tt := range tests {
+				var i interface{}
+				err := roseDB.Get(tt.key, &i)
+				assert.Nil(t, err)
+			}
+		}
+	}
 
-		var v1 string
-		err = roseDB.Get(tests[1].key, &v1)
-		assert.Empty(t, err)
-		assert.Equal(t, v1, "bbb")
-
-		var v2 int
-		err = roseDB.Get(tests[7].key, &v2)
-		assert.Empty(t, err)
-		assert.Equal(t, v2, 34)
+	t.Run("fileio", func(t *testing.T) {
+		testGet(storage.FileIO, false)
 	})
 
-	t.Run("2", func(t *testing.T) {
-		type KeyVal struct {
-			Field1 []byte
-			Field2 float64
-			Field3 int
-			Field4 string
-		}
+	t.Run("mmap", func(t *testing.T) {
+		testGet(storage.MMap, false)
+	})
 
-		tests := []KeyVal{
-			{[]byte("a"), 343.33, 33, "rosedb"},
-		}
-
-		err := roseDB.Set(tests[0], "rosedb")
-		assert.Empty(t, err)
-
-		var res string
-		err = roseDB.Get(tests[0], &res)
-		assert.Empty(t, err)
-		assert.Equal(t, res, "rosedb")
+	t.Run("with cache", func(t *testing.T) {
+		testGet(storage.FileIO, true)
 	})
 }
 
 func TestRoseDB_GetSet(t *testing.T) {
-	t.Run("1", func(t *testing.T) {
-		err := roseDB.Set(123, 456)
-		assert.Empty(t, err)
+	getSet := func(method storage.FileRWMethod) {
+		config := DefaultConfig()
+		config.RwMethod = method
+		roseDB := InitDB(config)
+		defer DestroyDB(roseDB)
 
-		var res int
-		err = roseDB.GetSet(123, 567, &res)
-		assert.Empty(t, err)
-		assert.Equal(t, res, 456)
+		err := roseDB.GetSet("get-set-key", "val-1", nil)
+		assert.Nil(t, err)
 
-		var r2 int
-		err = roseDB.Get(123, &r2)
-		assert.Empty(t, err)
-		assert.Equal(t, r2, 567)
+		var r1 string
+		err = roseDB.Get("get-set-key", &r1)
+		assert.Nil(t, err)
+		assert.Equal(t, r1, "val-1")
+
+		var r2 string
+		err = roseDB.GetSet("get-set-key", "val-2", &r2)
+		assert.Nil(t, err)
+		assert.Equal(t, r2, "val-1")
+
+		var r3 string
+		err = roseDB.Get("get-set-key", &r3)
+		assert.Nil(t, err)
+		assert.Equal(t, r3, "val-2")
+	}
+
+	t.Run("fileio", func(t *testing.T) {
+		getSet(storage.FileIO)
 	})
 
-	t.Run("2", func(t *testing.T) {
-		var res interface{}
-		err := roseDB.GetSet(123, 222, &res)
-		assert.Equal(t, err, nil)
+	t.Run("mmap", func(t *testing.T) {
+		getSet(storage.MMap)
 	})
 }
 
+func TestRoseDB_MSet(t *testing.T) {
+	config := DefaultConfig()
+	roseDB := InitDB(config)
+	defer DestroyDB(roseDB)
+
+	err := roseDB.MSet(1, 2, nil, 4)
+	assert.Nil(t, err)
+
+	// skip values.
+	err = roseDB.MSet(1, 2, nil, 4)
+	assert.Nil(t, err)
+}
+
+func TestRoseDB_MGet(t *testing.T) {
+	config := DefaultConfig()
+	roseDB := InitDB(config)
+	defer DestroyDB(roseDB)
+
+	tests := generateMultiTypesTestData()
+	for _, tt := range tests {
+		err := roseDB.Set(tt.key, tt.val)
+		assert.Nil(t, err)
+	}
+
+	values, err := roseDB.MGet(true, false, nil, "str-key-1", 1)
+	assert.Nil(t, err)
+
+	for _, v := range values {
+		assert.NotNil(t, v)
+	}
+}
+
 func TestRoseDB_Append(t *testing.T) {
+	config := DefaultConfig()
+	roseDB := InitDB(config)
+	defer DestroyDB(roseDB)
 
-	t.Run("1", func(t *testing.T) {
-		roseDB.Set("app-123", "11")
+	t.Run("not exist", func(t *testing.T) {
+		err := roseDB.Append("app-key-1", "app-val-1")
+		assert.Nil(t, err)
 
-		// only support string.
-		err := roseDB.Append("app-123", "666")
-		assert.Equal(t, err, nil)
-
-		var res string
-		err = roseDB.Get("app-123", &res)
-		assert.Equal(t, err, nil)
-		t.Log(res)
+		var r1 string
+		err = roseDB.Get("app-key-1", &r1)
+		assert.Nil(t, err)
+		assert.Equal(t, r1, "app-val-1")
 	})
 
-	t.Run("2", func(t *testing.T) {
-		err := roseDB.Append(1555, "232")
-		assert.Equal(t, err, nil)
+	t.Run("exist", func(t *testing.T) {
+		err := roseDB.Set("app-key-2", "app-val-2")
+		assert.Nil(t, err)
 
-		var res string
-		err = roseDB.Get(1555, &res)
-		assert.Equal(t, err, nil)
-		t.Log(res)
+		err = roseDB.Append("app-key-2", " append val")
+		assert.Nil(t, err)
+
+		var r2 string
+		err = roseDB.Get("app-key-2", &r2)
+		assert.Nil(t, err)
+
+		assert.Equal(t, r2, "app-val-2 append val")
+	})
+
+	t.Run("not string", func(t *testing.T) {
+		err := roseDB.Set("app-key-3", 12.222)
+		assert.Nil(t, err)
+
+		err = roseDB.Append("app-key-3", " append val-22")
+		assert.Nil(t, err)
+
+		var r3 string
+		err = roseDB.Get("app-key-3", &r3)
+		assert.Nil(t, err)
+		t.Log(r3)
 	})
 }
 
 func TestRoseDB_StrExists(t *testing.T) {
-	ok1 := roseDB.StrExists("exis-0001")
-	assert.Equal(t, ok1, false)
+	strExist := func(cache bool) {
+		config := DefaultConfig()
+		if cache {
+			config.CacheCapacity = 10
+		}
+		roseDB := InitDB(config)
+		defer DestroyDB(roseDB)
 
-	err := roseDB.Set("exis-0001", 100)
-	assert.Nil(t, err)
+		ok1 := roseDB.StrExists("exist-0001")
+		assert.Equal(t, ok1, false)
 
-	ok2 := roseDB.StrExists("exis-0001")
-	assert.Equal(t, ok2, true)
+		err := roseDB.Set("exist-0001", 100)
+		assert.Nil(t, err)
+
+		ok2 := roseDB.StrExists("exist-0001")
+		assert.Equal(t, ok2, true)
+
+		roseDB.Remove("exist-0001")
+
+		ok3 := roseDB.StrExists("exist-0001")
+		assert.Equal(t, ok3, false)
+	}
+
+	t.Run("no cache", func(t *testing.T) {
+		strExist(false)
+	})
+
+	t.Run("with cache", func(t *testing.T) {
+		strExist(true)
+	})
 }
 
 func TestRoseDB_Remove(t *testing.T) {
@@ -339,7 +452,7 @@ func TestRoseDB_TTL(t *testing.T) {
 	})
 }
 
-func TestRoseDB_MSet(t *testing.T) {
+func TestRoseDB_MSet2(t *testing.T) {
 	t.Run("wrong number", func(t *testing.T) {
 		err := roseDB.MSet("k1")
 		assert.NotNil(t, err)
@@ -368,21 +481,6 @@ func TestRoseDB_MSet(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		err := roseDB.MSet("k1", "v1", "k2", 2)
 		assert.Nil(t, err)
-	})
-}
-
-func TestRoseDB_MGet(t *testing.T) {
-	t.Run("1", func(t *testing.T) {
-		err := roseDB.MSet("k1", "v1", "k2", 2)
-		assert.Nil(t, err)
-
-		vals, err := roseDB.MGet("k1", "k2")
-		assert.Nil(t, err)
-		assert.Equal(t, string(vals[0]), "v1")
-		var i int
-		err = utils.DecodeValue(vals[1], &i)
-		assert.Nil(t, err)
-		assert.Equal(t, i, 2)
 	})
 }
 

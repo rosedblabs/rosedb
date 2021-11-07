@@ -87,7 +87,7 @@ func DefaultConfig() Config {
 		DirPath:            DefaultDirPath,
 		BlockSize:          DefaultBlockSize,
 		RwMethod:           storage.FileIO,
-		IdxMode:            KeyValueMemMode,
+		IdxMode:            KeyOnlyMemMode,
 		MaxKeySize:         DefaultMaxKeySize,
 		MaxValueSize:       DefaultMaxValueSize,
 		Sync:               false,

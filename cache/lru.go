@@ -51,7 +51,7 @@ func (c *LruCache) Set(key, value []byte) {
 
 // Remove ...
 func (c *LruCache) Remove(key []byte) {
-	if c.cacheMap == nil {
+	if c.capacity <= 0 || c.cacheMap == nil {
 		return
 	}
 	c.mu.Lock()
