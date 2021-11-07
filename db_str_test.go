@@ -140,20 +140,6 @@ func TestRoseDB_SetEx(t *testing.T) {
 	write(storage.MMap)
 }
 
-func TestRoseDB_Get_Temporary(t *testing.T) {
-	config := DefaultConfig()
-	config.RwMethod = storage.FileIO
-	roseDB := InitDB(config)
-
-	ttl1 := roseDB.TTL("set-ex-key-1")
-	ttl2 := roseDB.TTL("set-ex-key-2")
-	t.Log(ttl1, ttl2)
-
-	var r int
-	err = roseDB.Get(444, &r)
-	t.Log(err, r)
-}
-
 func TestRoseDB_Get(t *testing.T) {
 	testGet := func(method storage.FileRWMethod, cache bool) {
 		config := DefaultConfig()
@@ -343,69 +329,39 @@ func TestRoseDB_StrExists(t *testing.T) {
 }
 
 func TestRoseDB_Remove(t *testing.T) {
-	err := roseDB.Remove(99932)
-	assert.Equal(t, err, nil)
+	config := DefaultConfig()
+	roseDB := InitDB(config)
+	defer DestroyDB(roseDB)
 
-	roseDB.Set(1, 11)
+	err := roseDB.Remove("remove-key-1")
+	assert.Nil(t, err)
 
-	err = roseDB.Remove(1)
-	assert.Equal(t, err, nil)
+	var r1 string
+	err = roseDB.Set("remove-key-2", &r1)
+	assert.Nil(t, err)
 
-	var r int
-	err = roseDB.Get(1, &r)
-	t.Log(err)
-}
-
-func TestRoseDB_PrefixScan(t *testing.T) {
-	roseDB.Set("acea", "1")
-	roseDB.Set("aasd", "2")
-	roseDB.Set("aesf", "3")
-	roseDB.Set("arsg", "4")
-	roseDB.Set("bagf", "5")
-	roseDB.Set("aasb", "6")
-	roseDB.Set("afbb", "7")
-
-	val, _ := roseDB.PrefixScan("a", 3, 0)
-	for _, v := range val {
-		t.Log(string(v.([]byte)))
-	}
-}
-
-func TestRoseDB_RangeScan(t *testing.T) {
-	roseDB.Set("6", "1")
-	roseDB.Set("4", "2")
-	roseDB.Set("3", "3")
-	roseDB.Set("8", "4")
-	roseDB.Set("5", "5")
-	roseDB.Set("9", "6")
-	roseDB.Set("2", "7")
-
-	val, err := roseDB.RangeScan("3", "7")
-	t.Log(err)
-	for _, v := range val {
-		if vv, ok := v.([]byte); ok {
-			t.Log(string(vv))
-		}
-	}
+	err = roseDB.Remove("remove-key-2")
+	assert.Nil(t, err)
 }
 
 func TestRoseDB_Expire(t *testing.T) {
+	config := DefaultConfig()
+	roseDB := InitDB(config)
+	defer DestroyDB(roseDB)
 
-	t.Run("1", func(t *testing.T) {
-		err := roseDB.Set(123, 444)
+	t.Run("normal", func(t *testing.T) {
+		err := roseDB.Set("expire-key-1", 11)
+		assert.Nil(t, err)
+
+		err = roseDB.Expire("expire-key-1", 60)
 		assert.Equal(t, err, nil)
 
-		err = roseDB.Expire(123, 100)
-		assert.Equal(t, err, nil)
-
-		//for i := 0; i < 10; i++ {
-		//	time.Sleep(time.Second)
-		//	t.Log(roseDB.TTL(123))
-		//}
+		ttl := roseDB.TTL("expire-key-1")
+		assert.Equal(t, ttl, int64(60))
 	})
 
-	t.Run("2", func(t *testing.T) {
-		err := roseDB.Expire("no-exist", 10)
+	t.Run("not exist", func(t *testing.T) {
+		err := roseDB.Expire("expire-key-2", 60)
 		assert.Equal(t, err, ErrKeyNotExist)
 
 		err = roseDB.Expire(123, -100)
@@ -414,6 +370,10 @@ func TestRoseDB_Expire(t *testing.T) {
 }
 
 func TestRoseDB_Persist(t *testing.T) {
+	config := DefaultConfig()
+	roseDB := InitDB(config)
+	defer DestroyDB(roseDB)
+
 	err := roseDB.Persist(111)
 	assert.Equal(t, err, ErrKeyNotExist)
 
@@ -425,6 +385,9 @@ func TestRoseDB_Persist(t *testing.T) {
 }
 
 func TestRoseDB_TTL(t *testing.T) {
+	config := DefaultConfig()
+	roseDB := InitDB(config)
+	defer DestroyDB(roseDB)
 
 	t.Run("1", func(t *testing.T) {
 		err := roseDB.SetEx("k1", 12333, 20)
@@ -432,7 +395,7 @@ func TestRoseDB_TTL(t *testing.T) {
 
 		//time.Sleep(3 * time.Second)
 		ttl := roseDB.TTL("k1")
-		assert.Equal(t, ttl, 20) // 17
+		assert.Equal(t, ttl, int64(20)) // 17
 	})
 
 	t.Run("2", func(t *testing.T) {
@@ -448,11 +411,14 @@ func TestRoseDB_TTL(t *testing.T) {
 		var v int
 		err = roseDB.Get(k, &v)
 		assert.Equal(t, err, nil)
-		t.Log(v)
 	})
 }
 
 func TestRoseDB_MSet2(t *testing.T) {
+	config := DefaultConfig()
+	roseDB := InitDB(config)
+	defer DestroyDB(roseDB)
+
 	t.Run("wrong number", func(t *testing.T) {
 		err := roseDB.MSet("k1")
 		assert.NotNil(t, err)
@@ -482,56 +448,6 @@ func TestRoseDB_MSet2(t *testing.T) {
 		err := roseDB.MSet("k1", "v1", "k2", 2)
 		assert.Nil(t, err)
 	})
-}
-
-func BenchmarkRoseDB_MSet(b *testing.B) {
-	b.ReportAllocs()
-
-	values := make([]interface{}, 0, 20000)
-	for i := 0; i < 10000; i++ {
-		values = append(values, GetKey(i), GetValue())
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		err := roseDB.MSet(values...)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
-func BenchmarkRoseDB_MSetNormal(b *testing.B) {
-	b.ReportAllocs()
-
-	values := make([][]byte, 0, 20000)
-	for i := 0; i < 10000; i++ {
-		values = append(values, GetKey(i), GetValue())
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		for j := 0; j < len(values); j += 2 {
-			err := roseDB.Set(values[j], values[j+1])
-			if err != nil {
-				panic(err)
-			}
-		}
-	}
-}
-
-func BenchmarkRoseDB_Set(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		err := roseDB.Set(GetKey(i), GetValue())
-		if err != nil {
-			panic(err)
-		}
-	}
 }
 
 type KeyValue struct {

@@ -2,7 +2,6 @@ package rosedb
 
 import (
 	"bytes"
-	"strings"
 	"sync"
 	"time"
 
@@ -270,96 +269,6 @@ func (db *RoseDB) Remove(key interface{}) error {
 	delete(db.expires[String], string(encKey))
 	db.cache.Remove(encKey)
 	return nil
-}
-
-// PrefixScan find the value corresponding to all matching keys based on the prefix.
-// limit and offset control the range of value.
-// if limit is negative, all matched values will return.
-func (db *RoseDB) PrefixScan(prefix string, limit, offset int) (val []interface{}, err error) {
-	if limit <= 0 {
-		return
-	}
-	if offset < 0 {
-		offset = 0
-	}
-	if err = db.checkKeyValue([]byte(prefix), nil); err != nil {
-		return
-	}
-
-	db.strIndex.mu.RLock()
-	defer db.strIndex.mu.RUnlock()
-
-	// Find the first matched key of the prefix.
-	e := db.strIndex.idxList.FindPrefix([]byte(prefix))
-	if limit > 0 {
-		for i := 0; i < offset && e != nil && strings.HasPrefix(string(e.Key()), prefix); i++ {
-			e = e.Next()
-		}
-	}
-
-	for e != nil && strings.HasPrefix(string(e.Key()), prefix) && limit != 0 {
-		item := e.Value().(*index.Indexer)
-		var value interface{}
-
-		if db.config.IdxMode == KeyOnlyMemMode {
-			if err = db.Get(e.Key(), &value); err != nil {
-				return
-			}
-		} else {
-			if item != nil {
-				value = item.Meta.Value
-			}
-		}
-
-		// Check if the key is expired.
-		expired := db.checkExpired(e.Key(), String)
-		if !expired {
-			val = append(val, value)
-			e = e.Next()
-		}
-		if limit > 0 && !expired {
-			limit--
-		}
-	}
-	return
-}
-
-// RangeScan find range of values from start to end.
-func (db *RoseDB) RangeScan(start, end interface{}) (val []interface{}, err error) {
-	startKey, err := utils.EncodeKey(start)
-	if err != nil {
-		return nil, err
-	}
-	endKey, err := utils.EncodeKey(end)
-	if err != nil {
-		return nil, err
-	}
-
-	node := db.strIndex.idxList.Get(startKey)
-
-	db.strIndex.mu.RLock()
-	defer db.strIndex.mu.RUnlock()
-
-	for node != nil && bytes.Compare(node.Key(), endKey) <= 0 {
-		if db.checkExpired(node.Key(), String) {
-			node = node.Next()
-			continue
-		}
-
-		var value interface{}
-		if db.config.IdxMode == KeyOnlyMemMode {
-			err = db.Get(node.Key(), &value)
-			if err != nil && err != ErrKeyNotExist {
-				return nil, err
-			}
-		} else {
-			value = node.Value().(*index.Indexer).Meta.Value
-		}
-
-		val = append(val, value)
-		node = node.Next()
-	}
-	return
 }
 
 // Expire set the expiration time of the key.
