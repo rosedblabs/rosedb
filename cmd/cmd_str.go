@@ -167,36 +167,6 @@ func remove(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	return
 }
 
-func prefixScan(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
-	if len(args) != 3 {
-		err = newWrongNumOfArgsError("prefixscan")
-		return
-	}
-	limit, err := strconv.Atoi(args[1])
-	if err != nil {
-		err = ErrSyntaxIncorrect
-		return
-	}
-	offset, err := strconv.Atoi(args[2])
-	if err != nil {
-		err = ErrSyntaxIncorrect
-		return
-	}
-
-	res, err = db.PrefixScan(args[0], limit, offset)
-	return
-}
-
-func rangeScan(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
-	if len(args) != 2 {
-		err = newWrongNumOfArgsError("rangescan")
-		return
-	}
-
-	res, err = db.RangeScan([]byte(args[0]), []byte(args[1]))
-	return
-}
-
 func expire(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 	if len(args) != 2 {
 		err = ErrSyntaxIncorrect
@@ -243,8 +213,6 @@ func init() {
 	addExecCommand("append", appendStr)
 	addExecCommand("strexists", strExists)
 	addExecCommand("remove", remove)
-	addExecCommand("prefixscan", prefixScan)
-	addExecCommand("rangescan", rangeScan)
 	addExecCommand("expire", expire)
 	addExecCommand("persist", persist)
 	addExecCommand("ttl", ttl)

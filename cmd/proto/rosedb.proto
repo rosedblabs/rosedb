@@ -72,8 +72,6 @@ service rosedb {
   rpc Append(AppendReq) returns (AppendRsp) {};
   rpc StrExists(StrExistsReq) returns (StrExistsRsp) {};
   rpc Remove(RemoveReq) returns (RemoveRsp) {};
-  rpc PrefixScan(PrefixScanReq) returns (PrefixScanRsp) {};
-  rpc RangeScan(RangeScanReq) returns (RangeScanRsp) {};
   rpc Expire(ExpireReq) returns (ExpireRsp) {};
   rpc Persist(PersistReq) returns (PersistRsp) {};
   rpc TTL(TTLReq) returns (TTLRsp) {};

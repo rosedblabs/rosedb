@@ -13,12 +13,13 @@ import (
 )
 
 var (
-	c proto.RosedbClient
+	c    proto.RosedbClient
 	conn *grpc.ClientConn = nil
-	err error
+	err  error
 )
+
 func GRPCSet() error {
-	conn, err = grpc.Dial("127.0.0.1:5221", grpc.WithInsecure())
+	conn, err = grpc.Dial("127.0.0.1:5300", grpc.WithInsecure())
 	if err != nil {
 		log.Printf("grpc dial err: %+v", err)
 		return err
@@ -38,7 +39,7 @@ func IsInit(t *testing.T) {
 func TestGRPCSet(t *testing.T) {
 	IsInit(t)
 	rsp, et := c.Set(context.Background(), &proto.SetReq{
-		Key: []byte("test_grpc_set"),
+		Key:   []byte("test_grpc_set"),
 		Value: []byte("test_grpc_set" + time.Now().String()),
 	})
 	if et != nil {

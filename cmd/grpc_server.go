@@ -489,7 +489,16 @@ func (g *GrpcServer) MGet(_ context.Context, req *proto.MGetReq) (*proto.MGetRsp
 	if err != nil {
 		rsp.ErrorMsg = err.Error()
 	} else {
-		rsp.Values = values
+		var vals [][]byte
+		for _, v := range values {
+			encVal, err := utils.EncodeValue(v)
+			if err != nil {
+				rsp.ErrorMsg = err.Error()
+				return rsp, nil
+			}
+			vals = append(vals, encVal)
+		}
+		rsp.Values = vals
 	}
 	return rsp, nil
 }
@@ -514,45 +523,6 @@ func (g *GrpcServer) Remove(_ context.Context, req *proto.RemoveReq) (*proto.Rem
 	err := g.db.Remove(req.Key)
 	if err != nil {
 		rsp.ErrorMsg = err.Error()
-	}
-	return rsp, nil
-}
-
-func (g *GrpcServer) PrefixScan(_ context.Context, req *proto.PrefixScanReq) (*proto.PrefixScanRsp, error) {
-	rsp := &proto.PrefixScanRsp{}
-	valueInterface, err := g.db.PrefixScan(string(req.Prefix), int(req.Limit), int(req.Offset))
-	if err != nil {
-		rsp.ErrorMsg = err.Error()
-		return rsp, nil
-	}
-	rsp.Values = make([][]byte, 0)
-	for _, v := range valueInterface {
-		vEncode, err := utils.EncodeValue(v)
-		if err != nil {
-			rsp.ErrorMsg = err.Error()
-			return rsp, nil
-		}
-		rsp.Values = append(rsp.Values, vEncode)
-	}
-	return rsp, nil
-}
-
-func (g *GrpcServer) RangeScan(_ context.Context, req *proto.RangeScanReq) (*proto.RangeScanRsp, error) {
-	rsp := &proto.RangeScanRsp{}
-	rsp.Values = make([][]byte, 0)
-	valueInterface, err := g.db.RangeScan(req.Start, req.End)
-	if err != nil {
-		rsp.ErrorMsg = err.Error()
-		return rsp, nil
-	}
-	rsp.Values = make([][]byte, 0)
-	for _, v := range valueInterface {
-		vEncode, err := utils.EncodeValue(v)
-		if err != nil {
-			rsp.ErrorMsg = err.Error()
-			return rsp, nil
-		}
-		rsp.Values = append(rsp.Values, vEncode)
 	}
 	return rsp, nil
 }

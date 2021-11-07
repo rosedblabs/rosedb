@@ -86,27 +86,6 @@ message RemoveRsp {
   string errorMsg         = 1;
 }
 
-message PrefixScanReq {
-  bytes prefix            = 1;
-  int64 limit             = 2;
-  int64 offset            = 3;
-}
-
-message PrefixScanRsp {
-  repeated bytes values   = 1;
-  string errorMsg         = 2;
-}
-
-message RangeScanReq {
-  bytes start             = 1;
-  bytes end               = 2;
-}
-
-message RangeScanRsp {
-  repeated bytes values   = 1;
-  string errorMsg         = 2;
-}
-
 message ExpireReq {
   bytes key               = 1;
   int64 duration          = 2;
