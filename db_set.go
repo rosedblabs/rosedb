@@ -24,22 +24,18 @@ func newSetIdx() *SetIdx {
 // Specified members that are already a member of this set are ignored.
 // If key does not exist, a new set is created before adding the specified members.
 func (db *RoseDB) SAdd(key interface{}, members ...interface{}) (res int, err error) {
-
 	encKey, err := utils.EncodeKey(key)
-
 	if err != nil {
 		return -1, err
 	}
 
 	var encMembers [][]byte
-
 	for i := 0; i < len(members); i++ {
 		eval, err := utils.EncodeValue(members[i])
 
 		if err != nil {
 			return -1, err
 		}
-
 		if err = db.checkKeyValue(encKey, eval); err != nil {
 			return -1, err
 		}
@@ -65,13 +61,11 @@ func (db *RoseDB) SAdd(key interface{}, members ...interface{}) (res int, err er
 
 // SPop removes and returns one or more random members from the set value store at key.
 func (db *RoseDB) SPop(key interface{}, count int) (values [][]byte, err error) {
-
 	encKey, err := utils.EncodeKey(key)
 
 	if err != nil {
 		return nil, err
 	}
-
 	if err = db.checkKeyValue(encKey, nil); err != nil {
 		return
 	}
@@ -95,7 +89,6 @@ func (db *RoseDB) SPop(key interface{}, count int) (values [][]byte, err error) 
 
 // SIsMember returns if member is a member of the set stored at key.
 func (db *RoseDB) SIsMember(key, member interface{}) bool {
-
 	encKey, encMember, err := db.encode(key, member)
 	if err != nil {
 		return false
@@ -118,7 +111,6 @@ func (db *RoseDB) SIsMember(key, member interface{}) bool {
 // count > 0: if count less than set`s card, returns an array containing count different elements. if count greater than set`s card, the entire set will be returned.
 // count < 0: the command is allowed to return the same element multiple times, and in this case, the number of returned elements is the absolute value of the specified count.
 func (db *RoseDB) SRandMember(key interface{}, count int) [][]byte {
-
 	encKey, err := utils.EncodeKey(key)
 
 	if err != nil {
@@ -142,7 +134,6 @@ func (db *RoseDB) SRandMember(key interface{}, count int) [][]byte {
 // Specified members that are not a member of this set are ignored.
 // If key does not exist, it is treated as an empty set and this command returns 0.
 func (db *RoseDB) SRem(key interface{}, members ...interface{}) (res int, err error) {
-
 	encKey, err := utils.EncodeKey(key)
 
 	if err != nil {
@@ -150,14 +141,12 @@ func (db *RoseDB) SRem(key interface{}, members ...interface{}) (res int, err er
 	}
 
 	var encMembers [][]byte
-
 	for i := 0; i < len(members); i++ {
 		eval, err := utils.EncodeValue(members[i])
 
 		if err != nil {
 			return -1, err
 		}
-
 		if err = db.checkKeyValue(encKey, eval); err != nil {
 			return -1, err
 		}
@@ -171,7 +160,6 @@ func (db *RoseDB) SRem(key interface{}, members ...interface{}) (res int, err er
 	if db.checkExpired(encKey, Set) {
 		return
 	}
-
 	for _, m := range encMembers {
 		if ok := db.setIndex.indexes.SRem(string(encKey), m); ok {
 			e := storage.NewEntryNoExtra(encKey, m, Set, SetSRem)
@@ -186,13 +174,11 @@ func (db *RoseDB) SRem(key interface{}, members ...interface{}) (res int, err er
 
 // SMove move member from the set at source to the set at destination.
 func (db *RoseDB) SMove(src []byte, dst []byte, member interface{}) error {
-
 	eval, err := utils.EncodeValue(member)
 
 	if err != nil {
 		return err
 	}
-
 	if err = db.checkKeyValue(nil, eval); err != nil {
 		return err
 	}
@@ -218,13 +204,11 @@ func (db *RoseDB) SMove(src []byte, dst []byte, member interface{}) error {
 
 // SCard returns the set cardinality (number of elements) of the set stored at key.
 func (db *RoseDB) SCard(key interface{}) int {
-
 	encKey, err := utils.EncodeKey(key)
 
 	if err != nil {
 		return 0
 	}
-
 	if err = db.checkKeyValue(encKey, nil); err != nil {
 		return 0
 	}
@@ -261,24 +245,21 @@ func (db *RoseDB) SMembers(key interface{}) (val [][]byte) {
 
 // SUnion returns the members of the set resulting from the union of all the given sets.
 func (db *RoseDB) SUnion(keys ...interface{}) (val [][]byte) {
-
 	if keys == nil || len(keys) == 0 {
 		return
 	}
 
 	var encKeys [][]byte
 	for i := 0; i < len(keys); i++ {
-		enckey, err := utils.EncodeKey(keys[i])
+		encKey, err := utils.EncodeKey(keys[i])
 
 		if err != nil {
 			return nil
 		}
-
-		if err := db.checkKeyValue(enckey, nil); err != nil {
+		if err := db.checkKeyValue(encKey, nil); err != nil {
 			return nil
 		}
-
-		encKeys = append(encKeys, enckey)
+		encKeys = append(encKeys, encKey)
 	}
 
 	db.setIndex.mu.RLock()
@@ -303,17 +284,16 @@ func (db *RoseDB) SDiff(keys ...interface{}) (val [][]byte) {
 
 	var encKeys [][]byte
 	for i := 0; i < len(keys); i++ {
-		enckey, err := utils.EncodeKey(keys[i])
+		encKey, err := utils.EncodeKey(keys[i])
 
 		if err != nil {
 			return nil
 		}
-
-		if err := db.checkKeyValue(enckey, nil); err != nil {
+		if err := db.checkKeyValue(encKey, nil); err != nil {
 			return nil
 		}
 
-		encKeys = append(encKeys, enckey)
+		encKeys = append(encKeys, encKey)
 	}
 
 	db.setIndex.mu.RLock()
@@ -332,25 +312,23 @@ func (db *RoseDB) SDiff(keys ...interface{}) (val [][]byte) {
 
 // SKeyExists returns if the key exists.
 func (db *RoseDB) SKeyExists(key interface{}) (ok bool) {
-
-	enckey, err := utils.EncodeKey(key)
+	encKey, err := utils.EncodeKey(key)
 
 	if err != nil {
 		return
 	}
-
-	if err := db.checkKeyValue(enckey, nil); err != nil {
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return
 	}
 
 	db.setIndex.mu.RLock()
 	defer db.setIndex.mu.RUnlock()
 
-	if db.checkExpired(enckey, Set) {
+	if db.checkExpired(encKey, Set) {
 		return
 	}
 
-	ok = db.setIndex.indexes.SKeyExists(string(enckey))
+	ok = db.setIndex.indexes.SKeyExists(string(encKey))
 	return
 }
 
@@ -360,24 +338,24 @@ func (db *RoseDB) SClear(key interface{}) (err error) {
 		return ErrKeyNotExist
 	}
 
-	enckey, err := utils.EncodeKey(key)
+	encKey, err := utils.EncodeKey(key)
 
 	if err != nil {
 		return
 	}
 
-	if err := db.checkKeyValue(enckey, nil); err != nil {
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return err
 	}
 
 	db.setIndex.mu.Lock()
 	defer db.setIndex.mu.Unlock()
 
-	e := storage.NewEntryNoExtra(enckey, nil, Set, SetSClear)
+	e := storage.NewEntryNoExtra(encKey, nil, Set, SetSClear)
 	if err = db.store(e); err != nil {
 		return
 	}
-	db.setIndex.indexes.SClear(string(enckey))
+	db.setIndex.indexes.SClear(string(encKey))
 	return
 }
 
@@ -390,13 +368,13 @@ func (db *RoseDB) SExpire(key interface{}, duration int64) (err error) {
 		return ErrKeyNotExist
 	}
 
-	enckey, err := utils.EncodeKey(key)
+	encKey, err := utils.EncodeKey(key)
 
 	if err != nil {
 		return
 	}
 
-	if err := db.checkKeyValue(enckey, nil); err != nil {
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return err
 	}
 
@@ -404,11 +382,11 @@ func (db *RoseDB) SExpire(key interface{}, duration int64) (err error) {
 	defer db.setIndex.mu.Unlock()
 
 	deadline := time.Now().Unix() + duration
-	e := storage.NewEntryWithExpire(enckey, nil, deadline, Set, SetSExpire)
+	e := storage.NewEntryWithExpire(encKey, nil, deadline, Set, SetSExpire)
 	if err = db.store(e); err != nil {
 		return
 	}
-	db.expires[Set][string(enckey)] = deadline
+	db.expires[Set][string(encKey)] = deadline
 	return
 }
 
@@ -417,21 +395,20 @@ func (db *RoseDB) STTL(key interface{}) (ttl int64) {
 	db.setIndex.mu.RLock()
 	defer db.setIndex.mu.RUnlock()
 
-	enckey, err := utils.EncodeKey(key)
+	encKey, err := utils.EncodeKey(key)
 
 	if err != nil {
 		return
 	}
-
-	if err := db.checkKeyValue(enckey, nil); err != nil {
+	if err := db.checkKeyValue(encKey, nil); err != nil {
 		return
 	}
 
-	if db.checkExpired(enckey, Set) {
+	if db.checkExpired(encKey, Set) {
 		return
 	}
 
-	deadline, exist := db.expires[Set][string(enckey)]
+	deadline, exist := db.expires[Set][string(encKey)]
 	if !exist {
 		return
 	}

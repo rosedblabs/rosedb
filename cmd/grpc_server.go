@@ -55,7 +55,12 @@ func (g *GrpcServer) Stop() {
 func (g *GrpcServer) SAdd(_ context.Context, req *proto.SAddReq) (*proto.SAddRsp, error) {
 	rsp := &proto.SAddRsp{}
 	var resInt int
-	resInt, err := g.db.SAdd(req.Key, req.Members...)
+
+	var members []interface{}
+	for _, m := range req.Members {
+		members = append(members, m)
+	}
+	resInt, err := g.db.SAdd(req.Key, members)
 	rsp.Res = int64(resInt)
 	if err != nil {
 		rsp.ErrorMsg = err.Error()
@@ -86,7 +91,12 @@ func (g *GrpcServer) SRandMember(_ context.Context, req *proto.SRandMemberReq) (
 
 func (g *GrpcServer) SRem(_ context.Context, req *proto.SRemReq) (*proto.SRemRsp, error) {
 	rsp := &proto.SRemRsp{}
-	resInt, err := g.db.SRem(req.Key, req.Members...)
+
+	var members []interface{}
+	for _, m := range req.Members {
+		members = append(members, m)
+	}
+	resInt, err := g.db.SRem(req.Key, members)
 	rsp.Res = int64(resInt)
 	if err != nil {
 		rsp.ErrorMsg = err.Error()
@@ -118,13 +128,22 @@ func (g *GrpcServer) SMembers(_ context.Context, req *proto.SMembersReq) (*proto
 
 func (g *GrpcServer) SUnion(_ context.Context, req *proto.SUnionReq) (*proto.SUnionRsp, error) {
 	rsp := &proto.SUnionRsp{}
-	rsp.Values = g.db.SUnion(req.Keys...)
+	var keys []interface{}
+	for _, k := range req.Keys {
+		keys = append(keys, k)
+	}
+	rsp.Values = g.db.SUnion(keys)
 	return rsp, nil
 }
 
 func (g *GrpcServer) SDiff(_ context.Context, req *proto.SDiffReq) (*proto.SDiffRsp, error) {
 	rsp := &proto.SDiffRsp{}
-	rsp.Values = g.db.SDiff(req.Keys...)
+
+	var keys []interface{}
+	for _, k := range req.Keys {
+		keys = append(keys, k)
+	}
+	rsp.Values = g.db.SDiff(keys)
 	return rsp, nil
 }
 
