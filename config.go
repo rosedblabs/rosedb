@@ -23,7 +23,7 @@ const (
 	// DefaultAddr default rosedb server address and port.
 	DefaultAddr = "127.0.0.1:5200"
 
-	// defaultGrpcAddr server address and port.
+	// DefaultGrpcAddr grpc server address and port.
 	DefaultGrpcAddr = "127.0.0.1:5300"
 
 	// DefaultDirPath default rosedb data dir.
