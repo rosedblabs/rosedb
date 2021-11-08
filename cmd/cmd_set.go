@@ -1,9 +1,10 @@
 package cmd
 
 import (
+	"strconv"
+
 	"github.com/roseduan/rosedb"
 	"github.com/tidwall/redcon"
-	"strconv"
 )
 
 func sAdd(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
@@ -12,9 +13,9 @@ func sAdd(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		return
 	}
 
-	var members [][]byte
+	var members []interface{}
 	for _, m := range args[1:] {
-		members = append(members, []byte(m))
+		members = append(members, m)
 	}
 	var count int
 	if count, err = db.SAdd([]byte(args[0]), members...); err == nil {
@@ -69,9 +70,9 @@ func sRem(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		err = ErrSyntaxIncorrect
 		return
 	}
-	var members [][]byte
+	var members []interface{}
 	for _, m := range args[1:] {
-		members = append(members, []byte(m))
+		members = append(members, m)
 	}
 	var count int
 	if count, err = db.SRem([]byte(args[0]), members...); err == nil {
@@ -115,9 +116,9 @@ func sUnion(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		err = newWrongNumOfArgsError("sunion")
 		return
 	}
-	var keys [][]byte
+	var keys []interface{}
 	for _, v := range args {
-		keys = append(keys, []byte(v))
+		keys = append(keys, v)
 	}
 	res = db.SUnion(keys...)
 	return
@@ -128,9 +129,9 @@ func sDiff(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		err = newWrongNumOfArgsError("sdiff")
 		return
 	}
-	var keys [][]byte
+	var keys []interface{}
 	for _, v := range args {
-		keys = append(keys, []byte(v))
+		keys = append(keys, v)
 	}
 	res = db.SDiff(keys...)
 	return
