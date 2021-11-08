@@ -1,13 +1,16 @@
 package rosedb
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRoseDB_SAdd(t *testing.T) {
 	var key = "my_set"
+
+	var multi = "multi_set"
 
 	t.Run("normal situation", func(t *testing.T) {
 		db := InitDb()
@@ -25,6 +28,14 @@ func TestRoseDB_SAdd(t *testing.T) {
 		defer db.Close()
 
 		res, _ := db.SAdd([]byte(key), []byte("set_data_007"), []byte("set_data_008"), []byte("set_data_009"))
+		t.Log(res)
+	})
+
+	t.Run("multi situation ", func(t *testing.T) {
+		db := ReopenDb()
+		defer db.Close()
+
+		res, _ := db.SAdd([]byte(multi), []byte("set_data_010"), []byte("set_data_008"), 1, true, "rosedb", 0)
 		t.Log(res)
 	})
 	//
@@ -46,29 +57,44 @@ func TestRoseDB_SAdd(t *testing.T) {
 }
 
 func TestRoseDB_SPop(t *testing.T) {
-	db := ReopenDb()
-	defer db.Close()
-	var key = []byte("my_set")
+	t.Run("normal situation ", func(t *testing.T) {
+		db := ReopenDb()
+		defer db.Close()
+		var key = []byte("my_set")
 
-	db.SPop(nil, 3)
-	values, _ := db.SPop(key, 2)
-	for _, v := range values {
-		t.Log(string(v))
-	}
+		db.SPop(nil, 3)
+		values, _ := db.SPop(key, 2)
+		for _, v := range values {
+			t.Log(string(v))
+		}
+	})
+
+	t.Run("multi situation", func(t *testing.T) {
+		db := ReopenDb()
+		defer db.Close()
+		var key = []byte("multi_set")
+
+		values, _ := db.SPop(key, 6)
+		for _, v := range values {
+			t.Log(string(v))
+		}
+	})
 }
 
 func TestRoseDB_SCard(t *testing.T) {
-	db := ReopenDb()
-	defer db.Close()
-	var key = []byte("my_set")
+	t.Run("normal situation ", func(t *testing.T) {
+		db := ReopenDb()
+		defer db.Close()
+		var key = []byte("my_set")
 
-	db.SCard(nil)
+		db.SCard(nil)
 
-	card := db.SCard(key)
-	t.Log(card)
+		card := db.SCard(key)
+		t.Log(card)
 
-	card1 := db.SCard([]byte("not exist"))
-	t.Log(card1)
+		card1 := db.SCard([]byte("not exist"))
+		t.Log(card1)
+	})
 }
 
 func TestRoseDB_SIsMember(t *testing.T) {
@@ -125,12 +151,12 @@ func TestRoseDB_SDiff(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
-	var keys = [][]byte{
+	var keys = []interface{}{
 		[]byte("my_set1"),
 		[]byte("my_set2"),
 	}
 
-	var emptyKeys [][]byte
+	var emptyKeys []interface{}
 	db.SDiff(emptyKeys...)
 	db.SDiff(keys...)
 }
@@ -142,8 +168,8 @@ func TestRoseDB_SMove(t *testing.T) {
 	var key1 = []byte("my_set1")
 	var key2 = []byte("my_set2")
 
-	db.SAdd(key1, [][]byte{[]byte("1")}...)
-	db.SAdd(key2, [][]byte{[]byte("2")}...)
+	db.SAdd(key1, []interface{}{[]byte("1")}...)
+	db.SAdd(key2, []interface{}{[]byte("2")}...)
 
 	db.SMove(nil, nil, nil)
 	db.SMove(key1, key2, []byte("1"))
@@ -153,12 +179,12 @@ func TestRoseDB_SUnion(t *testing.T) {
 	db := ReopenDb()
 	defer db.Close()
 
-	var keys = [][]byte{
+	var keys = []interface{}{
 		[]byte("my_set1"),
 		[]byte("my_set2"),
 	}
 
-	var emptyKeys [][]byte
+	var emptyKeys []interface{}
 	db.SUnion(emptyKeys...)
 	db.SUnion(keys...)
 }
