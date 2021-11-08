@@ -123,6 +123,84 @@ func TestRoseDB_Close(t *testing.T) {
 	closeDB(storage.MMap)
 }
 
+func TestRoseDB_Sync(t *testing.T) {
+	closeDB := func(method storage.FileRWMethod) {
+		config := DefaultConfig()
+		config.RwMethod = method
+		roseDB := InitDB(config)
+		defer DestroyDB(roseDB)
+
+		err := roseDB.Sync()
+		assert.Nil(t, err)
+	}
+
+	closeDB(storage.FileIO)
+	closeDB(storage.MMap)
+}
+
+func TestRoseDB_StartMerge(t *testing.T) {
+	// string
+	t.Run("merge-str", func(t *testing.T) {
+		config := DefaultConfig()
+		config.MergeThreshold = 1
+		roseDB := InitDB(config)
+		//defer DestroyDB(roseDB)
+
+		writeForMerge := func() {
+			for i := 0; i < 500000; i++ {
+				err := roseDB.Set(GetKey(i%1024), GetValue())
+				if i == 1024 {
+					err := roseDB.Set("merge-key-1", "merge-val-1")
+					assert.Nil(t, err)
+
+					err = roseDB.SetEx("merge-ex-key-1", "merge-ex-val-1", 100)
+					assert.Nil(t, err)
+				}
+				if i == 350000 {
+					err := roseDB.Set("merge-key-2", "merge-val-2")
+					assert.Nil(t, err)
+
+					err = roseDB.Set("merge-ex-key-2", "merge-ex-val-2")
+					assert.Nil(t, err)
+
+					err = roseDB.Expire("merge-ex-key-2", 100)
+					assert.Nil(t, err)
+				}
+				assert.Nil(t, err)
+			}
+		}
+
+		writeForMerge()
+		err := roseDB.StartMerge()
+		assert.Nil(t, err)
+
+		var r1 string
+		err = roseDB.Get("merge-key-1", &r1)
+		assert.Nil(t, err)
+		assert.Equal(t, r1, "merge-val-1")
+
+		var r2 string
+		err = roseDB.Get("merge-key-2", &r2)
+		assert.Nil(t, err)
+		assert.Equal(t, r2, "merge-val-2")
+
+		t.Log(roseDB.strIndex.idxList.Len)
+	})
+}
+
+func TestOpen3(t *testing.T) {
+	config := DefaultConfig()
+	config.MergeThreshold = 1
+	roseDB := InitDB(config)
+
+	var r string
+	err := roseDB.Get("merge-ex-key-2", &r)
+	t.Log(err, r)
+
+	t.Log(roseDB.TTL("merge-ex-key-1"))
+	t.Log(roseDB.TTL("merge-ex-key-2"))
+}
+
 func writeDataForOpen(t *testing.T, roseDB *RoseDB) {
 	listKey := "my_list"
 	hashKey := "my_hash"
