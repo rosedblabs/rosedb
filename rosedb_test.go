@@ -9,8 +9,6 @@ import (
 	"testing"
 )
 
-var dbPath = "/tmp/rosedb_server"
-
 func InitDb() *RoseDB {
 	config := DefaultConfig()
 	//config.DirPath = dbPath
@@ -82,7 +80,11 @@ func TestOpen2(t *testing.T) {
 		config := DefaultConfig()
 		config.RwMethod = method
 		roseDB := InitDB(config)
-		defer DestroyDB(roseDB)
+		defer func() {
+			err := roseDB.Close()
+			assert.Nil(t, err)
+			DestroyDB(roseDB)
+		}()
 
 		writeDataForOpen(t, roseDB)
 
@@ -104,6 +106,21 @@ func TestOpen2(t *testing.T) {
 
 	open(storage.FileIO)
 	open(storage.MMap)
+}
+
+func TestRoseDB_Close(t *testing.T) {
+	closeDB := func(method storage.FileRWMethod) {
+		config := DefaultConfig()
+		config.RwMethod = method
+		roseDB := InitDB(config)
+		defer DestroyDB(roseDB)
+
+		err := roseDB.Close()
+		assert.Nil(t, err)
+	}
+
+	closeDB(storage.FileIO)
+	closeDB(storage.MMap)
 }
 
 func writeDataForOpen(t *testing.T, roseDB *RoseDB) {
