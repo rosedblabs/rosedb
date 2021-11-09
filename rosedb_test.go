@@ -144,7 +144,7 @@ func TestRoseDB_StartMerge(t *testing.T) {
 		config := DefaultConfig()
 		config.MergeThreshold = 1
 		roseDB := InitDB(config)
-		//defer DestroyDB(roseDB)
+		defer DestroyDB(roseDB)
 
 		writeForMerge := func() {
 			for i := 0; i < 500000; i++ {
@@ -185,6 +185,38 @@ func TestRoseDB_StartMerge(t *testing.T) {
 		assert.Equal(t, r2, "merge-val-2")
 
 		t.Log(roseDB.strIndex.idxList.Len)
+	})
+
+	// list
+	t.Run("list", func(t *testing.T) {
+		config := DefaultConfig()
+		config.MergeThreshold = 1
+		roseDB := InitDB(config)
+		//defer DestroyDB(roseDB)
+
+		listKey := "list-key"
+		validKey := "valid-list"
+		for i := 0; i < 300000; i++ {
+			_, err := roseDB.LPush(listKey, GetValue())
+			assert.Nil(t, err)
+
+			if i == 300000 {
+				_, err := roseDB.RPush(validKey, "valid-val-1")
+				assert.Nil(t, err)
+			}
+		}
+
+		for i := 0; i < 299900; i++ {
+			_, err := roseDB.RPop(listKey)
+			assert.Nil(t, err)
+		}
+
+		err := roseDB.StartMerge()
+		assert.Nil(t, err)
+
+		len1 := roseDB.LLen(listKey)
+		len2 := roseDB.LLen(validKey)
+		t.Log(len1, len2)
 	})
 }
 

@@ -30,6 +30,7 @@ func (db *RoseDB) LPush(key interface{}, values ...interface{}) (res int, err er
 	if err != nil {
 		return -1, err
 	}
+
 	var encVals [][]byte
 	for i := 0; i < len(values); i++ {
 		eval, err := utils.EncodeValue(values[i])
@@ -41,6 +42,7 @@ func (db *RoseDB) LPush(key interface{}, values ...interface{}) (res int, err er
 		}
 		encVals = append(encVals, eval)
 	}
+
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
@@ -62,6 +64,7 @@ func (db *RoseDB) RPush(key interface{}, values ...interface{}) (res int, err er
 	if err != nil {
 		return -1, err
 	}
+
 	var encVals [][]byte
 	for i := 0; i < len(values); i++ {
 		eval, err := utils.EncodeValue(values[i])
@@ -73,6 +76,7 @@ func (db *RoseDB) RPush(key interface{}, values ...interface{}) (res int, err er
 		}
 		encVals = append(encVals, eval)
 	}
+
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
@@ -197,7 +201,7 @@ func (db *RoseDB) LInsert(key string, option list.InsertOption, pivot, val inter
 	if err != nil {
 		return
 	}
-	envPivot, err := utils.EncodeValue( pivot)
+	envPivot, err := utils.EncodeValue(pivot)
 	if err != nil {
 		return
 	}
