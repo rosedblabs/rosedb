@@ -351,20 +351,6 @@ func TestRoseDB_LKeyExists(t *testing.T) {
 	t.Log(ok1)
 }
 
-func TestRoseDB_LValExists(t *testing.T) {
-	db := ReopenDb()
-	defer db.Close()
-
-	key := []byte("mylist")
-	ok := db.LValExists(key, []byte("list_data_003"))
-	t.Log(ok)
-
-	db.LPush(key, []byte("list_data_00099"))
-
-	ok1 := db.LValExists(key, []byte("list_data_00099"))
-	t.Log(ok1)
-}
-
 func TestRoseDB_LClear(t *testing.T) {
 	err := setup()
 	assert.NoError(t, err)
