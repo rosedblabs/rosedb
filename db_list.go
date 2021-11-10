@@ -345,27 +345,6 @@ func (db *RoseDB) LKeyExists(key interface{}) (ok bool) {
 	return
 }
 
-// LValExists check if the val exists in a specified List stored at key.
-func (db *RoseDB) LValExists(key interface{}, val interface{}) (ok bool) {
-	encKey, encVal, err := db.encode(key, val)
-	if err != nil {
-		return false
-	}
-	if err := db.checkKeyValue(encKey, encVal); err != nil {
-		return
-	}
-
-	db.listIndex.mu.RLock()
-	defer db.listIndex.mu.RUnlock()
-
-	if db.checkExpired(encKey, List) {
-		return false
-	}
-
-	ok = db.listIndex.indexes.LValExists(string(encKey), encVal)
-	return
-}
-
 // LClear clear a specified key.
 func (db *RoseDB) LClear(key interface{}) (err error) {
 	encKey, err := utils.EncodeKey(key)

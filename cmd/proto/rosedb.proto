@@ -56,7 +56,6 @@ service rosedb {
   rpc LRange(LRangeReq) returns (LRangeRsp) {};
   rpc LLen(LLenReq) returns (LLenRsp) {};
   rpc LKeyExists(LKeyExistsReq) returns (LKeyExistsRsp) {};
-  rpc LValExists(LValExistsReq) returns (LValExistsRsp) {};
   rpc LClear(LClearReq) returns (LClearRsp) {};
   rpc LExpire(LExpireReq) returns (LExpireRsp) {};
   rpc LTTL(LTTLReq) returns (LTTLRsp) {};

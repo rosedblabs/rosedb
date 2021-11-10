@@ -408,12 +408,6 @@ func (g *GrpcServer) LKeyExists(_ context.Context, req *proto.LKeyExistsReq) (*p
 	return rsp, nil
 }
 
-func (g *GrpcServer) LValExists(_ context.Context, req *proto.LValExistsReq) (*proto.LValExistsRsp, error) {
-	rsp := &proto.LValExistsRsp{}
-	rsp.Ok = g.db.LValExists(req.Key, req.Value)
-	return rsp, nil
-}
-
 func (g *GrpcServer) LClear(_ context.Context, req *proto.LClearReq) (*proto.LClearRsp, error) {
 	rsp := &proto.LClearRsp{}
 	err := g.db.LClear(req.Key)

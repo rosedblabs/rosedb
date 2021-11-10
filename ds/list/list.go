@@ -22,9 +22,6 @@ type (
 	List struct {
 		// record saves the List of a specified key.
 		record Record
-
-		// values saves the values of a List, help checking if a value exists in List.
-		values map[string]map[string]int
 	}
 
 	// Record list record to save.
@@ -35,8 +32,12 @@ type (
 func New() *List {
 	return &List{
 		make(Record),
-		make(map[string]map[string]int),
 	}
+}
+
+// Record return all data in list.
+func (lis *List) Record() Record {
+	return lis.record
 }
 
 // LPush insert all the specified values at the head of the list stored at key.
@@ -120,14 +121,6 @@ func (lis *List) LRem(key string, val []byte, count int) int {
 	length := len(ele)
 	ele = nil
 
-	if lis.values[key] != nil {
-		cnt := lis.values[key][string(val)] - length
-		if cnt <= 0 {
-			delete(lis.values[key], string(val))
-		} else {
-			lis.values[key][string(val)] = cnt
-		}
-	}
 	return length
 }
 
@@ -146,11 +139,6 @@ func (lis *List) LInsert(key string, option InsertOption, pivot, val []byte) int
 		item.InsertAfter(val, e)
 	}
 
-	if lis.values[key] == nil {
-		lis.values[key] = make(map[string]int)
-	}
-	lis.values[key][string(val)] += 1
-
 	return item.Len()
 }
 
@@ -161,23 +149,7 @@ func (lis *List) LSet(key string, index int, val []byte) bool {
 		return false
 	}
 
-	if lis.values[key] == nil {
-		lis.values[key] = make(map[string]int)
-	}
-
-	// update value count.
-	if e.Value != nil {
-		v := string(e.Value.([]byte))
-		cnt := lis.values[key][v] - 1
-		if cnt <= 0 {
-			delete(lis.values[key], v)
-		} else {
-			lis.values[key][v] = cnt
-		}
-	}
-
 	e.Value = val
-	lis.values[key][string(val)] += 1
 	return true
 }
 
@@ -243,7 +215,6 @@ func (lis *List) LTrim(key string, start, end int) bool {
 
 	if start > end || start >= length {
 		lis.record[key] = nil
-		lis.values[key] = nil
 		return true
 	}
 
@@ -260,7 +231,6 @@ func (lis *List) LTrim(key string, start, end int) bool {
 
 		item = nil
 		lis.record[key] = newList
-		lis.values[key] = newValuesMap
 	} else {
 		var ele []*list.Element
 		for p := item.Front(); p != startEle; p = p.Next() {
@@ -272,15 +242,6 @@ func (lis *List) LTrim(key string, start, end int) bool {
 
 		for _, e := range ele {
 			item.Remove(e)
-			if lis.values[key] != nil && e.Value != nil {
-				v := string(e.Value.([]byte))
-				cnt := lis.values[key][v] - 1
-				if cnt <= 0 {
-					delete(lis.values[key], v)
-				} else {
-					lis.values[key][v] = cnt
-				}
-			}
 		}
 		ele = nil
 	}
@@ -301,21 +262,11 @@ func (lis *List) LLen(key string) int {
 // LClear clear a specified key for List.
 func (lis *List) LClear(key string) {
 	delete(lis.record, key)
-	delete(lis.values, key)
 }
 
 // LKeyExists check if the key of a List exists.
 func (lis *List) LKeyExists(key string) (ok bool) {
 	_, ok = lis.record[key]
-	return
-}
-
-// LValExists check if the val exists in a specified List stored at key.
-func (lis *List) LValExists(key string, val []byte) (ok bool) {
-	if lis.values[key] != nil {
-		cnt := lis.values[key][string(val)]
-		ok = cnt > 0
-	}
 	return
 }
 
@@ -368,9 +319,6 @@ func (lis *List) push(front bool, key string, val ...[]byte) int {
 	if lis.record[key] == nil {
 		lis.record[key] = list.New()
 	}
-	if lis.values[key] == nil {
-		lis.values[key] = make(map[string]int)
-	}
 
 	for _, v := range val {
 		if front {
@@ -378,7 +326,6 @@ func (lis *List) push(front bool, key string, val ...[]byte) int {
 		} else {
 			lis.record[key].PushBack(v)
 		}
-		lis.values[key][string(v)] += 1
 	}
 	return lis.record[key].Len()
 }
@@ -397,15 +344,6 @@ func (lis *List) pop(front bool, key string) []byte {
 
 		val = e.Value.([]byte)
 		item.Remove(e)
-		// update value count.
-		if lis.values[key] != nil {
-			cnt := lis.values[key][string(val)] - 1
-			if cnt <= 0 {
-				delete(lis.values[key], string(val))
-			} else {
-				lis.values[key][string(val)] = cnt
-			}
-		}
 	}
 	return val
 }

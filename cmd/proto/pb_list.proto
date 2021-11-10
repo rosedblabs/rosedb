@@ -128,16 +128,6 @@ message LKeyExistsRsp {
   string errorMsg         = 2;
 }
 
-message LValExistsReq {
-  bytes key               = 1;
-  bytes value             = 2;
-}
-
-message LValExistsRsp {
-  bool ok                 = 1;
-  string errorMsg         = 2;
-}
-
 message LClearReq {
   bytes key               = 1;
 }

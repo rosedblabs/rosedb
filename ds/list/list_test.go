@@ -247,27 +247,3 @@ func TestList_LKeyExists(t *testing.T) {
 	ok2 := lis.LKeyExists("not")
 	t.Log(ok2)
 }
-
-func TestList_LValExists(t *testing.T) {
-	lis := InitList()
-
-	ok1 := lis.LValExists(key, []byte("a"))
-	t.Log(ok1)
-
-	ok2 := lis.LValExists(key, []byte("f"))
-	t.Log(ok2)
-
-	ok3 := lis.LValExists(key, []byte("aaa"))
-	t.Log(ok3)
-
-	lis.RPop(key)
-	lis.RPop(key)
-	lis.RPop(key)
-
-	lis.RPush(key, []byte("a"))
-
-	ok4 := lis.LValExists(key, []byte("a"))
-	t.Log(ok4)
-
-	PrintListData(lis)
-}
