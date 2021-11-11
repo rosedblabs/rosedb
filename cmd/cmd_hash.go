@@ -63,7 +63,7 @@ func hMSet(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		return
 	}
 
-	var values [][]byte
+	var values []interface{}
 	for i := 1; i < len(args); i++ {
 		values = append(values, []byte(args[i]))
 	}
@@ -78,7 +78,7 @@ func hMGet(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		return
 	}
 
-	var values [][]byte
+	var values []interface{}
 	for i := 1; i < len(args); i++ {
 		values = append(values, []byte(args[i]))
 	}
@@ -93,7 +93,7 @@ func hDel(db *rosedb.RoseDB, args []string) (res interface{}, err error) {
 		return
 	}
 
-	var fields [][]byte
+	var fields []interface{}
 	for _, f := range args[1:] {
 		fields = append(fields, []byte(f))
 	}
