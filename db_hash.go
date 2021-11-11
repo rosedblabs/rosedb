@@ -281,16 +281,15 @@ func (db *RoseDB) HDel(key interface{}, fields ...interface{}) (res int, err err
 
 	var encFields [][]byte
 	for i := 0; i < len(fields); i++ {
-		efield, err := utils.EncodeValue(fields[i])
-
-		if err != nil {
+		var ef []byte
+		if ef, err = utils.EncodeValue(fields[i]); err != nil {
 			return
 		}
-		if err = db.checkKeyValue(efield, nil); err != nil {
+		if err = db.checkKeyValue(ef, nil); err != nil {
 			return
 		}
 
-		encFields = append(encFields, efield)
+		encFields = append(encFields, ef)
 	}
 
 	db.hashIndex.mu.Lock()
