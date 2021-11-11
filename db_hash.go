@@ -25,44 +25,37 @@ func newHashIdx() *HashIdx {
 // If field already exists in the hash, it is overwritten.
 // Return num of elements in hash of the specified key.
 func (db *RoseDB) HSet(key, field, value interface{}) (res int, err error) {
-	encKey, err := utils.EncodeKey(key)
+	encKey, encVal, err := db.encode(key, value)
 	if err != nil {
 		return -1, err
 	}
-
 	encField, err := utils.EncodeKey(field)
 	if err != nil {
 		return -1, err
 	}
 
-	eval, err := utils.EncodeValue(value)
-	if err != nil {
-		return -1, err
-	}
-
-	if err = db.checkKeyValue(encKey, eval); err != nil {
+	if err = db.checkKeyValue(encKey, encVal); err != nil {
 		return
 	}
-
 	if err = db.checkKeyValue(encField, nil); err != nil {
 		return
 	}
 
 	// If the existed value is the same as the set value, nothing will be done.
 	oldVal := db.HGet(encKey, encField)
-	if bytes.Compare(oldVal, eval) == 0 {
+	if bytes.Compare(oldVal, encVal) == 0 {
 		return
 	}
 
 	db.hashIndex.mu.Lock()
 	defer db.hashIndex.mu.Unlock()
 
-	e := storage.NewEntry(encKey, eval, encField, Hash, HashHSet)
+	e := storage.NewEntry(encKey, encVal, encField, Hash, HashHSet)
 	if err = db.store(e); err != nil {
 		return
 	}
 
-	res = db.hashIndex.indexes.HSet(string(encKey), string(encField), eval)
+	res = db.hashIndex.indexes.HSet(string(encKey), string(encField), encVal)
 	return
 }
 
@@ -70,7 +63,7 @@ func (db *RoseDB) HSet(key, field, value interface{}) (res int, err error) {
 // If key does not exist, a new key holding a hash is created. If field already exists, this operation has no effect.
 // Return if the operation is successful.
 func (db *RoseDB) HSetNx(key, field, value interface{}) (res int, err error) {
-	encKey, err := utils.EncodeKey(key)
+	encKey, encVal, err := db.encode(key, value)
 	if err != nil {
 		return -1, err
 	}
@@ -80,12 +73,7 @@ func (db *RoseDB) HSetNx(key, field, value interface{}) (res int, err error) {
 		return -1, err
 	}
 
-	eval, err := utils.EncodeValue(value)
-	if err != nil {
-		return -1, err
-	}
-
-	if err = db.checkKeyValue(encKey, eval); err != nil {
+	if err = db.checkKeyValue(encKey, encVal); err != nil {
 		return
 	}
 
@@ -96,8 +84,8 @@ func (db *RoseDB) HSetNx(key, field, value interface{}) (res int, err error) {
 	db.hashIndex.mu.Lock()
 	defer db.hashIndex.mu.Unlock()
 
-	if res = db.hashIndex.indexes.HSetNx(string(encKey), string(encField), eval); res == 1 {
-		e := storage.NewEntry(encKey, eval, encField, Hash, HashHSet)
+	if res = db.hashIndex.indexes.HSetNx(string(encKey), string(encField), encVal); res == 1 {
+		e := storage.NewEntry(encKey, encVal, encField, Hash, HashHSet)
 		if err = db.store(e); err != nil {
 			return
 		}
@@ -185,14 +173,12 @@ func (db *RoseDB) HMSet(key interface{}, values ...interface{}) error {
 
 	existVals := db.HMGet(encKey, fields...)
 
-	// convert interface into bytes
 	var encFields [][]byte
 	for i := 0; i < len(fields); i++ {
 		efields, err := utils.EncodeValue(fields[i])
 		if err != nil {
 			return err
 		}
-
 		if err = db.checkKeyValue(efields, nil); err != nil {
 			return err
 		}
@@ -289,7 +275,6 @@ func (db *RoseDB) HDel(key interface{}, fields ...interface{}) (res int, err err
 	if err = db.checkKeyValue(encKey, nil); err != nil {
 		return
 	}
-
 	if fields == nil || len(fields) == 0 {
 		return
 	}
