@@ -208,7 +208,13 @@ func (g *GrpcServer) HGetAll(_ context.Context, req *proto.HGetAllReq) (*proto.H
 
 func (g *GrpcServer) HMSet(_ context.Context, req *proto.HMSetReq) (*proto.HMSetRsp, error) {
 	rsp := &proto.HMSetRsp{}
-	err := g.db.HMSet(req.Key, req.Values...)
+
+	var reqValues []interface{}
+	for val := range req.Values {
+		reqValues = append(reqValues, val)
+	}
+
+	err := g.db.HMSet(req.Key, reqValues...)
 	if err != nil {
 		rsp.ErrorMsg = err.Error()
 	}
@@ -217,13 +223,26 @@ func (g *GrpcServer) HMSet(_ context.Context, req *proto.HMSetReq) (*proto.HMSet
 
 func (g *GrpcServer) HMGet(_ context.Context, req *proto.HMGetReq) (*proto.HMGetRsp, error) {
 	rsp := &proto.HMGetRsp{}
-	rsp.Values = g.db.HMGet(req.Key, req.Fields...)
+
+	var reqFields []interface{}
+	for val := range req.Fields {
+
+		reqFields = append(reqFields, val)
+	}
+	rsp.Values = g.db.HMGet(req.Key, reqFields...)
 	return rsp, nil
 }
 
 func (g *GrpcServer) HDel(_ context.Context, req *proto.HDelReq) (*proto.HDelRsp, error) {
 	rsp := &proto.HDelRsp{}
-	resInt, err := g.db.HDel(req.Key, req.Fields...)
+
+	var reqFields []interface{}
+	for val := range req.Fields {
+
+		reqFields = append(reqFields, val)
+	}
+
+	resInt, err := g.db.HDel(req.Key, reqFields...)
 	if err != nil {
 		rsp.ErrorMsg = err.Error()
 	}
