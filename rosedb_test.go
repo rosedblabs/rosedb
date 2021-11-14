@@ -1,12 +1,16 @@
 package rosedb
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/roseduan/rosedb/storage"
 	"github.com/stretchr/testify/assert"
 	"log"
+	"math/rand"
 	"os"
+	"strconv"
 	"testing"
+	"time"
 )
 
 func InitDb() *RoseDB {
@@ -173,4 +177,18 @@ func writeDataForOpen(t *testing.T, roseDB *RoseDB) {
 		err = roseDB.ZAdd(zsetKey, float64(i+10), GetValue())
 		assert.Nil(t, err)
 	}
+}
+
+const alphabet = "abcdefghijklmnopqrstuvwxyz"
+
+func GetKey(n int) []byte {
+	return []byte("test_key_" + fmt.Sprintf("%09d", n))
+}
+
+func GetValue() []byte {
+	var str bytes.Buffer
+	for i := 0; i < 12; i++ {
+		str.WriteByte(alphabet[rand.Int()%26])
+	}
+	return []byte("test_val-" + strconv.FormatInt(time.Now().UnixNano(), 10) + str.String())
 }

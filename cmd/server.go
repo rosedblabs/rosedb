@@ -121,7 +121,7 @@ func (s *Server) handleCmd(conn redcon.Conn, cmd redcon.Command) {
 				if len(txnList.cmdArgs) == 0 {
 					reply = "(empty list or set)"
 				} else {
-					reply, err = txn(s.db, txnList.cmdArgs)
+					//reply, err = txn(s.db, txnList.cmdArgs)
 				}
 			}
 		} else {

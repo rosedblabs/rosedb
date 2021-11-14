@@ -92,7 +92,6 @@ type (
 		mu         sync.RWMutex  // mutex.
 		expires    Expires       // Expired directory.
 		lockMgr    *LockMgr      // lockMgr controls isolation of read and write.
-		txnMeta    *TxnMeta      // Txn meta info used in transaction.
 		closed     uint32
 		cache      *cache.LruCache // lru cache for db_str.
 	}
@@ -130,12 +129,6 @@ func Open(config Config) (*RoseDB, error) {
 		activeFiles.Store(dataType, file)
 	}
 
-	// load txn meta info for transaction.
-	txnMeta, err := LoadTxnMeta(config.DirPath + dbTxMetaSaveFile)
-	if err != nil {
-		return nil, err
-	}
-
 	db := &RoseDB{
 		activeFile: activeFiles,
 		archFiles:  archFiles,
@@ -146,7 +139,6 @@ func Open(config Config) (*RoseDB, error) {
 		setIndex:   newSetIdx(),
 		zsetIndex:  newZsetIdx(),
 		expires:    make(Expires),
-		txnMeta:    txnMeta,
 		cache:      cache.NewLruCache(config.CacheCapacity),
 	}
 	for i := 0; i < DataStructureNum; i++ {
@@ -262,20 +254,10 @@ func (db *RoseDB) saveConfig() (err error) {
 }
 
 // build the indexes for different data structures.
-func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer, isOpen bool) (err error) {
+func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer) (err error) {
 	if db.config.IdxMode == KeyValueMemMode && entry.GetType() == String {
 		idx.Meta.Value = entry.Meta.Value
 		idx.Meta.ValueSize = uint32(len(entry.Meta.Value))
-	}
-
-	// uncommitted entry is invalid.
-	if entry.TxId != 0 && isOpen {
-		if entry.TxId > db.txnMeta.MaxTxId {
-			db.txnMeta.MaxTxId = entry.TxId
-		}
-		if _, ok := db.txnMeta.CommittedTxIds[entry.TxId]; !ok {
-			return
-		}
 	}
 
 	switch entry.GetType() {
