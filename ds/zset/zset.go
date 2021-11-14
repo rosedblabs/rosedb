@@ -1,6 +1,8 @@
 package zset
 
 import (
+	"github.com/roseduan/rosedb/storage"
+	"github.com/roseduan/rosedb/utils"
 	"math"
 	"math/rand"
 )
@@ -11,6 +13,8 @@ const (
 	maxLevel    = 32
 	probability = 0.25
 )
+
+type dumpFunc func(e *storage.Entry) error
 
 type (
 	// SortedSet sorted set struct
@@ -48,6 +52,22 @@ type (
 func New() *SortedSet {
 	return &SortedSet{
 		make(map[string]*SortedSetNode),
+	}
+}
+
+// DumpIterate iterate all keys and values for dump.
+func (z *SortedSet) DumpIterate(fn dumpFunc) {
+	for key, ss := range z.record {
+		zsetKey := []byte(key)
+
+		for e := ss.skl.head; e != nil; e = e.level[0].forward {
+			extra := []byte(utils.Float64ToStr(e.score))
+			// ZSet, ZSetZAdd
+			ent := storage.NewEntry(zsetKey, []byte(e.member), extra, 4, 0)
+			if err := fn(ent); err != nil {
+				return
+			}
+		}
 	}
 }
 

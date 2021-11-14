@@ -3,6 +3,7 @@ package rosedb
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/roseduan/rosedb/cache"
 	"log"
 	"os"
@@ -30,9 +31,6 @@ var (
 
 	// ErrNilIndexer the indexer is nil
 	ErrNilIndexer = errors.New("rosedb: indexer is nil")
-
-	// ErrMergeUnreached not ready to reclaim
-	ErrMergeUnreached = errors.New("rosedb: unused space not reach the threshold")
 
 	// ErrExtraContainsSeparator extra contains separator
 	ErrExtraContainsSeparator = errors.New("rosedb: extra contains separator \\0")
@@ -82,24 +80,21 @@ type (
 	RoseDB struct {
 		// Current active files of different data types, stored like this: map[DataType]*storage.DBFile.
 		activeFile *sync.Map
-		archFiles  ArchivedFiles // The archived files.
-		strIndex   *StrIdx       // String indexes(a skip list).
-		listIndex  *ListIdx      // List indexes.
-		hashIndex  *HashIdx      // Hash indexes.
-		setIndex   *SetIdx       // Set indexes.
-		zsetIndex  *ZsetIdx      // Sorted set indexes.
-		config     Config        // Config info of rosedb.
-		mu         sync.RWMutex  // mutex.
-		expires    Expires       // Expired directory.
-		lockMgr    *LockMgr      // lockMgr controls isolation of read and write.
-		txnMeta    *TxnMeta      // Txn meta info used in transaction.
+		archFiles  storage.ArchivedFiles // The archived files.
+		strIndex   *StrIdx               // String indexes(a skip list).
+		listIndex  *ListIdx              // List indexes.
+		hashIndex  *HashIdx              // Hash indexes.
+		setIndex   *SetIdx               // Set indexes.
+		zsetIndex  *ZsetIdx              // Sorted set indexes.
+		config     Config                // Config info of rosedb.
+		mu         sync.RWMutex          // mutex.
+		expires    Expires               // Expired directory.
+		lockMgr    *LockMgr              // lockMgr controls isolation of read and write.
+		txnMeta    *TxnMeta              // Txn meta info used in transaction.
 		closed     uint32
 		cache      *cache.LruCache // lru cache for db_str.
+		isMerging  bool
 	}
-
-	// ArchivedFiles define the archived files, which mean these files can only be read.
-	// and will never be opened for writing.
-	ArchivedFiles map[DataType]map[uint32]*storage.DBFile
 
 	// Expires saves the expire info of different keys.
 	Expires map[DataType]map[string]int64
@@ -227,6 +222,162 @@ func (db *RoseDB) Backup(dir string) (err error) {
 		err = utils.CopyDir(db.config.DirPath, dir)
 	}
 	return
+}
+
+// Merge
+func (db *RoseDB) Merge() (err error) {
+	if db.isMerging {
+		return ErrDBisMerging
+	}
+
+	// create a temporary directory for storing the new db files.
+	mergePath := db.config.DirPath + mergePath
+	if !utils.Exist(mergePath) {
+		if err := os.MkdirAll(mergePath, os.ModePerm); err != nil {
+			return err
+		}
+	}
+	defer os.RemoveAll(mergePath)
+
+	db.mu.Lock()
+	defer func() {
+		db.isMerging = false
+		db.mu.Unlock()
+	}()
+	db.isMerging = true
+
+	wg := new(sync.WaitGroup)
+	wg.Add(DataStructureNum)
+	go db.dump(wg)
+	go db.mergeString(wg)
+	wg.Wait()
+	return
+}
+
+func (db *RoseDB) dump(wg *sync.WaitGroup) (err error) {
+	path := db.config.DirPath + mergePath
+
+	for i := List; i < DataStructureNum; i++ {
+		switch i {
+		case List:
+			go db.dumpInternal(wg, path, List)
+		case Hash:
+			go db.dumpInternal(wg, path, Hash)
+		case Set:
+			go db.dumpInternal(wg, path, Set)
+		case ZSet:
+			go db.dumpInternal(wg, path, ZSet)
+		}
+	}
+	return
+}
+
+func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, path string, eType DataType) {
+	defer wg.Done()
+
+	cfg := db.config
+	if len(db.archFiles[eType])+1 < cfg.MergeThreshold {
+		return
+	}
+
+	unLockFunc := db.lockMgr.Lock(eType)
+	defer unLockFunc()
+
+	var mergeFiles []*storage.DBFile
+	// create and store the first db file.
+	file, err := storage.NewDBFile(path, 0, cfg.RwMethod, cfg.BlockSize, eType)
+	if err != nil {
+		log.Printf("[dumpInternal]create new db file err.[%+v]\n", err)
+		return
+	}
+	mergeFiles = append(mergeFiles, file)
+
+	dumpStoreFn := func(e *storage.Entry) (err error) {
+		if err = db.dumpStore(&mergeFiles, path, e); err != nil {
+			log.Printf("[dumpInternal]store entry err.[%+v]\n", err)
+		}
+		return
+	}
+
+	// dump all values and delete original db files if there are no errors.
+	var dumpErr error
+	switch eType {
+	case List:
+		dumpErr = db.listIndex.indexes.DumpIterate(dumpStoreFn)
+	case Hash:
+		db.hashIndex.indexes.DumpIterate(dumpStoreFn)
+	case Set:
+		db.setIndex.indexes.DumpIterate(dumpStoreFn)
+	case ZSet:
+		db.zsetIndex.indexes.DumpIterate(dumpStoreFn)
+	}
+	if dumpErr != nil {
+		return
+	}
+
+	for _, f := range db.archFiles[eType] {
+		f.Close(false)
+		os.Remove(f.File.Name())
+	}
+
+	value, ok := db.activeFile.Load(eType)
+	if ok && value != nil {
+		activeFile, _ := value.(*storage.DBFile)
+
+		if activeFile != nil {
+			activeFile.Close(true)
+			os.Remove(activeFile.File.Name())
+		}
+	}
+
+	// copy the temporary files as new db files.
+	for _, f := range mergeFiles {
+		name := storage.PathSeparator + fmt.Sprintf(storage.DBFileFormatNames[eType], f.Id)
+		os.Rename(path+name, cfg.DirPath+name)
+	}
+
+	// reload db files.
+	archivedFiles, activeIds, err := storage.BuildType(cfg.DirPath, cfg.RwMethod, cfg.BlockSize, eType)
+	if err != nil {
+		return
+	}
+	db.archFiles[eType] = archivedFiles[eType]
+
+	activeFile, err := storage.NewDBFile(cfg.DirPath, activeIds[eType], cfg.RwMethod, cfg.BlockSize, eType)
+	if err != nil {
+		return
+	}
+	db.activeFile.Store(eType, activeFile)
+}
+
+func (db *RoseDB) dumpStore(mergeFiles *[]*storage.DBFile, mergePath string, e *storage.Entry) (err error) {
+	var df *storage.DBFile
+	df = (*mergeFiles)[len(*mergeFiles)-1]
+	cfg := db.config
+
+	if df.Offset+int64(e.Size()) > cfg.BlockSize {
+		if err = df.Sync(); err != nil {
+			return
+		}
+		df, err = storage.NewDBFile(mergePath, df.Id+1, cfg.RwMethod, cfg.BlockSize, e.GetType())
+		if err != nil {
+			return
+		}
+		*mergeFiles = append(*mergeFiles, df)
+	}
+
+	if err = df.Write(e); err != nil {
+		return
+	}
+	return
+}
+
+func (db *RoseDB) mergeString(wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	if len(db.archFiles[0])+1 < db.config.MergeThreshold {
+		return
+	}
 }
 
 func (db *RoseDB) checkKeyValue(key []byte, value ...[]byte) error {

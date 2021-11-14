@@ -151,6 +151,42 @@ func TestOpen3(t *testing.T) {
 	t.Log(roseDB.TTL("merge-ex-key-2"))
 }
 
+func TestRoseDB_Merge(t *testing.T) {
+	config := DefaultConfig()
+	config.MergeThreshold = 1
+	roseDB := InitDB(config)
+
+	t.Run("list", func(t *testing.T) {
+		listKey := "my_list"
+		//for i := 0; i < 600000; i++ {
+		//	_, err := roseDB.LPush(listKey, GetValue())
+		//	assert.Nil(t, err)
+		//}
+		//for i := 0; i < 580000; i++ {
+		//	_, err := roseDB.RPop(listKey)
+		//	assert.Nil(t, err)
+		//}
+
+		//roseDB.Merge()
+
+		l1 := roseDB.LLen(listKey)
+		t.Log(l1)
+
+		v1 := roseDB.LIndex(listKey, 0)
+		v2 := roseDB.LIndex(listKey, -1)
+
+		t.Log(string(v1))
+		t.Log(string(v2))
+
+		roseDB.LPush(listKey, "rosedb")
+		v3 := roseDB.LIndex(listKey, 0)
+		t.Log(string(v3))
+	})
+
+	t.Run("hash", func(t *testing.T) {
+	})
+}
+
 func writeDataForOpen(t *testing.T, roseDB *RoseDB) {
 	listKey := "my_list"
 	hashKey := "my_hash"
