@@ -68,7 +68,7 @@ func (tx *Txn) Commit() (err error) {
 
 	// get commit seq. todo
 
-	// handle all entries(set version, add a special )
+	// put all entries into a slice.(set every entry`s version, add a special entry as end.) todo
 
 	// start commit, write entries into db file. todo
 
