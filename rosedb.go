@@ -94,6 +94,7 @@ type (
 		lockMgr    *LockMgr      // lockMgr controls isolation of read and write.
 		closed     uint32
 		cache      *cache.LruCache // lru cache for db_str.
+		txnMgr     *TxnManager
 	}
 
 	// ArchivedFiles define the archived files, which mean these files can only be read.

@@ -61,3 +61,8 @@ func DecodeValue(value []byte, dest interface{}) (err error) {
 	}
 	return
 }
+
+// KeyWithSeq
+func KeyWithSeq(key interface{}, seq uint64) []byte {
+	return nil
+}
