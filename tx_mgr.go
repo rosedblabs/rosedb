@@ -25,3 +25,8 @@ func (mgr *TxnManager) getReadSeq() uint64 {
 	// todo
 	return 0
 }
+
+// clean useless committed txns.
+func (mgr *TxnManager) cleanTxns() {
+	// todo
+}
