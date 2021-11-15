@@ -95,6 +95,7 @@ type (
 		closed     uint32
 		cache      *cache.LruCache // lru cache for db_str.
 		txnMgr     *TxnManager
+		txnCh      chan *writeBuffer
 	}
 
 	// ArchivedFiles define the archived files, which mean these files can only be read.
@@ -375,4 +376,21 @@ func (db *RoseDB) encode(key, value interface{}) (encKey, encVal []byte, err err
 		return
 	}
 	return
+}
+
+func (db *RoseDB) sendTxnChn(buf *writeBuffer) {
+	if buf == nil || len(buf.entries) == 0 {
+		return
+	}
+	db.txnCh <- buf
+}
+
+func (db *RoseDB) writeTxnBuffer() {
+	for {
+		select {
+		case <-db.txnCh:
+			// todo
+		default:
+		}
+	}
 }
