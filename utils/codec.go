@@ -62,7 +62,15 @@ func DecodeValue(value []byte, dest interface{}) (err error) {
 	return
 }
 
-// KeyWithSeq
-func KeyWithSeq(key interface{}, seq uint64) []byte {
-	return nil
+// KeyWithSeq get key with seq number.
+func KeyWithSeq(key interface{}, seq uint64) ([]byte, error) {
+	encKey, err := EncodeKey(key)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := make([]byte, len(encKey)+8)
+	copy(buf, encKey)
+	binary.BigEndian.PutUint64(buf[len(encKey):], seq)
+	return buf, nil
 }

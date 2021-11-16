@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -63,4 +64,16 @@ func TestEncodeValue(t *testing.T) {
 type TestKey struct {
 	Id   int
 	Name string
+}
+
+func TestKeyWithSeq(t *testing.T) {
+	v1, err := KeyWithSeq(0, 1)
+	assert.Nil(t, err)
+	t.Log(string(v1))
+
+	v2, err := KeyWithSeq(0, 1)
+	t.Log(string(v2))
+
+	com := bytes.Compare(v1, v2)
+	t.Log(com)
 }
