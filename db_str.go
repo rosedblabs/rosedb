@@ -353,6 +353,10 @@ func (db *RoseDB) setVal(key, value []byte) (err error) {
 		}
 
 		if bytes.Compare(existVal, value) == 0 {
+			// clear expire time.
+			if _, ok := db.expires[String][string(key)]; ok {
+				delete(db.expires[String], string(key))
+			}
 			return
 		}
 	}
