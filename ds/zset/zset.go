@@ -56,7 +56,7 @@ func New() *SortedSet {
 }
 
 // DumpIterate iterate all keys and values for dump.
-func (z *SortedSet) DumpIterate(fn dumpFunc) {
+func (z *SortedSet) DumpIterate(fn dumpFunc) (err error) {
 	for key, ss := range z.record {
 		zsetKey := []byte(key)
 
@@ -64,11 +64,12 @@ func (z *SortedSet) DumpIterate(fn dumpFunc) {
 			extra := []byte(utils.Float64ToStr(e.score))
 			// ZSet, ZSetZAdd
 			ent := storage.NewEntry(zsetKey, []byte(e.member), extra, 4, 0)
-			if err := fn(ent); err != nil {
+			if err = fn(ent); err != nil {
 				return
 			}
 		}
 	}
+	return
 }
 
 // ZAdd Adds the specified member with the specified score to the sorted set stored at key.

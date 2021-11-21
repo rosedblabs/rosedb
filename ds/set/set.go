@@ -24,18 +24,19 @@ func New() *Set {
 }
 
 // DumpIterate iterate all keys and values for dump.
-func (s *Set) DumpIterate(fn dumpFunc) {
+func (s *Set) DumpIterate(fn dumpFunc) (err error) {
 	for key, rec := range s.record {
 		setKey := []byte(key)
 
 		// Set SetSAdd
 		for member := range rec {
 			ent := storage.NewEntryNoExtra(setKey, []byte(member), 3, 0)
-			if err := fn(ent); err != nil {
+			if err = fn(ent); err != nil {
 				return
 			}
 		}
 	}
+	return
 }
 
 // SAdd Add the specified members to the set stored at key.

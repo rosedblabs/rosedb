@@ -156,6 +156,25 @@ func TestRoseDB_Merge(t *testing.T) {
 	config.MergeThreshold = 1
 	roseDB := InitDB(config)
 
+	t.Run("string", func(t *testing.T) {
+		for i := 0; i < 500000; i++ {
+			err := roseDB.Set(GetKey(i%1000), GetValue())
+			assert.Nil(t, err)
+			if i == 12200 {
+				err := roseDB.Set("my_name", "roseduan")
+				assert.Nil(t, err)
+			}
+		}
+
+		err := roseDB.Merge()
+		assert.Nil(t, err)
+
+		var v string
+		err = roseDB.Get("my_name", &v)
+		assert.Nil(t, err)
+		t.Log("val = ", v)
+	})
+
 	t.Run("list", func(t *testing.T) {
 		listKey := "my_list"
 		//for i := 0; i < 600000; i++ {

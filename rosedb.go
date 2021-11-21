@@ -1,12 +1,15 @@
 package rosedb
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/roseduan/rosedb/cache"
+	"io"
 	"log"
 	"os"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -224,7 +227,9 @@ func (db *RoseDB) Backup(dir string) (err error) {
 	return
 }
 
-// Merge
+// Merge will reorganize the db file`s data in disk, removes the useless data in disk.
+// For List, Hash, Set and ZSet, we dump the data in memory directly to db file, so it will block read and write for a while.
+// For String, we choose a different way to do the same thing: load all data in db files in order, and compare the newest value in memory, find the valid data, rewrite them to new db files.
 func (db *RoseDB) Merge() (err error) {
 	if db.isMerging {
 		return ErrDBisMerging
@@ -254,9 +259,8 @@ func (db *RoseDB) Merge() (err error) {
 	return
 }
 
-func (db *RoseDB) dump(wg *sync.WaitGroup) (err error) {
+func (db *RoseDB) dump(wg *sync.WaitGroup) {
 	path := db.config.DirPath + mergePath
-
 	for i := List; i < DataStructureNum; i++ {
 		switch i {
 		case List:
@@ -305,11 +309,11 @@ func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, path string, eType DataType) 
 	case List:
 		dumpErr = db.listIndex.indexes.DumpIterate(dumpStoreFn)
 	case Hash:
-		db.hashIndex.indexes.DumpIterate(dumpStoreFn)
+		dumpErr = db.hashIndex.indexes.DumpIterate(dumpStoreFn)
 	case Set:
-		db.setIndex.indexes.DumpIterate(dumpStoreFn)
+		dumpErr = db.setIndex.indexes.DumpIterate(dumpStoreFn)
 	case ZSet:
-		db.zsetIndex.indexes.DumpIterate(dumpStoreFn)
+		dumpErr = db.zsetIndex.indexes.DumpIterate(dumpStoreFn)
 	}
 	if dumpErr != nil {
 		return
@@ -337,17 +341,10 @@ func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, path string, eType DataType) 
 	}
 
 	// reload db files.
-	archivedFiles, activeIds, err := storage.BuildType(cfg.DirPath, cfg.RwMethod, cfg.BlockSize, eType)
-	if err != nil {
+	if err = db.loadDBFiles(eType); err != nil {
+		log.Printf("[dumpInternal]load db files err.[%+v]\n", err)
 		return
 	}
-	db.archFiles[eType] = archivedFiles[eType]
-
-	activeFile, err := storage.NewDBFile(cfg.DirPath, activeIds[eType], cfg.RwMethod, cfg.BlockSize, eType)
-	if err != nil {
-		return
-	}
-	db.activeFile.Store(eType, activeFile)
 }
 
 func (db *RoseDB) dumpStore(mergeFiles *[]*storage.DBFile, mergePath string, e *storage.Entry) (err error) {
@@ -375,7 +372,93 @@ func (db *RoseDB) dumpStore(mergeFiles *[]*storage.DBFile, mergePath string, e *
 func (db *RoseDB) mergeString(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	if len(db.archFiles[0])+1 < db.config.MergeThreshold {
+	if len(db.archFiles[0]) < db.config.MergeThreshold {
+		return
+	}
+
+	cfg := db.config
+	path := db.config.DirPath + mergePath
+	mergedFiles, _, err := storage.BuildType(path, cfg.RwMethod, cfg.BlockSize, String)
+	if err != nil {
+		log.Printf("[mergeString]build db file err.[%+v]", err)
+		return
+	}
+
+	archFiles := mergedFiles[String]
+	if archFiles == nil {
+		archFiles = make(map[uint32]*storage.DBFile)
+	}
+
+	var (
+		df        *storage.DBFile
+		maxFileId uint32
+		fileIds   []int
+	)
+	for fid := range archFiles {
+		if fid > maxFileId {
+			maxFileId = fid
+		}
+	}
+
+	// skip the merged files.
+	for fid := range db.archFiles[String] {
+		if _, exist := archFiles[fid]; !exist {
+			fileIds = append(fileIds, int(fid))
+		}
+	}
+
+	// must merge db files in order.
+	sort.Ints(fileIds)
+	for _, fid := range fileIds {
+		dbFile := db.archFiles[String][uint32(fid)]
+		validEntries, err := dbFile.FindValidEntries(db.validEntry)
+		if err != nil && err != io.EOF {
+			log.Printf(fmt.Sprintf("find valid entries err.[%+v]", err))
+			return
+		}
+
+		// rewrite valid entries.
+		for _, ent := range validEntries {
+			if df == nil || int64(ent.Size())+df.Offset > cfg.BlockSize {
+				df, err = storage.NewDBFile(path, maxFileId, cfg.RwMethod, cfg.BlockSize, String)
+				if err != nil {
+					log.Printf(fmt.Sprintf("create db file err.[%+v]", err))
+					return
+				}
+				db.archFiles[String][maxFileId] = df
+				archFiles[maxFileId] = df
+				maxFileId += 1
+			}
+
+			if err = df.Write(ent); err != nil {
+				log.Printf(fmt.Sprintf("rewrite entry err.[%+v]", err))
+				return
+			}
+
+			// update index.
+			item := db.strIndex.idxList.Get(ent.Meta.Key)
+			if item != nil {
+				idx, _ := item.Value().(*index.Indexer)
+				if idx != nil {
+					idx.Offset = df.Offset - int64(ent.Size())
+					idx.FileId = df.Id
+					db.strIndex.idxList.Put(idx.Meta.Key, idx)
+				}
+			}
+		}
+		// delete older db file.
+		_ = dbFile.Close(false)
+		_ = os.Remove(dbFile.File.Name())
+	}
+
+	for _, file := range archFiles {
+		name := storage.PathSeparator + fmt.Sprintf(storage.DBFileFormatNames[String], file.Id)
+		os.Rename(path+name, cfg.DirPath+name)
+	}
+
+	// reload db files.
+	if err = db.loadDBFiles(String); err != nil {
+		log.Printf("load db files err.[%+v]", err)
 		return
 	}
 }
@@ -543,4 +626,46 @@ func (db *RoseDB) encode(key, value interface{}) (encKey, encVal []byte, err err
 		return
 	}
 	return
+}
+
+func (db *RoseDB) validEntry(e *storage.Entry, offset int64, fileId uint32) bool {
+	if e == nil {
+		return false
+	}
+
+	deadline, exist := db.expires[String][string(e.Meta.Key)]
+	now := time.Now().Unix()
+	if exist && deadline > now {
+		return true
+	}
+
+	if e.GetMark() == StringSet || e.GetMark() == StringPersist {
+		node := db.strIndex.idxList.Get(e.Meta.Key)
+		if node == nil {
+			return false
+		}
+		indexer, _ := node.Value().(*index.Indexer)
+		if indexer != nil && bytes.Compare(indexer.Meta.Key, e.Meta.Key) == 0 {
+			if indexer.FileId == fileId && indexer.Offset == offset {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (db *RoseDB) loadDBFiles(eType DataType) error {
+	cfg := db.config
+	archivedFiles, activeIds, err := storage.BuildType(cfg.DirPath, cfg.RwMethod, cfg.BlockSize, eType)
+	if err != nil {
+		return err
+	}
+	db.archFiles[eType] = archivedFiles[eType]
+
+	activeFile, err := storage.NewDBFile(cfg.DirPath, activeIds[eType], cfg.RwMethod, cfg.BlockSize, eType)
+	if err != nil {
+		return err
+	}
+	db.activeFile.Store(eType, activeFile)
+	return nil
 }

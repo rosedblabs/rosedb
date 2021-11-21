@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"io/ioutil"
 	"os"
 	"sort"
@@ -220,6 +221,26 @@ func (df *DBFile) Sync() (err error) {
 
 	if df.mmap != nil {
 		err = df.mmap.Flush()
+	}
+	return
+}
+
+func (df *DBFile) FindValidEntries(validFn func(*Entry, int64, uint32) bool) (entries []*Entry, err error) {
+	var offset int64 = 0
+	for {
+		var e *Entry
+		if e, err = df.Read(offset); err == nil {
+			if validFn(e, offset, df.Id) {
+				entries = append(entries, e)
+			}
+			offset += int64(e.Size())
+		} else {
+			if err == io.EOF {
+				break
+			}
+			err = errors.New(fmt.Sprintf("read entry err.[%+v]", err))
+			return
+		}
 	}
 	return
 }
