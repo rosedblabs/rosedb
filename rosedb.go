@@ -227,9 +227,10 @@ func (db *RoseDB) Backup(dir string) (err error) {
 	return
 }
 
-// Merge will reorganize the db file`s data in disk, removes the useless data in disk.
+// Merge will reorganize the db file`s data in disk, removes the useless data.
 // For List, Hash, Set and ZSet, we dump the data in memory directly to db file, so it will block read and write for a while.
-// For String, we choose a different way to do the same thing: load all data in db files in order, and compare the newest value in memory, find the valid data, rewrite them to new db files.
+// For String, we choose a different way to do the same thing: load all data in db files in order, and compare the newest value in memory, find the valid data, and rewrite them to new db files.
+// So it will not block read and write in this way.
 func (db *RoseDB) Merge() (err error) {
 	if db.isMerging {
 		return ErrDBisMerging
@@ -378,6 +379,7 @@ func (db *RoseDB) mergeString(wg *sync.WaitGroup) {
 
 	cfg := db.config
 	path := db.config.DirPath + mergePath
+	// load merged files.
 	mergedFiles, _, err := storage.BuildType(path, cfg.RwMethod, cfg.BlockSize, String)
 	if err != nil {
 		log.Printf("[mergeString]build db file err.[%+v]", err)
@@ -407,7 +409,7 @@ func (db *RoseDB) mergeString(wg *sync.WaitGroup) {
 		}
 	}
 
-	// must merge db files in order.
+	// merge db files in order.
 	sort.Ints(fileIds)
 	for _, fid := range fileIds {
 		dbFile := db.archFiles[String][uint32(fid)]
@@ -453,7 +455,7 @@ func (db *RoseDB) mergeString(wg *sync.WaitGroup) {
 
 	for _, file := range archFiles {
 		name := storage.PathSeparator + fmt.Sprintf(storage.DBFileFormatNames[String], file.Id)
-		os.Rename(path+name, cfg.DirPath+name)
+		_ = os.Rename(path+name, cfg.DirPath+name)
 	}
 
 	// reload db files.
