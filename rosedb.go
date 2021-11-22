@@ -9,9 +9,11 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"sort"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/roseduan/rosedb/index"
@@ -157,6 +159,7 @@ func Open(config Config) (*RoseDB, error) {
 		return nil, err
 	}
 
+	go db.handleMerge()
 	return db, nil
 }
 
@@ -199,11 +202,14 @@ func (db *RoseDB) isClosed() bool {
 	return atomic.LoadUint32(&db.closed) == 1
 }
 
-// Persist the db files.
+// Sync persist the db files to stable storage.
 func (db *RoseDB) Sync() (err error) {
 	if db == nil || db.activeFile == nil {
 		return nil
 	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
 
 	db.activeFile.Range(func(key, value interface{}) bool {
 		if dbFile, ok := value.(*storage.DBFile); ok {
@@ -221,6 +227,9 @@ func (db *RoseDB) Sync() (err error) {
 
 // Backup copy the database directory for backup.
 func (db *RoseDB) Backup(dir string) (err error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
 	if utils.Exist(db.config.DirPath) {
 		err = utils.CopyDir(db.config.DirPath, dir)
 	}
@@ -670,4 +679,24 @@ func (db *RoseDB) loadDBFiles(eType DataType) error {
 	}
 	db.activeFile.Store(eType, activeFile)
 	return nil
+}
+
+func (db *RoseDB) handleMerge() {
+	ticker := time.NewTicker(db.config.MergeCheckInterval)
+	defer ticker.Stop()
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, os.Kill, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	for range ticker.C {
+		select {
+		case <-sig:
+			return
+		default:
+			err := db.Merge()
+			if err != nil && err != ErrDBisMerging {
+				log.Printf("[handleMerge]db merge err.[%+v]", err)
+			}
+		}
+	}
 }
