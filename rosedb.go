@@ -110,7 +110,7 @@ type (
 // Open a rosedb instance. You must call Close after using it.
 func Open(config Config) (*RoseDB, error) {
 	// create the dir path if not exists.
-	if !utils.Exist(config.DirPath) {
+	if !utils.DirExist(config.DirPath) {
 		if err := os.MkdirAll(config.DirPath, os.ModePerm); err != nil {
 			return nil, err
 		}
@@ -232,7 +232,7 @@ func (db *RoseDB) Backup(dir string) (err error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	if utils.Exist(db.config.DirPath) {
+	if utils.DirExist(db.config.DirPath) {
 		err = utils.CopyDir(db.config.DirPath, dir)
 	}
 	return
@@ -247,15 +247,6 @@ func (db *RoseDB) Merge() (err error) {
 		return ErrDBisMerging
 	}
 
-	// create a temporary directory for storing the new db files.
-	mergePath := db.config.DirPath + mergePath
-	if !utils.Exist(mergePath) {
-		if err := os.MkdirAll(mergePath, os.ModePerm); err != nil {
-			return err
-		}
-	}
-	defer db.removeTempFiles(mergePath)
-
 	db.mu.Lock()
 	defer func() {
 		db.isMerging = false
@@ -263,9 +254,20 @@ func (db *RoseDB) Merge() (err error) {
 	}()
 	db.isMerging = true
 
+	// create a temporary directory for storing the new db files.
+	mergePath := db.config.DirPath + mergePath
+	if !utils.DirExist(mergePath) {
+		if err := os.MkdirAll(mergePath, os.ModePerm); err != nil {
+			return err
+		}
+	}
+	defer db.removeTempFiles(mergePath)
+
 	wg := new(sync.WaitGroup)
 	wg.Add(DataStructureNum)
+	// dump List, Hash, Set, ZSet directly to db files.
 	go db.dump(wg)
+	// merge String(compare and rewrite).
 	go db.mergeString(wg)
 	wg.Wait()
 	return
@@ -693,6 +695,9 @@ func (db *RoseDB) handleMerge() {
 	for range ticker.C {
 		select {
 		case <-sig:
+			// clear unless merged files.
+			path := db.config.DirPath + mergePath
+			db.removeTempFiles(path)
 			return
 		default:
 			err := db.Merge()

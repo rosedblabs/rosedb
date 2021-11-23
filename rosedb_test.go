@@ -155,6 +155,7 @@ func TestOpen3(t *testing.T) {
 func TestRoseDB_Merge(t *testing.T) {
 	config := DefaultConfig()
 	config.MergeThreshold = 1
+	config.RwMethod = storage.MMap
 	roseDB := InitDB(config)
 	//defer DestroyDB(roseDB)
 

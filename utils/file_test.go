@@ -9,7 +9,7 @@ import (
 func TestExist1(t *testing.T) {
 	t.Log(os.TempDir() + "ssds")
 
-	exist := Exist(os.TempDir() + "ssds")
+	exist := DirExist(os.TempDir() + "ssds")
 	t.Log(exist)
 
 	if err := os.MkdirAll(os.TempDir()+"abcd", storage.FilePerm); err != nil {
@@ -21,10 +21,10 @@ func TestExist2(t *testing.T) {
 	//目录是否存在
 	path := "/tmp/rosedb"
 
-	t.Log(Exist(path))
+	t.Log(DirExist(path))
 
 	//文件是否存在
-	t.Log(Exist(path + "/000w000000.data"))
+	t.Log(DirExist(path + "/000w000000.data"))
 
 	t.Log(os.TempDir())
 }

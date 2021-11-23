@@ -88,9 +88,8 @@ func NewDBFile(path string, fileId uint32, method FileRWMethod, blockSize int64,
 
 	df := &DBFile{Id: fileId, Path: path, Offset: stat.Size(), method: method}
 
-	if method == FileIO {
-		df.File = file
-	} else {
+	df.File = file
+	if method == MMap {
 		if err = file.Truncate(blockSize); err != nil {
 			return nil, err
 		}
@@ -164,7 +163,10 @@ func (df *DBFile) readBuf(offset int64, n int64) ([]byte, error) {
 		}
 	}
 
-	if df.method == MMap && offset <= int64(len(df.mmap)) {
+	if df.method == MMap {
+		if offset > int64(len(df.mmap)) {
+			return nil, io.EOF
+		}
 		copy(buf, df.mmap[offset:])
 	}
 
