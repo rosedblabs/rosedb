@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"github.com/roseduan/rosedb/cache"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -73,7 +75,7 @@ const (
 	// rosedb reclaim path, a temporary dir, will be removed after reclaim.
 	mergePath = string(os.PathSeparator) + "rosedb_merge"
 
-	// Separator of the extra info, some commands can`t contains it.
+	// ExtraSeparator separator of the extra info, some commands can`t contains it.
 	ExtraSeparator = "\\0"
 
 	// DataStructureNum the num of different data structures, there are five now(string, list, hash, set, zset).
@@ -252,7 +254,7 @@ func (db *RoseDB) Merge() (err error) {
 			return err
 		}
 	}
-	defer os.RemoveAll(mergePath)
+	defer db.removeTempFiles(mergePath)
 
 	db.mu.Lock()
 	defer func() {
@@ -698,5 +700,22 @@ func (db *RoseDB) handleMerge() {
 				log.Printf("[handleMerge]db merge err.[%+v]", err)
 			}
 		}
+	}
+}
+
+func (db *RoseDB) removeTempFiles(path string) {
+	infos, _ := ioutil.ReadDir(path)
+	var str int
+	if infos != nil {
+		for _, info := range infos {
+			if strings.Contains(info.Name(), "str") {
+				str++
+			} else {
+				_ = os.Remove(info.Name())
+			}
+		}
+	}
+	if str == 0 {
+		_ = os.RemoveAll(path)
 	}
 }

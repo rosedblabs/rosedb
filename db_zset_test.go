@@ -307,8 +307,6 @@ func TestRoseDB_ZScoreRange(t *testing.T) {
 	scoreRange(50, 100)
 	scoreRange(100, 200)
 	scoreRange(200, 500)
-
-
 }
 
 func TestRoseDB_ZRevScoreRange(t *testing.T) {

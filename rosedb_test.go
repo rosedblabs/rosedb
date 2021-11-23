@@ -160,6 +160,7 @@ func TestRoseDB_Merge(t *testing.T) {
 
 	t.Run("all", func(t *testing.T) {
 		writeDataForMerge(t, roseDB)
+		log.Println("start merge....")
 		err := roseDB.Merge()
 		assert.Nil(t, err)
 	})
@@ -222,29 +223,17 @@ func TestRoseDB_Merge(t *testing.T) {
 
 	t.Run("list", func(t *testing.T) {
 		listKey := "my_list"
-		//for i := 0; i < 600000; i++ {
-		//	_, err := roseDB.LPush(listKey, GetValue())
-		//	assert.Nil(t, err)
-		//}
-		//for i := 0; i < 580000; i++ {
-		//	_, err := roseDB.RPop(listKey)
-		//	assert.Nil(t, err)
-		//}
+		for i := 0; i < 600000; i++ {
+			_, err := roseDB.LPush(listKey, GetValue())
+			assert.Nil(t, err)
+		}
+		for i := 0; i < 580000; i++ {
+			_, err := roseDB.RPop(listKey)
+			assert.Nil(t, err)
+		}
 
-		//roseDB.Merge()
-
-		l1 := roseDB.LLen(listKey)
-		t.Log(l1)
-
-		v1 := roseDB.LIndex(listKey, 0)
-		v2 := roseDB.LIndex(listKey, -1)
-
-		t.Log(string(v1))
-		t.Log(string(v2))
-
-		roseDB.LPush(listKey, "rosedb")
-		v3 := roseDB.LIndex(listKey, 0)
-		t.Log(string(v3))
+		err := roseDB.Merge()
+		assert.Nil(t, err)
 	})
 
 	t.Run("hash", func(t *testing.T) {
@@ -317,8 +306,8 @@ func writeDataForOpen(t *testing.T, roseDB *RoseDB) {
 
 func writeDataForMerge(t *testing.T, roseDB *RoseDB) {
 	// string
-	for i := 0; i < 500000; i++ {
-		roseDB.Set(GetKey(i%1000), GetValue())
+	for i := 0; i < 1000000; i++ {
+		roseDB.Set(GetKey(i%500000000), GetValue())
 		if i == 250000 {
 			roseDB.Set("my_name", "roseduan")
 		}
@@ -340,7 +329,7 @@ func writeDataForMerge(t *testing.T, roseDB *RoseDB) {
 
 	// hash
 	hashKey := "my_hash"
-	for i := 0; i < 500000; i++ {
+	for i := 0; i < 1000000; i++ {
 		roseDB.HSet(hashKey, GetKey(i), GetValue())
 	}
 
