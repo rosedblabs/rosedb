@@ -209,7 +209,7 @@ func TestRoseDB_Merge(t *testing.T) {
 				assert.Nil(t, err)
 			}
 		}
-		time.Sleep(time.Second)
+		time.Sleep(time.Second*2)
 		err := roseDB.Merge()
 		assert.Nil(t, err)
 
