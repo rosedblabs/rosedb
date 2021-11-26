@@ -255,7 +255,7 @@ func TestRoseDB_Merge(t *testing.T) {
 		}
 
 		card := roseDB.SCard(setKey)
-		t.Log(card)
+		assert.Equal(t, card, 2000)
 	})
 
 	t.Run("zset", func(t *testing.T) {
@@ -270,15 +270,21 @@ func TestRoseDB_Merge(t *testing.T) {
 func TestRoseDB_Backup(t *testing.T) {
 	config := DefaultConfig()
 	config.MergeThreshold = 1
+	backupDir := "/tmp/rosedb-bak"
 	roseDB := InitDB(config)
+	defer DestroyDB(roseDB)
 
-	setKey := "my_set"
-	var i int
-	for ; i < 500000; i++ {
-		_, err := roseDB.SAdd(setKey, GetKey(i%2000))
-		assert.Nil(t, err)
-	}
-	t.Log(i)
+	writeDataForMerge(t, roseDB)
+
+	err := roseDB.Backup(backupDir)
+	assert.Nil(t, err)
+
+	config.DirPath = backupDir
+	backdb, err := Open(config)
+	defer DestroyDB(backdb)
+
+	assert.NotNil(t, backdb)
+	assert.Nil(t, err)
 }
 
 func writeDataForOpen(t *testing.T, roseDB *RoseDB) {
