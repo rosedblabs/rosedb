@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"io/ioutil"
 	"os"
 	"sort"
@@ -35,7 +36,7 @@ var (
 	}
 
 	// DBFileSuffixName represents the suffix names of the db files.
-	DBFileSuffixName = []string{"str", "list", "hash", "set", "zset"}
+	DBFileSuffixName = map[string]uint16{"str": 0, "list": 1, "hash": 2, "set": 3, "zset": 4}
 )
 
 var (
@@ -47,6 +48,11 @@ var (
 
 // FileRWMethod db file read and write method.
 type FileRWMethod uint8
+
+// ArchivedFiles define the archived files, which mean these files can only be read.
+// and will never be opened for writing.
+type ArchivedFiles map[uint16]map[uint32]*DBFile
+type FileIds map[uint16]uint32
 
 const (
 
@@ -82,9 +88,8 @@ func NewDBFile(path string, fileId uint32, method FileRWMethod, blockSize int64,
 
 	df := &DBFile{Id: fileId, Path: path, Offset: stat.Size(), method: method}
 
-	if method == FileIO {
-		df.File = file
-	} else {
+	df.File = file
+	if method == MMap {
 		if err = file.Truncate(blockSize); err != nil {
 			return nil, err
 		}
@@ -158,7 +163,10 @@ func (df *DBFile) readBuf(offset int64, n int64) ([]byte, error) {
 		}
 	}
 
-	if df.method == MMap && offset <= int64(len(df.mmap)) {
+	if df.method == MMap {
+		if offset > int64(len(df.mmap)) {
+			return nil, io.EOF
+		}
 		copy(buf, df.mmap[offset:])
 	}
 
@@ -219,8 +227,36 @@ func (df *DBFile) Sync() (err error) {
 	return
 }
 
+func (df *DBFile) FindValidEntries(validFn func(*Entry, int64, uint32) bool) (entries []*Entry, err error) {
+	var offset int64 = 0
+	for {
+		var e *Entry
+		if e, err = df.Read(offset); err == nil {
+			if validFn(e, offset, df.Id) {
+				entries = append(entries, e)
+			}
+			offset += int64(e.Size())
+		} else {
+			if err == io.EOF {
+				break
+			}
+			err = errors.New(fmt.Sprintf("read entry err.[%+v]", err))
+			return
+		}
+	}
+	return
+}
+
+func BuildType(path string, method FileRWMethod, blockSize int64, eType uint16) (ArchivedFiles, FileIds, error) {
+	return buildInternal(path, method, blockSize, eType)
+}
+
 // Build load all db files from disk.
-func Build(path string, method FileRWMethod, blockSize int64) (map[uint16]map[uint32]*DBFile, map[uint16]uint32, error) {
+func Build(path string, method FileRWMethod, blockSize int64) (ArchivedFiles, FileIds, error) {
+	return buildInternal(path, method, blockSize, ALl)
+}
+
+func buildInternal(path string, method FileRWMethod, blockSize int64, eType uint16) (ArchivedFiles, FileIds, error) {
 	dir, err := ioutil.ReadDir(path)
 	if err != nil {
 		return nil, nil, err
@@ -235,7 +271,7 @@ func Build(path string, method FileRWMethod, blockSize int64) (map[uint16]map[ui
 	for _, d := range dir {
 		if d.IsDir() && strings.Contains(d.Name(), mergeDir) {
 			mergePath := path + string(os.PathSeparator) + d.Name()
-			if mergedFiles, _, mErr = Build(mergePath, method, blockSize); mErr != nil {
+			if mergedFiles, _, mErr = buildInternal(mergePath, method, blockSize, eType); mErr != nil {
 				return nil, nil, mErr
 			}
 		}
@@ -247,25 +283,16 @@ func Build(path string, method FileRWMethod, blockSize int64) (map[uint16]map[ui
 			splitNames := strings.Split(d.Name(), ".")
 			id, _ := strconv.Atoi(splitNames[0])
 
-			// find the different types of file.
-			switch splitNames[2] {
-			case DBFileSuffixName[0]:
-				fileIdsMap[0] = append(fileIdsMap[0], id)
-			case DBFileSuffixName[1]:
-				fileIdsMap[1] = append(fileIdsMap[1], id)
-			case DBFileSuffixName[2]:
-				fileIdsMap[2] = append(fileIdsMap[2], id)
-			case DBFileSuffixName[3]:
-				fileIdsMap[3] = append(fileIdsMap[3], id)
-			case DBFileSuffixName[4]:
-				fileIdsMap[4] = append(fileIdsMap[4], id)
+			typ := DBFileSuffixName[splitNames[2]]
+			if eType == ALl || typ == eType {
+				fileIdsMap[typ] = append(fileIdsMap[typ], id)
 			}
 		}
 	}
 
 	// load all the db files.
-	activeFileIds := make(map[uint16]uint32)
-	archFiles := make(map[uint16]map[uint32]*DBFile)
+	activeFileIds := make(FileIds)
+	archFiles := make(ArchivedFiles)
 	var dataType uint16 = 0
 	for ; dataType < 5; dataType++ {
 		fileIDs := fileIdsMap[dataType]

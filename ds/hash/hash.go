@@ -1,6 +1,12 @@
 package hash
 
+import (
+	"github.com/roseduan/rosedb/storage"
+)
+
 // the implementation of hash table.
+
+type dumpFunc func(e *storage.Entry) error
 
 type (
 	// Hash hash table struct.
@@ -15,6 +21,22 @@ type (
 // New create a new hash ds.
 func New() *Hash {
 	return &Hash{make(Record)}
+}
+
+// DumpIterate iterate all keys and values for dump.
+func (h *Hash) DumpIterate(fn dumpFunc) (err error) {
+	for key, h := range h.record {
+		hashKey := []byte(key)
+
+		for field, value := range h {
+			// Hash HashHSet
+			ent := storage.NewEntry(hashKey, value, []byte(field), 2, 0)
+			if err = fn(ent); err != nil {
+				return
+			}
+		}
+	}
+	return
 }
 
 // HSet Sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.

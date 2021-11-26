@@ -301,24 +301,28 @@ func (db *RoseDB) Expire(key interface{}, duration int64) (err error) {
 
 // Persist clear expiration time.
 func (db *RoseDB) Persist(key interface{}) (err error) {
-	var val interface{}
-	if err = db.Get(key, &val); err != nil {
-		return
+	encKey, err := utils.EncodeKey(key)
+	if err != nil {
+		return err
 	}
 
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	encKey, encVal, err := db.encode(key, val)
+	val, err := db.getVal(encKey)
 	if err != nil {
 		return err
 	}
-	e := storage.NewEntryNoExtra(encKey, encVal, String, StringPersist)
+	e := storage.NewEntryNoExtra(encKey, val, String, StringPersist)
 	if err = db.store(e); err != nil {
 		return
 	}
 
+	if err = db.setIndexer(e); err != nil {
+		return
+	}
 	delete(db.expires[String], string(encKey))
+	db.cache.Set(encKey, val)
 	return
 }
 

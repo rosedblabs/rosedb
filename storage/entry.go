@@ -28,6 +28,7 @@ const (
 	Hash
 	Set
 	ZSet
+	ALl
 )
 
 type (

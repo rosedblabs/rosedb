@@ -7,8 +7,8 @@ import (
 	"path"
 )
 
-// Exist check if the directory or file exists.
-func Exist(path string) bool {
+// DirExist check if the directory or file exists.
+func DirExist(path string) bool {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return false
 	}

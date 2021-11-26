@@ -2,6 +2,7 @@ package list
 
 import (
 	"container/list"
+	"github.com/roseduan/rosedb/storage"
 	"reflect"
 )
 
@@ -9,6 +10,8 @@ import (
 
 // InsertOption insert option for LInsert.
 type InsertOption uint8
+
+type dumpFunc func(e *storage.Entry) error
 
 const (
 	// Before insert before pivot.
@@ -35,9 +38,21 @@ func New() *List {
 	}
 }
 
-// Record return all data in list.
-func (lis *List) Record() Record {
-	return lis.record
+// DumpIterate iterate all keys and values for dump.
+func (lis *List) DumpIterate(fn dumpFunc) (err error) {
+	for key, l := range lis.record {
+		listKey := []byte(key)
+
+		for e := l.Front(); e != nil; e = e.Next() {
+			value, _ := e.Value.([]byte)
+			// List ListRPush
+			ent := storage.NewEntryNoExtra(listKey, value, 1, 1)
+			if err = fn(ent); err != nil {
+				return
+			}
+		}
+	}
+	return
 }
 
 // LPush insert all the specified values at the head of the list stored at key.
