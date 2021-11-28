@@ -93,6 +93,7 @@ type (
 		expires    Expires       // Expired directory.
 		lockMgr    *LockMgr      // lockMgr controls isolation of read and write.
 		closed     uint32
+		closeSig   *closeSignal
 		cache      *cache.LruCache // lru cache for db_str.
 		txnMgr     *TxnManager
 		txnCh      chan *writeBuffer
@@ -104,6 +105,10 @@ type (
 
 	// Expires saves the expire info of different keys.
 	Expires map[DataType]map[string]int64
+
+	closeSignal struct {
+		chn chan struct{}
+	}
 )
 
 // Open a rosedb instance. You must call Close after using it.
@@ -188,6 +193,9 @@ func (db *RoseDB) Close() (err error) {
 	}
 
 	atomic.StoreUint32(&db.closed, 1)
+	if db.closeSig.chn != nil {
+		close(db.closeSig.chn)
+	}
 	return
 }
 
