@@ -78,12 +78,12 @@ func TestHash_HExists(t *testing.T) {
 	hash := InitHash()
 	// key and field both exist
 	exist := hash.HExists(key, "a")
-	assert.Equal(t, 1, exist)
+	assert.Equal(t, true, exist)
 	// key is non existing
 	keyNot := hash.HExists("non exiting key", "a")
-	assert.Equal(t, 0, keyNot)
+	assert.Equal(t, false, keyNot)
 	not := hash.HExists(key, "m")
-	assert.Equal(t, 0, not)
+	assert.Equal(t, false, not)
 
 }
 
