@@ -199,7 +199,7 @@ func (s *Set) SDiff(keys ...string) (val [][]byte) {
 }
 
 // SKeyExists returns if the key exists.
-func (s *Set) SKeyExists(key string) (ok bool) {
+func (s *Set) SKeyExists(key string) bool {
 	return s.exist(key)
 }
 
