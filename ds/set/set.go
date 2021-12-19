@@ -199,7 +199,7 @@ func (s *Set) SDiff(keys ...string) (val [][]byte) {
 }
 
 // SKeyExists returns if the key exists.
-func (s *Set) SKeyExists(key string) (ok bool) {
+func (s *Set) SKeyExists(key string) bool {
 	return s.exist(key)
 }
 
@@ -216,7 +216,7 @@ func (s *Set) exist(key string) bool {
 	return exist
 }
 
-// check if a filed of a key exists.
+// check if a field of a key exists.
 func (s *Set) fieldExist(key, filed string) bool {
 	fields, exist := s.record[key]
 	if !exist {
