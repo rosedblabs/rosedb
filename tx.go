@@ -11,7 +11,9 @@ type Txn struct {
 	commitSeq     uint64
 	pendingWrites map[string]*storage.Entry
 	readKeys      map[uint64]struct{}
-	update        bool
+
+	update   bool
+	doneRead bool
 }
 
 type writeBuffer struct {
@@ -32,7 +34,13 @@ func (db *RoseDB) NewTxn(update bool) (*Txn, error) {
 		pendingWrites: make(map[string]*storage.Entry),
 	}
 
+	// Is there an update or write operation
+	if update {
+		txn.pendingWrites = make(map[string]*storage.Entry)
+	}
+
 	// get read seq todo
+	txn.readSeq = db.txnMgr.getReadSeq()
 
 	return txn, nil
 }
@@ -67,7 +75,7 @@ func (db *RoseDB) TxnView(fn func(tx *Txn) error) (err error) {
 	return
 }
 
-// Commit ...
+// Commit ... 对应bedger 中的commit
 func (tx *Txn) Commit() (err error) {
 	if len(tx.pendingWrites) == 0 {
 		return
@@ -84,17 +92,56 @@ func (tx *Txn) Commit() (err error) {
 
 func (tx *Txn) send() (func() error, error) {
 	txnMgr := tx.db.txnMgr
-	txnMgr.mu.Lock()
-	defer txnMgr.mu.Unlock()
+	txnMgr.writeChLock.Lock()
+	defer txnMgr.writeChLock.Unlock()
 
 	// check conflict. todo
+	conflict := txnMgr.checkConflict(tx)
+	if conflict {
+		return nil, nil
+	}
 
 	// clean transaction if necessary. todo
+	var ts uint64
+
+	txnMgr.doneRead(tx)
+	txnMgr.cleanCommittedTxns()
+
+	// This is the general case, when user doesn't specify the read and commit ts.
+	ts = txnMgr.nextSeq
+	txnMgr.nextSeq++
+	txnMgr.txnMark.Begin(ts)
+
+	if ts < txnMgr.lastCleanupTs {
+		panic("ts < lastCleanupTs in cleanCommittedTxns()")
+	}
 
 	// get commit seq. todo
+	// Add the current transaction to the list of future detections
+	txnMgr.committedTxs = append(txnMgr.committedTxs, committedTxn{
+		seq:      ts,
+		readKeys: tx.readKeys,
+	})
 
 	var entries []*storage.Entry
 	// put all entries into a slice.(set every entry`s version, add a special entry as end.) todo
+
+	setVersion := func(e *storage.Entry) {
+		if e.Version == 0 {
+			e.Version = ts
+		}
+	}
+	for _, e := range tx.pendingWrites {
+		setVersion(e)
+	}
+
+	for _, e := range tx.pendingWrites {
+		entries = append(entries, e)
+	}
+
+	// 是这个方法生成最后的事务提交信息嘛 如果是应该填些什么呢？
+	e := storage.NewEntryWithTxn([]byte("Txn_key"), []byte("Txn_val"), []byte("Txn_end"), 101, String, ts)
+	entries = append(entries, e)
 
 	// start commit, send entries to txnCh(defined in RoseDB). todo
 	buf := &writeBuffer{
@@ -107,6 +154,7 @@ func (tx *Txn) send() (func() error, error) {
 
 	waitFn := func() error {
 		buf.wg.Wait()
+		txnMgr.doneCommit(ts)
 		return buf.Err
 	}
 	return waitFn, nil

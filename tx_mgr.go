@@ -173,6 +173,11 @@ type TxnManager struct {
 	mu           sync.Mutex
 	nextSeq      uint64
 	committedTxs []committedTxn
+	txnMark      TxnMark
+	readMark     TxnMark
+
+	writeChLock   sync.Mutex
+	lastCleanupTs uint64
 }
 
 type committedTxn struct {
@@ -182,15 +187,79 @@ type committedTxn struct {
 
 func (mgr *TxnManager) checkConflict(tx *Txn) bool {
 	// todo
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	if len(tx.readKeys) == 0 {
+		return false
+	}
+	for _, committedTxn := range mgr.committedTxs {
+
+		if committedTxn.seq <= tx.readSeq {
+			continue
+		}
+
+		for ro := range tx.readKeys {
+			if _, has := committedTxn.readKeys[ro]; has {
+				return true
+			}
+		}
+	}
+
 	return false
 }
 
 func (mgr *TxnManager) getReadSeq() uint64 {
 	// todo
-	return 0
+	var readSeq uint64
+	mgr.mu.Lock()
+	readSeq = mgr.nextSeq - 1
+	mgr.readMark.Begin(readSeq)
+	mgr.mu.Unlock()
+
+	err := mgr.txnMark.WaitDone(context.Background(), readSeq)
+	if err != nil {
+		return -1
+	}
+	return readSeq
 }
 
 // clean useless committed txns.
 func (mgr *TxnManager) cleanCommittedTxns() {
 	// todo
+	var maxReadTs uint64
+
+	maxReadTs = mgr.readMark.latestDone.Get()
+
+	if maxReadTs < mgr.lastCleanupTs {
+		panic("maxReadTs < lastCleanupTs in cleanCommittedTxns()")
+	}
+
+	// do not run clean up if the maxReadTs (read timestamp of the
+	// oldest transaction that is still in flight) has not increased
+	if maxReadTs == mgr.lastCleanupTs {
+		return
+	}
+	mgr.lastCleanupTs = maxReadTs
+
+	tmp := mgr.committedTxs[:0]
+	for _, txn := range mgr.committedTxs {
+		if txn.seq <= maxReadTs {
+			continue
+		}
+		tmp = append(tmp, txn)
+	}
+	mgr.committedTxs = tmp
+
+}
+
+func (mgr *TxnManager) doneRead(txn *Txn) {
+
+	txn.doneRead = true
+	mgr.readMark.Done(txn.readSeq)
+
+}
+
+func (mgr *TxnManager) doneCommit(commitTs uint64) {
+	mgr.txnMark.Done(commitTs)
 }

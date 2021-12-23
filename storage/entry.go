@@ -37,7 +37,7 @@ type (
 		state     uint16 // state represents two fields, high 8 bits is the data type, low 8 bits is operation mark.
 		crc32     uint32 // Check sum.
 		Timestamp uint64 // Timestamp is the time when entry was written.
-		version   uint64
+		Version   uint64
 	}
 
 	// Meta meta info.
@@ -92,7 +92,7 @@ func NewEntryWithExpire(key, value []byte, deadline int64, t, mark uint16) *Entr
 // NewEntryWithTx create a new Entry with transaction info.
 func NewEntryWithTxn(key, value, extra []byte, t, mark uint16, txId uint64) *Entry {
 	e := NewEntry(key, value, extra, t, mark)
-	e.version = txId
+	e.Version = txId
 	return e
 }
 
@@ -116,7 +116,7 @@ func (e *Entry) Encode() ([]byte, error) {
 	binary.BigEndian.PutUint32(buf[12:16], es)
 	binary.BigEndian.PutUint16(buf[16:18], e.state)
 	binary.BigEndian.PutUint64(buf[18:26], e.Timestamp)
-	binary.BigEndian.PutUint64(buf[26:34], e.version)
+	binary.BigEndian.PutUint64(buf[26:34], e.Version)
 	copy(buf[entryHeaderSize:entryHeaderSize+ks], e.Meta.Key)
 	copy(buf[entryHeaderSize+ks:(entryHeaderSize+ks+vs)], e.Meta.Value)
 	if es > 0 {
@@ -148,7 +148,7 @@ func Decode(buf []byte) (*Entry, error) {
 		state:     state,
 		crc32:     crc,
 		Timestamp: timestamp,
-		version:   ver,
+		Version:   ver,
 	}, nil
 }
 
