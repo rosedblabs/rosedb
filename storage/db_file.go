@@ -227,6 +227,11 @@ func (df *DBFile) Sync() (err error) {
 	return
 }
 
+// SetOffset update file`s offset for writing position.
+func (df *DBFile) SetOffset(offset int64) {
+	df.Offset = offset
+}
+
 func (df *DBFile) FindValidEntries(validFn func(*Entry, int64, uint32) bool) (entries []*Entry, err error) {
 	var offset int64 = 0
 	for {

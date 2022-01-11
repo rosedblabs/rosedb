@@ -269,6 +269,7 @@ func (db *RoseDB) loadIdxFromFiles() error {
 							Offset: offset,
 						}
 						offset += int64(e.Size())
+						df.SetOffset(offset)
 
 						if len(e.Meta.Key) > 0 {
 							if err := db.buildIndex(e, idx, true); err != nil {
