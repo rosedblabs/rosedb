@@ -61,9 +61,7 @@ func main() {
 	}
 
 	server := cmd.NewServerUseDbPtr(db)
-	grpcServer := cmd.NewGrpcServer(db)
 	go server.Listen(cfg.Addr)
-	go grpcServer.Listen(cfg.GrpcAddr)
 	<-sig
 	server.Stop()
 	log.Println("rosedb is ready to exit, bye...")

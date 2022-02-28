@@ -90,7 +90,7 @@ func NewEntryWithExpire(key, value []byte, deadline int64, t, mark uint16) *Entr
 	return newInternal(key, value, nil, state, uint64(deadline))
 }
 
-// NewEntryWithTx create a new Entry with transaction info.
+// NewEntryWithTxn create a new Entry with transaction info.
 func NewEntryWithTxn(key, value, extra []byte, t, mark uint16, txId uint64) *Entry {
 	e := NewEntry(key, value, extra, t, mark)
 	e.TxId = txId
