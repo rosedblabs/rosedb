@@ -118,7 +118,7 @@ func (db *RoseDB) LPop(key interface{}) ([]byte, error) {
 	return val, nil
 }
 
-// Removes and returns the last elements of the list stored at key.
+// RPop Removes and returns the last elements of the list stored at key.
 func (db *RoseDB) RPop(key interface{}) ([]byte, error) {
 	encKey, err := utils.EncodeKey(key)
 	if err != nil {
