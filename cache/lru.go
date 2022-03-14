@@ -83,10 +83,11 @@ func (c *LruCache) set(key string, value []byte) {
 		ele = c.cacheList.PushFront(&lruItem{key: key, value: value})
 		c.cacheMap[key] = ele
 
-		if c.cacheList.Len() > c.capacity {
-			c.removeOldest()
-		}
 	}
+	if c.cacheList.Len() > c.capacity {
+		c.removeOldest()
+	}
+
 }
 
 func (c *LruCache) removeOldest() {
