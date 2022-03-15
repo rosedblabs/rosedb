@@ -46,14 +46,10 @@ func (h *Hash) HSet(key string, field string, value []byte) (res int) {
 		h.record[key] = make(map[string][]byte)
 	}
 
-	if h.record[key][field] != nil {
-		// if this field exists, overwritten it.
-		h.record[key][field] = value
-	} else {
-		// create if this field not exists.
-		h.record[key][field] = value
+	if h.record[key][field] == nil {
 		res = 1
 	}
+	h.record[key][field] = value
 	return
 }
 

@@ -2,8 +2,8 @@ package list
 
 import (
 	"container/list"
+
 	"github.com/roseduan/rosedb/storage"
-	"reflect"
 )
 
 // List is the implementation of doubly linked list.
@@ -81,12 +81,6 @@ func (lis *List) RPop(key string) []byte {
 // The index is zero-based, so 0 means the first element, 1 the second element and so on.
 // Negative indices can be used to designate elements starting at the tail of the list. Here, -1 means the last element, -2 means the penultimate and so forth.
 func (lis *List) LIndex(key string, index int) []byte {
-	ok, newIndex := lis.validIndex(key, index)
-	if !ok {
-		return nil
-	}
-
-	index = newIndex
 	var val []byte
 	e := lis.index(key, index)
 	if e != nil {
@@ -110,21 +104,21 @@ func (lis *List) LRem(key string, val []byte, count int) int {
 	var ele []*list.Element
 	if count == 0 {
 		for p := item.Front(); p != nil; p = p.Next() {
-			if reflect.DeepEqual(p.Value.([]byte), val) {
+			if sliceOfByteIsEqual(p.Value.([]byte), val) {
 				ele = append(ele, p)
 			}
 		}
 	}
 	if count > 0 {
 		for p := item.Front(); p != nil && len(ele) < count; p = p.Next() {
-			if reflect.DeepEqual(p.Value.([]byte), val) {
+			if sliceOfByteIsEqual(p.Value.([]byte), val) {
 				ele = append(ele, p)
 			}
 		}
 	}
 	if count < 0 {
 		for p := item.Back(); p != nil && len(ele) < -count; p = p.Prev() {
-			if reflect.DeepEqual(p.Value.([]byte), val) {
+			if sliceOfByteIsEqual(p.Value.([]byte), val) {
 				ele = append(ele, p)
 			}
 		}
@@ -291,7 +285,7 @@ func (lis *List) find(key string, val []byte) *list.Element {
 
 	if item != nil {
 		for p := item.Front(); p != nil; p = p.Next() {
-			if reflect.DeepEqual(p.Value.([]byte), val) {
+			if sliceOfByteIsEqual(p.Value.([]byte), val) {
 				e = p
 				break
 			}
@@ -397,4 +391,19 @@ func (lis *List) handleIndex(length, start, end int) (int, int) {
 	}
 
 	return start, end
+}
+
+// Compare  two slice of byte for equality
+func sliceOfByteIsEqual(a, b []byte) bool {
+	aLen := len(a)
+	bLen := len(b)
+	if aLen == bLen {
+		for i := 0; i < aLen; i++ {
+			if a[i] != b[i] {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
