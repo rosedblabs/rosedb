@@ -23,9 +23,6 @@ const (
 	// DefaultAddr default rosedb server address and port.
 	DefaultAddr = "127.0.0.1:5200"
 
-	// DefaultGrpcAddr grpc server address and port.
-	DefaultGrpcAddr = "127.0.0.1:5300"
-
 	// DefaultDirPath default rosedb data dir.
 	// Don`t forget to change the path when using.
 	DefaultDirPath = "/tmp/rosedb"
@@ -56,7 +53,6 @@ const (
 // Config the opening options of rosedb.
 type Config struct {
 	Addr     string `json:"addr" toml:"addr"`           // server address
-	GrpcAddr string `json:"grpc_addr" toml:"grpc_addr"` // grpc server address
 	DirPath  string `json:"dir_path" toml:"dir_path"`   // rosedb dir path of db file
 	// Deprecated: don`t edit the option, it will be removed in future release.
 	BlockSize    int64                `json:"block_size" toml:"block_size"` // each db file size
@@ -83,7 +79,6 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		Addr:               DefaultAddr,
-		GrpcAddr:           DefaultGrpcAddr,
 		DirPath:            DefaultDirPath,
 		BlockSize:          DefaultBlockSize,
 		RwMethod:           storage.FileIO,
