@@ -275,11 +275,6 @@ func (db *RoseDB) loadIdxFromFiles() error {
 							if err := db.buildIndex(e, idx, true); err != nil {
 								log.Fatalf("a fatal err occurred, the db can not open.[%+v]", err)
 							}
-
-							// save active tx ids.
-							if i == len(fileIds)-1 && e.TxId != 0 {
-								db.txnMeta.ActiveTxIds.Store(e.TxId, struct{}{})
-							}
 						}
 					} else {
 						if err == io.EOF {

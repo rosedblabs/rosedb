@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/roseduan/rosedb/cache"
 	"io"
 	"io/ioutil"
 	"log"
@@ -96,10 +95,7 @@ type (
 		config     Config                // Config info of rosedb.
 		mu         sync.RWMutex          // mutex.
 		expires    Expires               // Expired directory.
-		lockMgr    *LockMgr              // lockMgr controls isolation of read and write.
-		txnMeta    *TxnMeta              // Txn meta info used in transaction.
 		closed     uint32
-		cache      *cache.LruCache // lru cache for db_str.
 		isMerging  bool
 	}
 
@@ -132,12 +128,6 @@ func Open(config Config) (*RoseDB, error) {
 		activeFiles.Store(dataType, file)
 	}
 
-	// load txn meta info for transaction.
-	txnMeta, err := LoadTxnMeta(config.DirPath + dbTxMetaSaveFile)
-	if err != nil {
-		return nil, err
-	}
-
 	db := &RoseDB{
 		activeFile: activeFiles,
 		archFiles:  archFiles,
@@ -148,13 +138,10 @@ func Open(config Config) (*RoseDB, error) {
 		setIndex:   newSetIdx(),
 		zsetIndex:  newZsetIdx(),
 		expires:    make(Expires),
-		txnMeta:    txnMeta,
-		cache:      cache.NewLruCache(config.CacheCapacity),
 	}
 	for i := 0; i < DataStructureNum; i++ {
 		db.expires[uint16(i)] = make(map[string]int64)
 	}
-	db.lockMgr = newLockMgr(db)
 
 	// load indexes from db files.
 	if err := db.loadIdxFromFiles(); err != nil {
@@ -297,9 +284,6 @@ func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, path string, eType DataType) 
 	if len(db.archFiles[eType])+1 < cfg.MergeThreshold {
 		return
 	}
-
-	unLockFunc := db.lockMgr.Lock(eType)
-	defer unLockFunc()
 
 	var mergeFiles []*storage.DBFile
 	// create and store the first db file.
@@ -515,16 +499,6 @@ func (db *RoseDB) buildIndex(entry *storage.Entry, idx *index.Indexer, isOpen bo
 	if db.config.IdxMode == KeyValueMemMode && entry.GetType() == String {
 		idx.Meta.Value = entry.Meta.Value
 		idx.Meta.ValueSize = uint32(len(entry.Meta.Value))
-	}
-
-	// uncommitted entry is invalid.
-	if entry.TxId != 0 && isOpen {
-		if entry.TxId > db.txnMeta.MaxTxId {
-			db.txnMeta.MaxTxId = entry.TxId
-		}
-		if _, ok := db.txnMeta.CommittedTxIds[entry.TxId]; !ok {
-			return
-		}
 	}
 
 	switch entry.GetType() {
