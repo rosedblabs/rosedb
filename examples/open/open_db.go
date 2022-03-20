@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/roseduan/rosedb"
 )
 
@@ -12,17 +11,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	//err = db.Set(11, 22)
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	var v int
-	err = db.Get(11, &v)
-	if err != nil {
-		panic(err)
+	if db == nil {
+		//	...
 	}
-
-	fmt.Println("res = ", v)
 }
