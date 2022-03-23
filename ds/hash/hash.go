@@ -1,12 +1,8 @@
 package hash
 
-import (
-	"github.com/roseduan/rosedb/storage"
-)
-
 // the implementation of hash table.
 
-type dumpFunc func(e *storage.Entry) error
+//type dumpFunc func(e *storage.Entry) error
 
 type (
 	// Hash hash table struct.
@@ -24,20 +20,20 @@ func New() *Hash {
 }
 
 // DumpIterate iterate all keys and values for dump.
-func (h *Hash) DumpIterate(fn dumpFunc) (err error) {
-	for key, h := range h.record {
-		hashKey := []byte(key)
-
-		for field, value := range h {
-			// Hash HashHSet
-			ent := storage.NewEntry(hashKey, value, []byte(field), 2, 0)
-			if err = fn(ent); err != nil {
-				return
-			}
-		}
-	}
-	return
-}
+//func (h *Hash) DumpIterate(fn dumpFunc) (err error) {
+//	for key, h := range h.record {
+//		hashKey := []byte(key)
+//
+//		for field, value := range h {
+//			// Hash HashHSet
+//			ent := storage.NewEntry(hashKey, value, []byte(field), 2, 0)
+//			if err = fn(ent); err != nil {
+//				return
+//			}
+//		}
+//	}
+//	return
+//}
 
 // HSet Sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
 // If field already exists in the hash, it is overwritten.
@@ -96,16 +92,16 @@ func (h *Hash) HGetAll(key string) (res [][]byte) {
 
 // HDel removes the specified fields from the hash stored at key. Specified fields that do not exist within this hash are ignored.
 // If key does not exist, it is treated as an empty hash and this command returns false.
-func (h *Hash) HDel(key, field string) int {
+func (h *Hash) HDel(key, field string) bool {
 	if !h.exist(key) {
-		return 0
+		return false
 	}
 
 	if _, exist := h.record[key][field]; exist {
 		delete(h.record[key], field)
-		return 1
+		return true
 	}
-	return 0
+	return false
 }
 
 // HKeyExists returns if key exists in hash.

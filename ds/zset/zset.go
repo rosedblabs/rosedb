@@ -1,8 +1,6 @@
 package zset
 
 import (
-	"github.com/roseduan/rosedb/storage"
-	"github.com/roseduan/rosedb/utils"
 	"math"
 	"math/rand"
 )
@@ -14,7 +12,7 @@ const (
 	probability = 0.25
 )
 
-type dumpFunc func(e *storage.Entry) error
+//type dumpFunc func(e *storage.Entry) error
 
 type (
 	// SortedSet sorted set struct
@@ -56,21 +54,21 @@ func New() *SortedSet {
 }
 
 // DumpIterate iterate all keys and values for dump.
-func (z *SortedSet) DumpIterate(fn dumpFunc) (err error) {
-	for key, ss := range z.record {
-		zsetKey := []byte(key)
-
-		for e := ss.skl.head; e != nil; e = e.level[0].forward {
-			extra := []byte(utils.Float64ToStr(e.score))
-			// ZSet, ZSetZAdd
-			ent := storage.NewEntry(zsetKey, []byte(e.member), extra, 4, 0)
-			if err = fn(ent); err != nil {
-				return
-			}
-		}
-	}
-	return
-}
+//func (z *SortedSet) DumpIterate(fn dumpFunc) (err error) {
+//	for key, ss := range z.record {
+//		zsetKey := []byte(key)
+//
+//		for e := ss.skl.head; e != nil; e = e.level[0].forward {
+//			extra := []byte(utils.Float64ToStr(e.score))
+//			// ZSet, ZSetZAdd
+//			ent := storage.NewEntry(zsetKey, []byte(e.member), extra, 4, 0)
+//			if err = fn(ent); err != nil {
+//				return
+//			}
+//		}
+//	}
+//	return
+//}
 
 // ZAdd Adds the specified member with the specified score to the sorted set stored at key.
 func (z *SortedSet) ZAdd(key string, score float64, member string) {
@@ -203,7 +201,7 @@ func (z *SortedSet) ZRevRange(key string, start, stop int) []interface{} {
 	return z.findRange(key, int64(start), int64(stop), true, false)
 }
 
-// ZRevRange returns the specified range of elements in the sorted set stored at key.
+// ZRevRangeWithScores returns the specified range of elements in the sorted set stored at key.
 // The elements are considered to be ordered from the highest to the lowest score.
 // Descending lexicographical order is used for elements with equal score.
 func (z *SortedSet) ZRevRangeWithScores(key string, start, stop int) []interface{} {

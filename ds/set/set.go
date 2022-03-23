@@ -1,12 +1,10 @@
 package set
 
-import "github.com/roseduan/rosedb/storage"
-
 // Set is the implementation of set data structure.
 
 var existFlag = struct{}{}
 
-type dumpFunc func(e *storage.Entry) error
+//type dumpFunc func(e *storage.Entry) error
 
 type (
 	// Set set index.
@@ -23,21 +21,21 @@ func New() *Set {
 	return &Set{make(Record)}
 }
 
-// DumpIterate iterate all keys and values for dump.
-func (s *Set) DumpIterate(fn dumpFunc) (err error) {
-	for key, rec := range s.record {
-		setKey := []byte(key)
-
-		// Set SetSAdd
-		for member := range rec {
-			ent := storage.NewEntryNoExtra(setKey, []byte(member), 3, 0)
-			if err = fn(ent); err != nil {
-				return
-			}
-		}
-	}
-	return
-}
+//// DumpIterate iterate all keys and values for dump.
+//func (s *Set) DumpIterate(fn dumpFunc) (err error) {
+//	for key, rec := range s.record {
+//		setKey := []byte(key)
+//
+//		// Set SetSAdd
+//		for member := range rec {
+//			ent := storage.NewEntryNoExtra(setKey, []byte(member), 3, 0)
+//			if err = fn(ent); err != nil {
+//				return
+//			}
+//		}
+//	}
+//	return
+//}
 
 // SAdd Add the specified members to the set stored at key.
 // Specified members that are already a member of this set are ignored.
