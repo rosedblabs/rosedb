@@ -12,8 +12,8 @@ func (db *RoseDB) LPush(key []byte, values ...[]byte) error {
 	defer db.listIndex.mu.Unlock()
 
 	for _, val := range values {
-		seq := db.listIndex.indexes.LPush(key, val)
-		listKey := list.EncodeKey(key, seq)
+		db.listIndex.indexes.LPush(key, val)
+		listKey := list.EncodeCommandKey(key, list.LPush)
 		entry := &logfile.LogEntry{Key: listKey, Value: val}
 		if _, err := db.writeLogEntry(entry, List); err != nil {
 			return err
@@ -29,8 +29,8 @@ func (db *RoseDB) RPush(key []byte, values ...[]byte) error {
 	defer db.listIndex.mu.Unlock()
 
 	for _, val := range values {
-		seq := db.listIndex.indexes.RPush(key, val)
-		listKey := list.EncodeKey(key, seq)
+		db.listIndex.indexes.RPush(key, val)
+		listKey := list.EncodeCommandKey(key, list.RPush)
 		entry := &logfile.LogEntry{Key: listKey, Value: val}
 		if _, err := db.writeLogEntry(entry, List); err != nil {
 			return err
@@ -44,12 +44,12 @@ func (db *RoseDB) LPop(key []byte) ([]byte, error) {
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
-	val, seq := db.listIndex.indexes.LPop(key)
-	if val == nil && seq == 0 {
+	val := db.listIndex.indexes.LPop(key)
+	if val == nil {
 		return nil, nil
 	}
 
-	listKey := list.EncodeKey(key, seq)
+	listKey := list.EncodeCommandKey(key, list.LPop)
 	entry := &logfile.LogEntry{Key: listKey, Type: logfile.TypeDelete}
 	if _, err := db.writeLogEntry(entry, List); err != nil {
 		return nil, err

@@ -28,8 +28,8 @@ var (
 )
 
 const (
-	// size of each log file: 4GB
-	logFileSize    = 4096 << 20
+	// size of each log file: 512MB
+	logFileSize    = 512 << 20
 	logFileTypeNum = 5
 )
 

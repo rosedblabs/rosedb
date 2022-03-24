@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"github.com/flower-corp/rosedb/ds/list"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
@@ -22,6 +23,79 @@ const (
 	Set
 	ZSet
 )
+
+func (db *RoseDB) buildIndex(dataType DataType, ent *logfile.LogEntry, pos *valuePos) {
+	switch dataType {
+	case String:
+		db.buildStrsIndex(ent, pos)
+	case List:
+		db.buildListIndex(ent)
+	case Hash:
+		db.buildHashIndex(ent)
+	case Set:
+		db.buildSetIndex(ent)
+	case ZSet:
+		db.buildZSetIndex(ent)
+	}
+}
+
+func (db *RoseDB) buildStrsIndex(ent *logfile.LogEntry, pos *valuePos) {
+	ts := time.Now().Unix()
+	if ent.Type == logfile.TypeDelete || (ent.ExpiredAt != 0 && ent.ExpiredAt < ts) {
+		db.strIndex.idxTree.Delete(ent.Key)
+		return
+	}
+	idxNode := &strIndexNode{
+		fid:    pos.fid,
+		offset: pos.offset,
+	}
+	if db.opts.IndexMode == KeyValueMemMode {
+		idxNode.value = ent.Value
+	}
+	db.strIndex.idxTree.Put(ent.Key, idxNode)
+}
+
+func (db *RoseDB) buildListIndex(ent *logfile.LogEntry) {
+	key, cmd := list.DecodeCommandKey(ent.Key)
+	switch cmd {
+	case list.LPush:
+		db.listIndex.indexes.LPush(key, ent.Value)
+	case list.RPush:
+		db.listIndex.indexes.RPush(key, ent.Value)
+	case list.LPop:
+		db.listIndex.indexes.LPop(key)
+	case list.RPop:
+		db.listIndex.indexes.RPop(key)
+	}
+}
+
+func (db *RoseDB) buildHashIndex(ent *logfile.LogEntry) {
+	key, field := db.decodeKey(ent.Key)
+	if ent.Type == logfile.TypeDelete {
+		db.hashIndex.indexes.HDel(string(key), string(field))
+		return
+	}
+	db.hashIndex.indexes.HSet(string(key), string(field), ent.Value)
+}
+
+func (db *RoseDB) buildSetIndex(ent *logfile.LogEntry) {
+	if ent.Type == logfile.TypeDelete {
+		db.setIndex.indexes.SRem(string(ent.Key), ent.Value)
+		return
+	}
+	db.setIndex.indexes.SAdd(string(ent.Key), ent.Value)
+}
+
+func (db *RoseDB) buildZSetIndex(ent *logfile.LogEntry) {
+	if ent.Type == logfile.TypeDelete {
+		db.zsetIndex.indexes.ZRem(string(ent.Key), string(ent.Value))
+		return
+	}
+
+	key, scoreBuf := db.decodeKey(ent.Key)
+	score, _ := util.StrToFloat64(string(scoreBuf))
+	db.zsetIndex.indexes.ZAdd(string(key), score, string(ent.Value))
+}
 
 func (db *RoseDB) loadIndexFromLogFiles() error {
 	iterateAndHandle := func(dataType DataType, wg *sync.WaitGroup) {
@@ -73,67 +147,4 @@ func (db *RoseDB) loadIndexFromLogFiles() error {
 	}
 	wg.Wait()
 	return nil
-}
-
-func (db *RoseDB) buildIndex(dataType DataType, ent *logfile.LogEntry, pos *valuePos) {
-	switch dataType {
-	case String:
-		db.buildStrsIndex(ent, pos)
-	case List:
-		db.buildListIndex(ent)
-	case Hash:
-		db.buildHashIndex(ent)
-	case Set:
-		db.buildSetIndex(ent)
-	case ZSet:
-		db.buildZSetIndex(ent)
-	}
-}
-
-func (db *RoseDB) buildStrsIndex(ent *logfile.LogEntry, pos *valuePos) {
-	ts := time.Now().Unix()
-	if ent.Type == logfile.TypeDelete || (ent.ExpiredAt != 0 && ent.ExpiredAt < ts) {
-		db.strIndex.idxTree.Delete(ent.Key)
-		return
-	}
-	idxNode := &strIndexNode{
-		fid:    pos.fid,
-		offset: pos.offset,
-	}
-	if db.opts.IndexMode == KeyValueMemMode {
-		idxNode.value = ent.Value
-	}
-	db.strIndex.idxTree.Put(ent.Key, idxNode)
-}
-
-func (db *RoseDB) buildListIndex(ent *logfile.LogEntry) {
-
-}
-
-func (db *RoseDB) buildHashIndex(ent *logfile.LogEntry) {
-	key, field := db.decodeKey(ent.Key)
-	if ent.Type == logfile.TypeDelete {
-		db.hashIndex.indexes.HDel(string(key), string(field))
-		return
-	}
-	db.hashIndex.indexes.HSet(string(key), string(field), ent.Value)
-}
-
-func (db *RoseDB) buildSetIndex(ent *logfile.LogEntry) {
-	if ent.Type == logfile.TypeDelete {
-		db.setIndex.indexes.SRem(string(ent.Key), ent.Value)
-		return
-	}
-	db.setIndex.indexes.SAdd(string(ent.Key), ent.Value)
-}
-
-func (db *RoseDB) buildZSetIndex(ent *logfile.LogEntry) {
-	if ent.Type == logfile.TypeDelete {
-		db.zsetIndex.indexes.ZRem(string(ent.Key), string(ent.Value))
-		return
-	}
-
-	key, scoreBuf := db.decodeKey(ent.Key)
-	score, _ := util.StrToFloat64(string(scoreBuf))
-	db.zsetIndex.indexes.ZAdd(string(key), score, string(ent.Value))
 }

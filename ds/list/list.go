@@ -12,6 +12,15 @@ const (
 	listMetaKey = "!|list|meta|!"
 )
 
+type Command uint8
+
+const (
+	LPush Command = iota
+	RPush
+	LPop
+	RPop
+)
+
 type List struct {
 	records map[string]goart.Tree
 }
@@ -25,7 +34,7 @@ func New() *List {
 	return &List{records: make(map[string]goart.Tree)}
 }
 
-func (lis *List) LPush(key, value []byte) uint32 {
+func (lis *List) LPush(key, value []byte) {
 	lisKey := string(key)
 	metaKey := lis.encodeMetaKey(key)
 	if lis.records[lisKey] == nil {
@@ -35,20 +44,18 @@ func (lis *List) LPush(key, value []byte) uint32 {
 	}
 
 	metaInfo := lis.getMeta(key)
-	seq := metaInfo.headSeq
-	encKey := EncodeKey(key, seq)
+	encKey := EncodeKey(key, metaInfo.headSeq)
 	lis.records[lisKey].Insert(encKey, value)
 
 	// update meta
 	metaInfo.headSeq--
 	lis.records[lisKey].Insert(metaKey, metaInfo)
-	return seq
 }
 
-func (lis *List) LPop(key []byte) ([]byte, uint32) {
+func (lis *List) LPop(key []byte) []byte {
 	lisKey := string(key)
 	if lis.records[lisKey] == nil {
-		return nil, 0
+		return nil
 	}
 
 	metaKey := lis.encodeMetaKey(key)
@@ -60,21 +67,20 @@ func (lis *List) LPop(key []byte) ([]byte, uint32) {
 			headSeq: initialSeq,
 			tailSeq: initialSeq + 1,
 		})
-		return nil, 0
+		return nil
 	}
 
-	seq := metaInfo.headSeq + 1
-	encKey := EncodeKey(key, seq)
+	encKey := EncodeKey(key, metaInfo.headSeq+1)
 	value, _ := lis.records[lisKey].Delete(encKey)
 	val, _ := value.([]byte)
 
 	// update meta
 	metaInfo.headSeq++
 	lis.records[lisKey].Insert(metaKey, metaInfo)
-	return val, seq
+	return val
 }
 
-func (lis *List) RPush(key, value []byte) uint32 {
+func (lis *List) RPush(key, value []byte) {
 	lisKey := string(key)
 	metaKey := lis.encodeMetaKey(key)
 	if lis.records[lisKey] == nil {
@@ -84,20 +90,18 @@ func (lis *List) RPush(key, value []byte) uint32 {
 	}
 
 	metaInfo := lis.getMeta(key)
-	seq := metaInfo.tailSeq
-	encKey := EncodeKey(key, seq)
+	encKey := EncodeKey(key, metaInfo.tailSeq)
 	lis.records[lisKey].Insert(encKey, value)
 
 	// update meta
 	metaInfo.tailSeq++
 	lis.records[lisKey].Insert(metaKey, metaInfo)
-	return seq
 }
 
-func (lis *List) RPop(key []byte) ([]byte, uint32) {
+func (lis *List) RPop(key []byte) []byte {
 	lisKey := string(key)
 	if lis.records[lisKey] == nil {
-		return nil, 0
+		return nil
 	}
 
 	metaKey := lis.encodeMetaKey(key)
@@ -109,18 +113,17 @@ func (lis *List) RPop(key []byte) ([]byte, uint32) {
 			headSeq: initialSeq,
 			tailSeq: initialSeq + 1,
 		})
-		return nil, 0
+		return nil
 	}
 
-	seq := metaInfo.tailSeq - 1
-	encKey := EncodeKey(key, seq)
+	encKey := EncodeKey(key, metaInfo.tailSeq-1)
 	value, _ := lis.records[lisKey].Delete(encKey)
 	val, _ := value.([]byte)
 
 	// update meta
 	metaInfo.tailSeq--
 	lis.records[lisKey].Insert(metaKey, metaInfo)
-	return val, seq
+	return val
 }
 
 func (lis *List) getMeta(key []byte) *meta {
@@ -154,4 +157,15 @@ func EncodeKey(key []byte, seq uint32) []byte {
 	copy(buf[:index], header)
 	copy(buf[index:], key)
 	return buf
+}
+
+func EncodeCommandKey(key []byte, cmd Command) []byte {
+	buf := make([]byte, len(key)+1)
+	buf[0] = byte(cmd)
+	copy(buf[1:], key)
+	return buf
+}
+
+func DecodeCommandKey(buf []byte) ([]byte, Command) {
+	return buf[1:], Command(buf[0])
 }

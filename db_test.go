@@ -11,26 +11,16 @@ func TestOpen(t *testing.T) {
 		t.Error("open db err ", err)
 	}
 
-	//key := []byte("name")
-	//err = db.Set(key, []byte("RoseDB"))
+	key := []byte("my_list")
+	err = db.LPush(key, []byte("LotusDB"))
+	t.Log(err)
+
+	//v, err := db.LPop(key)
+	//t.Log(string(v))
 	//t.Log(err)
 
-	//v, err := db.Get(key)
-	//t.Logf("val = *%s*", string(v))
-	//t.Log(err)
-
-	//err = db.Delete(key)
-	//t.Log(err)
-
-	hk := []byte("myhash")
-	hf := []byte("myhash-field1")
-	////hv := []byte("myhash-field1-val")
-	////err = db.HSet(hk, hf, hv)
-	////t.Log(err)
-	//
-	//err = db.ZAdd(hk, 1232.3324, hf)
-	//t.Log(err)
-
-	ok, score := db.ZScore(hk, hf)
-	t.Log(ok, score)
+	db.Set([]byte("set-k"), []byte("set-v"))
+	db.HSet([]byte("hset-k"), []byte("hset-f"), []byte("hset-v"))
+	db.SAdd([]byte("sadd-k"), []byte("sadd-v"))
+	db.ZAdd([]byte("zset-k"), 1993, []byte("zset-v"))
 }
