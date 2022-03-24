@@ -126,17 +126,47 @@ func (lis *List) RPop(key []byte) []byte {
 	return val
 }
 
+func (lis *List) LIndex(key []byte, index int) []byte {
+	listKey := string(key)
+	metaInfo := lis.getMeta(key)
+	size := metaInfo.tailSeq - metaInfo.headSeq - 1
+	newIndex, ok := lis.validIndex(listKey, index, size)
+	if !ok {
+		return nil
+	}
+
+	encKey := EncodeKey(key, metaInfo.headSeq+uint32(newIndex)+1)
+	value, _ := lis.records[listKey].Search(encKey)
+	if value != nil {
+		val, _ := value.([]byte)
+		return val
+	}
+	return nil
+}
+
+// check if the index is valid and returns the new index.
+func (lis *List) validIndex(key string, index int, size uint32) (int, bool) {
+	item := lis.records[key]
+	if item == nil || size <= 0 {
+		return 0, false
+	}
+
+	if index < 0 {
+		index += int(size)
+	}
+	return index, index >= 0 && index < int(size)
+}
+
 func (lis *List) getMeta(key []byte) *meta {
 	metaKey := lis.encodeMetaKey(key)
-	// get meta info
 	metaRaw, found := lis.records[string(key)].Search(metaKey)
 	if !found {
-		logger.Fatalf("")
+		logger.Fatalf("fail to find meta info")
 	}
 
 	metaInfo, ok := metaRaw.(*meta)
 	if !ok {
-		logger.Fatalf("")
+		logger.Fatalf("fail to find meta info")
 	}
 	return metaInfo
 }

@@ -9,8 +9,11 @@ func TestNewList(t *testing.T) {
 	//p1 := lis.LPush(key, []byte("11"))
 	//t.Log(p1)
 
-	lis.LPush(key, []byte("2311"))
-	lis.LPush(key, []byte("asd"))
-	lis.LPush(key, []byte("9903"))
-	lis.RPush(key, []byte("1133"))
+	lis.RPush(key, []byte("a"))
+	//lis.LPush(key, []byte("b"))
+	//lis.LPush(key, []byte("c"))
+	//lis.LPush(key, []byte("d"))
+	//
+	v1 := lis.LIndex(key, -1)
+	t.Log(string(v1))
 }
