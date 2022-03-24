@@ -14,8 +14,8 @@ func NewART() *AdaptiveRadixTree {
 	}
 }
 
-func (art *AdaptiveRadixTree) Put(key []byte, value interface{}) {
-	art.tree.Insert(key, value)
+func (art *AdaptiveRadixTree) Put(key []byte, value interface{}) (oldVal interface{}, updated bool) {
+	return art.tree.Insert(key, value)
 }
 
 func (art *AdaptiveRadixTree) Get(key []byte) interface{} {
@@ -23,6 +23,6 @@ func (art *AdaptiveRadixTree) Get(key []byte) interface{} {
 	return value
 }
 
-func (art *AdaptiveRadixTree) Delete(key []byte) {
-	art.tree.Delete(key)
+func (art *AdaptiveRadixTree) Delete(key []byte) (val interface{}, updated bool) {
+	return art.tree.Delete(key)
 }

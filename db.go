@@ -38,7 +38,8 @@ type (
 	RoseDB struct {
 		activeLogFiles   map[DataType]*logfile.LogFile
 		archivedLogFiles map[DataType]archivedFiles
-		fidMap           map[DataType][]uint32 // only used at startup
+		fidMap           map[DataType][]uint32 // only used at startup, never update even though log files changed.
+		discard          *discard
 		opts             Options
 		strIndex         *strIndex  // String indexes(adaptive-radix-tree).
 		listIndex        *listIndex // List indexes.
@@ -62,9 +63,10 @@ type (
 	}
 
 	strIndexNode struct {
-		value  []byte
-		fid    uint32
-		offset int64
+		value     []byte
+		fid       uint32
+		offset    int64
+		entrySize int
 	}
 
 	listIndex struct {
@@ -119,9 +121,15 @@ func Open(opts Options) (*RoseDB, error) {
 		}
 	}
 
+	discard, err := newDiscard(opts.DBPath, discardFileName)
+	if err != nil {
+		return nil, err
+	}
+
 	db := &RoseDB{
 		activeLogFiles:   make(map[DataType]*logfile.LogFile),
 		archivedLogFiles: make(map[DataType]archivedFiles),
+		discard:          discard,
 		opts:             opts,
 		strIndex:         newStrsIndex(),
 		listIndex:        newListIdx(),
@@ -166,13 +174,6 @@ func (db *RoseDB) Sync() (err error) {
 	if err != nil {
 		return
 	}
-	return
-}
-
-// Backup copy the database directory for backup.
-func (db *RoseDB) Backup(dir string) (err error) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	return
 }
 
@@ -224,6 +225,9 @@ func (db *RoseDB) writeLogEntry(ent *logfile.LogEntry, dataType DataType) (*valu
 		if err != nil {
 			db.mu.Unlock()
 			return nil, err
+		}
+		if dataType == String {
+			db.discard.setTotal(lf.Fid, logFileSize)
 		}
 		db.activeLogFiles[dataType] = lf
 		activeLogFile = lf
@@ -296,6 +300,7 @@ func (db *RoseDB) loadLogFiles() error {
 func (db *RoseDB) initLogFile(dataType DataType) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
+
 	if db.activeLogFiles[dataType] != nil {
 		return nil
 	}
@@ -304,6 +309,10 @@ func (db *RoseDB) initLogFile(dataType DataType) error {
 	lf, err := logfile.OpenLogFile(opts.DBPath, logfile.InitialLogFileId, logFileSize, ftype, iotype)
 	if err != nil {
 		return err
+	}
+
+	if dataType == String {
+		db.discard.setTotal(lf.Fid, logFileSize)
 	}
 	db.activeLogFiles[dataType] = lf
 	return nil

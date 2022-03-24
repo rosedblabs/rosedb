@@ -56,3 +56,21 @@ func (db *RoseDB) LPop(key []byte) ([]byte, error) {
 	}
 	return val, nil
 }
+
+// RPop Removes and returns the last elements of the list stored at key.
+func (db *RoseDB) RPop(key []byte) ([]byte, error) {
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	val := db.listIndex.indexes.RPop(key)
+	if val == nil {
+		return nil, nil
+	}
+
+	listKey := list.EncodeCommandKey(key, list.RPop)
+	entry := &logfile.LogEntry{Key: listKey, Type: logfile.TypeDelete}
+	if _, err := db.writeLogEntry(entry, List); err != nil {
+		return nil, err
+	}
+	return val, nil
+}

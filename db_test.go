@@ -1,26 +1,61 @@
 package rosedb
 
 import (
+	"bytes"
+	"fmt"
+	"github.com/stretchr/testify/assert"
+	"math/rand"
 	"testing"
+	"time"
 )
 
 func TestOpen(t *testing.T) {
 	opts := DefaultOptions("/tmp/rosedb")
+	opts.IoType = MMap
 	db, err := Open(opts)
 	if err != nil {
 		t.Error("open db err ", err)
 	}
 
 	key := []byte("my_list")
-	err = db.LPush(key, []byte("LotusDB"))
-	t.Log(err)
+	writeCount := 600000
+	for i := 0; i <= writeCount; i++ {
+		err := db.LPush(key, GetValue128B())
+		assert.Nil(t, err)
+	}
+}
 
-	//v, err := db.LPop(key)
-	//t.Log(string(v))
-	//t.Log(err)
+const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 
-	db.Set([]byte("set-k"), []byte("set-v"))
-	db.HSet([]byte("hset-k"), []byte("hset-f"), []byte("hset-v"))
-	db.SAdd([]byte("sadd-k"), []byte("sadd-v"))
-	db.ZAdd([]byte("zset-k"), 1993, []byte("zset-v"))
+func init() {
+	rand.Seed(time.Now().Unix())
+}
+
+// GetKey length: 32 Bytes
+func GetKey(n int) []byte {
+	return []byte("kvstore-bench-key------" + fmt.Sprintf("%09d", n))
+}
+
+func GetValue16B() []byte {
+	var str bytes.Buffer
+	for i := 0; i < 16; i++ {
+		str.WriteByte(alphabet[rand.Int()%36])
+	}
+	return []byte(str.String())
+}
+
+func GetValue128B() []byte {
+	var str bytes.Buffer
+	for i := 0; i < 128; i++ {
+		str.WriteByte(alphabet[rand.Int()%36])
+	}
+	return []byte(str.String())
+}
+
+func GetValue4K() []byte {
+	var str bytes.Buffer
+	for i := 0; i < 4096; i++ {
+		str.WriteByte(alphabet[rand.Int()%36])
+	}
+	return []byte(str.String())
 }

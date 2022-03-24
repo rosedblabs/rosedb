@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"github.com/flower-corp/rosedb/logfile"
+	"github.com/flower-corp/rosedb/logger"
 	"time"
 )
 
@@ -38,17 +39,36 @@ func (db *RoseDB) Delete(key []byte) error {
 	if _, err := db.writeLogEntry(entry, String); err != nil {
 		return err
 	}
-	db.strIndex.idxTree.Delete(key)
+	val, updated := db.strIndex.idxTree.Delete(key)
+	db.sendDiscard(val, updated)
 	return nil
 }
 
+// SetEx set key to hold the string value and set key to timeout after the given duration.
+func (db *RoseDB) SetEx(key, value []byte, duration time.Duration) error {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	expiredAt := time.Now().Add(duration).Unix()
+	entry := &logfile.LogEntry{Key: key, Value: value, ExpiredAt: expiredAt}
+	valuePos, err := db.writeLogEntry(entry, String)
+	if err != nil {
+		return err
+	}
+
+	err = db.updateStrIndex(entry, valuePos)
+	return err
+}
+
 func (db *RoseDB) updateStrIndex(ent *logfile.LogEntry, pos *valuePos) error {
-	idxNode := &strIndexNode{fid: pos.fid, offset: pos.offset}
+	_, size := logfile.EncodeEntry(ent)
+	idxNode := &strIndexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
 	// in KeyValueMemMode, both key and value will store in memory.
 	if db.opts.IndexMode == KeyValueMemMode {
 		idxNode.value = ent.Value
 	}
-	db.strIndex.idxTree.Put(ent.Key, idxNode)
+	oldVal, updated := db.strIndex.idxTree.Put(ent.Key, idxNode)
+	db.sendDiscard(oldVal, updated)
 	return nil
 }
 
@@ -88,4 +108,19 @@ func (db *RoseDB) getVal(key []byte) ([]byte, error) {
 		return nil, ErrKeyNotFound
 	}
 	return ent.Value, nil
+}
+
+func (db *RoseDB) sendDiscard(oldVal interface{}, updated bool) {
+	if !updated || oldVal == nil {
+		return
+	}
+	node, _ := oldVal.(*strIndexNode)
+	if node == nil || node.entrySize <= 0 {
+		return
+	}
+	select {
+	case db.discard.valChan <- node:
+	default:
+		logger.Warn("send to discard chan fail")
+	}
 }
