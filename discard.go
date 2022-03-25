@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	discardRecordSize = 12
-	discardFileName   = "DISCARD"
+	discardRecordSize       = 12
+	discardFileName         = "DISCARD"
+	discardFileSize   int64 = 2 << 12
 )
 
 // ErrDiscardNoSpace no enough space for discard file.
@@ -33,8 +34,7 @@ type discard struct {
 
 func newDiscard(path, name string) (*discard, error) {
 	fname := filepath.Join(path, name)
-	fsize := 1 << 12
-	file, err := ioselector.NewMMapSelector(fname, int64(fsize))
+	file, err := ioselector.NewMMapSelector(fname, discardFileSize)
 	if err != nil {
 		return nil, err
 	}

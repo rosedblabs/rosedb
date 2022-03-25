@@ -16,10 +16,10 @@ func TestDiscard_newDiscard(t *testing.T) {
 		path := filepath.Join("/tmp", "lotusdb-discard")
 		os.MkdirAll(path, os.ModePerm)
 		defer os.RemoveAll(path)
-		dis, err := newDiscard(path, "")
+		dis, err := newDiscard(path, discardFileName)
 		assert.Nil(t, err)
 
-		assert.Equal(t, len(dis.freeList), 341)
+		assert.Equal(t, len(dis.freeList), 682)
 		assert.Equal(t, len(dis.location), 0)
 	})
 
@@ -27,7 +27,7 @@ func TestDiscard_newDiscard(t *testing.T) {
 		path := filepath.Join("/tmp", "lotusdb-discard")
 		os.MkdirAll(path, os.ModePerm)
 		defer os.RemoveAll(path)
-		dis, err := newDiscard(path, "")
+		dis, err := newDiscard(path, discardFileName)
 		assert.Nil(t, err)
 
 		for i := 1; i < 300; i = i * 5 {
