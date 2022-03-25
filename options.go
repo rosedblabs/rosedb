@@ -1,5 +1,7 @@
 package rosedb
 
+import "time"
+
 // DataIndexMode the data index mode.
 type DataIndexMode int
 
@@ -43,14 +45,28 @@ type Options struct {
 	// Note that if it is just the process that crashes (and the machine does not) then no writes will be lost.
 	// Default value is false.
 	Sync bool `json:"sync" toml:"sync"`
+
+	// LogFileGCInterval a background goroutine will execute log file garbage collection periodically according to the interval.
+	// For String, we will pick the log file that meet the conditions for GC, then rewrite the valid data one by one.
+	// For List, Hash, Set, and ZSet, we will directly dump the data in memory to log files.
+	// Default value is 10 minutes.
+	LogFileGCInterval time.Duration
+
+	// LogFileGCRatio if discarded data in log file exceeds this ratio, it can be picked up for compaction(garbage collection)
+	// And if there are many files reached the ratio, we will pick the highest one by one.
+	// The recommended ratio is 0.5, half of the file can be compacted.
+	// Default value is 0.5.
+	LogFileGCRatio float64
 }
 
 // DefaultOptions default options for opening a RoseDB.
 func DefaultOptions(path string) Options {
 	return Options{
-		DBPath:    path,
-		IndexMode: KeyOnlyMemMode,
-		IoType:    FileIO,
-		Sync:      false,
+		DBPath:            path,
+		IndexMode:         KeyOnlyMemMode,
+		IoType:            FileIO,
+		Sync:              false,
+		LogFileGCInterval: time.Minute * 10,
+		LogFileGCRatio:    0.5,
 	}
 }

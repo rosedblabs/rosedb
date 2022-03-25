@@ -9,14 +9,18 @@ import (
 	"github.com/flower-corp/rosedb/ds/set"
 	"github.com/flower-corp/rosedb/ds/zset"
 	"github.com/flower-corp/rosedb/logfile"
+	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
+	"time"
 )
 
 var (
@@ -33,8 +37,8 @@ const (
 	logFileTypeNum = 5
 )
 
-// RoseDB a db instance.
 type (
+	// RoseDB a db instance.
 	RoseDB struct {
 		activeLogFiles   map[DataType]*logfile.LogFile
 		archivedLogFiles map[DataType]archivedFiles
@@ -148,7 +152,8 @@ func Open(opts Options) (*RoseDB, error) {
 		return nil, err
 	}
 
-	// handle compaction
+	// handle log files garbage collection.
+	go db.handleLogFileGC()
 	return db, nil
 }
 
@@ -342,4 +347,29 @@ func (db *RoseDB) decodeKey(hashKey []byte) ([]byte, []byte) {
 	index += i
 	sep := index + int(keySize)
 	return hashKey[index:sep], hashKey[sep:]
+}
+
+func (db *RoseDB) handleLogFileGC() {
+	if db.opts.LogFileGCInterval <= 0 {
+		return
+	}
+
+	quitSig := make(chan os.Signal, 1)
+	signal.Notify(quitSig, os.Interrupt, os.Kill, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	ticker := time.NewTicker(db.opts.LogFileGCInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if err := db.doRunGC(); err != nil {
+				logger.Errorf("value log compaction err: %+v", err)
+			}
+		case <-quitSig:
+			return
+		}
+	}
+}
+
+func (db *RoseDB) doRunGC() error {
+	return nil
 }
