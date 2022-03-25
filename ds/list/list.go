@@ -8,8 +8,7 @@ import (
 )
 
 const (
-	initialSeq  = math.MaxUint32 / 2
-	listMetaKey = "!|list|meta|!"
+	initialSeq = math.MaxUint32 / 2
 )
 
 type Command uint8
@@ -23,6 +22,7 @@ const (
 
 type List struct {
 	records map[string]goart.Tree
+	metas   map[string]*meta
 }
 
 type meta struct {
@@ -31,98 +31,82 @@ type meta struct {
 }
 
 func New() *List {
-	return &List{records: make(map[string]goart.Tree)}
+	return &List{
+		records: make(map[string]goart.Tree),
+		metas:   make(map[string]*meta),
+	}
 }
 
 func (lis *List) LPush(key, value []byte) {
-	lisKey := string(key)
-	metaKey := lis.encodeMetaKey(key)
-	if lis.records[lisKey] == nil {
-		tree := goart.New()
-		tree.Insert(metaKey, &meta{headSeq: initialSeq, tailSeq: initialSeq + 1})
-		lis.records[lisKey] = tree
-	}
-
-	metaInfo := lis.getMeta(key)
-	encKey := EncodeKey(key, metaInfo.headSeq)
-	lis.records[lisKey].Insert(encKey, value)
-
-	// update meta
-	metaInfo.headSeq--
-	lis.records[lisKey].Insert(metaKey, metaInfo)
-}
-
-func (lis *List) LPop(key []byte) []byte {
-	lisKey := string(key)
-	if lis.records[lisKey] == nil {
-		return nil
-	}
-
-	metaKey := lis.encodeMetaKey(key)
-	metaInfo := lis.getMeta(key)
-	size := metaInfo.tailSeq - metaInfo.headSeq - 1
-	if size <= 0 {
-		// reset meta
-		lis.records[lisKey].Insert(metaKey, &meta{
-			headSeq: initialSeq,
-			tailSeq: initialSeq + 1,
-		})
-		return nil
-	}
-
-	encKey := EncodeKey(key, metaInfo.headSeq+1)
-	value, _ := lis.records[lisKey].Delete(encKey)
-	val, _ := value.([]byte)
-
-	// update meta
-	metaInfo.headSeq++
-	lis.records[lisKey].Insert(metaKey, metaInfo)
-	return val
+	lis.push(key, value, true)
 }
 
 func (lis *List) RPush(key, value []byte) {
+	lis.push(key, value, false)
+}
+
+func (lis *List) push(key, value []byte, isLeft bool) {
 	lisKey := string(key)
-	metaKey := lis.encodeMetaKey(key)
 	if lis.records[lisKey] == nil {
-		tree := goart.New()
-		tree.Insert(metaKey, &meta{headSeq: initialSeq, tailSeq: initialSeq + 1})
-		lis.records[lisKey] = tree
+		lis.records[lisKey] = goart.New()
+		lis.metas[lisKey] = &meta{headSeq: initialSeq, tailSeq: initialSeq + 1}
 	}
 
 	metaInfo := lis.getMeta(key)
-	encKey := EncodeKey(key, metaInfo.tailSeq)
+	seq := metaInfo.headSeq
+	if !isLeft {
+		seq = metaInfo.tailSeq
+	}
+	encKey := EncodeKey(key, seq)
 	lis.records[lisKey].Insert(encKey, value)
 
 	// update meta
-	metaInfo.tailSeq++
-	lis.records[lisKey].Insert(metaKey, metaInfo)
+	if isLeft {
+		metaInfo.headSeq--
+	} else {
+		metaInfo.tailSeq++
+	}
+}
+
+func (lis *List) LPop(key []byte) []byte {
+	return lis.pop(key, true)
 }
 
 func (lis *List) RPop(key []byte) []byte {
+	return lis.pop(key, false)
+}
+
+func (lis *List) pop(key []byte, isLeft bool) []byte {
 	lisKey := string(key)
 	if lis.records[lisKey] == nil {
 		return nil
 	}
 
-	metaKey := lis.encodeMetaKey(key)
 	metaInfo := lis.getMeta(key)
 	size := metaInfo.tailSeq - metaInfo.headSeq - 1
 	if size <= 0 {
 		// reset meta
-		lis.records[lisKey].Insert(metaKey, &meta{
-			headSeq: initialSeq,
-			tailSeq: initialSeq + 1,
-		})
+		lis.metas[lisKey] = &meta{headSeq: initialSeq, tailSeq: initialSeq + 1}
 		return nil
 	}
 
-	encKey := EncodeKey(key, metaInfo.tailSeq-1)
+	seq := metaInfo.headSeq + 1
+	if !isLeft {
+		seq = metaInfo.tailSeq - 1
+	}
+	encKey := EncodeKey(key, seq)
 	value, _ := lis.records[lisKey].Delete(encKey)
-	val, _ := value.([]byte)
+	var val []byte
+	if value != nil {
+		val, _ = value.([]byte)
+	}
 
 	// update meta
-	metaInfo.tailSeq--
-	lis.records[lisKey].Insert(metaKey, metaInfo)
+	if isLeft {
+		metaInfo.headSeq++
+	} else {
+		metaInfo.tailSeq--
+	}
 	return val
 }
 
@@ -158,24 +142,11 @@ func (lis *List) validIndex(key string, index int, size uint32) (int, bool) {
 }
 
 func (lis *List) getMeta(key []byte) *meta {
-	metaKey := lis.encodeMetaKey(key)
-	metaRaw, found := lis.records[string(key)].Search(metaKey)
-	if !found {
-		logger.Fatalf("fail to find meta info")
-	}
-
-	metaInfo, ok := metaRaw.(*meta)
+	metaInfo, ok := lis.metas[string(key)]
 	if !ok {
 		logger.Fatalf("fail to find meta info")
 	}
 	return metaInfo
-}
-
-func (lis *List) encodeMetaKey(key []byte) []byte {
-	buf := make([]byte, len(key)+len(listMetaKey))
-	copy(buf[:len(key)], key)
-	copy(buf[len(key):], listMetaKey)
-	return buf
 }
 
 func EncodeKey(key []byte, seq uint32) []byte {

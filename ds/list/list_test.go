@@ -13,7 +13,13 @@ func TestNewList(t *testing.T) {
 	//lis.LPush(key, []byte("b"))
 	//lis.LPush(key, []byte("c"))
 	//lis.LPush(key, []byte("d"))
-	//
-	v1 := lis.LIndex(key, -1)
+
+	v1 := lis.LIndex(key, 0)
 	t.Log(string(v1))
+
+	v2 := lis.RPop(key)
+	t.Log(string(v2))
+
+	v3 := lis.RPop(key)
+	t.Log(string(v3))
 }
