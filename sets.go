@@ -36,3 +36,18 @@ func (db *RoseDB) SRem(key []byte, members ...[]byte) error {
 	}
 	return nil
 }
+
+// SPop removes and returns one or more random members from the set value store at key.
+func (db *RoseDB) SPop(key []byte, count int) ([][]byte, error) {
+	db.setIndex.mu.Lock()
+	defer db.setIndex.mu.Unlock()
+
+	values := db.setIndex.indexes.SPop(string(key), count)
+	for _, val := range values {
+		entry := &logfile.LogEntry{Key: key, Value: val, Type: logfile.TypeDelete}
+		if _, err := db.writeLogEntry(entry, Set); err != nil {
+			return nil, err
+		}
+	}
+	return values, nil
+}
