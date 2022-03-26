@@ -323,30 +323,30 @@ func (db *RoseDB) initLogFile(dataType DataType) error {
 	return nil
 }
 
-func (db *RoseDB) encodeKey(key, field []byte) []byte {
+func (db *RoseDB) encodeKey(key, subKey []byte) []byte {
 	header := make([]byte, hashHeaderSize)
 	var index int
 	index += binary.PutVarint(header[index:], int64(len(key)))
-	index += binary.PutVarint(header[index:], int64(len(field)))
-	length := len(key) + len(field)
+	index += binary.PutVarint(header[index:], int64(len(subKey)))
+	length := len(key) + len(subKey)
 	if length > 0 {
 		buf := make([]byte, length+index)
 		copy(buf[:index], header[:index])
 		copy(buf[index:index+len(key)], key)
-		copy(buf[index+len(key):], field)
+		copy(buf[index+len(key):], subKey)
 		return buf
 	}
 	return header[:index]
 }
 
-func (db *RoseDB) decodeKey(hashKey []byte) ([]byte, []byte) {
+func (db *RoseDB) decodeKey(key []byte) ([]byte, []byte) {
 	var index int
-	keySize, i := binary.Varint(hashKey[index:])
+	keySize, i := binary.Varint(key[index:])
 	index += i
-	_, i = binary.Varint(hashKey[index:])
+	_, i = binary.Varint(key[index:])
 	index += i
 	sep := index + int(keySize)
-	return hashKey[index:sep], hashKey[sep:]
+	return key[index:sep], key[sep:]
 }
 
 func (db *RoseDB) handleLogFileGC() {

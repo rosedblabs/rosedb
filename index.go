@@ -7,6 +7,7 @@ import (
 	"github.com/flower-corp/rosedb/util"
 	"io"
 	"sort"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -66,6 +67,14 @@ func (db *RoseDB) buildListIndex(ent *logfile.LogEntry) {
 		db.listIndex.indexes.LPop(key)
 	case list.RPop:
 		db.listIndex.indexes.RPop(key)
+	case list.LSet:
+		rawKey, i := db.decodeKey(key)
+		index, err := strconv.Atoi(string(i))
+		if err != nil {
+			logger.Errorf("decode lset key err at startup: %v", err)
+		} else {
+			db.listIndex.indexes.LSet(rawKey, index, ent.Value)
+		}
 	}
 }
 

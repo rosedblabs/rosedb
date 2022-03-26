@@ -18,6 +18,7 @@ const (
 	RPush
 	LPop
 	RPop
+	LSet
 )
 
 type List struct {
@@ -46,10 +47,10 @@ func (lis *List) RPush(key, value []byte) {
 }
 
 func (lis *List) push(key, value []byte, isLeft bool) {
-	lisKey := string(key)
-	if lis.records[lisKey] == nil {
-		lis.records[lisKey] = goart.New()
-		lis.metas[lisKey] = &meta{headSeq: initialSeq, tailSeq: initialSeq + 1}
+	listKey := string(key)
+	if lis.records[listKey] == nil {
+		lis.records[listKey] = goart.New()
+		lis.metas[listKey] = &meta{headSeq: initialSeq, tailSeq: initialSeq + 1}
 	}
 
 	metaInfo := lis.getMeta(key)
@@ -58,7 +59,7 @@ func (lis *List) push(key, value []byte, isLeft bool) {
 		seq = metaInfo.tailSeq
 	}
 	encKey := EncodeKey(key, seq)
-	lis.records[lisKey].Insert(encKey, value)
+	lis.records[listKey].Insert(encKey, value)
 
 	// update meta
 	if isLeft {
@@ -77,8 +78,8 @@ func (lis *List) RPop(key []byte) []byte {
 }
 
 func (lis *List) pop(key []byte, isLeft bool) []byte {
-	lisKey := string(key)
-	if lis.records[lisKey] == nil {
+	listKey := string(key)
+	if lis.records[listKey] == nil {
 		return nil
 	}
 
@@ -86,7 +87,7 @@ func (lis *List) pop(key []byte, isLeft bool) []byte {
 	size := metaInfo.tailSeq - metaInfo.headSeq - 1
 	if size <= 0 {
 		// reset meta
-		lis.metas[lisKey] = &meta{headSeq: initialSeq, tailSeq: initialSeq + 1}
+		lis.metas[listKey] = &meta{headSeq: initialSeq, tailSeq: initialSeq + 1}
 		return nil
 	}
 
@@ -95,7 +96,7 @@ func (lis *List) pop(key []byte, isLeft bool) []byte {
 		seq = metaInfo.tailSeq - 1
 	}
 	encKey := EncodeKey(key, seq)
-	value, _ := lis.records[lisKey].Delete(encKey)
+	value, _ := lis.records[listKey].Delete(encKey)
 	var val []byte
 	if value != nil {
 		val, _ = value.([]byte)
@@ -112,6 +113,10 @@ func (lis *List) pop(key []byte, isLeft bool) []byte {
 
 func (lis *List) LIndex(key []byte, index int) []byte {
 	listKey := string(key)
+	if _, ok := lis.records[listKey]; !ok {
+		return nil
+	}
+
 	metaInfo := lis.getMeta(key)
 	size := metaInfo.tailSeq - metaInfo.headSeq - 1
 	newIndex, ok := lis.validIndex(listKey, index, size)
@@ -126,6 +131,24 @@ func (lis *List) LIndex(key []byte, index int) []byte {
 		return val
 	}
 	return nil
+}
+
+func (lis *List) LSet(key []byte, index int, value []byte) bool {
+	listKey := string(key)
+	if _, ok := lis.records[listKey]; !ok {
+		return false
+	}
+
+	metaInfo := lis.getMeta(key)
+	size := metaInfo.tailSeq - metaInfo.headSeq - 1
+	newIndex, ok := lis.validIndex(listKey, index, size)
+	if !ok {
+		return false
+	}
+
+	encKey := EncodeKey(key, metaInfo.headSeq+uint32(newIndex)+1)
+	lis.records[listKey].Insert(encKey, value)
+	return true
 }
 
 // check if the index is valid and returns the new index.

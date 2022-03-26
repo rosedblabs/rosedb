@@ -3,6 +3,7 @@ package rosedb
 import (
 	"github.com/flower-corp/rosedb/ds/list"
 	"github.com/flower-corp/rosedb/logfile"
+	"strconv"
 )
 
 // LPush insert all the specified values at the head of the list stored at key.
@@ -73,4 +74,31 @@ func (db *RoseDB) RPop(key []byte) ([]byte, error) {
 		return nil, err
 	}
 	return val, nil
+}
+
+// LIndex returns the element at index index in the list stored at key.
+// The index is zero-based, so 0 means the first element, 1 the second element and so on.
+// Negative indices can be used to designate elements starting at the tail of the list.
+// For example: -1 means the last element, -2 means the penultimate and so forth.
+func (db *RoseDB) LIndex(key []byte, index int) []byte {
+	db.listIndex.mu.RLock()
+	defer db.listIndex.mu.RUnlock()
+	return db.listIndex.indexes.LIndex(key, index)
+}
+
+// LSet sets the list element at index to element.
+// returns whether is successful.
+func (db *RoseDB) LSet(key []byte, index int, value []byte) (bool, error) {
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	i := strconv.Itoa(index)
+	encKey := db.encodeKey(key, []byte(i))
+	commandKey := list.EncodeCommandKey(encKey, list.LSet)
+	entry := &logfile.LogEntry{Key: commandKey, Value: value}
+	if _, err := db.writeLogEntry(entry, List); err != nil {
+		return false, err
+	}
+	ok := db.listIndex.indexes.LSet(key, index, value)
+	return ok, nil
 }

@@ -23,6 +23,9 @@ func TestOpen(t *testing.T) {
 		err := db.LPush(key, GetValue128B())
 		assert.Nil(t, err)
 	}
+
+	v := db.LIndex(key, 0)
+	t.Log(string(v))
 }
 
 const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
