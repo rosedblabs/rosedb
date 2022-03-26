@@ -8,12 +8,31 @@ import (
 )
 
 func TestDiscard_listenUpdates(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	defer os.RemoveAll(path)
+	assert.Nil(t, err)
 
+	writeCount := 600000
+	for i := 0; i < writeCount; i++ {
+		err := db.Set(GetKey(i), GetValue128B())
+		assert.Nil(t, err)
+	}
+	// delete
+	for i := 0; i < 300000; i++ {
+		err := db.Delete(GetKey(i))
+		assert.Nil(t, err)
+	}
+
+	ccl, err := db.discard.getCCL(10, 0.001)
+	assert.Nil(t, err)
+	assert.Equal(t, len(ccl), 1)
 }
 
 func TestDiscard_newDiscard(t *testing.T) {
 	t.Run("init", func(t *testing.T) {
-		path := filepath.Join("/tmp", "lotusdb-discard")
+		path := filepath.Join("/tmp", "rosedb-discard")
 		os.MkdirAll(path, os.ModePerm)
 		defer os.RemoveAll(path)
 		dis, err := newDiscard(path, discardFileName)
@@ -24,7 +43,7 @@ func TestDiscard_newDiscard(t *testing.T) {
 	})
 
 	t.Run("with-data", func(t *testing.T) {
-		path := filepath.Join("/tmp", "lotusdb-discard")
+		path := filepath.Join("/tmp", "rosedb-discard")
 		os.MkdirAll(path, os.ModePerm)
 		defer os.RemoveAll(path)
 		dis, err := newDiscard(path, discardFileName)
@@ -35,22 +54,22 @@ func TestDiscard_newDiscard(t *testing.T) {
 			dis.incrDiscard(uint32(i), i*10)
 		}
 
-		assert.Equal(t, len(dis.freeList), 337)
+		assert.Equal(t, len(dis.freeList), 678)
 		assert.Equal(t, len(dis.location), 4)
 
 		// reopen
-		dis2, err := newDiscard(path, "")
+		dis2, err := newDiscard(path, discardFileName)
 		assert.Nil(t, err)
-		assert.Equal(t, len(dis2.freeList), 337)
+		assert.Equal(t, len(dis2.freeList), 678)
 		assert.Equal(t, len(dis2.location), 4)
 	})
 }
 
 func TestDiscard_setTotal(t *testing.T) {
-	path := filepath.Join("/tmp", "lotusdb-discard")
+	path := filepath.Join("/tmp", "rosedb-discard")
 	os.MkdirAll(path, os.ModePerm)
 	defer os.RemoveAll(path)
-	dis, err := newDiscard(path, "")
+	dis, err := newDiscard(path, discardFileName)
 	assert.Nil(t, err)
 
 	type args struct {
@@ -83,13 +102,13 @@ func TestDiscard_setTotal(t *testing.T) {
 }
 
 func TestDiscard_clear(t *testing.T) {
-	path := filepath.Join("/tmp", "lotusdb-discard")
+	path := filepath.Join("/tmp", "rosedb-discard")
 	os.MkdirAll(path, os.ModePerm)
 	defer os.RemoveAll(path)
-	dis, err := newDiscard(path, "")
+	dis, err := newDiscard(path, discardFileName)
 	assert.Nil(t, err)
 
-	for i := 0; i < 341; i++ {
+	for i := 0; i < 682; i++ {
 		dis.setTotal(uint32(i), uint32(i+100))
 		dis.incrDiscard(uint32(i), i+10)
 	}
@@ -114,6 +133,9 @@ func TestDiscard_clear(t *testing.T) {
 		{
 			"340", dis, args{340},
 		},
+		{
+			"680", dis, args{680},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -123,16 +145,16 @@ func TestDiscard_clear(t *testing.T) {
 }
 
 func TestDiscard_incrDiscard(t *testing.T) {
-	path := filepath.Join("/tmp", "lotusdb-discard")
+	path := filepath.Join("/tmp", "rosedb-discard")
 	os.MkdirAll(path, os.ModePerm)
 	defer os.RemoveAll(path)
 	dis, err := newDiscard(path, "")
 	assert.Nil(t, err)
 
-	for i := 1; i < 300; i = i * 5 {
+	for i := 1; i < 600; i = i * 5 {
 		dis.setTotal(uint32(i-1), uint32(i+1000))
 	}
-	for i := 1; i < 300; i = i * 5 {
+	for i := 1; i < 600; i = i * 5 {
 		dis.incrDiscard(uint32(i-1), i+100)
 	}
 
@@ -142,10 +164,10 @@ func TestDiscard_incrDiscard(t *testing.T) {
 }
 
 func TestDiscard_getCCL(t *testing.T) {
-	path := filepath.Join("/tmp", "lotusdb-discard")
+	path := filepath.Join("/tmp", "rosedb-discard")
 	os.MkdirAll(path, os.ModePerm)
 	defer os.RemoveAll(path)
-	dis, err := newDiscard(path, "")
+	dis, err := newDiscard(path, discardFileName)
 	assert.Nil(t, err)
 
 	for i := 1; i < 2000; i = i * 5 {

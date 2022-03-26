@@ -11,6 +11,7 @@ import (
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -33,8 +34,9 @@ var (
 
 const (
 	// size of each log file: 512MB
-	logFileSize    = 512 << 20
-	logFileTypeNum = 5
+	logFileSize      = 512 << 20
+	logFileTypeNum   = 5
+	encodeHeaderSize = 10
 )
 
 type (
@@ -324,7 +326,7 @@ func (db *RoseDB) initLogFile(dataType DataType) error {
 }
 
 func (db *RoseDB) encodeKey(key, subKey []byte) []byte {
-	header := make([]byte, hashHeaderSize)
+	header := make([]byte, encodeHeaderSize)
 	var index int
 	index += binary.PutVarint(header[index:], int64(len(key)))
 	index += binary.PutVarint(header[index:], int64(len(subKey)))
@@ -371,5 +373,76 @@ func (db *RoseDB) handleLogFileGC() {
 }
 
 func (db *RoseDB) doRunGC() error {
+	maybeRewrite := func(fid uint32, offset int64, entry *logfile.LogEntry) error {
+		db.strIndex.mu.Lock()
+		defer db.strIndex.mu.Unlock()
+		value := db.strIndex.idxTree.Get(entry.Key)
+		if value == nil {
+			return nil
+		}
+
+		indexNode, _ := value.(*strIndexNode)
+		if indexNode == nil {
+			return nil
+		}
+		// rewrite valid entry.
+		if indexNode.fid == fid && indexNode.offset == offset {
+			pos, err := db.writeLogEntry(entry, String)
+			if err != nil {
+				return err
+			}
+			if err = db.updateStrIndex(entry, pos, false); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	iterate := func(file *logfile.LogFile) error {
+		var offset int64
+		ts := time.Now().Unix()
+		for {
+			entry, size, err := file.ReadLogEntry(offset)
+			if err != nil {
+				if err == io.EOF || err == logfile.ErrEndOfEntry {
+					break
+				}
+				return err
+			}
+			eoff := offset
+			offset += size
+			if entry.Type == logfile.TypeDelete || (entry.ExpiredAt != 0 && entry.ExpiredAt <= ts) {
+				continue
+			}
+			if err := maybeRewrite(file.Fid, eoff, entry); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	activeLogFile := db.getActiveLogFile(String)
+	activeFid := activeLogFile.Fid
+	ccl, err := db.discard.getCCL(activeFid, db.opts.LogFileGCRatio)
+	if err != nil {
+		return err
+	}
+
+	for _, fid := range ccl {
+		logFile := db.getArchivedLogFile(String, fid)
+		if logFile == nil {
+			return ErrLogFileNotFound
+		}
+		if err := iterate(logFile); err != nil {
+			return err
+		}
+		db.mu.Lock()
+		delete(db.archivedLogFiles[String], logFile.Fid)
+		db.mu.Unlock()
+		if err := logFile.Delete(); err != nil {
+			return err
+		}
+		db.discard.clear(logFile.Fid)
+	}
 	return nil
 }

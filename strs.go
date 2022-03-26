@@ -19,7 +19,7 @@ func (db *RoseDB) Set(key, value []byte) error {
 		return err
 	}
 	// set String index info, stored at adaptive radix tree.
-	err = db.updateStrIndex(entry, valuePos)
+	err = db.updateStrIndex(entry, valuePos, true)
 	return err
 }
 
@@ -56,11 +56,11 @@ func (db *RoseDB) SetEx(key, value []byte, duration time.Duration) error {
 		return err
 	}
 
-	err = db.updateStrIndex(entry, valuePos)
+	err = db.updateStrIndex(entry, valuePos, true)
 	return err
 }
 
-func (db *RoseDB) updateStrIndex(ent *logfile.LogEntry, pos *valuePos) error {
+func (db *RoseDB) updateStrIndex(ent *logfile.LogEntry, pos *valuePos, sendDiscard bool) error {
 	_, size := logfile.EncodeEntry(ent)
 	idxNode := &strIndexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
 	// in KeyValueMemMode, both key and value will store in memory.
@@ -68,7 +68,9 @@ func (db *RoseDB) updateStrIndex(ent *logfile.LogEntry, pos *valuePos) error {
 		idxNode.value = ent.Value
 	}
 	oldVal, updated := db.strIndex.idxTree.Put(ent.Key, idxNode)
-	db.sendDiscard(oldVal, updated)
+	if sendDiscard {
+		db.sendDiscard(oldVal, updated)
+	}
 	return nil
 }
 

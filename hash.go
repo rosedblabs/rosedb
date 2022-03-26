@@ -5,8 +5,6 @@ import (
 	"github.com/flower-corp/rosedb/logfile"
 )
 
-const hashHeaderSize = 10
-
 // HSet sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
 // If field already exists in the hash, it is overwritten.
 // Return num of elements in hash of the specified key.

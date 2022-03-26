@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	discardRecordSize       = 12
-	discardFileName         = "DISCARD"
-	discardFileSize   int64 = 2 << 12
+	discardRecordSize = 12
+	// 8kb, contains mostly 682 records in file.
+	discardFileSize int64 = 2 << 12
+	discardFileName       = "DISCARD"
 )
 
 // ErrDiscardNoSpace no enough space for discard file.
@@ -73,7 +74,7 @@ func newDiscard(path, name string) (*discard, error) {
 
 // CCL means compaction cnadidate list.
 // iterate and find the file with most discarded data,
-// there are 341 records at most, no need to worry about the performance.
+// there are 682 records at most, no need to worry about the performance.
 func (d *discard) getCCL(activeFid uint32, ratio float64) ([]uint32, error) {
 	var offset int64
 	var ccl []uint32
@@ -95,6 +96,7 @@ func (d *discard) getCCL(activeFid uint32, ratio float64) ([]uint32, error) {
 		discard := binary.LittleEndian.Uint32(buf[8:12])
 		var curRatio float64
 		if total != 0 && discard != 0 {
+			logger.Infof("fid = %d, total = %d, discard = %d", fid, total, discard)
 			curRatio = float64(discard) / float64(total)
 		}
 		if curRatio >= ratio && fid != activeFid {
