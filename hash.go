@@ -58,3 +58,24 @@ func (db *RoseDB) HDel(key []byte, fields ...[]byte) (int, error) {
 	}
 	return count, nil
 }
+
+// HLen returns the number of fields contained in the hash stored at key.
+func (db *RoseDB) HLen(key []byte) int {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+	return db.hashIndex.indexes.HLen(string(key))
+}
+
+// HKeys returns all field names in the hash stored at key.
+func (db *RoseDB) HKeys(key []byte) (val []string) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+	return db.hashIndex.indexes.HKeys(string(key))
+}
+
+// HVals returns all values in the hash stored at key.
+func (db *RoseDB) HVals(key []byte) (val [][]byte) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+	return db.hashIndex.indexes.HVals(string(key))
+}

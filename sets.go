@@ -51,3 +51,41 @@ func (db *RoseDB) SPop(key []byte, count int) ([][]byte, error) {
 	}
 	return values, nil
 }
+
+// SIsMember returns if member is a member of the set stored at key.
+func (db *RoseDB) SIsMember(key, member []byte) bool {
+	db.setIndex.mu.RLock()
+	defer db.setIndex.mu.RUnlock()
+	return db.setIndex.indexes.SIsMember(string(key), member)
+}
+
+// SMove move member from the set at source to the set at destination.
+func (db *RoseDB) SMove(src []byte, dst []byte, member []byte) error {
+	db.setIndex.mu.Lock()
+	defer db.setIndex.mu.Unlock()
+
+	srcEntry := &logfile.LogEntry{Key: src, Value: member, Type: logfile.TypeDelete}
+	if _, err := db.writeLogEntry(srcEntry, Set); err != nil {
+		return err
+	}
+	dstEntry := &logfile.LogEntry{Key: dst, Value: member}
+	if _, err := db.writeLogEntry(dstEntry, Set); err != nil {
+		return err
+	}
+	db.setIndex.indexes.SMove(string(src), string(dst), member)
+	return nil
+}
+
+// SCard returns the set cardinality (number of elements) of the set stored at key.
+func (db *RoseDB) SCard(key []byte) int {
+	db.setIndex.mu.RLock()
+	defer db.setIndex.mu.RUnlock()
+	return db.setIndex.indexes.SCard(string(key))
+}
+
+// SMembers returns all the members of the set value stored at key.
+func (db *RoseDB) SMembers(key []byte) (values [][]byte) {
+	db.setIndex.mu.RLock()
+	defer db.setIndex.mu.RUnlock()
+	return db.setIndex.indexes.SMembers(string(key))
+}
