@@ -229,8 +229,7 @@ func (z *SortedSet) ZRem(key, member string) bool {
 	return false
 }
 
-// ZGetByRank 根据排名获取member及分值信息，从小到大排列遍历，即分值最低排名为0，依次类推
-// Get the member at key by rank, the rank is ordered from lowest to highest.
+// ZGetByRank get the member at key by rank, the rank is ordered from lowest to highest.
 // The rank of lowest is 0 and so on.
 func (z *SortedSet) ZGetByRank(key string, rank int) (val []interface{}) {
 	if !z.exist(key) {

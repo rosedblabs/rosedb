@@ -2,6 +2,7 @@ package list
 
 import (
 	"encoding/binary"
+	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 	goart "github.com/plar/go-adaptive-radix-tree"
 	"math"
@@ -183,6 +184,13 @@ func EncodeKey(key []byte, seq uint32) []byte {
 	return buf
 }
 
+func DecodeKey(buf []byte) ([]byte, uint32) {
+	var index int
+	seq, i := binary.Varint(buf[index:])
+	index += i
+	return buf[index:], uint32(seq)
+}
+
 func EncodeCommandKey(key []byte, cmd Command) []byte {
 	buf := make([]byte, len(key)+1)
 	buf[0] = byte(cmd)
@@ -192,4 +200,21 @@ func EncodeCommandKey(key []byte, cmd Command) []byte {
 
 func DecodeCommandKey(buf []byte) ([]byte, Command) {
 	return buf[1:], Command(buf[0])
+}
+
+func (lis *List) IterateAndSend(chn chan *logfile.LogEntry) {
+	for _, tree := range lis.records {
+		iter := tree.Iterator()
+		for iter.HasNext() {
+			node, _ := iter.Next()
+			if node == nil {
+				continue
+			}
+			key, _ := DecodeKey(node.Key())
+			value, _ := node.Value().([]byte)
+			encKey := EncodeCommandKey(key, RPush)
+			chn <- &logfile.LogEntry{Key: encKey, Value: value}
+		}
+	}
+	close(chn)
 }

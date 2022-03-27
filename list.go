@@ -102,3 +102,10 @@ func (db *RoseDB) LSet(key []byte, index int, value []byte) (bool, error) {
 	ok := db.listIndex.indexes.LSet(key, index, value)
 	return ok, nil
 }
+
+func (db *RoseDB) iterateListAndSend(chn chan *logfile.LogEntry) {
+	db.listIndex.mu.RLock()
+	defer db.listIndex.mu.RUnlock()
+	db.listIndex.indexes.IterateAndSend(chn)
+	close(chn)
+}

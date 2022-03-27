@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,6 +37,7 @@ const (
 	// size of each log file: 512MB
 	logFileSize      = 512 << 20
 	logFileTypeNum   = 5
+	dumpFilePath     = "dump"
 	encodeHeaderSize = 10
 )
 
@@ -156,6 +158,9 @@ func Open(opts Options) (*RoseDB, error) {
 
 	// handle log files garbage collection.
 	go db.handleLogFileGC()
+
+	// handle in memory data dumping(List, Hash, Set, and ZSet)
+	go db.handleDumping()
 	return db, nil
 }
 
@@ -372,6 +377,27 @@ func (db *RoseDB) handleLogFileGC() {
 	}
 }
 
+func (db *RoseDB) handleDumping() {
+	if db.opts.InMemoryDataDumpInterval <= 0 {
+		return
+	}
+
+	quitSig := make(chan os.Signal, 1)
+	signal.Notify(quitSig, os.Interrupt, os.Kill, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	ticker := time.NewTicker(db.opts.LogFileGCInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if err := db.doRunDump(); err != nil {
+				logger.Errorf("value log compaction err: %+v", err)
+			}
+		case <-quitSig:
+			return
+		}
+	}
+}
+
 func (db *RoseDB) doRunGC() error {
 	maybeRewrite := func(fid uint32, offset int64, entry *logfile.LogEntry) error {
 		db.strIndex.mu.Lock()
@@ -443,6 +469,68 @@ func (db *RoseDB) doRunGC() error {
 			return err
 		}
 		db.discard.clear(logFile.Fid)
+	}
+	return nil
+}
+
+func (db *RoseDB) doRunDump() (err error) {
+	wg := new(sync.WaitGroup)
+	wg.Add(logFileTypeNum - 1)
+
+	for dType := List; dType < logFileTypeNum; dType++ {
+		go func(dataType DataType) {
+			if err = db.dumpInternal(wg, dataType); err != nil {
+				return
+			}
+		}(dType)
+	}
+	wg.Wait()
+	return nil
+}
+
+func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType) error {
+	defer wg.Done()
+
+	entryChn := make(chan *logfile.LogEntry, 1024)
+	switch dataType {
+	case List:
+		go db.iterateListAndSend(entryChn)
+	case Hash:
+		// todo
+	case Set:
+		// todo
+	case ZSet:
+		// todo
+	}
+
+	var logFile *logfile.LogFile
+	dumpPath := filepath.Join(db.opts.DBPath, dumpFilePath)
+	rotateFile := func(size int) error {
+		if logFile == nil || logFile.WriteAt+int64(size) > logFileSize {
+			if logFile != nil {
+				if err := logFile.Sync(); err != nil {
+					return err
+				}
+				_ = logFile.Close()
+			}
+			ftype, iotype := logfile.FileType(dataType), logfile.IOType(db.opts.IoType)
+			lf, err := logfile.OpenLogFile(dumpPath, logfile.InitialLogFileId, logFileSize, ftype, iotype)
+			if err != nil {
+				return err
+			}
+			logFile = lf
+		}
+		return nil
+	}
+
+	for entry := range entryChn {
+		buf, size := logfile.EncodeEntry(entry)
+		if err := rotateFile(size); err != nil {
+			return err
+		}
+		if err := logFile.Write(buf); err != nil {
+			return err
+		}
 	}
 	return nil
 }
