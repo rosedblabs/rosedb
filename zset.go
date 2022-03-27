@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"github.com/flower-corp/rosedb/ds/zset"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/util"
 )
@@ -64,4 +65,11 @@ func (db *RoseDB) ZIncrBy(key []byte, increment float64, member []byte) (float64
 	}
 	incrBy := db.zsetIndex.indexes.ZIncrBy(string(key), increment, string(member))
 	return incrBy, nil
+}
+
+func (db *RoseDB) iterateZsetAndSend(chn chan *logfile.LogEntry, enc zset.EncodeKey) {
+	db.zsetIndex.mu.Lock()
+	defer db.zsetIndex.mu.Unlock()
+	db.zsetIndex.indexes.IterateAndSend(chn, enc)
+	close(chn)
 }

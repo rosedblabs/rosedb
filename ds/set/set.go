@@ -1,10 +1,10 @@
 package set
 
+import "github.com/flower-corp/rosedb/logfile"
+
 // Set is the implementation of set data structure.
 
 var existFlag = struct{}{}
-
-//type dumpFunc func(e *storage.Entry) error
 
 type (
 	// Set set index.
@@ -20,22 +20,6 @@ type (
 func New() *Set {
 	return &Set{make(Record)}
 }
-
-//// DumpIterate iterate all keys and values for dump.
-//func (s *Set) DumpIterate(fn dumpFunc) (err error) {
-//	for key, rec := range s.record {
-//		setKey := []byte(key)
-//
-//		// Set SetSAdd
-//		for member := range rec {
-//			ent := storage.NewEntryNoExtra(setKey, []byte(member), 3, 0)
-//			if err = fn(ent); err != nil {
-//				return
-//			}
-//		}
-//	}
-//	return
-//}
 
 // SAdd Add the specified members to the set stored at key.
 // Specified members that are already a member of this set are ignored.
@@ -222,4 +206,14 @@ func (s *Set) fieldExist(key, filed string) bool {
 	}
 	_, ok := fields[filed]
 	return ok
+}
+
+func (s *Set) IterateAndSend(chn chan *logfile.LogEntry) {
+	for key, rec := range s.record {
+		setKey := []byte(key)
+		for member := range rec {
+			chn <- &logfile.LogEntry{Key: setKey, Value: []byte(member)}
+		}
+	}
+	return
 }

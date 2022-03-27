@@ -1,6 +1,8 @@
 package zset
 
 import (
+	"github.com/flower-corp/rosedb/logfile"
+	"github.com/flower-corp/rosedb/util"
 	"math"
 	"math/rand"
 )
@@ -12,7 +14,7 @@ const (
 	probability = 0.25
 )
 
-//type dumpFunc func(e *storage.Entry) error
+type EncodeKey func(key, subKey []byte) []byte
 
 type (
 	// SortedSet sorted set struct
@@ -53,22 +55,18 @@ func New() *SortedSet {
 	}
 }
 
-// DumpIterate iterate all keys and values for dump.
-//func (z *SortedSet) DumpIterate(fn dumpFunc) (err error) {
-//	for key, ss := range z.record {
-//		zsetKey := []byte(key)
-//
-//		for e := ss.skl.head; e != nil; e = e.level[0].forward {
-//			extra := []byte(utils.Float64ToStr(e.score))
-//			// ZSet, ZSetZAdd
-//			ent := storage.NewEntry(zsetKey, []byte(e.member), extra, 4, 0)
-//			if err = fn(ent); err != nil {
-//				return
-//			}
-//		}
-//	}
-//	return
-//}
+func (z *SortedSet) IterateAndSend(chn chan *logfile.LogEntry, encode EncodeKey) {
+	for key, ss := range z.record {
+		zsetKey := []byte(key)
+
+		for e := ss.skl.head; e != nil; e = e.level[0].forward {
+			scoreBuf := []byte(util.Float64ToStr(e.score))
+			encKey := encode(zsetKey, scoreBuf)
+			chn <- &logfile.LogEntry{Key: encKey, Value: []byte(e.member)}
+		}
+	}
+	return
+}
 
 // ZAdd Adds the specified member with the specified score to the sorted set stored at key.
 func (z *SortedSet) ZAdd(key string, score float64, member string) {

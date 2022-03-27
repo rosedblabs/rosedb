@@ -1,8 +1,10 @@
 package hash
 
+import "github.com/flower-corp/rosedb/logfile"
+
 // the implementation of hash table.
 
-//type dumpFunc func(e *storage.Entry) error
+type EncodeKey func(key, subKey []byte) []byte
 
 type (
 	// Hash hash table struct.
@@ -18,22 +20,6 @@ type (
 func New() *Hash {
 	return &Hash{make(Record)}
 }
-
-// DumpIterate iterate all keys and values for dump.
-//func (h *Hash) DumpIterate(fn dumpFunc) (err error) {
-//	for key, h := range h.record {
-//		hashKey := []byte(key)
-//
-//		for field, value := range h {
-//			// Hash HashHSet
-//			ent := storage.NewEntry(hashKey, value, []byte(field), 2, 0)
-//			if err = fn(ent); err != nil {
-//				return
-//			}
-//		}
-//	}
-//	return
-//}
 
 // HSet Sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
 // If field already exists in the hash, it is overwritten.
@@ -164,4 +150,15 @@ func (h *Hash) HClear(key string) {
 func (h *Hash) exist(key string) bool {
 	_, exist := h.record[key]
 	return exist
+}
+
+func (h *Hash) IterateAndSend(chn chan *logfile.LogEntry, encode EncodeKey) {
+	for key, h := range h.record {
+		hashKey := []byte(key)
+		for field, value := range h {
+			encKey := encode(hashKey, []byte(field))
+			chn <- &logfile.LogEntry{Key: encKey, Value: value}
+		}
+	}
+	return
 }

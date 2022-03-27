@@ -11,7 +11,6 @@ import (
 
 func TestOpen(t *testing.T) {
 	opts := DefaultOptions("/tmp/rosedb")
-	opts.IoType = MMap
 	db, err := Open(opts)
 	if err != nil {
 		t.Error("open db err ", err)
@@ -23,9 +22,6 @@ func TestOpen(t *testing.T) {
 		err := db.LPush(key, GetValue128B())
 		assert.Nil(t, err)
 	}
-
-	v := db.LIndex(key, 0)
-	t.Log(string(v))
 }
 
 const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"

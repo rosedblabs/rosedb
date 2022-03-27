@@ -1,6 +1,8 @@
 package rosedb
 
-import "github.com/flower-corp/rosedb/logfile"
+import (
+	"github.com/flower-corp/rosedb/logfile"
+)
 
 // SAdd add the specified members to the set stored at key.
 // Specified members that are already a member of this set are ignored.
@@ -88,4 +90,11 @@ func (db *RoseDB) SMembers(key []byte) (values [][]byte) {
 	db.setIndex.mu.RLock()
 	defer db.setIndex.mu.RUnlock()
 	return db.setIndex.indexes.SMembers(string(key))
+}
+
+func (db *RoseDB) iterateSetsAndSend(chn chan *logfile.LogEntry) {
+	db.setIndex.mu.RLock()
+	defer db.setIndex.mu.RUnlock()
+	db.setIndex.indexes.IterateAndSend(chn)
+	close(chn)
 }

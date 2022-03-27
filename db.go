@@ -491,16 +491,16 @@ func (db *RoseDB) doRunDump() (err error) {
 func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType) error {
 	defer wg.Done()
 
-	entryChn := make(chan *logfile.LogEntry, 1024)
+	entriesChn := make(chan *logfile.LogEntry, 1024)
 	switch dataType {
 	case List:
-		go db.iterateListAndSend(entryChn)
+		go db.iterateListAndSend(entriesChn)
 	case Hash:
-		// todo
+		go db.iterateHashAndSend(entriesChn, db.encodeKey)
 	case Set:
-		// todo
+		go db.iterateSetsAndSend(entriesChn)
 	case ZSet:
-		// todo
+		go db.iterateZsetAndSend(entriesChn, db.encodeKey)
 	}
 
 	var logFile *logfile.LogFile
@@ -523,7 +523,7 @@ func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType) error {
 		return nil
 	}
 
-	for entry := range entryChn {
+	for entry := range entriesChn {
 		buf, size := logfile.EncodeEntry(entry)
 		if err := rotateFile(size); err != nil {
 			return err

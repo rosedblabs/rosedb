@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"bytes"
+	"github.com/flower-corp/rosedb/ds/hash"
 	"github.com/flower-corp/rosedb/logfile"
 )
 
@@ -76,4 +77,11 @@ func (db *RoseDB) HVals(key []byte) (val [][]byte) {
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
 	return db.hashIndex.indexes.HVals(string(key))
+}
+
+func (db *RoseDB) iterateHashAndSend(chn chan *logfile.LogEntry, enc hash.EncodeKey) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+	db.hashIndex.indexes.IterateAndSend(chn, enc)
+	close(chn)
 }
