@@ -96,7 +96,6 @@ func (d *discard) getCCL(activeFid uint32, ratio float64) ([]uint32, error) {
 		discard := binary.LittleEndian.Uint32(buf[8:12])
 		var curRatio float64
 		if total != 0 && discard != 0 {
-			logger.Infof("fid = %d, total = %d, discard = %d", fid, total, discard)
 			curRatio = float64(discard) / float64(total)
 		}
 		if curRatio >= ratio && fid != activeFid {

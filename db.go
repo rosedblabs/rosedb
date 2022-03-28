@@ -392,7 +392,7 @@ func (db *RoseDB) handleDumping() {
 
 	quitSig := make(chan os.Signal, 1)
 	signal.Notify(quitSig, os.Interrupt, os.Kill, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	ticker := time.NewTicker(db.opts.LogFileGCInterval)
+	ticker := time.NewTicker(db.opts.InMemoryDataDumpInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -493,6 +493,9 @@ func (db *RoseDB) doRunDump() (err error) {
 			}
 
 			activeFile := db.activeLogFiles[dType]
+			if activeFile == nil {
+				continue
+			}
 			ftype, iotype := logfile.FileType(dType), logfile.IOType(db.opts.IoType)
 			lf, err := logfile.OpenLogFile(db.opts.DBPath, activeFile.Fid+1, logFileSize, ftype, iotype)
 			if err != nil {
@@ -506,7 +509,7 @@ func (db *RoseDB) doRunDump() (err error) {
 	}
 
 	deletedFiles, err := findDeletedAndRotateFiles()
-	if err != nil {
+	if err != nil || len(deletedFiles) == 0 {
 		return err
 	}
 	wg := new(sync.WaitGroup)

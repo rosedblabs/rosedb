@@ -24,6 +24,30 @@ func TestOpen(t *testing.T) {
 	}
 }
 
+func TestLogFileGC(t *testing.T) {
+	opts := DefaultOptions("/tmp/rosedb")
+	opts.LogFileGCInterval = time.Second * 7
+	opts.LogFileGCRatio = 0.00001
+
+	db, err := Open(opts)
+	if err != nil {
+		t.Error("open db err ", err)
+	}
+
+	writeCount := 800000
+	for i := 0; i < writeCount; i++ {
+		err := db.Set(GetKey(i), GetValue128B())
+		assert.Nil(t, err)
+	}
+	rand.Seed(time.Now().Unix())
+	for i := 0; i < 100000; i++ {
+		k := rand.Intn(writeCount)
+		err := db.Delete(GetKey(k))
+		assert.Nil(t, err)
+	}
+	//time.Sleep(time.Minute * 10)
+}
+
 const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 
 func init() {

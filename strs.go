@@ -36,11 +36,20 @@ func (db *RoseDB) Delete(key []byte) error {
 	defer db.strIndex.mu.Unlock()
 
 	entry := &logfile.LogEntry{Key: key, Type: logfile.TypeDelete}
-	if _, err := db.writeLogEntry(entry, String); err != nil {
+	pos, err := db.writeLogEntry(entry, String)
+	if err != nil {
 		return err
 	}
 	val, updated := db.strIndex.idxTree.Delete(key)
 	db.sendDiscard(val, updated)
+	// The deleted entry itself is also invalid.
+	_, size := logfile.EncodeEntry(entry)
+	node := &strIndexNode{fid: pos.fid, entrySize: size}
+	select {
+	case db.discard.valChan <- node:
+	default:
+		logger.Warn("send to discard chan fail")
+	}
 	return nil
 }
 
