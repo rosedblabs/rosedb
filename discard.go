@@ -63,7 +63,7 @@ func newDiscard(path, name string) (*discard, error) {
 	}
 
 	d := &discard{
-		valChan:  make(chan *strIndexNode, 1024),
+		valChan:  make(chan *strIndexNode, 2048),
 		file:     file,
 		freeList: freeList,
 		location: location,

@@ -432,7 +432,7 @@ func (db *RoseDB) doRunGC() error {
 		return nil
 	}
 
-	iterate := func(file *logfile.LogFile) error {
+	iterateAndHandle := func(file *logfile.LogFile) error {
 		var offset int64
 		ts := time.Now().Unix()
 		for {
@@ -467,9 +467,10 @@ func (db *RoseDB) doRunGC() error {
 		if logFile == nil {
 			return ErrLogFileNotFound
 		}
-		if err := iterate(logFile); err != nil {
+		if err := iterateAndHandle(logFile); err != nil {
 			return err
 		}
+
 		db.mu.Lock()
 		delete(db.archivedLogFiles[String], logFile.Fid)
 		db.mu.Unlock()

@@ -39,13 +39,43 @@ func TestLogFileGC(t *testing.T) {
 		err := db.Set(GetKey(i), GetValue128B())
 		assert.Nil(t, err)
 	}
+
+	var deleted [][]byte
 	rand.Seed(time.Now().Unix())
 	for i := 0; i < 100000; i++ {
 		k := rand.Intn(writeCount)
-		err := db.Delete(GetKey(k))
+		key := GetKey(k)
+		err := db.Delete(key)
 		assert.Nil(t, err)
+		deleted = append(deleted, key)
+	}
+
+	for _, key := range deleted {
+		_, err := db.Get(key)
+		assert.Equal(t, err, ErrKeyNotFound)
 	}
 	//time.Sleep(time.Minute * 10)
+}
+
+func TestInMemoryDataDump(t *testing.T) {
+	opts := DefaultOptions("/tmp/rosedb")
+	//opts.InMemoryDataDumpInterval = time.Second * 7
+
+	db, err := Open(opts)
+	if err != nil {
+		t.Error("open db err ", err)
+	}
+
+	listKey := []byte("my_list")
+	writeCount := 800000
+	for i := 0; i < writeCount; i++ {
+		v := GetValue128B()
+		err := db.LPush(listKey, v)
+		assert.Nil(t, err)
+		if i == 0 || i == writeCount-1 {
+			t.Log(string(v))
+		}
+	}
 }
 
 const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
