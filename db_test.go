@@ -50,16 +50,16 @@ func TestLogFileGC(t *testing.T) {
 		deleted = append(deleted, key)
 	}
 
+	time.Sleep(time.Second * 12)
 	for _, key := range deleted {
 		_, err := db.Get(key)
 		assert.Equal(t, err, ErrKeyNotFound)
 	}
-	//time.Sleep(time.Minute * 10)
 }
 
 func TestInMemoryDataDump(t *testing.T) {
 	opts := DefaultOptions("/tmp/rosedb")
-	//opts.InMemoryDataDumpInterval = time.Second * 7
+	opts.InMemoryDataDumpInterval = time.Second * 7
 
 	db, err := Open(opts)
 	if err != nil {
@@ -76,6 +76,7 @@ func TestInMemoryDataDump(t *testing.T) {
 			t.Log(string(v))
 		}
 	}
+	time.Sleep(time.Second * 10)
 }
 
 const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"

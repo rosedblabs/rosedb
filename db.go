@@ -483,6 +483,14 @@ func (db *RoseDB) doRunGC() error {
 }
 
 func (db *RoseDB) doRunDump() (err error) {
+	dumpPath := filepath.Join(db.opts.DBPath, dumpFilePath)
+	if err = os.MkdirAll(dumpPath, os.ModePerm); err != nil {
+		return
+	}
+	defer func() {
+		_ = os.RemoveAll(dumpPath)
+	}()
+
 	findDeletedAndRotateFiles := func() (map[DataType][]*logfile.LogFile, error) {
 		db.mu.Lock()
 		defer db.mu.Unlock()
@@ -514,8 +522,11 @@ func (db *RoseDB) doRunDump() (err error) {
 		return err
 	}
 	wg := new(sync.WaitGroup)
-	wg.Add(logFileTypeNum - 1)
 	for dType := List; dType < logFileTypeNum; dType++ {
+		if _, ok := deletedFiles[dType]; !ok {
+			continue
+		}
+		wg.Add(1)
 		go func(dataType DataType) {
 			if err = db.dumpInternal(wg, dataType); err != nil {
 				return
@@ -534,6 +545,7 @@ func (db *RoseDB) doRunDump() (err error) {
 			_ = lf.Delete()
 		}
 	}
+	_ = os.Rename(dumpPath, db.opts.DBPath)
 	db.mu.Unlock()
 
 	// reload log files.

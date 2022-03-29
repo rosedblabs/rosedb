@@ -44,7 +44,7 @@ type Options struct {
 	// If false, and the machine crashes, then some recent writes may be lost.
 	// Note that if it is just the process that crashes (and the machine does not) then no writes will be lost.
 	// Default value is false.
-	Sync bool `json:"sync" toml:"sync"`
+	Sync bool
 
 	// LogFileGCInterval a background goroutine will execute log file garbage collection periodically according to the interval.
 	// For String, we will pick the log file that meet the conditions for GC, then rewrite the valid data one by one.

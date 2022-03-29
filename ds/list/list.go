@@ -216,5 +216,4 @@ func (lis *List) IterateAndSend(chn chan *logfile.LogEntry) {
 			chn <- &logfile.LogEntry{Key: encKey, Value: value}
 		}
 	}
-	close(chn)
 }

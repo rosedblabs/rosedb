@@ -63,7 +63,7 @@ func newDiscard(path, name string) (*discard, error) {
 	}
 
 	d := &discard{
-		valChan:  make(chan *strIndexNode, 2048),
+		valChan:  make(chan *strIndexNode, 4096),
 		file:     file,
 		freeList: freeList,
 		location: location,
@@ -113,7 +113,10 @@ func (d *discard) getCCL(activeFid uint32, ratio float64) ([]uint32, error) {
 func (d *discard) listenUpdates() {
 	for {
 		select {
-		case idxNode := <-d.valChan:
+		case idxNode, ok := <-d.valChan:
+			if !ok {
+				return
+			}
 			d.incrDiscard(idxNode.fid, idxNode.entrySize)
 		}
 	}
