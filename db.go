@@ -150,6 +150,11 @@ func Open(opts Options) (*RoseDB, error) {
 		zsetIndex:        newZSetIdx(),
 	}
 
+	// load dump state, must execute it before load log files.
+	if err := db.loadDumpState(); err != nil {
+		return nil, err
+	}
+
 	// load the log files from disk.
 	if err := db.loadLogFiles(false); err != nil {
 		return nil, err
