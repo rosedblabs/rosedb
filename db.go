@@ -179,23 +179,32 @@ func (db *RoseDB) Close() error {
 	defer db.mu.Unlock()
 
 	// close and sync the active file.
-
+	for _, activeFile := range db.activeLogFiles {
+		_ = activeFile.Close()
+	}
 	// close the archived files.
-
+	for _, archived := range db.archivedLogFiles {
+		for _, file := range archived {
+			_ = file.Sync()
+			_ = file.Close()
+		}
+	}
 	atomic.StoreUint32(&db.closed, 1)
 	return nil
 }
 
 // Sync persist the db files to stable storage.
-func (db *RoseDB) Sync() (err error) {
+func (db *RoseDB) Sync() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	// iterate and sync all the active files.
-	if err != nil {
-		return
+	for _, activeFile := range db.activeLogFiles {
+		if err := activeFile.Sync(); err != nil {
+			return err
+		}
 	}
-	return
+	return nil
 }
 
 func (db *RoseDB) isClosed() bool {
