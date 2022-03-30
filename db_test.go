@@ -76,7 +76,7 @@ func TestInMemoryDataDump(t *testing.T) {
 			t.Log(string(v))
 		}
 	}
-	time.Sleep(time.Second * 30)
+	time.Sleep(time.Second * 4)
 }
 
 func TestDefaultOptions(t *testing.T) {
@@ -87,7 +87,7 @@ func TestDefaultOptions(t *testing.T) {
 	if err != nil {
 		t.Error("open db err ", err)
 	}
-	
+
 	listKey := []byte("my_list")
 	v, err := db.LPop(listKey)
 	t.Log(string(v))

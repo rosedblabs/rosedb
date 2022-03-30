@@ -545,40 +545,13 @@ func (db *RoseDB) doRunDump() (err error) {
 			continue
 		}
 		wg.Add(1)
-		go func(dataType DataType) {
-			if err = db.dumpInternal(wg, dataType); err != nil {
+		go func(dataType DataType, deletedFiles []*logfile.LogFile) {
+			if err = db.dumpInternal(wg, dataType, deletedFiles); err != nil {
 				return
 			}
-		}(dType)
+		}(dType, deletedFiles[dType])
 	}
 	wg.Wait()
-	if err != nil {
-		return err
-	}
-
-	fileInfos, err := ioutil.ReadDir(dumpPath)
-	if err != nil {
-		return err
-	}
-	// mark dump has finished successfully.
-	for dataType := range deletedFiles {
-		if err = db.markDumpFinish(dataType); err != nil {
-			return err
-		}
-	}
-	db.mu.Lock()
-	// delete older log files.
-	for _, logFiles := range deletedFiles {
-		for _, lf := range logFiles {
-			_ = lf.Delete()
-		}
-	}
-	for _, file := range fileInfos {
-		oldPath := filepath.Join(dumpPath, file.Name())
-		newPath := filepath.Join(db.opts.DBPath, file.Name())
-		_ = os.Rename(oldPath, newPath)
-	}
-	db.mu.Unlock()
 
 	// reload log files.
 	if err := db.loadLogFiles(true); err != nil {
@@ -587,7 +560,7 @@ func (db *RoseDB) doRunDump() (err error) {
 	return nil
 }
 
-func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType) error {
+func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType, deletedFiles []*logfile.LogFile) error {
 	defer wg.Done()
 
 	entriesChn := make(chan *logfile.LogEntry, 1024)
@@ -633,5 +606,30 @@ func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType) error {
 			return err
 		}
 	}
+
+	fileInfos, err := ioutil.ReadDir(dumpPath)
+	if err != nil {
+		return err
+	}
+	// mark dump has finished successfully.
+	if err = db.markDumpFinish(dataType); err != nil {
+		return err
+	}
+
+	db.mu.Lock()
+	// delete older log files.
+	for _, lf := range deletedFiles {
+		_ = lf.Delete()
+	}
+	// rename log files in dump path.
+	fileType := logfile.FileType(dataType)
+	for _, file := range fileInfos {
+		oldPath := filepath.Join(dumpPath, file.Name())
+		newPath := filepath.Join(db.opts.DBPath, file.Name())
+		if strings.HasPrefix(file.Name(), logfile.FileNamesMap[fileType]) {
+			_ = os.Rename(oldPath, newPath)
+		}
+	}
+	db.mu.Unlock()
 	return nil
 }

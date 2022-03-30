@@ -48,7 +48,7 @@ const (
 )
 
 var (
-	fileNamesMap = map[FileType]string{
+	FileNamesMap = map[FileType]string{
 		Strs: "log.strs.",
 		List: "log.list.",
 		Hash: "log.hash.",
@@ -205,11 +205,11 @@ func (lf *LogFile) readBytes(offset, n int64) (buf []byte, err error) {
 }
 
 func (lf *LogFile) getLogFileName(path string, fid uint32, ftype FileType) (name string, err error) {
-	if _, ok := fileNamesMap[ftype]; !ok {
+	if _, ok := FileNamesMap[ftype]; !ok {
 		return "", ErrUnsupportedLogFileType
 	}
 
-	fname := fileNamesMap[ftype] + fmt.Sprintf("%09d", fid)
+	fname := FileNamesMap[ftype] + fmt.Sprintf("%09d", fid)
 	name = filepath.Join(path, fname)
 	return
 }
