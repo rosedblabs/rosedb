@@ -103,13 +103,11 @@ type (
 )
 
 func newStrsIndex() *strIndex {
-	return &strIndex{mu: new(sync.RWMutex), idxTree: art.NewART()}
+	return &strIndex{idxTree: art.NewART(), mu: new(sync.RWMutex)}
 }
 
 func newListIdx() *listIndex {
-	return &listIndex{
-		indexes: list.New(), mu: new(sync.RWMutex),
-	}
+	return &listIndex{indexes: list.New(), mu: new(sync.RWMutex)}
 }
 
 func newHashIdx() *hashIndex {
