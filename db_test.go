@@ -59,7 +59,7 @@ func TestLogFileGC(t *testing.T) {
 
 func TestInMemoryDataDump(t *testing.T) {
 	opts := DefaultOptions("/tmp/rosedb")
-	opts.InMemoryDataDumpInterval = time.Second * 7
+	opts.InMemoryDataDumpInterval = time.Second * 3
 
 	db, err := Open(opts)
 	if err != nil {
@@ -67,7 +67,7 @@ func TestInMemoryDataDump(t *testing.T) {
 	}
 
 	listKey := []byte("my_list")
-	writeCount := 800000
+	writeCount := 8
 	for i := 0; i < writeCount; i++ {
 		v := GetValue128B()
 		err := db.LPush(listKey, v)
@@ -76,7 +76,22 @@ func TestInMemoryDataDump(t *testing.T) {
 			t.Log(string(v))
 		}
 	}
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 30)
+}
+
+func TestDefaultOptions(t *testing.T) {
+	opts := DefaultOptions("/tmp/rosedb")
+	opts.InMemoryDataDumpInterval = time.Second * 7
+
+	db, err := Open(opts)
+	if err != nil {
+		t.Error("open db err ", err)
+	}
+	
+	listKey := []byte("my_list")
+	v, err := db.LPop(listKey)
+	t.Log(string(v))
+	t.Log(err)
 }
 
 const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"

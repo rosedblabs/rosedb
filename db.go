@@ -8,6 +8,7 @@ import (
 	"github.com/flower-corp/rosedb/ds/list"
 	"github.com/flower-corp/rosedb/ds/set"
 	"github.com/flower-corp/rosedb/ds/zset"
+	"github.com/flower-corp/rosedb/ioselector"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
@@ -38,6 +39,8 @@ const (
 	logFileSize      = 512 << 20
 	logFileTypeNum   = 5
 	dumpFilePath     = "dump"
+	dumpStateFile    = "DUMP_STATE"
+	dumpRecordSize   = 12
 	encodeHeaderSize = 10
 )
 
@@ -48,6 +51,7 @@ type (
 		archivedLogFiles map[DataType]archivedFiles
 		fidMap           map[DataType][]uint32 // only used at startup, never update even though log files changed.
 		discard          *discard
+		dumpState        ioselector.IOSelector
 		opts             Options
 		strIndex         *strIndex  // String indexes(adaptive-radix-tree).
 		listIndex        *listIndex // List indexes.
@@ -511,6 +515,9 @@ func (db *RoseDB) doRunDump() (err error) {
 				return nil, err
 			}
 			db.activeLogFiles[dType] = lf
+			if db.archivedLogFiles[dType] == nil {
+				db.archivedLogFiles[dType] = make(archivedFiles)
+			}
 			db.archivedLogFiles[dType][activeFile.Fid] = activeFile
 			filesTobeDeleted[dType] = append(filesTobeDeleted[dType], activeFile)
 		}
@@ -520,6 +527,12 @@ func (db *RoseDB) doRunDump() (err error) {
 	deletedFiles, err := findDeletedAndRotateFiles()
 	if err != nil || len(deletedFiles) == 0 {
 		return err
+	}
+	// dump start
+	for dataType, fids := range deletedFiles {
+		if err = db.markDumpStart(dataType, fids[0].Fid, fids[len(fids)-1].Fid); err != nil {
+			return err
+		}
 	}
 	wg := new(sync.WaitGroup)
 	for dType := List; dType < logFileTypeNum; dType++ {
@@ -538,6 +551,16 @@ func (db *RoseDB) doRunDump() (err error) {
 		return err
 	}
 
+	fileInfos, err := ioutil.ReadDir(dumpPath)
+	if err != nil {
+		return err
+	}
+	// mark dump has finished successfully.
+	for dataType := range deletedFiles {
+		if err = db.markDumpFinish(dataType); err != nil {
+			return err
+		}
+	}
 	db.mu.Lock()
 	// delete older log files.
 	for _, logFiles := range deletedFiles {
@@ -545,7 +568,11 @@ func (db *RoseDB) doRunDump() (err error) {
 			_ = lf.Delete()
 		}
 	}
-	_ = os.Rename(dumpPath, db.opts.DBPath)
+	for _, file := range fileInfos {
+		oldPath := filepath.Join(dumpPath, file.Name())
+		newPath := filepath.Join(db.opts.DBPath, file.Name())
+		_ = os.Rename(oldPath, newPath)
+	}
 	db.mu.Unlock()
 
 	// reload log files.
@@ -574,14 +601,16 @@ func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType) error {
 	dumpPath := filepath.Join(db.opts.DBPath, dumpFilePath)
 	rotateFile := func(size int) error {
 		if logFile == nil || logFile.WriteAt+int64(size) > logFileSize {
+			var activeFid uint32 = logfile.InitialLogFileId
 			if logFile != nil {
+				activeFid = logFile.Fid + 1
 				if err := logFile.Sync(); err != nil {
 					return err
 				}
 				_ = logFile.Close()
 			}
 			ftype, iotype := logfile.FileType(dataType), logfile.IOType(db.opts.IoType)
-			lf, err := logfile.OpenLogFile(dumpPath, logfile.InitialLogFileId, logFileSize, ftype, iotype)
+			lf, err := logfile.OpenLogFile(dumpPath, activeFid, logFileSize, ftype, iotype)
 			if err != nil {
 				return err
 			}
