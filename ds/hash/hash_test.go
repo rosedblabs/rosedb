@@ -2,7 +2,6 @@ package hash
 
 import (
 	"github.com/stretchr/testify/assert"
-	"strconv"
 	"testing"
 )
 
@@ -56,22 +55,20 @@ func TestHash_HGetAll(t *testing.T) {
 	hash := InitHash()
 
 	vals := hash.HGetAll(key)
-	for _, v := range vals {
-		t.Log(string(v))
-	}
+	assert.Equal(t, 6, len(vals))
 }
 
 func TestHash_HDel(t *testing.T) {
 	hash := InitHash()
 	//delete existed filed,return 1
-	num1 := hash.HDel(key, "a")
-	assert.Equal(t, 1, num1)
+	v0 := hash.HDel(key, "a")
+	assert.Equal(t, true, v0)
 	//delete same field twice,return 0
-	num0 := hash.HDel(key, "a")
-	assert.Equal(t, 0, num0)
+	v1 := hash.HDel(key, "a")
+	assert.Equal(t, false, v1)
 	//delete non existing field,expect 0
-	numNotExist0 := hash.HDel(key, "m")
-	assert.Equal(t, 0, numNotExist0)
+	v2 := hash.HDel(key, "m")
+	assert.Equal(t, false, v2)
 }
 
 func TestHash_HExists(t *testing.T) {
@@ -91,20 +88,16 @@ func TestHash_HKeys(t *testing.T) {
 	hash := InitHash()
 
 	keys := hash.HKeys(key)
-	for _, k := range keys {
-		t.Log(k)
-	}
-
+	assert.Equal(t, len(keys), 3)
 	res := hash.HKeys("no")
-	t.Log(len(res))
+	assert.Equal(t, len(res), 0)
 }
 
 func TestHash_HVals(t *testing.T) {
 	hash := InitHash()
 	values := hash.HVals(key)
-	for i, v := range values {
-		assert.Equal(t, []byte("hash_data_00"+strconv.Itoa(i+1)), v)
-		t.Log(string(v))
+	for _, v := range values {
+		assert.NotNil(t, v)
 	}
 }
 
