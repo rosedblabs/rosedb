@@ -20,12 +20,16 @@ func (db *RoseDB) loadDumpState() error {
 	db.dumpState = dumpStateFile
 
 	dumpPath := filepath.Join(db.opts.DBPath, dumpFilePath)
+	var exist = true
 	fileInfos, err := ioutil.ReadDir(dumpPath)
 	defer func() {
-		_ = os.RemoveAll(dumpPath)
+		if exist {
+			_ = os.RemoveAll(dumpPath)
+		}
 	}()
 	if err != nil || len(fileInfos) == 0 {
 		if os.IsNotExist(err) {
+			exist = false
 			err = nil
 		}
 		return err
