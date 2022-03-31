@@ -30,31 +30,6 @@ func TestSortedSet_ZAdd(t *testing.T) {
 		t.Log(zSet.ZScore("myzset", "ced"))
 		t.Log(zSet.ZScore("myzset", "mmd"))
 	})
-
-	//t.Run("large data", func(t *testing.T) {
-	//	zset := New()
-	//	rand.Seed(time.Now().Unix())
-	//
-	//	s := "abcdefghijklmnopqrstuvwxyz"
-	//	randomVal := func() (val string) {
-	//		for i := 0; i < 12; i++ {
-	//			val += string(s[rand.Intn(26)])
-	//		}
-	//		return
-	//	}
-	//
-	//	for i := 0; i < 100000; i++ {
-	//		zset.ZAdd("myzset", float64(rand.Intn(100000)), randomVal())
-	//	}
-	//
-	//	t.Log(zset.ZCard("myzset"))
-	//	dummy := zset.record["myzset"].skl.head
-	//	p := dummy.level[0].forward
-	//	for i := 0; i < 100; i++ {
-	//		t.Log(p.member, p.score)
-	//		p = p.level[0].forward
-	//	}
-	//})
 }
 
 func TestSortedSet_ZScore(t *testing.T) {
@@ -227,9 +202,7 @@ func TestSortedSet_ZScoreRange(t *testing.T) {
 	zset.ZAdd(key, 13, "aa")
 
 	val := zset.ZScoreRange(key, -12, 500)
-	for _, v := range val {
-		t.Logf("%+v", v)
-	}
+	assert.NotNil(t, val)
 }
 
 func TestSortedSet_ZRevScoreRange(t *testing.T) {
@@ -244,32 +217,6 @@ func TestSortedSet_ZRevScoreRange(t *testing.T) {
 			t.Logf("%+v", v)
 		}
 	})
-	//
-	//t.Run("large data", func(t *testing.T) {
-	//	rand.Seed(time.Now().Unix())
-	//	s := "abcdefghijklmnopqrstuvwxyz"
-	//	randomVal := func() (val string) {
-	//		for i := 0; i < 12; i++ {
-	//			val += string(s[rand.Intn(26)])
-	//		}
-	//		return
-	//	}
-	//
-	//	start := time.Now()
-	//	for i := 0; i < 600000; i++ {
-	//		zset.ZAdd("myzset", float64(rand.Intn(600000)), randomVal())
-	//	}
-	//	t.Log("add time spend ", time.Since(start))
-	//
-	//	start = time.Now()
-	//	val := zset.ZRevScoreRange(key, 359980, 359090)
-	//	t.Log("query time spend ", time.Since(start))
-	//
-	//	t.Log(len(val))
-	//	for _, v := range val {
-	//		t.Logf("%+v", v)
-	//	}
-	//})
 }
 
 func TestSortedSet_ZCard(t *testing.T) {
