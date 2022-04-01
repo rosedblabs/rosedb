@@ -76,6 +76,9 @@ func (db *RoseDB) updateStrIndex(ent *logfile.LogEntry, pos *valuePos, sendDisca
 	if db.opts.IndexMode == KeyValueMemMode {
 		idxNode.value = ent.Value
 	}
+	if ent.ExpiredAt != 0 {
+		idxNode.expiredAt = ent.ExpiredAt
+	}
 	oldVal, updated := db.strIndex.idxTree.Put(ent.Key, idxNode)
 	if sendDiscard {
 		db.sendDiscard(oldVal, updated)
@@ -94,6 +97,10 @@ func (db *RoseDB) getVal(key []byte) ([]byte, error) {
 		return nil, ErrKeyNotFound
 	}
 
+	ts := time.Now().Unix()
+	if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
+		return nil, ErrKeyNotFound
+	}
 	// In KeyValueMemMode, the value will be stored in memory.
 	// So get the value from the index info.
 	if db.opts.IndexMode == KeyValueMemMode && len(idxNode.value) != 0 {
@@ -113,7 +120,6 @@ func (db *RoseDB) getVal(key []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	ts := time.Now().Unix()
 	// key exists, but is invalid(deleted or expired)
 	if ent.Type == logfile.TypeDelete || (ent.ExpiredAt != 0 && ent.ExpiredAt < ts) {
 		return nil, ErrKeyNotFound

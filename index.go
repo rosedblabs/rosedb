@@ -46,12 +46,13 @@ func (db *RoseDB) buildStrsIndex(ent *logfile.LogEntry, pos *valuePos) {
 		db.strIndex.idxTree.Delete(ent.Key)
 		return
 	}
-	idxNode := &strIndexNode{
-		fid:    pos.fid,
-		offset: pos.offset,
-	}
+	_, size := logfile.EncodeEntry(ent)
+	idxNode := &strIndexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
 	if db.opts.IndexMode == KeyValueMemMode {
 		idxNode.value = ent.Value
+	}
+	if ent.ExpiredAt != 0 {
+		idxNode.expiredAt = ent.ExpiredAt
 	}
 	db.strIndex.idxTree.Put(ent.Key, idxNode)
 }

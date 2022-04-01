@@ -148,7 +148,7 @@ func TestDiscard_incrDiscard(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb-discard")
 	os.MkdirAll(path, os.ModePerm)
 	defer os.RemoveAll(path)
-	dis, err := newDiscard(path, "")
+	dis, err := newDiscard(path, discardFileName)
 	assert.Nil(t, err)
 
 	for i := 1; i < 600; i = i * 5 {

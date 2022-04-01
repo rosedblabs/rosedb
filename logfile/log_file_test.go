@@ -3,8 +3,6 @@ package logfile
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"path/filepath"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -34,13 +32,13 @@ func testOpenLogFile(t *testing.T, ioType IOType) {
 		wantErr bool
 	}{
 		{
-			"zero-size", args{"/tmp", 0, 0, WAL, ioType}, true,
+			"zero-size", args{"/tmp", 0, 0, List, ioType}, true,
 		},
 		{
-			"normal-size", args{"/tmp", 1, 100, WAL, ioType}, false,
+			"normal-size", args{"/tmp", 1, 100, List, ioType}, false,
 		},
 		{
-			"big-size", args{"/tmp", 2, 1024 << 20, WAL, ioType}, false,
+			"big-size", args{"/tmp", 2, 1024 << 20, List, ioType}, false,
 		},
 	}
 	for _, tt := range tests {
@@ -74,7 +72,7 @@ func TestLogFile_Write(t *testing.T) {
 }
 
 func testLogFileWrite(t *testing.T, ioType IOType) {
-	lf, err := OpenLogFile("/tmp", 1, 1<<20, WAL, ioType)
+	lf, err := OpenLogFile("/tmp", 1, 1<<20, List, ioType)
 	assert.Nil(t, err)
 	defer func() {
 		if lf != nil {
@@ -127,7 +125,7 @@ func TestLogFile_Read(t *testing.T) {
 }
 
 func testLogFileRead(t *testing.T, ioType IOType) {
-	lf, err := OpenLogFile("/tmp", 1, 1<<20, WAL, ioType)
+	lf, err := OpenLogFile("/tmp", 1, 1<<20, List, ioType)
 	assert.Nil(t, err)
 	defer func() {
 		if lf != nil {
@@ -216,7 +214,7 @@ func TestLogFile_ReadLogEntry(t *testing.T) {
 }
 
 func testLogFileReadLogEntry(t *testing.T, ioType IOType) {
-	lf, err := OpenLogFile("/tmp", 1, 1<<20, WAL, ioType)
+	lf, err := OpenLogFile("/tmp", 1, 1<<20, Strs, ioType)
 	assert.Nil(t, err)
 	defer func() {
 		if lf != nil {
@@ -296,7 +294,7 @@ func testLogFileReadLogEntry(t *testing.T, ioType IOType) {
 
 func TestLogFile_Sync(t *testing.T) {
 	sync := func(ioType IOType) {
-		file, err := OpenLogFile("/tmp", 0, 100, WAL, ioType)
+		file, err := OpenLogFile("/tmp", 0, 100, Hash, ioType)
 		assert.Nil(t, err)
 		defer func() {
 			if file != nil {
@@ -318,15 +316,9 @@ func TestLogFile_Sync(t *testing.T) {
 
 func TestLogFile_Close(t *testing.T) {
 	var fid uint32 = 0
-	defer func() {
-		f, err := filepath.Abs(filepath.Join("/tmp", fmt.Sprintf("%09d.wal", fid)))
-		assert.Nil(t, err)
-		err = os.Remove(f)
-		assert.Nil(t, err)
-	}()
 
 	closeLf := func(ioType IOType) {
-		file, err := OpenLogFile("/tmp", fid, 100, WAL, ioType)
+		file, err := OpenLogFile("/tmp", fid, 100, Sets, ioType)
 		assert.Nil(t, err)
 
 		err = file.Close()
@@ -344,7 +336,7 @@ func TestLogFile_Close(t *testing.T) {
 
 func TestLogFile_Delete(t *testing.T) {
 	deleteLf := func(ioType IOType) {
-		file, err := OpenLogFile("/tmp", 0, 100, WAL, ioType)
+		file, err := OpenLogFile("/tmp", 0, 100, ZSet, ioType)
 		assert.Nil(t, err)
 		err = file.Delete()
 		assert.Nil(t, err)

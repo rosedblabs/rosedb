@@ -100,13 +100,9 @@ func TestList_RPop(t *testing.T) {
 }
 
 func TestList_LIndex(t *testing.T) {
-	lis := New()
 	key := []byte("mylist")
-
-	v0 := lis.LIndex(key, 1)
-	assert.Nil(t, v0)
-
 	t.Run("lpush-index", func(t *testing.T) {
+		lis := New()
 		lis.LPush(key, []byte("l-val-1"))
 		v1 := lis.LIndex(key, 1)
 		assert.Nil(t, v1)
@@ -119,6 +115,7 @@ func TestList_LIndex(t *testing.T) {
 	})
 
 	t.Run("rpush-index", func(t *testing.T) {
+		lis := New()
 		lis.RPush(key, []byte("r-val-1"))
 		v1 := lis.LIndex(key, 1)
 		assert.Nil(t, v1)
@@ -131,6 +128,7 @@ func TestList_LIndex(t *testing.T) {
 	})
 
 	t.Run("multi-index", func(t *testing.T) {
+		lis := New()
 		lis.RPush(key, []byte("r-val-1"))
 		lis.RPush(key, []byte("r-val-2"))
 		lis.RPush(key, []byte("r-val-3"))

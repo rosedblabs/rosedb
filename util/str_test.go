@@ -8,12 +8,12 @@ import (
 func TestStrToFloat64(t *testing.T) {
 	val := "3434.4455664545"
 	res, err := StrToFloat64(val)
-	assert.Error(t, err)
-	t.Log(res)
+	assert.Nil(t, err)
+	assert.Equal(t, res, 3434.4455664545)
 }
 
 func TestFloat64ToStr(t *testing.T) {
-	val := 3434.4455664545
+	val := 9902.99355664
 	res := Float64ToStr(val)
-	t.Log(res)
+	assert.Equal(t, res, "9902.99355664")
 }

@@ -77,6 +77,7 @@ type (
 		fid       uint32
 		offset    int64
 		entrySize int
+		expiredAt int64
 	}
 
 	listIndex struct {

@@ -34,8 +34,8 @@ func TestLogFileGC(t *testing.T) {
 	opts := DefaultOptions("/tmp/rosedb")
 	opts.LogFileGCInterval = time.Second * 7
 	opts.LogFileGCRatio = 0.00001
-
 	db, err := Open(opts)
+	defer destroyDB(db)
 	if err != nil {
 		t.Error("open db err ", err)
 	}
@@ -66,8 +66,8 @@ func TestLogFileGC(t *testing.T) {
 func TestInMemoryDataDump(t *testing.T) {
 	opts := DefaultOptions("/tmp/rosedb")
 	opts.InMemoryDataDumpInterval = time.Second * 3
-
 	db, err := Open(opts)
+	defer destroyDB(db)
 	if err != nil {
 		t.Error("open db err ", err)
 	}
@@ -78,9 +78,6 @@ func TestInMemoryDataDump(t *testing.T) {
 		v := GetValue128B()
 		err := db.LPush(listKey, v)
 		assert.Nil(t, err)
-		if i == 0 || i == writeCount-1 {
-			t.Log(string(v))
-		}
 	}
 	time.Sleep(time.Second * 4)
 }
