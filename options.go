@@ -61,6 +61,11 @@ type Options struct {
 	// The recommended ratio is 0.5, half of the file can be compacted.
 	// Default value is 0.5.
 	LogFileGCRatio float64
+
+	// LogFileSizeThreshold threshold size of each log file, active log file will be closed if reach the threshold.
+	// Important!!! This option must be set to the same value as the first startup.
+	// Default value is 512MB.
+	LogFileSizeThreshold int64
 }
 
 // DefaultOptions default options for opening a RoseDB.
@@ -73,5 +78,6 @@ func DefaultOptions(path string) Options {
 		LogFileGCInterval:        time.Minute * 10,
 		InMemoryDataDumpInterval: time.Hour,
 		LogFileGCRatio:           0.5,
+		LogFileSizeThreshold:     512 << 20,
 	}
 }

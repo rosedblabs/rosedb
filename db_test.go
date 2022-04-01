@@ -3,25 +3,31 @@ package rosedb
 import (
 	"bytes"
 	"fmt"
+	"github.com/flower-corp/rosedb/logger"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 )
 
 func TestOpen(t *testing.T) {
-	opts := DefaultOptions("/tmp/rosedb")
-	db, err := Open(opts)
-	if err != nil {
-		t.Error("open db err ", err)
-	}
-
-	key := []byte("my_list")
-	writeCount := 600000
-	for i := 0; i <= writeCount; i++ {
-		err := db.LPush(key, GetValue128B())
+	t.Run("default", func(t *testing.T) {
+		opts := DefaultOptions("/tmp/rosedb")
+		db, err := Open(opts)
+		defer destroyDB(db)
 		assert.Nil(t, err)
-	}
+		assert.NotNil(t, db)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		opts := DefaultOptions("/tmp/rosedb")
+		opts.IoType = MMap
+		db, err := Open(opts)
+		defer destroyDB(db)
+		assert.Nil(t, err)
+		assert.NotNil(t, db)
+	})
 }
 
 func TestLogFileGC(t *testing.T) {
@@ -79,19 +85,13 @@ func TestInMemoryDataDump(t *testing.T) {
 	time.Sleep(time.Second * 4)
 }
 
-func TestDefaultOptions(t *testing.T) {
-	opts := DefaultOptions("/tmp/rosedb")
-	opts.InMemoryDataDumpInterval = time.Second * 7
-
-	db, err := Open(opts)
-	if err != nil {
-		t.Error("open db err ", err)
+func destroyDB(db *RoseDB) {
+	if db != nil {
+		err := os.RemoveAll(db.opts.DBPath)
+		if err != nil {
+			logger.Errorf("destroy db err: %v", err)
+		}
 	}
-
-	listKey := []byte("my_list")
-	v, err := db.LPop(listKey)
-	t.Log(string(v))
-	t.Log(err)
 }
 
 const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"

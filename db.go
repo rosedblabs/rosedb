@@ -35,8 +35,6 @@ var (
 )
 
 const (
-	// size of each log file: 512MB
-	logFileSize      = 512 << 20
 	logFileTypeNum   = 5
 	dumpFilePath     = "dump"
 	dumpStateFile    = "DUMP_STATE"
@@ -237,7 +235,7 @@ func (db *RoseDB) writeLogEntry(ent *logfile.LogEntry, dataType DataType) (*valu
 
 	opts := db.opts
 	entBuf, esize := logfile.EncodeEntry(ent)
-	if activeLogFile.WriteAt+int64(esize) > logFileSize {
+	if activeLogFile.WriteAt+int64(esize) > opts.LogFileSizeThreshold {
 		if err := activeLogFile.Sync(); err != nil {
 			return nil, err
 		}
@@ -252,13 +250,13 @@ func (db *RoseDB) writeLogEntry(ent *logfile.LogEntry, dataType DataType) (*valu
 
 		// open a new log file.
 		ftype, iotype := logfile.FileType(dataType), logfile.IOType(opts.IoType)
-		lf, err := logfile.OpenLogFile(opts.DBPath, activeFileId+1, logFileSize, ftype, iotype)
+		lf, err := logfile.OpenLogFile(opts.DBPath, activeFileId+1, opts.LogFileSizeThreshold, ftype, iotype)
 		if err != nil {
 			db.mu.Unlock()
 			return nil, err
 		}
 		if dataType == String {
-			db.discard.setTotal(lf.Fid, logFileSize)
+			db.discard.setTotal(lf.Fid, uint32(opts.LogFileSizeThreshold))
 		}
 		db.activeLogFiles[dataType] = lf
 		activeLogFile = lf
@@ -318,7 +316,7 @@ func (db *RoseDB) loadLogFiles(excludeStrs bool) error {
 		opts := db.opts
 		for i, fid := range fids {
 			ftype, iotype := logfile.FileType(dataType), logfile.IOType(opts.IoType)
-			lf, err := logfile.OpenLogFile(opts.DBPath, fid, logFileSize, ftype, iotype)
+			lf, err := logfile.OpenLogFile(opts.DBPath, fid, opts.LogFileSizeThreshold, ftype, iotype)
 			if err != nil {
 				return err
 			}
@@ -342,13 +340,13 @@ func (db *RoseDB) initLogFile(dataType DataType) error {
 	}
 	opts := db.opts
 	ftype, iotype := logfile.FileType(dataType), logfile.IOType(opts.IoType)
-	lf, err := logfile.OpenLogFile(opts.DBPath, logfile.InitialLogFileId, logFileSize, ftype, iotype)
+	lf, err := logfile.OpenLogFile(opts.DBPath, logfile.InitialLogFileId, opts.LogFileSizeThreshold, ftype, iotype)
 	if err != nil {
 		return err
 	}
 
 	if dataType == String {
-		db.discard.setTotal(lf.Fid, logFileSize)
+		db.discard.setTotal(lf.Fid, uint32(opts.LogFileSizeThreshold))
 	}
 	db.activeLogFiles[dataType] = lf
 	return nil
@@ -522,7 +520,7 @@ func (db *RoseDB) doRunDump() (err error) {
 				continue
 			}
 			ftype, iotype := logfile.FileType(dType), logfile.IOType(db.opts.IoType)
-			lf, err := logfile.OpenLogFile(db.opts.DBPath, activeFile.Fid+1, logFileSize, ftype, iotype)
+			lf, err := logfile.OpenLogFile(db.opts.DBPath, activeFile.Fid+1, db.opts.LogFileSizeThreshold, ftype, iotype)
 			if err != nil {
 				return nil, err
 			}
@@ -585,7 +583,7 @@ func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType, deletedFil
 	var logFile *logfile.LogFile
 	dumpPath := filepath.Join(db.opts.DBPath, dumpFilePath)
 	rotateFile := func(size int) error {
-		if logFile == nil || logFile.WriteAt+int64(size) > logFileSize {
+		if logFile == nil || logFile.WriteAt+int64(size) > db.opts.LogFileSizeThreshold {
 			var activeFid uint32 = logfile.InitialLogFileId
 			if logFile != nil {
 				activeFid = logFile.Fid + 1
@@ -595,7 +593,7 @@ func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType, deletedFil
 				_ = logFile.Close()
 			}
 			ftype, iotype := logfile.FileType(dataType), logfile.IOType(db.opts.IoType)
-			lf, err := logfile.OpenLogFile(dumpPath, activeFid, logFileSize, ftype, iotype)
+			lf, err := logfile.OpenLogFile(dumpPath, activeFid, db.opts.LogFileSizeThreshold, ftype, iotype)
 			if err != nil {
 				return err
 			}
