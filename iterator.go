@@ -4,47 +4,51 @@ import (
 	goart "github.com/plar/go-adaptive-radix-tree"
 )
 
+const defaultLimitNum = 1
+
 type IteratorOptions struct {
 	PrefetchSize int
+	Limit        int
 }
 
 type Iterator struct {
-	db   *RoseDB
-	iter goart.Iterator
-	opts IteratorOptions
+	db       *RoseDB
+	opts     IteratorOptions
+	treeIter goart.Iterator
+	curKey   []byte
 }
 
 func (db *RoseDB) NewIterator(opts IteratorOptions) *Iterator {
-	return &Iterator{
-		db:   db,
-		opts: opts,
-		iter: db.strIndex.idxTree.Iterator(),
+	if opts.Limit <= 0 {
+		opts.Limit = defaultLimitNum
 	}
+	it := &Iterator{
+		db:       db,
+		opts:     opts,
+		treeIter: db.strIndex.idxTree.Iterator(),
+	}
+	return it
 }
 
-func (it *Iterator) Rewind() {
-	it.iter = it.db.strIndex.idxTree.Iterator()
-}
+func (it *Iterator) HasNext() bool {
+	if it.opts.Limit <= 0 {
+		return false
+	}
 
-func (it *Iterator) Valid() bool {
-	return it.iter.HasNext()
-}
-
-func (it *Iterator) Next() {
-	it.db.strIndex.mu.RLock()
-	defer it.db.strIndex.mu.RUnlock()
-	//node, err := it.iter.Next()
-	//if err != nil {
-	//	logger.Errorf("err in iter: %v", err)
-	//	return
-	//}
-	//
+	hasNext := it.treeIter.HasNext()
+	if hasNext {
+		node, _ := it.treeIter.Next()
+		it.curKey = node.Key()
+		it.opts.Limit--
+	}
+	return hasNext
 }
 
 func (it *Iterator) Key() []byte {
-	return nil
+	return it.curKey
 }
 
 func (it *Iterator) Value() []byte {
-	return nil
+	val, _ := it.db.getVal(it.curKey)
+	return val
 }
