@@ -1,0 +1,7 @@
+repos:
+  - repo: https://github.com/Bahjat/pre-commit-golang.git
+    rev: c3086eea8af86847dbdff2e46b85a5fe3c9d9656
+    hooks:
+      - id: go-fmt-import
+      - id: go-vet
+      - id: go-lint
