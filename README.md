@@ -8,6 +8,10 @@
 
 rosedb is a fast, stable, and embedded key-value (k-v) storage engine based on `bitcask`, also supports a variety of data structures such as `string`, `list`, `hash`, `set`, and `sorted set`.     
 
+## Design Overview
+
+![](https://github.com/flower-corp/rosedb/blob/main/resource/img/design-overview-rosedb.png)
+
 ## Contributing
 
 If you are intersted in contributing to rosedb, please see here: [CONTRIBUTING](https://github.com/roseduan/rosedb/blob/main/CONTRIBUTING.md)
