@@ -152,6 +152,16 @@ func (lis *List) LSet(key []byte, index int, value []byte) bool {
 	return true
 }
 
+func (lis *List) LLen(key []byte) uint32 {
+	listKey := string(key)
+	if _, ok := lis.records[listKey]; !ok {
+		return 0
+	}
+	metaInfo := lis.getMeta(key)
+	size := metaInfo.tailSeq - metaInfo.headSeq - 1
+	return size
+}
+
 // check if the index is valid and returns the new index.
 func (lis *List) validIndex(key string, index int, size uint32) (int, bool) {
 	item := lis.records[key]

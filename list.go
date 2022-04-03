@@ -103,6 +103,14 @@ func (db *RoseDB) LSet(key []byte, index int, value []byte) (bool, error) {
 	return ok, nil
 }
 
+// LLen returns the length of the list stored at key.
+// If key does not exist, it is interpreted as an empty list and 0 is returned.
+func (db *RoseDB) LLen(key []byte) uint32 {
+	db.listIndex.mu.RLock()
+	defer db.listIndex.mu.RUnlock()
+	return db.listIndex.indexes.LLen(key)
+}
+
 func (db *RoseDB) iterateListAndSend(chn chan *logfile.LogEntry) {
 	db.listIndex.mu.RLock()
 	defer db.listIndex.mu.RUnlock()

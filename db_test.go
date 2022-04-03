@@ -7,13 +7,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestOpen(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
 	t.Run("default", func(t *testing.T) {
-		opts := DefaultOptions("/tmp/rosedb")
+		opts := DefaultOptions(path)
 		db, err := Open(opts)
 		defer destroyDB(db)
 		assert.Nil(t, err)
@@ -21,7 +23,7 @@ func TestOpen(t *testing.T) {
 	})
 
 	t.Run("mmap", func(t *testing.T) {
-		opts := DefaultOptions("/tmp/rosedb")
+		opts := DefaultOptions(path)
 		opts.IoType = MMap
 		db, err := Open(opts)
 		defer destroyDB(db)
@@ -31,7 +33,8 @@ func TestOpen(t *testing.T) {
 }
 
 func TestLogFileGC(t *testing.T) {
-	opts := DefaultOptions("/tmp/rosedb")
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
 	opts.LogFileGCInterval = time.Second * 7
 	opts.LogFileGCRatio = 0.00001
 	db, err := Open(opts)
@@ -63,9 +66,11 @@ func TestLogFileGC(t *testing.T) {
 	}
 }
 
-func TestInMemoryDataDump(t *testing.T) {
-	opts := DefaultOptions("/tmp/rosedb")
+func TestInMemoryDataDump_List(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
 	opts.InMemoryDataDumpInterval = time.Second * 3
+	opts.LogFileSizeThreshold = 32 << 20
 	db, err := Open(opts)
 	defer destroyDB(db)
 	if err != nil {
@@ -73,17 +78,42 @@ func TestInMemoryDataDump(t *testing.T) {
 	}
 
 	listKey := []byte("my_list")
-	writeCount := 8
+	writeCount := 600000
 	for i := 0; i < writeCount; i++ {
 		v := GetValue128B()
 		err := db.LPush(listKey, v)
 		assert.Nil(t, err)
 	}
-	time.Sleep(time.Second * 4)
+	time.Sleep(time.Second * 6)
+
+	lLen := db.LLen(listKey)
+	assert.Equal(t, lLen, uint32(writeCount))
+}
+
+func TestInMemoryDataDump_Hash(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.InMemoryDataDumpInterval = time.Second * 2
+	opts.LogFileSizeThreshold = 32 << 20
+	db, err := Open(opts)
+	//defer destroyDB(db)
+	if err != nil {
+		t.Error("open db err ", err)
+	}
+
+	hashKey := []byte("my_hash")
+	writeCount := 600000
+	for i := 0; i < writeCount; i++ {
+		err := db.HSet(hashKey, GetKey(i), GetValue128B())
+		assert.Nil(t, err)
+	}
+	hLen := db.HLen(hashKey)
+	t.Log("hlen : ", hLen)
 }
 
 func TestRoseDB_NewIterator(t *testing.T) {
-	opts := DefaultOptions("/tmp/rosedb")
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
 	db, err := Open(opts)
 	defer destroyDB(db)
 	if err != nil {

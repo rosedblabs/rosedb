@@ -626,6 +626,7 @@ func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType, deletedFil
 	// delete older log files.
 	for _, lf := range deletedFiles {
 		_ = lf.Delete()
+		delete(db.archivedLogFiles[dataType], lf.Fid)
 	}
 	// rename log files in dump path.
 	fileType := logfile.FileType(dataType)
