@@ -112,8 +112,6 @@ func (db *RoseDB) LLen(key []byte) uint32 {
 }
 
 func (db *RoseDB) iterateListAndSend(chn chan *logfile.LogEntry) {
-	db.listIndex.mu.RLock()
-	defer db.listIndex.mu.RUnlock()
 	db.listIndex.indexes.IterateAndSend(chn)
 	close(chn)
 }

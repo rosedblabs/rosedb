@@ -58,8 +58,10 @@ func New() *SortedSet {
 func (z *SortedSet) IterateAndSend(chn chan *logfile.LogEntry, encode EncodeKey) {
 	for key, ss := range z.record {
 		zsetKey := []byte(key)
-
-		for e := ss.skl.head; e != nil; e = e.level[0].forward {
+		if ss.skl.head == nil {
+			return
+		}
+		for e := ss.skl.head.level[0].forward; e != nil; e = e.level[0].forward {
 			scoreBuf := []byte(util.Float64ToStr(e.score))
 			encKey := encode(zsetKey, scoreBuf)
 			chn <- &logfile.LogEntry{Key: encKey, Value: []byte(e.member)}

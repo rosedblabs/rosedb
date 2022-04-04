@@ -80,8 +80,6 @@ func (db *RoseDB) HVals(key []byte) (val [][]byte) {
 }
 
 func (db *RoseDB) iterateHashAndSend(chn chan *logfile.LogEntry, enc hash.EncodeKey) {
-	db.hashIndex.mu.RLock()
-	defer db.hashIndex.mu.RUnlock()
 	db.hashIndex.indexes.IterateAndSend(chn, enc)
 	close(chn)
 }

@@ -506,56 +506,60 @@ func (db *RoseDB) doRunDump() (err error) {
 		_ = os.RemoveAll(dumpPath)
 	}()
 
-	findDeletedAndRotateFiles := func() (map[DataType][]*logfile.LogFile, error) {
+	findDeletedAndRotateFiles := func(dType DataType) ([]*logfile.LogFile, error) {
 		db.mu.Lock()
 		defer db.mu.Unlock()
-		filesTobeDeleted := make(map[DataType][]*logfile.LogFile)
+		var filesTobeDeleted []*logfile.LogFile
 		// rotate log files.
-		for dType := List; dType < logFileTypeNum; dType++ {
-			for _, lf := range db.archivedLogFiles[dType] {
-				filesTobeDeleted[dType] = append(filesTobeDeleted[dType], lf)
-			}
-
-			activeFile := db.activeLogFiles[dType]
-			if activeFile == nil {
-				continue
-			}
-			ftype, iotype := logfile.FileType(dType), logfile.IOType(db.opts.IoType)
-			lf, err := logfile.OpenLogFile(db.opts.DBPath, activeFile.Fid+1, db.opts.LogFileSizeThreshold, ftype, iotype)
-			if err != nil {
-				return nil, err
-			}
-			db.activeLogFiles[dType] = lf
-			if db.archivedLogFiles[dType] == nil {
-				db.archivedLogFiles[dType] = make(archivedFiles)
-			}
-			db.archivedLogFiles[dType][activeFile.Fid] = activeFile
-			filesTobeDeleted[dType] = append(filesTobeDeleted[dType], activeFile)
+		for _, lf := range db.archivedLogFiles[dType] {
+			filesTobeDeleted = append(filesTobeDeleted, lf)
 		}
+
+		activeFile := db.activeLogFiles[dType]
+		if activeFile == nil {
+			return filesTobeDeleted, nil
+		}
+		ftype, iotype := logfile.FileType(dType), logfile.IOType(db.opts.IoType)
+		lf, err := logfile.OpenLogFile(db.opts.DBPath, activeFile.Fid+1, db.opts.LogFileSizeThreshold, ftype, iotype)
+		if err != nil {
+			return nil, err
+		}
+		db.activeLogFiles[dType] = lf
+		if db.archivedLogFiles[dType] == nil {
+			db.archivedLogFiles[dType] = make(archivedFiles)
+		}
+		db.archivedLogFiles[dType][activeFile.Fid] = activeFile
+		filesTobeDeleted = append(filesTobeDeleted, activeFile)
 		return filesTobeDeleted, nil
 	}
 
-	deletedFiles, err := findDeletedAndRotateFiles()
-	if err != nil || len(deletedFiles) == 0 {
-		return err
-	}
-	// dump start
-	for dataType, fids := range deletedFiles {
-		if err = db.markDumpStart(dataType, fids[0].Fid, fids[len(fids)-1].Fid); err != nil {
-			return err
-		}
-	}
 	wg := new(sync.WaitGroup)
 	for dType := List; dType < logFileTypeNum; dType++ {
-		if _, ok := deletedFiles[dType]; !ok {
-			continue
-		}
 		wg.Add(1)
-		go func(dataType DataType, deletedFiles []*logfile.LogFile) {
-			if err = db.dumpInternal(wg, dataType, deletedFiles); err != nil {
+		go func(dataType DataType) {
+			defer wg.Done()
+			unlock := db.lockByType(dataType)
+			defer unlock()
+			deletedFiles, err := findDeletedAndRotateFiles(dataType)
+			if err != nil {
+				logger.Errorf("error occurred while find files [%v]: ", err)
 				return
 			}
-		}(dType, deletedFiles[dType])
+			if len(deletedFiles) == 0 {
+				return
+			}
+			logger.Info("开始 dump ", dataType)
+			// dump start
+			if err = db.markDumpStart(dataType, deletedFiles[0].Fid, deletedFiles[len(deletedFiles)-1].Fid); err != nil {
+				logger.Errorf("mark dump start err [%v]: ", err)
+				return
+			}
+			if err = db.dumpInternal(dataType, deletedFiles); err != nil {
+				logger.Errorf("error occurred while dump, type=[%v],err=[%v]: ", dataType, err)
+				return
+			}
+			logger.Info("结束 dump ", dataType)
+		}(dType)
 	}
 	wg.Wait()
 
@@ -566,9 +570,23 @@ func (db *RoseDB) doRunDump() (err error) {
 	return nil
 }
 
-func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType, deletedFiles []*logfile.LogFile) error {
-	defer wg.Done()
+func (db *RoseDB) lockByType(dataType DataType) func() {
+	var mu *sync.RWMutex
+	switch dataType {
+	case List:
+		mu = db.listIndex.mu
+	case Hash:
+		mu = db.hashIndex.mu
+	case Set:
+		mu = db.setIndex.mu
+	case ZSet:
+		mu = db.zsetIndex.mu
+	}
+	mu.Lock()
+	return mu.Unlock
+}
 
+func (db *RoseDB) dumpInternal(dataType DataType, deletedFiles []*logfile.LogFile) error {
 	entriesChn := make(chan *logfile.LogEntry, 1024)
 	switch dataType {
 	case List:
@@ -622,7 +640,6 @@ func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType, deletedFil
 		return err
 	}
 
-	db.mu.Lock()
 	// delete older log files.
 	for _, lf := range deletedFiles {
 		_ = lf.Delete()
@@ -637,6 +654,5 @@ func (db *RoseDB) dumpInternal(wg *sync.WaitGroup, dataType DataType, deletedFil
 			_ = os.Rename(oldPath, newPath)
 		}
 	}
-	db.mu.Unlock()
 	return nil
 }

@@ -93,8 +93,6 @@ func (db *RoseDB) SMembers(key []byte) (values [][]byte) {
 }
 
 func (db *RoseDB) iterateSetsAndSend(chn chan *logfile.LogEntry) {
-	db.setIndex.mu.RLock()
-	defer db.setIndex.mu.RUnlock()
 	db.setIndex.indexes.IterateAndSend(chn)
 	close(chn)
 }

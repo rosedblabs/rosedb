@@ -68,8 +68,6 @@ func (db *RoseDB) ZIncrBy(key []byte, increment float64, member []byte) (float64
 }
 
 func (db *RoseDB) iterateZsetAndSend(chn chan *logfile.LogEntry, enc zset.EncodeKey) {
-	db.zsetIndex.mu.Lock()
-	defer db.zsetIndex.mu.Unlock()
 	db.zsetIndex.indexes.IterateAndSend(chn, enc)
 	close(chn)
 }
