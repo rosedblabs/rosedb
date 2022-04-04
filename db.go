@@ -548,7 +548,6 @@ func (db *RoseDB) doRunDump() (err error) {
 			if len(deletedFiles) == 0 {
 				return
 			}
-			logger.Info("开始 dump ", dataType)
 			// dump start
 			if err = db.markDumpStart(dataType, deletedFiles[0].Fid, deletedFiles[len(deletedFiles)-1].Fid); err != nil {
 				logger.Errorf("mark dump start err [%v]: ", err)
@@ -558,7 +557,6 @@ func (db *RoseDB) doRunDump() (err error) {
 				logger.Errorf("error occurred while dump, type=[%v],err=[%v]: ", dataType, err)
 				return
 			}
-			logger.Info("结束 dump ", dataType)
 		}(dType)
 	}
 	wg.Wait()
