@@ -69,6 +69,31 @@ func (db *RoseDB) SetEx(key, value []byte, duration time.Duration) error {
 	return err
 }
 
+// SetNX sets the key-value pair if it is not exist. It returns nil if the key
+// exists in db.
+func (db *RoseDB) SetNX(key, value []byte) error {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	val, err := db.getVal(key)
+
+	// Key exists in db.
+	if val != nil {
+		return nil
+	}
+
+	entry := &logfile.LogEntry{
+		Key:   key,
+		Value: value,
+	}
+	valuePos, err := db.writeLogEntry(entry, String)
+	if err != nil {
+		return err
+	}
+
+	return db.updateStrIndex(entry, valuePos, true)
+}
+
 func (db *RoseDB) updateStrIndex(ent *logfile.LogEntry, pos *valuePos, sendDiscard bool) error {
 	_, size := logfile.EncodeEntry(ent)
 	idxNode := &strIndexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
