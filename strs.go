@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"errors"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 	"time"
@@ -77,6 +78,9 @@ func (db *RoseDB) SetNX(key, value []byte) error {
 
 	val, err := db.getVal(key)
 
+	if err != nil && !errors.Is(err, ErrKeyNotFound) {
+		return err
+	}
 	// Key exists in db.
 	if val != nil {
 		return nil
