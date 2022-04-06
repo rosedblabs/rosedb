@@ -32,6 +32,9 @@ var (
 
 	// ErrLogFileNotFound log file not found
 	ErrLogFileNotFound = errors.New("log file not found")
+
+	// ErrWrongNumberOfArgs doesn't match key-value pair numbers
+	ErrWrongNumberOfArgs = errors.New("wrong number of arguments")
 )
 
 const (

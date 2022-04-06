@@ -98,6 +98,35 @@ func (db *RoseDB) SetNX(key, value []byte) error {
 	return db.updateStrIndex(entry, valuePos, true)
 }
 
+// MSet is multiple set command. Parameter order should be like "key", "value",
+// "key", "value", ...
+func (db *RoseDB) MSet(args ...[]byte) error {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	if len(args) == 0 || len(args)%2 != 0 {
+		return ErrWrongNumberOfArgs
+	}
+
+	// Add multiple key-value pairs.
+	for i := 0; i < len(args); i += 2 {
+		key, value := args[i], args[i+1]
+		entry := &logfile.LogEntry{
+			Key:   key,
+			Value: value,
+		}
+		valuePos, err := db.writeLogEntry(entry, String)
+		if err != nil {
+			return err
+		}
+		err = db.updateStrIndex(entry, valuePos, true)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (db *RoseDB) updateStrIndex(ent *logfile.LogEntry, pos *valuePos, sendDiscard bool) error {
 	_, size := logfile.EncodeEntry(ent)
 	idxNode := &strIndexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
