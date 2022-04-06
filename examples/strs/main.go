@@ -40,4 +40,17 @@ func main() {
 		fmt.Printf("delete data err: %v", err)
 		return
 	}
+
+	err = db.SetNX([]byte("cmd"), []byte("SetNX"))
+	if err != nil {
+		fmt.Printf("write data err: %v", err)
+		return
+	}
+
+	v, err = db.Get([]byte("cmd"))
+	if err != nil {
+		fmt.Printf("read data err: %v", err)
+		return
+	}
+	fmt.Printf("cmd-type = %s", string(v))
 }

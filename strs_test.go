@@ -289,3 +289,101 @@ func testRoseDBSetEx(t *testing.T, mode DataIndexMode) {
 	assert.Equal(t, 0, len(v2))
 	assert.Equal(t, ErrKeyNotFound, err)
 }
+
+func TestRoseDB_SetNX(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBSetNX(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBSetNX(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBSetNX(t, FileIO, KeyValueMemMode)
+	})
+}
+
+func testRoseDBSetNX(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	type args struct {
+		key     []byte
+		value   []byte
+		wantErr bool
+	}
+	tests := []struct {
+		name string
+		db   *RoseDB
+		args []args
+	}{
+		{
+			name: "nil-key",
+			db:   db,
+			args: []args{{key: nil, value: []byte("val-1")}},
+		},
+		{
+			name: "nil-value",
+			db:   db,
+			args: []args{{key: []byte("key-1"), value: nil}},
+		},
+		{
+			name: "not exist in db",
+			db:   db,
+			args: []args{
+				{
+					key:     []byte("key-1"),
+					value:   []byte("val-1"),
+					wantErr: false,
+				},
+			},
+		},
+		{
+			name: "exist in db",
+			db:   db,
+			args: []args{
+				{
+					key:     []byte("key-1"),
+					value:   []byte("val-1"),
+					wantErr: false,
+				},
+				{
+					key:     []byte("key-1"),
+					value:   []byte("val-1"),
+					wantErr: false,
+				},
+			},
+		},
+		{
+			name: "not exist in multiple valued db",
+			db:   db,
+			args: []args{
+				{
+					key:     []byte("key-1"),
+					value:   []byte("value-1"),
+					wantErr: false,
+				},
+				{
+					key:     []byte("key-2"),
+					value:   []byte("value-2"),
+					wantErr: false,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, arg := range tt.args {
+				if err := tt.db.SetNX(arg.key, arg.value); (err != nil) != arg.wantErr {
+					t.Errorf("Set() error = %v, wantErr %v", err, arg.wantErr)
+				}
+			}
+		})
+	}
+}
