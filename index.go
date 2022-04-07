@@ -47,7 +47,7 @@ func (db *RoseDB) buildStrsIndex(ent *logfile.LogEntry, pos *valuePos) {
 		return
 	}
 	_, size := logfile.EncodeEntry(ent)
-	idxNode := &strIndexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
+	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
 	if db.opts.IndexMode == KeyValueMemMode {
 		idxNode.value = ent.Value
 	}

@@ -72,7 +72,7 @@ type (
 		idxTree *art.AdaptiveRadixTree
 	}
 
-	strIndexNode struct {
+	indexNode struct {
 		value     []byte
 		fid       uint32
 		offset    int64
@@ -430,7 +430,7 @@ func (db *RoseDB) doRunGC() error {
 			return nil
 		}
 
-		indexNode, _ := value.(*strIndexNode)
+		indexNode, _ := value.(*indexNode)
 		if indexNode == nil {
 			return nil
 		}

@@ -61,7 +61,7 @@ func (db *RoseDB) Delete(key []byte) error {
 	db.sendDiscard(val, updated)
 	// The deleted entry itself is also invalid.
 	_, size := logfile.EncodeEntry(entry)
-	node := &strIndexNode{fid: pos.fid, entrySize: size}
+	node := &indexNode{fid: pos.fid, entrySize: size}
 	select {
 	case db.discard.valChan <- node:
 	default:
@@ -111,7 +111,7 @@ func (db *RoseDB) SetNX(key, value []byte) error {
 
 func (db *RoseDB) updateStrIndex(ent *logfile.LogEntry, pos *valuePos, sendDiscard bool) error {
 	_, size := logfile.EncodeEntry(ent)
-	idxNode := &strIndexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
+	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
 	// in KeyValueMemMode, both key and value will store in memory.
 	if db.opts.IndexMode == KeyValueMemMode {
 		idxNode.value = ent.Value
@@ -132,7 +132,7 @@ func (db *RoseDB) getVal(key []byte) ([]byte, error) {
 	if rawValue == nil {
 		return nil, ErrKeyNotFound
 	}
-	idxNode, _ := rawValue.(*strIndexNode)
+	idxNode, _ := rawValue.(*indexNode)
 	if idxNode == nil {
 		return nil, ErrKeyNotFound
 	}
@@ -171,7 +171,7 @@ func (db *RoseDB) sendDiscard(oldVal interface{}, updated bool) {
 	if !updated || oldVal == nil {
 		return
 	}
-	node, _ := oldVal.(*strIndexNode)
+	node, _ := oldVal.(*indexNode)
 	if node == nil || node.entrySize <= 0 {
 		return
 	}

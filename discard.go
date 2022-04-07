@@ -27,7 +27,7 @@ var ErrDiscardNoSpace = errors.New("not enough space can be allocated for the di
 // Mainly for log files compaction.
 type discard struct {
 	sync.Mutex
-	valChan  chan *strIndexNode
+	valChan  chan *indexNode
 	file     ioselector.IOSelector
 	freeList []int64          // contains file offset that can be allocated
 	location map[uint32]int64 // offset of each fid
@@ -63,7 +63,7 @@ func newDiscard(path, name string) (*discard, error) {
 	}
 
 	d := &discard{
-		valChan:  make(chan *strIndexNode, 4096),
+		valChan:  make(chan *indexNode, 4096),
 		file:     file,
 		freeList: freeList,
 		location: location,
