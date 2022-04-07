@@ -274,7 +274,7 @@ func testRoseDBMGet(t *testing.T, ioType IOType, mode DataIndexMode) {
 			wantErr: false,
 		},
 		{
-			name:    "nil key in multiple keys", // todo
+			name:    "nil key in multiple keys",
 			db:      db,
 			args:    args{keys: [][]byte{nil, []byte("k-1")}},
 			want:    [][]byte{nil, []byte("v-1")},
