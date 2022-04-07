@@ -54,8 +54,8 @@ func (db *RoseDB) Delete(key []byte) error {
 	return nil
 }
 
-// SetEx set key to hold the string value and set key to timeout after the given duration.
-func (db *RoseDB) SetEx(key, value []byte, duration time.Duration) error {
+// SetEX set key to hold the string value and set key to timeout after the given duration.
+func (db *RoseDB) SetEX(key, value []byte, duration time.Duration) error {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
@@ -70,14 +70,12 @@ func (db *RoseDB) SetEx(key, value []byte, duration time.Duration) error {
 	return err
 }
 
-// SetNX sets the key-value pair if it is not exist. It returns nil if the key
-// exists in db.
+// SetNX sets the key-value pair if it is not exist. It returns nil if the key already exists.
 func (db *RoseDB) SetNX(key, value []byte) error {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
 	val, err := db.getVal(key)
-
 	if err != nil && !errors.Is(err, ErrKeyNotFound) {
 		return err
 	}
@@ -86,10 +84,7 @@ func (db *RoseDB) SetNX(key, value []byte) error {
 		return nil
 	}
 
-	entry := &logfile.LogEntry{
-		Key:   key,
-		Value: value,
-	}
+	entry := &logfile.LogEntry{Key: key, Value: value}
 	valuePos, err := db.writeLogEntry(entry, String)
 	if err != nil {
 		return err

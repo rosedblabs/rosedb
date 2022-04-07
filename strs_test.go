@@ -266,14 +266,14 @@ func testRoseDBSetEx(t *testing.T, mode DataIndexMode) {
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	err = db.SetEx(GetKey(1), GetValue16B(), time.Millisecond*200)
+	err = db.SetEX(GetKey(1), GetValue16B(), time.Millisecond*200)
 	assert.Nil(t, err)
 	time.Sleep(time.Millisecond * 205)
 	v, err := db.Get(GetKey(1))
 	assert.Equal(t, 0, len(v))
 	assert.Equal(t, ErrKeyNotFound, err)
 
-	err = db.SetEx(GetKey(2), GetValue16B(), time.Second*200)
+	err = db.SetEX(GetKey(2), GetValue16B(), time.Second*200)
 	time.Sleep(time.Millisecond * 200)
 	v1, err := db.Get(GetKey(2))
 	assert.NotNil(t, v1)
@@ -283,7 +283,7 @@ func testRoseDBSetEx(t *testing.T, mode DataIndexMode) {
 	err = db.Set(GetKey(3), GetValue16B())
 	assert.Nil(t, err)
 
-	err = db.SetEx(GetKey(3), GetValue16B(), time.Millisecond*200)
+	err = db.SetEX(GetKey(3), GetValue16B(), time.Millisecond*200)
 	time.Sleep(time.Millisecond * 205)
 	v2, err := db.Get(GetKey(3))
 	assert.Equal(t, 0, len(v2))
