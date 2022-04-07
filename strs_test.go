@@ -245,7 +245,7 @@ func testRoseDBMGet(t *testing.T, ioType IOType, mode DataIndexMode) {
 			wantErr: false,
 		},
 		{
-			name:    "missed noe key",
+			name:    "missed one key",
 			db:      db,
 			args:    args{keys: [][]byte{[]byte("missed-k")}},
 			want:    [][]byte{nil},
@@ -412,7 +412,7 @@ func testRoseDBSetEx(t *testing.T, mode DataIndexMode) {
 	assert.NotNil(t, v1)
 	assert.Nil(t, err)
 
-	// set a existed key.
+	// set an existed key.
 	err = db.Set(GetKey(3), GetValue16B())
 	assert.Nil(t, err)
 
