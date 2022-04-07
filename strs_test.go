@@ -520,3 +520,58 @@ func testRoseDBSetNX(t *testing.T, ioType IOType, mode DataIndexMode) {
 		})
 	}
 }
+
+func TestRoseDB_Append(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBAppend(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBAppend(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBAppend(t, FileIO, KeyValueMemMode)
+	})
+}
+
+func testRoseDBAppend(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	type args struct {
+		key   []byte
+		value []byte
+	}
+	tests := []struct {
+		name    string
+		db      *RoseDB
+		args    args
+		wantErr bool
+	}{
+		{
+			"nil-key", db, args{key: nil, value: []byte("val-1")}, false,
+		},
+		{
+			"nil-value", db, args{key: []byte("key-1"), value: nil}, false,
+		},
+		{
+			"not exist in db", db, args{key: []byte("key-2"), value: []byte("val-2")}, false,
+		},
+		{
+			"exist in db", db, args{key: []byte("key-2"), value: []byte("val-2")}, false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.db.Set(tt.args.key, tt.args.value); (err != nil) != tt.wantErr {
+				t.Errorf("Set() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

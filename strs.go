@@ -109,6 +109,33 @@ func (db *RoseDB) SetNX(key, value []byte) error {
 	return db.updateStrIndex(entry, valuePos, true)
 }
 
+// Append appends the value at the end of the old value if key already exists.
+// It will be similar to Set if key does not exist.
+func (db *RoseDB) Append(key, value []byte) error {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	oldVal, err := db.getVal(key)
+	if err != nil && !errors.Is(err, ErrKeyNotFound) {
+		return err
+	}
+
+	// Key exists in db.
+	if oldVal != nil {
+		value = append(oldVal, value...)
+	}
+
+	// write entry to log file.
+	entry := &logfile.LogEntry{Key: key, Value: value}
+	valuePos, err := db.writeLogEntry(entry, String)
+	if err != nil {
+		return err
+	}
+	// set String index info, stored at adaptive radix tree.
+	err = db.updateStrIndex(entry, valuePos, true)
+	return err
+}
+
 func (db *RoseDB) updateStrIndex(ent *logfile.LogEntry, pos *valuePos, sendDiscard bool) error {
 	_, size := logfile.EncodeEntry(ent)
 	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}

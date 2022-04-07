@@ -52,5 +52,31 @@ func main() {
 		fmt.Printf("read data err: %v", err)
 		return
 	}
-	fmt.Printf("cmd-type = %s", string(v))
+	fmt.Printf("cmd-type = %s\n", string(v))
+
+	// example of append
+	err = db.Delete([]byte("append"))
+	if err != nil {
+		fmt.Printf("delete data err: %v", err)
+		return
+	}
+
+	err = db.Append([]byte("append"), []byte("Rose"))
+	if err != nil {
+		fmt.Printf("write data err: %v", err)
+		return
+	}
+
+	err = db.Append([]byte("append"), []byte("DB"))
+	if err != nil {
+		fmt.Printf("write data err: %v", err)
+		return
+	}
+
+	v, err = db.Get([]byte("append"))
+	if err != nil {
+		fmt.Printf("read data err: %v", err)
+		return
+	}
+	fmt.Printf("append = %s\n", string(v))
 }
