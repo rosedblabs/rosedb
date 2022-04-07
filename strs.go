@@ -31,6 +31,24 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	return db.getVal(key)
 }
 
+// MGet get the values of all specified keys. If the key that does not hold a string value or does not exist,
+// nil is returned.
+func (db *RoseDB) MGet(keys [][]byte) ([][]byte, error) {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+	values := make([][]byte, 0, len(keys))
+	for _, key := range keys {
+		val, err := db.getVal(key)
+		if err != nil {
+			values = append(values, nil)
+
+		} else {
+			values = append(values, val)
+		}
+	}
+	return values, nil
+}
+
 // Delete value at the given key.
 func (db *RoseDB) Delete(key []byte) error {
 	db.strIndex.mu.Lock()
