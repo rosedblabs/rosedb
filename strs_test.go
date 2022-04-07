@@ -163,6 +163,139 @@ func testRoseDBGet(t *testing.T, ioType IOType, mode DataIndexMode) {
 	}
 }
 
+func TestRoseDB_MGet(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBMGet(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBMGet(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBMGet(t, MMap, KeyValueMemMode)
+	})
+
+}
+
+func testRoseDBMGet(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	db.Set(nil, []byte("v-1111"))
+	db.Set([]byte("k-1"), []byte("v-1"))
+	db.Set([]byte("k-2"), []byte("v-2"))
+	db.Set([]byte("k-3"), []byte("v-3"))
+	db.Set([]byte("k-3"), []byte("v-333"))
+	db.Set([]byte("k-4"), []byte("v-4"))
+	db.Set([]byte("k-5"), []byte("v-5"))
+
+	type args struct {
+		keys [][]byte
+	}
+
+	tests := []struct {
+		name    string
+		db      *RoseDB
+		args    args
+		want    [][]byte
+		wantErr bool
+	}{
+		{
+			name:    "nil-key",
+			db:      db,
+			args:    args{keys: [][]byte{nil}},
+			want:    [][]byte{nil},
+			wantErr: false,
+		},
+		{
+			name:    "normal",
+			db:      db,
+			args:    args{keys: [][]byte{[]byte("k-1")}},
+			want:    [][]byte{[]byte("v-1")},
+			wantErr: false,
+		},
+		{
+			name:    "normal-rewrite",
+			db:      db,
+			args:    args{keys: [][]byte{[]byte("k-1"), []byte("k-3")}},
+			want:    [][]byte{[]byte("v-1"), []byte("v-333")},
+			wantErr: false,
+		},
+		{
+			name: "multiple key",
+			db:   db,
+			args: args{keys: [][]byte{
+				[]byte("k-1"),
+				[]byte("k-2"),
+				[]byte("k-4"),
+				[]byte("k-5"),
+			}},
+			want: [][]byte{
+				[]byte("v-1"),
+				[]byte("v-2"),
+				[]byte("v-4"),
+				[]byte("v-5"),
+			},
+			wantErr: false,
+		},
+		{
+			name:    "missed noe key",
+			db:      db,
+			args:    args{keys: [][]byte{[]byte("missed-k")}},
+			want:    [][]byte{nil},
+			wantErr: false,
+		},
+		{
+			name: "missed multiple keys",
+			db:   db,
+			args: args{keys: [][]byte{
+				[]byte("missed-k-1"),
+				[]byte("missed-k-2"),
+				[]byte("missed-k-3"),
+			}},
+			want:    [][]byte{nil, nil, nil},
+			wantErr: false,
+		},
+		{
+			name: "missed one key in multiple keys",
+			db:   db,
+			args: args{keys: [][]byte{
+				[]byte("k-1"),
+				[]byte("missed-k-1"),
+				[]byte("k-2"),
+			}},
+			want:    [][]byte{[]byte("v-1"), nil, []byte("v-2")},
+			wantErr: false,
+		},
+		{
+			name:    "nil key in multiple keys", // todo
+			db:      db,
+			args:    args{keys: [][]byte{nil, []byte("k-1")}},
+			want:    [][]byte{nil, []byte("v-1")},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.db.MGet(tt.args.keys)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Get() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRoseDB_Delete(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		testRoseDBDelete(t, FileIO, KeyOnlyMemMode)
