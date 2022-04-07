@@ -29,7 +29,7 @@ func main() {
 	}
 	fmt.Println("val = ", string(v))
 
-	err = db.SetEx([]byte("type"), []byte("RoseDB-Strs"), time.Second*5)
+	err = db.SetEX([]byte("type"), []byte("RoseDB-Strs"), time.Second*5)
 	if err != nil {
 		fmt.Printf("write data err: %v", err)
 		return
