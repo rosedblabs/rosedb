@@ -36,18 +36,17 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 func (db *RoseDB) MGet(keys [][]byte) ([][]byte, error) {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
-	rst := make([][]byte, 0, len(keys))
+	values := make([][]byte, 0, len(keys))
 	for _, key := range keys {
-		//if db.
 		val, err := db.getVal(key)
 		if err != nil {
-			rst = append(rst, nil)
+			values = append(values, nil)
 
 		} else {
-			rst = append(rst, val)
+			values = append(values, val)
 		}
 	}
-	return rst, nil
+	return values, nil
 }
 
 // Delete value at the given key.
