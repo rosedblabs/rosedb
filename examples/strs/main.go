@@ -64,7 +64,32 @@ func main() {
 	// Missing value.
 	err = db.MSet([]byte("key-1"), []byte("value-1"), []byte("key-2"))
 	if err != nil {
-		fmt.Printf("mset error: %v", err)
+		fmt.Printf("A example of missing value: %v\n", err)
+	}
+
+	// example of append
+	err = db.Delete([]byte("append"))
+	if err != nil {
+		fmt.Printf("delete data err: %v", err)
 		return
 	}
+
+	err = db.Append([]byte("append"), []byte("Rose"))
+	if err != nil {
+		fmt.Printf("write data err: %v", err)
+		return
+	}
+
+	err = db.Append([]byte("append"), []byte("DB"))
+	if err != nil {
+		fmt.Printf("write data err: %v", err)
+		return
+	}
+
+	v, err = db.Get([]byte("append"))
+	if err != nil {
+		fmt.Printf("read data err: %v", err)
+		return
+	}
+	fmt.Printf("append = %s\n", string(v))
 }
