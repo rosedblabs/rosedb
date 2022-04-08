@@ -64,8 +64,7 @@ func main() {
 	// Missing value.
 	err = db.MSet([]byte("key-1"), []byte("value-1"), []byte("key-2"))
 	if err != nil {
-		fmt.Printf("mset error: %v", err)
-		return
+		fmt.Printf("A example of missing value: %v\n", err)
 	}
 
 	// example of append
