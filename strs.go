@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"bytes"
 	"errors"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
@@ -136,6 +137,59 @@ func (db *RoseDB) MSet(args ...[]byte) error {
 		}
 	}
 	return nil
+}
+
+// MSetNX sets given keys to their respective values. MSetNX will not perform
+// any operation at all even if just a single key already exists.
+func (db *RoseDB) MSetNX(args ...[]byte) error {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	if len(args) == 0 || len(args)%2 != 0 {
+		return ErrWrongNumberOfArgs
+	}
+
+	// Firstly, check each keys whether they are exists.
+	for i := 0; i < len(args); i += 2 {
+		key := args[i]
+		val, _ := db.getVal(key)
+
+		// Key exists in db. We discard the rest of the key-value pairs. It
+		// provides the atomicity of the method.
+		if val != nil {
+			return nil
+		}
+	}
+
+	var addedKeys [][]byte
+	// Set keys to their values.
+	for i := 0; i < len(args); i += 2 {
+		key, value := args[i], args[i+1]
+		if addedBefore(key, addedKeys) {
+			continue
+		}
+		entry := &logfile.LogEntry{Key: key, Value: value}
+		valPos, err := db.writeLogEntry(entry, String)
+		if err != nil {
+			return err
+		}
+		err = db.updateStrIndex(entry, valPos, true)
+		if err != nil {
+			return err
+		}
+		addedKeys = append(addedKeys, key)
+	}
+	return nil
+}
+
+// addedBefore is a helper function that controls the key was set before.
+func addedBefore(key []byte, addedKeys [][]byte) bool {
+	for _, k := range addedKeys {
+		if bytes.Equal(k, key) {
+			return true
+		}
+	}
+	return false
 }
 
 func (db *RoseDB) updateStrIndex(ent *logfile.LogEntry, pos *valuePos, sendDiscard bool) error {

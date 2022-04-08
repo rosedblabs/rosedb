@@ -56,15 +56,20 @@ func main() {
 
 	err = db.MSet([]byte("key-1"), []byte("value-1"), []byte("key-2"), []byte("value-2"))
 	if err != nil {
-		fmt.Printf("mset error: %v", err)
-		return
+		fmt.Printf("mset error: %v\n", err)
 	}
 	fmt.Println("Multiple key-value pair added.")
 
 	// Missing value.
 	err = db.MSet([]byte("key-1"), []byte("value-1"), []byte("key-2"))
 	if err != nil {
-		fmt.Printf("mset error: %v", err)
-		return
+		fmt.Printf("mset error: %v\n", err)
 	}
+
+	err = db.MSetNX([]byte("key-11"), []byte("value-11"))
+	if err != nil {
+		fmt.Printf("msetnx error: %v\n", err)
+	}
+	val, _ := db.Get([]byte("key-11"))
+	fmt.Printf("key-11: %v\n", string(val))
 }

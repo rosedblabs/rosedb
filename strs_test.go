@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"bytes"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
@@ -604,6 +605,125 @@ func testRoseDBMSet(t *testing.T, ioType IOType, mode DataIndexMode) {
 			}
 			if tt.wantErr == true && !errors.Is(err, ErrWrongNumberOfArgs) {
 				t.Errorf("Set() error = %v, expected error = %v", err, ErrWrongNumberOfArgs)
+			}
+		})
+	}
+}
+
+func TestRoseDB_MSetNX(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBMSetNX(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBMSetNX(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBMSetNX(t, FileIO, KeyValueMemMode)
+	})
+}
+
+func testRoseDBMSetNX(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.Set([]byte("key-10"), []byte("value-10"))
+	tests := []struct {
+		name            string
+		db              *RoseDB
+		args            [][]byte
+		expDuplicateKey []byte
+		expDuplicateVal []byte
+		wantErr         bool
+	}{
+		{
+			name:    "nil-key",
+			db:      db,
+			args:    [][]byte{nil, []byte("val-1")},
+			wantErr: false,
+		},
+		{
+			name:    "nil-value",
+			db:      db,
+			args:    [][]byte{[]byte("key-1"), nil},
+			wantErr: false,
+		},
+		{
+			name:    "empty pair",
+			db:      db,
+			args:    [][]byte{},
+			wantErr: true,
+		},
+		{
+			name:    "one pair",
+			db:      db,
+			args:    [][]byte{[]byte("key-1"), []byte("value-1")},
+			wantErr: false,
+		},
+		{
+			name: "multiple pair - no duplicate",
+			db:   db,
+			args: [][]byte{
+				[]byte("key-1"), []byte("value-1"),
+				[]byte("key-2"), []byte("value-2"),
+				[]byte("key-3"), []byte("value-3"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "multiple pair - duplicate exists",
+			db:   db,
+			args: [][]byte{
+				[]byte("key-11"), []byte("value-1"),
+				[]byte("key-12"), []byte("value-2"),
+				[]byte("key-12"), []byte("value-3")},
+			expDuplicateKey: []byte("key-12"),
+			expDuplicateVal: []byte("value-2"),
+			wantErr:         false,
+		},
+		{
+			name: "multiple pair - already exists",
+			db:   db,
+			args: [][]byte{
+				[]byte("key-1"), []byte("value-1"),
+				[]byte("key-2"), []byte("value-2"),
+				[]byte("key-10"), []byte("value-20"),
+			},
+			expDuplicateKey: []byte("key-10"),
+			expDuplicateVal: []byte("value-10"),
+			wantErr:         false,
+		},
+		{
+			name: "wrong number of key-value",
+			db:   db,
+			args: [][]byte{
+				[]byte("key-1"), []byte("value-1"),
+				[]byte("key-2"), []byte("value-2"),
+				[]byte("key-3"),
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err = tt.db.MSetNX(tt.args...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MSetNX() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr == true && !errors.Is(err, ErrWrongNumberOfArgs) {
+				t.Errorf("MSetNX() error = %v, expected error = %v", err, ErrWrongNumberOfArgs)
+			}
+			if tt.expDuplicateVal != nil {
+				val, _ := tt.db.Get(tt.expDuplicateKey)
+				if !bytes.Equal(val, tt.expDuplicateVal) {
+					t.Errorf("expected duplicate value = %v, got = %v", string(tt.expDuplicateVal), string(val))
+				}
 			}
 		})
 	}
