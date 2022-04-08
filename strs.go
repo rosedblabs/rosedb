@@ -37,6 +37,11 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 func (db *RoseDB) MGet(keys [][]byte) ([][]byte, error) {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
+
+	if len(keys) == 0 {
+		return nil, ErrWrongNumberOfArgs
+	}
+
 	values := make([][]byte, len(keys))
 	for i, key := range keys {
 		if val, err := db.getVal(key); err != nil && !errors.Is(ErrKeyNotFound, err) {
@@ -110,8 +115,7 @@ func (db *RoseDB) SetNX(key, value []byte) error {
 	return db.updateStrIndex(entry, valuePos, true)
 }
 
-// MSet is multiple set command. Parameter order should be like "key", "value",
-// "key", "value", ...
+// MSet is multiple set command. Parameter order should be like "key", "value", "key", "value", ...
 func (db *RoseDB) MSet(args ...[]byte) error {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
@@ -190,6 +194,32 @@ func addedBefore(key []byte, addedKeys [][]byte) bool {
 		}
 	}
 	return false
+}
+
+// Append appends the value at the end of the old value if key already exists.
+// It will be similar to Set if key does not exist.
+func (db *RoseDB) Append(key, value []byte) error {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	oldVal, err := db.getVal(key)
+	if err != nil && !errors.Is(err, ErrKeyNotFound) {
+		return err
+	}
+
+	// Key exists in db.
+	if oldVal != nil {
+		value = append(oldVal, value...)
+	}
+
+	// write entry to log file.
+	entry := &logfile.LogEntry{Key: key, Value: value}
+	valuePos, err := db.writeLogEntry(entry, String)
+	if err != nil {
+		return err
+	}
+	err = db.updateStrIndex(entry, valuePos, true)
+	return err
 }
 
 func (db *RoseDB) updateStrIndex(ent *logfile.LogEntry, pos *valuePos, sendDiscard bool) error {
