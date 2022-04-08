@@ -156,7 +156,7 @@ func (db *RoseDB) MSetNX(args ...[]byte) error {
 	// Firstly, check each keys whether they are exists.
 	for i := 0; i < len(args); i += 2 {
 		key := args[i]
-		val, _ := db.getVal(key)
+		val, _ := db.getVal(key, String)
 
 		// Key exists in db. We discard the rest of the key-value pairs. It
 		// provides the atomicity of the method.
@@ -177,7 +177,7 @@ func (db *RoseDB) MSetNX(args ...[]byte) error {
 		if err != nil {
 			return err
 		}
-		err = db.updateStrIndex(entry, valPos, true)
+		err = db.updateIndexTree(entry, valPos, true, String)
 		if err != nil {
 			return err
 		}
