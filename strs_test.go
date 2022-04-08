@@ -1,11 +1,14 @@
 package rosedb
 
 import (
+	"bytes"
 	"errors"
 	"github.com/stretchr/testify/assert"
+	"math"
 	"math/rand"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -665,6 +668,103 @@ func testRoseDBAppend(t *testing.T, ioType IOType, mode DataIndexMode) {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := tt.db.Append(tt.args.key, tt.args.value); (err != nil) != tt.wantErr {
 				t.Errorf("Set() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRoseDB_Decr(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBDecr(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBDecr(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBDecr(t, FileIO, KeyValueMemMode)
+	})
+}
+
+func testRoseDBDecr(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.MSet([]byte("nil-value"), nil,
+		[]byte("ten"), []byte("10"),
+		[]byte("min"), []byte(strconv.Itoa(math.MinInt64)),
+		[]byte("str-key"), []byte("str-val"))
+	tests := []struct {
+		name    string
+		db      *RoseDB
+		key     []byte
+		expVal  int64
+		expByte []byte
+		expErr  error
+		wantErr bool
+	}{
+		{
+			name:    "nil value",
+			db:      db,
+			key:     []byte("nil-value"),
+			expVal:  -1,
+			expByte: []byte("-1"),
+			wantErr: false,
+		},
+		{
+			name:    "exist key",
+			db:      db,
+			key:     []byte("ten"),
+			expVal:  9,
+			expByte: []byte("9"),
+			wantErr: false,
+		},
+		{
+			name:    "non-exist key",
+			db:      db,
+			key:     []byte("zero"),
+			expVal:  -1,
+			expByte: []byte("-1"),
+			wantErr: false,
+		},
+		{
+			name:    "overflow value",
+			db:      db,
+			key:     []byte("min"),
+			expVal:  0,
+			expByte: []byte(strconv.Itoa(math.MinInt64)),
+			expErr:  ErrIntegerOverflow,
+			wantErr: true,
+		},
+		{
+			name:    "wrong type",
+			db:      db,
+			key:     []byte("str-key"),
+			expVal:  0,
+			expErr:  ErrWrongKeyType,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			newVal, err := tt.db.Decr(tt.key)
+			if (err != nil) != tt.wantErr || err != tt.expErr {
+				t.Errorf("Decr() error = %v, wantErr = %v", err, tt.expErr)
+			}
+			if newVal != tt.expVal {
+				t.Errorf("Decr() expected value = %v, actual value = %v", tt.expVal, newVal)
+			}
+			val, _ := tt.db.Get(tt.key)
+			if tt.expByte != nil && !bytes.Equal(val, tt.expByte) {
+				t.Log(string(val))
+				t.Errorf("Decr() expected value = %v, actual = %v", tt.expByte, val)
 			}
 		})
 	}

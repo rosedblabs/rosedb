@@ -1,11 +1,10 @@
 package rosedb
 
 import (
+	"bytes"
 	"errors"
-	"fmt"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
-	"math"
 	"strconv"
 	"time"
 )
@@ -191,26 +190,26 @@ func (db *RoseDB) DecrBy(key []byte, decr int64) (int64, error) {
 	return db.decrBy(key, decr)
 }
 
-// decrBy is a helper method for Decr and DecrBy methods. It updates the ke by decr.
+// decrBy is a helper method for Decr and DecrBy methods. It updates the key by decr.
 func (db *RoseDB) decrBy(key []byte, decr int64) (int64, error) {
 	val, err := db.getVal(key, String)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrKeyNotFound) {
 		return 0, err
 	}
-	if val == nil {
+	if bytes.Equal(val, nil) {
 		val = []byte("0")
 	}
 	valInt64, err := strconv.ParseInt(string(val), 10, 64)
 	if err != nil {
 		return 0, ErrWrongKeyType
 	}
-	if valInt64-decr < math.MinInt64 {
+	// Checks integer overflow. When the number exceeds math.MinInt64 value,
+	// it makes the value math.MaxInt64-remaining.
+	if valInt64 < 0 && valInt64-decr > 0 {
 		return 0, ErrIntegerOverflow
 	}
 	valInt64 -= decr
-	fmt.Println(valInt64)
 	val = []byte(strconv.FormatInt(valInt64, 10))
-	fmt.Println(string(val))
 	entry := &logfile.LogEntry{Key: key, Value: val}
 	valuePos, err := db.writeLogEntry(entry, String)
 	if err != nil {
