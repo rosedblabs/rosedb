@@ -796,7 +796,8 @@ func testRoseDBDecrBy(t *testing.T, ioType IOType, mode DataIndexMode) {
 	_ = db.MSet([]byte("nil-value"), nil,
 		[]byte("ten"), []byte("10"),
 		[]byte("min"), []byte(strconv.Itoa(math.MinInt64)),
-		[]byte("str-key"), []byte("str-val"))
+		[]byte("str-key"), []byte("str-val"),
+		[]byte("neg"), []byte("11"))
 	tests := []struct {
 		name    string
 		db      *RoseDB
@@ -852,6 +853,15 @@ func testRoseDBDecrBy(t *testing.T, ioType IOType, mode DataIndexMode) {
 			expVal:  0,
 			expErr:  ErrWrongKeyType,
 			wantErr: true,
+		},
+		{
+			name:    "negative decr",
+			db:      db,
+			key:     []byte("neg"),
+			decr:    -4,
+			expVal:  15,
+			expByte: []byte("15"),
+			wantErr: false,
 		},
 	}
 
