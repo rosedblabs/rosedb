@@ -36,6 +36,11 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 func (db *RoseDB) MGet(keys [][]byte) ([][]byte, error) {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
+
+	if len(keys) == 0 {
+		return nil, ErrWrongNumberOfArgs
+	}
+
 	values := make([][]byte, len(keys))
 	for i, key := range keys {
 		if val, err := db.getVal(key); err != nil && !errors.Is(ErrKeyNotFound, err) {

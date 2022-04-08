@@ -281,6 +281,12 @@ func testRoseDBMGet(t *testing.T, ioType IOType, mode DataIndexMode) {
 			want:    [][]byte{nil, []byte("v-1")},
 			wantErr: false,
 		},
+		{
+			name:    "empty key",
+			db:      db,
+			args:    args{keys: [][]byte{}},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
