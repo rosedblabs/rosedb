@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"errors"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"path/filepath"
@@ -516,6 +517,93 @@ func testRoseDBSetNX(t *testing.T, ioType IOType, mode DataIndexMode) {
 				if err := tt.db.SetNX(arg.key, arg.value); (err != nil) != arg.wantErr {
 					t.Errorf("Set() error = %v, wantErr %v", err, arg.wantErr)
 				}
+			}
+		})
+	}
+}
+
+func TestRoseDB_MSet(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBMSet(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBMSet(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBMSet(t, FileIO, KeyValueMemMode)
+	})
+}
+
+func testRoseDBMSet(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	tests := []struct {
+		name    string
+		db      *RoseDB
+		args    [][]byte
+		wantErr bool
+	}{
+		{
+			name:    "nil-key",
+			db:      db,
+			args:    [][]byte{nil, []byte("val-1")},
+			wantErr: false,
+		},
+		{
+			name:    "nil-value",
+			db:      db,
+			args:    [][]byte{[]byte("key-1"), nil},
+			wantErr: false,
+		},
+		{
+			name:    "empty pair",
+			db:      db,
+			args:    [][]byte{},
+			wantErr: true,
+		},
+		{
+			name:    "one pair",
+			db:      db,
+			args:    [][]byte{[]byte("key-1"), []byte("value-1")},
+			wantErr: false,
+		},
+		{
+			name: "multiple pair",
+			db:   db,
+			args: [][]byte{
+				[]byte("key-1"), []byte("value-1"),
+				[]byte("key-2"), []byte("value-2"),
+				[]byte("key-3"), []byte("value-3"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "wrong number of key-value",
+			db:   db,
+			args: [][]byte{
+				[]byte("key-1"), []byte("value-1"),
+				[]byte("key-2"), []byte("value-2"),
+				[]byte("key-3"),
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.db.MSet(tt.args...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Set() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr == true && !errors.Is(err, ErrWrongNumberOfArgs) {
+				t.Errorf("Set() error = %v, expected error = %v", err, ErrWrongNumberOfArgs)
 			}
 		})
 	}

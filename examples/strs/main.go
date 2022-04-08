@@ -52,5 +52,19 @@ func main() {
 		fmt.Printf("read data err: %v", err)
 		return
 	}
-	fmt.Printf("cmd-type = %s", string(v))
+	fmt.Printf("cmd-type = %s\n", string(v))
+
+	err = db.MSet([]byte("key-1"), []byte("value-1"), []byte("key-2"), []byte("value-2"))
+	if err != nil {
+		fmt.Printf("mset error: %v", err)
+		return
+	}
+	fmt.Println("Multiple key-value pair added.")
+
+	// Missing value.
+	err = db.MSet([]byte("key-1"), []byte("value-1"), []byte("key-2"))
+	if err != nil {
+		fmt.Printf("mset error: %v", err)
+		return
+	}
 }
