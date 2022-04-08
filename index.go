@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/ds/list"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
@@ -32,7 +33,7 @@ func (db *RoseDB) buildIndex(dataType DataType, ent *logfile.LogEntry, pos *valu
 	case List:
 		db.buildListIndex(ent)
 	case Hash:
-		db.buildHashIndex(ent)
+		db.buildHashIndex(ent, pos)
 	case Set:
 		db.buildSetIndex(ent)
 	case ZSet:
@@ -79,13 +80,21 @@ func (db *RoseDB) buildListIndex(ent *logfile.LogEntry) {
 	}
 }
 
-func (db *RoseDB) buildHashIndex(ent *logfile.LogEntry) {
-	key, field := db.decodeKey(ent.Key)
+func (db *RoseDB) buildHashIndex(ent *logfile.LogEntry, pos *valuePos) {
 	if ent.Type == logfile.TypeDelete {
-		db.hashIndex.indexes.HDel(string(key), string(field))
+		db.hashIndex.idxTree.Delete(ent.Key)
 		return
 	}
-	db.hashIndex.indexes.HSet(string(key), string(field), ent.Value)
+
+	_, size := logfile.EncodeEntry(ent)
+	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
+	if db.opts.IndexMode == KeyValueMemMode {
+		idxNode.value = ent.Value
+	}
+	if ent.ExpiredAt != 0 {
+		idxNode.expiredAt = ent.ExpiredAt
+	}
+	db.hashIndex.idxTree.Put(ent.Key, idxNode)
 }
 
 func (db *RoseDB) buildSetIndex(ent *logfile.LogEntry) {
@@ -157,4 +166,78 @@ func (db *RoseDB) loadIndexFromLogFiles() error {
 	}
 	wg.Wait()
 	return nil
+}
+
+func (db *RoseDB) updateIndexTree(ent *logfile.LogEntry, pos *valuePos, sendDiscard bool, dType DataType) error {
+	_, size := logfile.EncodeEntry(ent)
+	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
+	// in KeyValueMemMode, both key and value will store in memory.
+	if db.opts.IndexMode == KeyValueMemMode {
+		idxNode.value = ent.Value
+	}
+	if ent.ExpiredAt != 0 {
+		idxNode.expiredAt = ent.ExpiredAt
+	}
+
+	var idxTree *art.AdaptiveRadixTree
+	switch dType {
+	case String:
+		idxTree = db.strIndex.idxTree
+	case Hash:
+		idxTree = db.hashIndex.idxTree
+	}
+	oldVal, updated := idxTree.Put(ent.Key, idxNode)
+	if sendDiscard {
+		db.sendDiscard(oldVal, updated)
+	}
+	return nil
+}
+
+func (db *RoseDB) getVal(key []byte, dataType DataType) ([]byte, error) {
+	// Get index info from a skip list in memory.
+	var idxTree *art.AdaptiveRadixTree
+	switch dataType {
+	case String:
+		idxTree = db.strIndex.idxTree
+	case Hash:
+		idxTree = db.hashIndex.idxTree
+	}
+
+	rawValue := idxTree.Get(key)
+	if rawValue == nil {
+		return nil, ErrKeyNotFound
+	}
+	idxNode, _ := rawValue.(*indexNode)
+	if idxNode == nil {
+		return nil, ErrKeyNotFound
+	}
+
+	ts := time.Now().Unix()
+	if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
+		return nil, ErrKeyNotFound
+	}
+	// In KeyValueMemMode, the value will be stored in memory.
+	// So get the value from the index info.
+	if db.opts.IndexMode == KeyValueMemMode && len(idxNode.value) != 0 {
+		return idxNode.value, nil
+	}
+
+	// In KeyOnlyMemMode, the value not in memory, so get the value from log file at the offset.
+	logFile := db.getActiveLogFile(dataType)
+	if logFile.Fid != idxNode.fid {
+		logFile = db.getArchivedLogFile(dataType, idxNode.fid)
+	}
+	if logFile == nil {
+		return nil, ErrLogFileNotFound
+	}
+
+	ent, _, err := logFile.ReadLogEntry(idxNode.offset)
+	if err != nil {
+		return nil, err
+	}
+	// key exists, but is invalid(deleted or expired)
+	if ent.Type == logfile.TypeDelete || (ent.ExpiredAt != 0 && ent.ExpiredAt < ts) {
+		return nil, ErrKeyNotFound
+	}
+	return ent.Value, nil
 }

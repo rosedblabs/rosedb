@@ -49,6 +49,6 @@ func (it *Iterator) Key() []byte {
 }
 
 func (it *Iterator) Value() []byte {
-	val, _ := it.db.getVal(it.curKey)
+	val, _ := it.db.getVal(it.curKey, String)
 	return val
 }

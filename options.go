@@ -52,10 +52,6 @@ type Options struct {
 	// Default value is 10 minutes.
 	LogFileGCInterval time.Duration
 
-	// InMemoryDataDumpInterval dump data in memory into log files, only for List, Hash, Set, and ZSet.
-	// Dump operation is mainly to execute log files garbage collection, it will write data to new log files, and remove older files.
-	InMemoryDataDumpInterval time.Duration
-
 	// LogFileGCRatio if discarded data in log file exceeds this ratio, it can be picked up for compaction(garbage collection)
 	// And if there are many files reached the ratio, we will pick the highest one by one.
 	// The recommended ratio is 0.5, half of the file can be compacted.
@@ -71,13 +67,12 @@ type Options struct {
 // DefaultOptions default options for opening a RoseDB.
 func DefaultOptions(path string) Options {
 	return Options{
-		DBPath:                   path,
-		IndexMode:                KeyOnlyMemMode,
-		IoType:                   FileIO,
-		Sync:                     false,
-		LogFileGCInterval:        time.Minute * 10,
-		InMemoryDataDumpInterval: time.Hour,
-		LogFileGCRatio:           0.5,
-		LogFileSizeThreshold:     512 << 20,
+		DBPath:               path,
+		IndexMode:            KeyOnlyMemMode,
+		IoType:               FileIO,
+		Sync:                 false,
+		LogFileGCInterval:    time.Minute * 10,
+		LogFileGCRatio:       0.5,
+		LogFileSizeThreshold: 512 << 20,
 	}
 }
