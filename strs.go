@@ -2,8 +2,11 @@ package rosedb
 
 import (
 	"errors"
+	"fmt"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
+	"math"
+	"strconv"
 	"time"
 )
 
@@ -166,4 +169,56 @@ func (db *RoseDB) Append(key, value []byte) error {
 	}
 	err = db.updateIndexTree(entry, valuePos, true, String)
 	return err
+}
+
+// Decr decrements the number stored at key by one. If the key does not exist,
+// it is set to 0 before performing the operation. It returns ErrWrongKeyType
+// error if the value is not integer type. Also, it returns ErrIntegerOverflow
+// error if the value exceeds after decrementing the value.
+func (db *RoseDB) Decr(key []byte) (int64, error) {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+	return db.decrBy(key, 1)
+}
+
+// DecrBy decrements the number stored at key by decr. If the key doesn't
+// exist, it is set to 0 before performing the operation. It returns ErrWrongKeyType
+// error if the value is not integer type. Also, it returns ErrIntegerOverflow
+// error if the value exceeds after decrementing the value.
+func (db *RoseDB) DecrBy(key []byte, decr int64) (int64, error) {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+	return db.decrBy(key, decr)
+}
+
+// decrBy is a helper method for Decr and DecrBy methods. It updates the ke by decr.
+func (db *RoseDB) decrBy(key []byte, decr int64) (int64, error) {
+	val, err := db.getVal(key, String)
+	if err != nil {
+		return 0, err
+	}
+	if val == nil {
+		val = []byte("0")
+	}
+	valInt64, err := strconv.ParseInt(string(val), 10, 64)
+	if err != nil {
+		return 0, ErrWrongKeyType
+	}
+	if valInt64-decr < math.MinInt64 {
+		return 0, ErrIntegerOverflow
+	}
+	valInt64 -= decr
+	fmt.Println(valInt64)
+	val = []byte(strconv.FormatInt(valInt64, 10))
+	fmt.Println(string(val))
+	entry := &logfile.LogEntry{Key: key, Value: val}
+	valuePos, err := db.writeLogEntry(entry, String)
+	if err != nil {
+		return 0, err
+	}
+	err = db.updateIndexTree(entry, valuePos, true, String)
+	if err != nil {
+		return 0, err
+	}
+	return valInt64, nil
 }

@@ -33,6 +33,11 @@ var (
 
 	// ErrWrongNumberOfArgs doesn't match key-value pair numbers
 	ErrWrongNumberOfArgs = errors.New("wrong number of arguments")
+
+	// ErrIntegerOverflow overflows int64 limitations
+	ErrIntegerOverflow = errors.New("increment or decrement overflow")
+
+	ErrWrongKeyType = errors.New("value is not an integer or out of range")
 )
 
 const (
