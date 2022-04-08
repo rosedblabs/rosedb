@@ -114,8 +114,7 @@ func (db *RoseDB) SetNX(key, value []byte) error {
 	return db.updateStrIndex(entry, valuePos, true)
 }
 
-// MSet is multiple set command. Parameter order should be like "key", "value",
-// "key", "value", ...
+// MSet is multiple set command. Parameter order should be like "key", "value", "key", "value", ...
 func (db *RoseDB) MSet(args ...[]byte) error {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
@@ -165,7 +164,6 @@ func (db *RoseDB) Append(key, value []byte) error {
 	if err != nil {
 		return err
 	}
-	// set String index info, stored at adaptive radix tree.
 	err = db.updateStrIndex(entry, valuePos, true)
 	return err
 }
