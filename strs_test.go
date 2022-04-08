@@ -769,3 +769,106 @@ func testRoseDBDecr(t *testing.T, ioType IOType, mode DataIndexMode) {
 		})
 	}
 }
+
+func TestRoseDB_DecrBy(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBDecrBy(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBDecrBy(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBDecrBy(t, FileIO, KeyValueMemMode)
+	})
+}
+
+func testRoseDBDecrBy(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.MSet([]byte("nil-value"), nil,
+		[]byte("ten"), []byte("10"),
+		[]byte("min"), []byte(strconv.Itoa(math.MinInt64)),
+		[]byte("str-key"), []byte("str-val"))
+	tests := []struct {
+		name    string
+		db      *RoseDB
+		key     []byte
+		decr    int64
+		expVal  int64
+		expByte []byte
+		expErr  error
+		wantErr bool
+	}{
+		{
+			name:    "nil value",
+			db:      db,
+			key:     []byte("nil-value"),
+			decr:    10,
+			expVal:  -10,
+			expByte: []byte("-10"),
+			wantErr: false,
+		},
+		{
+			name:    "exist key",
+			db:      db,
+			key:     []byte("ten"),
+			decr:    25,
+			expVal:  -15,
+			expByte: []byte("-15"),
+			wantErr: false,
+		},
+		{
+			name:    "non-exist key",
+			db:      db,
+			key:     []byte("zero"),
+			decr:    3,
+			expVal:  -3,
+			expByte: []byte("-3"),
+			wantErr: false,
+		},
+		{
+			name:    "overflow value",
+			db:      db,
+			key:     []byte("min"),
+			decr:    3,
+			expVal:  0,
+			expByte: []byte(strconv.Itoa(math.MinInt64)),
+			expErr:  ErrIntegerOverflow,
+			wantErr: true,
+		},
+		{
+			name:    "wrong type",
+			db:      db,
+			key:     []byte("str-key"),
+			decr:    5,
+			expVal:  0,
+			expErr:  ErrWrongKeyType,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			newVal, err := tt.db.DecrBy(tt.key, tt.decr)
+			if (err != nil) != tt.wantErr || err != tt.expErr {
+				t.Errorf("DecrBy() error = %v, wantErr = %v", err, tt.expErr)
+			}
+			if newVal != tt.expVal {
+				t.Errorf("DecrBy() expected value = %v, actual value = %v", tt.expVal, newVal)
+			}
+			val, _ := tt.db.Get(tt.key)
+			if tt.expByte != nil && !bytes.Equal(val, tt.expByte) {
+				t.Log(string(val))
+				t.Errorf("DecrBy() expected value = %v, actual = %v", tt.expByte, val)
+			}
+		})
+	}
+}
