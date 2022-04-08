@@ -20,7 +20,7 @@ func (db *RoseDB) Set(key, value []byte) error {
 		return err
 	}
 	// set String index info, stored at adaptive radix tree.
-	err = db.updateStrIndex(entry, valuePos, true)
+	err = db.updateIndexTree(entry, valuePos, true, String)
 	return err
 }
 
@@ -28,7 +28,7 @@ func (db *RoseDB) Set(key, value []byte) error {
 func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	db.strIndex.mu.RLock()
 	defer db.strIndex.mu.RUnlock()
-	return db.getVal(key)
+	return db.getVal(key, String)
 }
 
 // MGet get the values of all specified keys.
@@ -43,7 +43,7 @@ func (db *RoseDB) MGet(keys [][]byte) ([][]byte, error) {
 
 	values := make([][]byte, len(keys))
 	for i, key := range keys {
-		if val, err := db.getVal(key); err != nil && !errors.Is(ErrKeyNotFound, err) {
+		if val, err := db.getVal(key, String); err != nil && !errors.Is(ErrKeyNotFound, err) {
 			return nil, err
 		} else {
 			values[i] = val
@@ -87,7 +87,7 @@ func (db *RoseDB) SetEX(key, value []byte, duration time.Duration) error {
 		return err
 	}
 
-	err = db.updateStrIndex(entry, valuePos, true)
+	err = db.updateIndexTree(entry, valuePos, true, String)
 	return err
 }
 
@@ -96,7 +96,7 @@ func (db *RoseDB) SetNX(key, value []byte) error {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	val, err := db.getVal(key)
+	val, err := db.getVal(key, String)
 	if err != nil && !errors.Is(err, ErrKeyNotFound) {
 		return err
 	}
@@ -111,7 +111,7 @@ func (db *RoseDB) SetNX(key, value []byte) error {
 		return err
 	}
 
-	return db.updateStrIndex(entry, valuePos, true)
+	return db.updateIndexTree(entry, valuePos, true, String)
 }
 
 // MSet is multiple set command. Parameter order should be like "key", "value", "key", "value", ...
@@ -134,7 +134,7 @@ func (db *RoseDB) MSet(args ...[]byte) error {
 		if err != nil {
 			return err
 		}
-		err = db.updateStrIndex(entry, valuePos, true)
+		err = db.updateIndexTree(entry, valuePos, true, String)
 		if err != nil {
 			return err
 		}
@@ -148,7 +148,7 @@ func (db *RoseDB) Append(key, value []byte) error {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	oldVal, err := db.getVal(key)
+	oldVal, err := db.getVal(key, String)
 	if err != nil && !errors.Is(err, ErrKeyNotFound) {
 		return err
 	}
@@ -164,79 +164,6 @@ func (db *RoseDB) Append(key, value []byte) error {
 	if err != nil {
 		return err
 	}
-	err = db.updateStrIndex(entry, valuePos, true)
+	err = db.updateIndexTree(entry, valuePos, true, String)
 	return err
-}
-
-func (db *RoseDB) updateStrIndex(ent *logfile.LogEntry, pos *valuePos, sendDiscard bool) error {
-	_, size := logfile.EncodeEntry(ent)
-	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
-	// in KeyValueMemMode, both key and value will store in memory.
-	if db.opts.IndexMode == KeyValueMemMode {
-		idxNode.value = ent.Value
-	}
-	if ent.ExpiredAt != 0 {
-		idxNode.expiredAt = ent.ExpiredAt
-	}
-	oldVal, updated := db.strIndex.idxTree.Put(ent.Key, idxNode)
-	if sendDiscard {
-		db.sendDiscard(oldVal, updated)
-	}
-	return nil
-}
-
-func (db *RoseDB) getVal(key []byte) ([]byte, error) {
-	// Get index info from a skip list in memory.
-	rawValue := db.strIndex.idxTree.Get(key)
-	if rawValue == nil {
-		return nil, ErrKeyNotFound
-	}
-	idxNode, _ := rawValue.(*indexNode)
-	if idxNode == nil {
-		return nil, ErrKeyNotFound
-	}
-
-	ts := time.Now().Unix()
-	if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
-		return nil, ErrKeyNotFound
-	}
-	// In KeyValueMemMode, the value will be stored in memory.
-	// So get the value from the index info.
-	if db.opts.IndexMode == KeyValueMemMode && len(idxNode.value) != 0 {
-		return idxNode.value, nil
-	}
-
-	// In KeyOnlyMemMode, the value not in memory, so get the value from log file at the offset.
-	logFile := db.getActiveLogFile(String)
-	if logFile.Fid != idxNode.fid {
-		logFile = db.getArchivedLogFile(String, idxNode.fid)
-	}
-	if logFile == nil {
-		return nil, ErrLogFileNotFound
-	}
-
-	ent, _, err := logFile.ReadLogEntry(idxNode.offset)
-	if err != nil {
-		return nil, err
-	}
-	// key exists, but is invalid(deleted or expired)
-	if ent.Type == logfile.TypeDelete || (ent.ExpiredAt != 0 && ent.ExpiredAt < ts) {
-		return nil, ErrKeyNotFound
-	}
-	return ent.Value, nil
-}
-
-func (db *RoseDB) sendDiscard(oldVal interface{}, updated bool) {
-	if !updated || oldVal == nil {
-		return
-	}
-	node, _ := oldVal.(*indexNode)
-	if node == nil || node.entrySize <= 0 {
-		return
-	}
-	select {
-	case db.discard.valChan <- node:
-	default:
-		logger.Warn("send to discard chan fail")
-	}
 }

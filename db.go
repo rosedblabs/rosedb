@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/flower-corp/rosedb/ds/art"
-	"github.com/flower-corp/rosedb/ds/hash"
 	"github.com/flower-corp/rosedb/ds/list"
 	"github.com/flower-corp/rosedb/ds/set"
 	"github.com/flower-corp/rosedb/ds/zset"
@@ -16,7 +15,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -90,7 +88,7 @@ type (
 
 	hashIndex struct {
 		mu      *sync.RWMutex
-		indexes *hash.Hash
+		idxTree *art.AdaptiveRadixTree
 	}
 
 	setIndex struct {
@@ -113,7 +111,7 @@ func newListIdx() *listIndex {
 }
 
 func newHashIdx() *hashIndex {
-	return &hashIndex{indexes: hash.New(), mu: new(sync.RWMutex)}
+	return &hashIndex{idxTree: art.NewART(), mu: new(sync.RWMutex)}
 }
 
 func newSetIdx() *setIndex {
@@ -150,11 +148,6 @@ func Open(opts Options) (*RoseDB, error) {
 		zsetIndex:        newZSetIdx(),
 	}
 
-	// load dump state, must execute it before load log files.
-	if err := db.loadDumpState(); err != nil {
-		return nil, err
-	}
-
 	// load the log files from disk.
 	if err := db.loadLogFiles(false); err != nil {
 		return nil, err
@@ -167,9 +160,6 @@ func Open(opts Options) (*RoseDB, error) {
 
 	// handle log files garbage collection.
 	go db.handleLogFileGC()
-
-	// handle in memory data dumping(List, Hash, Set, and ZSet)
-	go db.handleDumping()
 	return db, nil
 }
 
@@ -382,6 +372,21 @@ func (db *RoseDB) decodeKey(key []byte) ([]byte, []byte) {
 	return key[index:sep], key[sep:]
 }
 
+func (db *RoseDB) sendDiscard(oldVal interface{}, updated bool) {
+	if !updated || oldVal == nil {
+		return
+	}
+	node, _ := oldVal.(*indexNode)
+	if node == nil || node.entrySize <= 0 {
+		return
+	}
+	select {
+	case db.discard.valChan <- node:
+	default:
+		logger.Warn("send to discard chan fail")
+	}
+}
+
 func (db *RoseDB) handleLogFileGC() {
 	if db.opts.LogFileGCInterval <= 0 {
 		return
@@ -395,27 +400,6 @@ func (db *RoseDB) handleLogFileGC() {
 		select {
 		case <-ticker.C:
 			if err := db.doRunGC(); err != nil {
-				logger.Errorf("value log compaction err: %+v", err)
-			}
-		case <-quitSig:
-			return
-		}
-	}
-}
-
-func (db *RoseDB) handleDumping() {
-	if db.opts.InMemoryDataDumpInterval <= 0 {
-		return
-	}
-
-	quitSig := make(chan os.Signal, 1)
-	signal.Notify(quitSig, os.Interrupt, os.Kill, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	ticker := time.NewTicker(db.opts.InMemoryDataDumpInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			if err := db.doRunDump(); err != nil {
 				logger.Errorf("value log compaction err: %+v", err)
 			}
 		case <-quitSig:
@@ -443,7 +427,7 @@ func (db *RoseDB) doRunGC() error {
 			if err != nil {
 				return err
 			}
-			if err = db.updateStrIndex(entry, pos, false); err != nil {
+			if err = db.updateIndexTree(entry, pos, false, String); err != nil {
 				return err
 			}
 		}
@@ -496,164 +480,6 @@ func (db *RoseDB) doRunGC() error {
 			return err
 		}
 		db.discard.clear(logFile.Fid)
-	}
-	return nil
-}
-
-func (db *RoseDB) doRunDump() (err error) {
-	dumpPath := filepath.Join(db.opts.DBPath, dumpFilePath)
-	if err = os.MkdirAll(dumpPath, os.ModePerm); err != nil {
-		return
-	}
-	defer func() {
-		_ = os.RemoveAll(dumpPath)
-	}()
-
-	findDeletedAndRotateFiles := func(dType DataType) ([]*logfile.LogFile, error) {
-		db.mu.Lock()
-		defer db.mu.Unlock()
-		var filesTobeDeleted []*logfile.LogFile
-		// rotate log files.
-		for _, lf := range db.archivedLogFiles[dType] {
-			filesTobeDeleted = append(filesTobeDeleted, lf)
-		}
-
-		activeFile := db.activeLogFiles[dType]
-		if activeFile == nil {
-			return filesTobeDeleted, nil
-		}
-		ftype, iotype := logfile.FileType(dType), logfile.IOType(db.opts.IoType)
-		lf, err := logfile.OpenLogFile(db.opts.DBPath, activeFile.Fid+1, db.opts.LogFileSizeThreshold, ftype, iotype)
-		if err != nil {
-			return nil, err
-		}
-		db.activeLogFiles[dType] = lf
-		if db.archivedLogFiles[dType] == nil {
-			db.archivedLogFiles[dType] = make(archivedFiles)
-		}
-		db.archivedLogFiles[dType][activeFile.Fid] = activeFile
-		filesTobeDeleted = append(filesTobeDeleted, activeFile)
-		return filesTobeDeleted, nil
-	}
-
-	wg := new(sync.WaitGroup)
-	for dType := List; dType < logFileTypeNum; dType++ {
-		wg.Add(1)
-		go func(dataType DataType) {
-			defer wg.Done()
-			unlock := db.lockByType(dataType)
-			defer unlock()
-			deletedFiles, err := findDeletedAndRotateFiles(dataType)
-			if err != nil {
-				logger.Errorf("error occurred while find files [%v]: ", err)
-				return
-			}
-			if len(deletedFiles) == 0 {
-				return
-			}
-			// dump start
-			if err = db.markDumpStart(dataType, deletedFiles[0].Fid, deletedFiles[len(deletedFiles)-1].Fid); err != nil {
-				logger.Errorf("mark dump start err [%v]: ", err)
-				return
-			}
-			if err = db.dumpInternal(dataType, deletedFiles); err != nil {
-				logger.Errorf("error occurred while dump, type=[%v],err=[%v]: ", dataType, err)
-				return
-			}
-		}(dType)
-	}
-	wg.Wait()
-
-	// reload log files.
-	if err := db.loadLogFiles(true); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (db *RoseDB) lockByType(dataType DataType) func() {
-	var mu *sync.RWMutex
-	switch dataType {
-	case List:
-		mu = db.listIndex.mu
-	case Hash:
-		mu = db.hashIndex.mu
-	case Set:
-		mu = db.setIndex.mu
-	case ZSet:
-		mu = db.zsetIndex.mu
-	}
-	mu.Lock()
-	return mu.Unlock
-}
-
-func (db *RoseDB) dumpInternal(dataType DataType, deletedFiles []*logfile.LogFile) error {
-	entriesChn := make(chan *logfile.LogEntry, 1024)
-	switch dataType {
-	case List:
-		go db.iterateListAndSend(entriesChn)
-	case Hash:
-		go db.iterateHashAndSend(entriesChn, db.encodeKey)
-	case Set:
-		go db.iterateSetsAndSend(entriesChn)
-	case ZSet:
-		go db.iterateZsetAndSend(entriesChn, db.encodeKey)
-	}
-
-	var logFile *logfile.LogFile
-	dumpPath := filepath.Join(db.opts.DBPath, dumpFilePath)
-	rotateFile := func(size int) error {
-		if logFile == nil || logFile.WriteAt+int64(size) > db.opts.LogFileSizeThreshold {
-			var activeFid uint32 = logfile.InitialLogFileId
-			if logFile != nil {
-				activeFid = logFile.Fid + 1
-				if err := logFile.Sync(); err != nil {
-					return err
-				}
-				_ = logFile.Close()
-			}
-			ftype, iotype := logfile.FileType(dataType), logfile.IOType(db.opts.IoType)
-			lf, err := logfile.OpenLogFile(dumpPath, activeFid, db.opts.LogFileSizeThreshold, ftype, iotype)
-			if err != nil {
-				return err
-			}
-			logFile = lf
-		}
-		return nil
-	}
-
-	for entry := range entriesChn {
-		buf, size := logfile.EncodeEntry(entry)
-		if err := rotateFile(size); err != nil {
-			return err
-		}
-		if err := logFile.Write(buf); err != nil {
-			return err
-		}
-	}
-
-	fileInfos, err := ioutil.ReadDir(dumpPath)
-	if err != nil {
-		return err
-	}
-	// mark dump has finished successfully.
-	if err = db.markDumpFinish(dataType); err != nil {
-		return err
-	}
-
-	// delete older log files.
-	for _, lf := range deletedFiles {
-		_ = lf.Delete()
-		delete(db.archivedLogFiles[dataType], lf.Fid)
-	}
-	// rename log files in dump path.
-	fileType := logfile.FileType(dataType)
-	for _, file := range fileInfos {
-		oldPath := filepath.Join(dumpPath, file.Name())
-		newPath := filepath.Join(db.opts.DBPath, file.Name())
-		if strings.HasPrefix(file.Name(), logfile.FileNamesMap[fileType]) {
-			_ = os.Rename(oldPath, newPath)
-		}
 	}
 	return nil
 }
