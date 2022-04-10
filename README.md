@@ -4,6 +4,8 @@
 
 English| [简体中文](https://github.com/roseduan/rosedb/blob/main/README-CN.md)
 
+> Note: rosedb has no stable release now, don`t use it in production.
+
 rosedb is a fast, stable, and embedded storage engine based on `bitcask`, also supports a variety of data structures such as `string`, `list`, `hash`, `set`, and `sorted set`.     
 
 ## Design Overview

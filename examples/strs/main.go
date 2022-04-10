@@ -92,4 +92,7 @@ func main() {
 		return
 	}
 	fmt.Printf("append = %s\n", string(v))
+
+	strLen := db.StrLen([]byte("key-1"))
+	fmt.Printf("StrLen %v\n", strLen)
 }

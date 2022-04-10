@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
@@ -220,4 +221,18 @@ func (db *RoseDB) decrBy(key []byte, decr int64) (int64, error) {
 		return 0, err
 	}
 	return valInt64, nil
+}
+
+// StrLen returns the length of the string value stored at key. If the key
+// doesn't exist, it returns 0.
+func (db *RoseDB) StrLen(key []byte) int {
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+
+	val, err := db.getVal(key, String)
+	if err != nil {
+		return 0
+	}
+
+	return binary.Size(val)
 }

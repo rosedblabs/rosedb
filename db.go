@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/ds/list"
-	"github.com/flower-corp/rosedb/ds/set"
 	"github.com/flower-corp/rosedb/ds/zset"
 	"github.com/flower-corp/rosedb/ioselector"
 	"github.com/flower-corp/rosedb/logfile"
@@ -43,9 +42,6 @@ var (
 
 const (
 	logFileTypeNum   = 5
-	dumpFilePath     = "dump"
-	dumpStateFile    = "DUMP_STATE"
-	dumpRecordSize   = 12
 	encodeHeaderSize = 10
 )
 
@@ -99,7 +95,8 @@ type (
 
 	setIndex struct {
 		mu      *sync.RWMutex
-		indexes *set.Set
+		trees   map[string]*art.AdaptiveRadixTree
+		idxTree *art.AdaptiveRadixTree
 	}
 
 	zsetIndex struct {
@@ -121,7 +118,7 @@ func newHashIdx() *hashIndex {
 }
 
 func newSetIdx() *setIndex {
-	return &setIndex{indexes: set.New(), mu: new(sync.RWMutex)}
+	return &setIndex{idxTree: art.NewART(), trees: make(map[string]*art.AdaptiveRadixTree), mu: new(sync.RWMutex)}
 }
 
 func newZSetIdx() *zsetIndex {
