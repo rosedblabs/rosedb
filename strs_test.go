@@ -763,7 +763,6 @@ func testRoseDBDecr(t *testing.T, ioType IOType, mode DataIndexMode) {
 			}
 			val, _ := tt.db.Get(tt.key)
 			if tt.expByte != nil && !bytes.Equal(val, tt.expByte) {
-				t.Log(string(val))
 				t.Errorf("Decr() expected value = %v, actual = %v", tt.expByte, val)
 			}
 		})
