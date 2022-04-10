@@ -669,3 +669,64 @@ func testRoseDBAppend(t *testing.T, ioType IOType, mode DataIndexMode) {
 		})
 	}
 }
+
+func TestRoseDB_StrLen(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBStrLen(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBStrLen(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBStrLen(t, FileIO, KeyValueMemMode)
+	})
+}
+
+func testRoseDBStrLen(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.MSet([]byte("string"), []byte("value"), []byte("empty"), []byte(""))
+
+	tests := []struct {
+		name   string
+		db     *RoseDB
+		key    []byte
+		expLen int
+	}{
+		{
+			name:   "Empty",
+			db:     db,
+			key:    []byte("empty"),
+			expLen: 0,
+		},
+		{
+			name:   "not exist",
+			db:     db,
+			key:    []byte("not-exist-key"),
+			expLen: 0,
+		},
+		{
+			name:   "normal string",
+			db:     db,
+			key:    []byte("string"),
+			expLen: 5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			strLen := tt.db.StrLen(tt.key)
+			if strLen != tt.expLen {
+				t.Errorf("StrLen() expected length = %v, actual length = %v", tt.expLen, strLen)
+			}
+		})
+	}
+}
