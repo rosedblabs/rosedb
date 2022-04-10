@@ -4,6 +4,8 @@
 
 [English](https://github.com/roseduan/rosedb#rosedb) | 简体中文
 
+> 提示：rosedb 还没有稳定的 release 版本，暂时不要用于生产环境
+
 rosedb 是一个稳定、快速、内嵌的存储引擎，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`。
 
 ## 架构设计
