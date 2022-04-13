@@ -795,6 +795,7 @@ func testRoseDBDecrBy(t *testing.T, ioType IOType, mode DataIndexMode) {
 	_ = db.MSet([]byte("nil-value"), nil,
 		[]byte("ten"), []byte("10"),
 		[]byte("min"), []byte(strconv.Itoa(math.MinInt64)),
+		[]byte("max"), []byte(strconv.Itoa(math.MaxInt64)),
 		[]byte("str-key"), []byte("str-val"),
 		[]byte("neg"), []byte("11"))
 	tests := []struct {
@@ -835,12 +836,22 @@ func testRoseDBDecrBy(t *testing.T, ioType IOType, mode DataIndexMode) {
 			wantErr: false,
 		},
 		{
-			name:    "overflow value",
+			name:    "overflow value-min",
 			db:      db,
 			key:     []byte("min"),
 			decr:    3,
 			expVal:  0,
 			expByte: []byte(strconv.Itoa(math.MinInt64)),
+			expErr:  ErrIntegerOverflow,
+			wantErr: true,
+		},
+		{
+			name:    "overflow value-max",
+			db:      db,
+			key:     []byte("max"),
+			decr:    -10,
+			expVal:  0,
+			expByte: []byte(strconv.Itoa(math.MaxInt64)),
 			expErr:  ErrIntegerOverflow,
 			wantErr: true,
 		},

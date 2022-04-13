@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
+	"math"
 	"strconv"
 	"time"
 )
@@ -178,7 +179,7 @@ func (db *RoseDB) Append(key, value []byte) error {
 func (db *RoseDB) Decr(key []byte) (int64, error) {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
-	return db.decrBy(key, 1)
+	return db.incrDecrBy(key, -1)
 }
 
 // DecrBy decrements the number stored at key by decr. If the key doesn't
@@ -188,11 +189,11 @@ func (db *RoseDB) Decr(key []byte) (int64, error) {
 func (db *RoseDB) DecrBy(key []byte, decr int64) (int64, error) {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
-	return db.decrBy(key, decr)
+	return db.incrDecrBy(key, -decr)
 }
 
-// decrBy is a helper method for Decr and DecrBy methods. It updates the key by decr.
-func (db *RoseDB) decrBy(key []byte, decr int64) (int64, error) {
+// incrDecrBy is a helper method for Incr, IncrBy, Decr, and DecrBy methods. It updates the key by incr.
+func (db *RoseDB) incrDecrBy(key []byte, incr int64) (int64, error) {
 	val, err := db.getVal(key, String)
 	if err != nil && !errors.Is(err, ErrKeyNotFound) {
 		return 0, err
@@ -206,10 +207,12 @@ func (db *RoseDB) decrBy(key []byte, decr int64) (int64, error) {
 	}
 	// Checks integer overflow. When the number exceeds math.MinInt64 value,
 	// it makes the value math.MaxInt64-remaining.
-	if valInt64 < 0 && valInt64-decr > 0 {
+	if (incr < 0 && valInt64 < 0 && incr < (math.MinInt64-valInt64)) ||
+		(incr > 0 && valInt64 > 0 && incr > (math.MaxInt64-valInt64)) {
 		return 0, ErrIntegerOverflow
 	}
-	valInt64 -= decr
+
+	valInt64 += incr
 	val = []byte(strconv.FormatInt(valInt64, 10))
 	entry := &logfile.LogEntry{Key: key, Value: val}
 	valuePos, err := db.writeLogEntry(entry, String)
