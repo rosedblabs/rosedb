@@ -192,6 +192,26 @@ func (db *RoseDB) DecrBy(key []byte, decr int64) (int64, error) {
 	return db.incrDecrBy(key, -decr)
 }
 
+// Incr increments the number stored at key by one. If the key does not exist,
+// it is set to 0 before performing the operation. It returns ErrWrongKeyType
+// error if the value is not integer type. Also, it returns ErrIntegerOverflow
+// error if the value exceeds after incrementing the value.
+func (db *RoseDB) Incr(key []byte) (int64, error) {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+	return db.incrDecrBy(key, 1)
+}
+
+// IncrBy increments the number stored at key by incr. If the key doesn't
+// exist, it is set to 0 before performing the operation. It returns ErrWrongKeyType
+// error if the value is not integer type. Also, it returns ErrIntegerOverflow
+// error if the value exceeds after incrementing the value.
+func (db *RoseDB) IncrBy(key []byte, incr int64) (int64, error) {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+	return db.incrDecrBy(key, incr)
+}
+
 // incrDecrBy is a helper method for Incr, IncrBy, Decr, and DecrBy methods. It updates the key by incr.
 func (db *RoseDB) incrDecrBy(key []byte, incr int64) (int64, error) {
 	val, err := db.getVal(key, String)
@@ -205,8 +225,7 @@ func (db *RoseDB) incrDecrBy(key []byte, incr int64) (int64, error) {
 	if err != nil {
 		return 0, ErrWrongKeyType
 	}
-	// Checks integer overflow. When the number exceeds math.MinInt64 value,
-	// it makes the value math.MaxInt64-remaining.
+
 	if (incr < 0 && valInt64 < 0 && incr < (math.MinInt64-valInt64)) ||
 		(incr > 0 && valInt64 > 0 && incr > (math.MaxInt64-valInt64)) {
 		return 0, ErrIntegerOverflow
