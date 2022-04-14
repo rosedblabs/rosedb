@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
+	"github.com/flower-corp/rosedb/util"
 	"math"
 	"strconv"
 	"time"
@@ -159,10 +160,7 @@ func (db *RoseDB) MSetNX(args ...[]byte) error {
 	// Firstly, check each keys whether they are exists.
 	for i := 0; i < len(args); i += 2 {
 		key := args[i]
-		val, err := db.getVal(key, String)
-		if err != nil {
-			return err
-		}
+		val, _ := db.getVal(key, String)
 
 		// Key exists in db. We discard the rest of the key-value pairs. It
 		// provides the atomicity of the method.
@@ -171,11 +169,13 @@ func (db *RoseDB) MSetNX(args ...[]byte) error {
 		}
 	}
 
-	var addedKeys [][]byte
+	var keys = make(map[uint64]struct{})
+
 	// Set keys to their values.
 	for i := 0; i < len(args); i += 2 {
 		key, value := args[i], args[i+1]
-		if addedBefore(key, addedKeys) {
+		h := util.MemHash(key)
+		if _, ok := keys[h]; ok {
 			continue
 		}
 		entry := &logfile.LogEntry{Key: key, Value: value}
@@ -187,19 +187,9 @@ func (db *RoseDB) MSetNX(args ...[]byte) error {
 		if err != nil {
 			return err
 		}
-		addedKeys = append(addedKeys, key)
+		keys[h] = struct{}{}
 	}
 	return nil
-}
-
-// addedBefore is a helper function that controls the key was set before.
-func addedBefore(key []byte, addedKeys [][]byte) bool {
-	for _, k := range addedKeys {
-		if bytes.Equal(k, key) {
-			return true
-		}
-	}
-	return false
 }
 
 // Append appends the value at the end of the old value if key already exists.
