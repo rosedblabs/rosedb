@@ -160,7 +160,10 @@ func (db *RoseDB) MSetNX(args ...[]byte) error {
 	// Firstly, check each keys whether they are exists.
 	for i := 0; i < len(args); i += 2 {
 		key := args[i]
-		val, _ := db.getVal(key, String)
+		val, err := db.getVal(key, String)
+		if err != nil && !errors.Is(err, ErrKeyNotFound) {
+			return err
+		}
 
 		// Key exists in db. We discard the rest of the key-value pairs. It
 		// provides the atomicity of the method.
