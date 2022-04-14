@@ -95,4 +95,17 @@ func main() {
 
 	strLen := db.StrLen([]byte("key-1"))
 	fmt.Printf("StrLen %v\n", strLen)
+
+	_ = db.Set([]byte("int"), []byte("12"))
+	val, err := db.Decr([]byte("int"))
+	if err != nil {
+		fmt.Printf(err.Error())
+	}
+	fmt.Printf("new value after Decr(): %v\n", val)
+
+	val, err = db.DecrBy([]byte("int"), 5)
+	if err != nil {
+		fmt.Printf(err.Error())
+	}
+	fmt.Printf("new value after DecrBy(5): %v\n", val)
 }
