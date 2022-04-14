@@ -57,6 +57,7 @@ func main() {
 	err = db.MSet([]byte("key-1"), []byte("value-1"), []byte("key-2"), []byte("value-2"))
 	if err != nil {
 		fmt.Printf("mset error: %v\n", err)
+		return
 	}
 	fmt.Println("Multiple key-value pair added.")
 
@@ -99,4 +100,20 @@ func main() {
 		return
 	}
 	fmt.Printf("append = %s\n", string(v))
+
+	strLen := db.StrLen([]byte("key-1"))
+	fmt.Printf("StrLen %v\n", strLen)
+
+	_ = db.Set([]byte("int"), []byte("12"))
+	valInt, err := db.Decr([]byte("int"))
+	if err != nil {
+		fmt.Printf(err.Error())
+	}
+	fmt.Printf("new value after Decr(): %v\n", valInt)
+
+	valInt, err = db.DecrBy([]byte("int"), 5)
+	if err != nil {
+		fmt.Printf(err.Error())
+	}
+	fmt.Printf("new value after DecrBy(5): %v\n", valInt)
 }

@@ -35,7 +35,7 @@ func (db *RoseDB) buildIndex(dataType DataType, ent *logfile.LogEntry, pos *valu
 	case Hash:
 		db.buildHashIndex(ent, pos)
 	case Set:
-		db.buildSetIndex(ent)
+		db.buildSetIndex(ent, pos)
 	case ZSet:
 		db.buildZSetIndex(ent)
 	}
@@ -97,12 +97,19 @@ func (db *RoseDB) buildHashIndex(ent *logfile.LogEntry, pos *valuePos) {
 	db.hashIndex.idxTree.Put(ent.Key, idxNode)
 }
 
-func (db *RoseDB) buildSetIndex(ent *logfile.LogEntry) {
+func (db *RoseDB) buildSetIndex(ent *logfile.LogEntry, pos *valuePos) {
+	if db.setIndex.trees[string(ent.Key)] == nil {
+		db.setIndex.trees[string(ent.Key)] = art.NewART()
+	}
+	db.setIndex.idxTree = db.setIndex.trees[string(ent.Key)]
 	if ent.Type == logfile.TypeDelete {
-		db.setIndex.indexes.SRem(string(ent.Key), ent.Value)
+		db.setIndex.idxTree.Delete(ent.Value)
 		return
 	}
-	db.setIndex.indexes.SAdd(string(ent.Key), ent.Value)
+
+	_, size := logfile.EncodeEntry(ent)
+	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
+	db.setIndex.idxTree.Put(ent.Value, idxNode)
 }
 
 func (db *RoseDB) buildZSetIndex(ent *logfile.LogEntry) {
@@ -185,6 +192,12 @@ func (db *RoseDB) updateIndexTree(ent *logfile.LogEntry, pos *valuePos, sendDisc
 		idxTree = db.strIndex.idxTree
 	case Hash:
 		idxTree = db.hashIndex.idxTree
+	case Set:
+		idxTree = db.setIndex.idxTree
+	}
+
+	if dType == Set {
+		idxNode.value, ent.Key = nil, ent.Value
 	}
 	oldVal, updated := idxTree.Put(ent.Key, idxNode)
 	if sendDiscard {
