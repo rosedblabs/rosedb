@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
+	"github.com/flower-corp/rosedb/util"
 	"math"
 	"strconv"
 	"time"
@@ -142,6 +143,54 @@ func (db *RoseDB) MSet(args ...[]byte) error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// MSetNX sets given keys to their respective values. MSetNX will not perform
+// any operation at all even if just a single key already exists.
+func (db *RoseDB) MSetNX(args ...[]byte) error {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	if len(args) == 0 || len(args)%2 != 0 {
+		return ErrWrongNumberOfArgs
+	}
+
+	// Firstly, check each keys whether they are exists.
+	for i := 0; i < len(args); i += 2 {
+		key := args[i]
+		val, err := db.getVal(key, String)
+		if err != nil && !errors.Is(err, ErrKeyNotFound) {
+			return err
+		}
+
+		// Key exists in db. We discard the rest of the key-value pairs. It
+		// provides the atomicity of the method.
+		if val != nil {
+			return nil
+		}
+	}
+
+	var keys = make(map[uint64]struct{})
+
+	// Set keys to their values.
+	for i := 0; i < len(args); i += 2 {
+		key, value := args[i], args[i+1]
+		h := util.MemHash(key)
+		if _, ok := keys[h]; ok {
+			continue
+		}
+		entry := &logfile.LogEntry{Key: key, Value: value}
+		valPos, err := db.writeLogEntry(entry, String)
+		if err != nil {
+			return err
+		}
+		err = db.updateIndexTree(entry, valPos, true, String)
+		if err != nil {
+			return err
+		}
+		keys[h] = struct{}{}
 	}
 	return nil
 }
