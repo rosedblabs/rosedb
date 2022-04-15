@@ -1,7 +1,7 @@
 package rosedb
 
 import (
-	"github.com/flower-corp/rosedb/ds/zset"
+	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/util"
 )
@@ -11,13 +11,31 @@ func (db *RoseDB) ZAdd(key []byte, score float64, member []byte) error {
 	db.zsetIndex.mu.Lock()
 	defer db.zsetIndex.mu.Unlock()
 
+	if err := db.zsetIndex.murhash.Write(member); err != nil {
+		return err
+	}
+	sum := db.zsetIndex.murhash.EncodeSum128()
+	db.zsetIndex.murhash.Reset()
+	if db.zsetIndex.trees[string(key)] == nil {
+		db.zsetIndex.trees[string(key)] = art.NewART()
+	}
+	db.zsetIndex.idxTree = db.zsetIndex.trees[string(key)]
+
 	scoreBuf := []byte(util.Float64ToStr(score))
 	zsetKey := db.encodeKey(key, scoreBuf)
 	entry := &logfile.LogEntry{Key: zsetKey, Value: member}
-	if _, err := db.writeLogEntry(entry, ZSet); err != nil {
+	pos, err := db.writeLogEntry(entry, ZSet)
+	if err != nil {
 		return err
 	}
-	db.zsetIndex.indexes.ZAdd(string(key), score, string(member))
+
+	_, size := logfile.EncodeEntry(entry)
+	pos.zsetSize = size
+	ent := &logfile.LogEntry{Key: sum, Value: member}
+	if err := db.updateIndexTree(ent, pos, false, ZSet); err != nil {
+		return err
+	}
+	db.zsetIndex.indexes.ZAdd(string(key), score, string(sum))
 	return nil
 }
 
@@ -25,7 +43,13 @@ func (db *RoseDB) ZAdd(key []byte, score float64, member []byte) error {
 func (db *RoseDB) ZScore(key, member []byte) (ok bool, score float64) {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
-	return db.zsetIndex.indexes.ZScore(string(key), string(member))
+
+	if err := db.zsetIndex.murhash.Write(member); err != nil {
+		return false, 0
+	}
+	sum := db.zsetIndex.murhash.EncodeSum128()
+	db.zsetIndex.murhash.Reset()
+	return db.zsetIndex.indexes.ZScore(string(key), string(sum))
 }
 
 // ZRem removes the specified members from the sorted set stored at key. Non existing members are ignored.
@@ -67,7 +91,24 @@ func (db *RoseDB) ZIncrBy(key []byte, increment float64, member []byte) (float64
 	return incrBy, nil
 }
 
-func (db *RoseDB) iterateZsetAndSend(chn chan *logfile.LogEntry, enc zset.EncodeKey) {
-	db.zsetIndex.indexes.IterateAndSend(chn, enc)
-	close(chn)
+// ZRange returns the specified range of elements in the sorted set stored at key.
+func (db *RoseDB) ZRange(key []byte, start, stop int) ([][]byte, error) {
+	db.zsetIndex.mu.RLock()
+	defer db.zsetIndex.mu.RUnlock()
+	if db.zsetIndex.trees[string(key)] == nil {
+		db.zsetIndex.trees[string(key)] = art.NewART()
+	}
+	db.zsetIndex.idxTree = db.zsetIndex.trees[string(key)]
+
+	var res [][]byte
+	values := db.zsetIndex.indexes.ZRange(string(key), start, stop)
+	for _, val := range values {
+		v, _ := val.(string)
+		if val, err := db.getVal([]byte(v), ZSet); err != nil {
+			return nil, err
+		} else {
+			res = append(res, val)
+		}
+	}
+	return res, nil
 }

@@ -176,7 +176,10 @@ func (db *RoseDB) loadIndexFromLogFiles() error {
 }
 
 func (db *RoseDB) updateIndexTree(ent *logfile.LogEntry, pos *valuePos, sendDiscard bool, dType DataType) error {
-	_, size := logfile.EncodeEntry(ent)
+	var size = pos.zsetSize
+	if dType != ZSet {
+		_, size = logfile.EncodeEntry(ent)
+	}
 	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
 	// in KeyValueMemMode, both key and value will store in memory.
 	if db.opts.IndexMode == KeyValueMemMode {
@@ -194,6 +197,8 @@ func (db *RoseDB) updateIndexTree(ent *logfile.LogEntry, pos *valuePos, sendDisc
 		idxTree = db.hashIndex.idxTree
 	case Set:
 		idxTree = db.setIndex.idxTree
+	case ZSet:
+		idxTree = db.zsetIndex.idxTree
 	}
 
 	if dType == Set {
@@ -214,6 +219,8 @@ func (db *RoseDB) getVal(key []byte, dataType DataType) ([]byte, error) {
 		idxTree = db.strIndex.idxTree
 	case Hash:
 		idxTree = db.hashIndex.idxTree
+	case ZSet:
+		idxTree = db.zsetIndex.idxTree
 	}
 
 	rawValue := idxTree.Get(key)

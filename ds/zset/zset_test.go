@@ -86,10 +86,10 @@ func TestSortedSet_ZRange(t *testing.T) {
 	key := "myzset"
 
 	ran := zSet.ZRange(key, 0, -1)
-	t.Log(len(ran))
+	assert.Equal(t, 7, len(ran))
 
 	for _, v := range ran {
-		t.Logf("%+v", v)
+		assert.NotNil(t, v)
 	}
 }
 
@@ -222,7 +222,7 @@ func TestSortedSet_ZRevScoreRange(t *testing.T) {
 func TestSortedSet_ZCard(t *testing.T) {
 	zSet := InitZSet()
 	card := zSet.ZCard("myzset")
-	t.Log(card)
+	assert.Equal(t, 7, card)
 }
 
 func TestSortedSet_ZClear(t *testing.T) {

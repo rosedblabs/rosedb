@@ -66,8 +66,9 @@ type (
 	archivedFiles map[uint32]*logfile.LogFile
 
 	valuePos struct {
-		fid    uint32
-		offset int64
+		fid      uint32
+		offset   int64
+		zsetSize int // only used by zset
 	}
 
 	strIndex struct {
@@ -102,6 +103,9 @@ type (
 	zsetIndex struct {
 		mu      *sync.RWMutex
 		indexes *zset.SortedSet
+		murhash *util.Murmur128
+		trees   map[string]*art.AdaptiveRadixTree
+		idxTree *art.AdaptiveRadixTree
 	}
 )
 
@@ -118,11 +122,20 @@ func newHashIdx() *hashIndex {
 }
 
 func newSetIdx() *setIndex {
-	return &setIndex{idxTree: art.NewART(), trees: make(map[string]*art.AdaptiveRadixTree), mu: new(sync.RWMutex)}
+	return &setIndex{
+		idxTree: art.NewART(),
+		trees:   make(map[string]*art.AdaptiveRadixTree),
+		mu:      new(sync.RWMutex),
+	}
 }
 
 func newZSetIdx() *zsetIndex {
-	return &zsetIndex{indexes: zset.New(), mu: new(sync.RWMutex)}
+	return &zsetIndex{
+		indexes: zset.New(),
+		murhash: util.NewMurmur128(),
+		trees:   make(map[string]*art.AdaptiveRadixTree),
+		mu:      new(sync.RWMutex),
+	}
 }
 
 // Open a rosedb instance. You must call Close after using it.
