@@ -1,9 +1,9 @@
 package rosedb
 
 import (
-	"github.com/flower-corp/rosedb/ds/list"
+	"encoding/binary"
+	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
-	"strconv"
 )
 
 // LPush insert all the specified values at the head of the list stored at key.
@@ -12,11 +12,12 @@ func (db *RoseDB) LPush(key []byte, values ...[]byte) error {
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
+	if db.listIndex.trees[string(key)] == nil {
+		db.listIndex.trees[string(key)] = art.NewART()
+	}
+	db.listIndex.idxTree = db.listIndex.trees[string(key)]
 	for _, val := range values {
-		db.listIndex.indexes.LPush(key, val)
-		listKey := list.EncodeCommandKey(key, list.LPush)
-		entry := &logfile.LogEntry{Key: listKey, Value: val}
-		if _, err := db.writeLogEntry(entry, List); err != nil {
+		if err := db.pushInternal(key, val, true); err != nil {
 			return err
 		}
 	}
@@ -29,11 +30,12 @@ func (db *RoseDB) RPush(key []byte, values ...[]byte) error {
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
 
+	if db.listIndex.trees[string(key)] == nil {
+		db.listIndex.trees[string(key)] = art.NewART()
+	}
+	db.listIndex.idxTree = db.listIndex.trees[string(key)]
 	for _, val := range values {
-		db.listIndex.indexes.RPush(key, val)
-		listKey := list.EncodeCommandKey(key, list.RPush)
-		entry := &logfile.LogEntry{Key: listKey, Value: val}
-		if _, err := db.writeLogEntry(entry, List); err != nil {
+		if err := db.pushInternal(key, val, false); err != nil {
 			return err
 		}
 	}
@@ -44,69 +46,140 @@ func (db *RoseDB) RPush(key []byte, values ...[]byte) error {
 func (db *RoseDB) LPop(key []byte) ([]byte, error) {
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
-
-	val := db.listIndex.indexes.LPop(key)
-	if val == nil {
-		return nil, nil
-	}
-
-	listKey := list.EncodeCommandKey(key, list.LPop)
-	entry := &logfile.LogEntry{Key: listKey, Type: logfile.TypeDelete}
-	if _, err := db.writeLogEntry(entry, List); err != nil {
-		return nil, err
-	}
-	return val, nil
+	return db.popInternal(key, true)
 }
 
 // RPop Removes and returns the last elements of the list stored at key.
 func (db *RoseDB) RPop(key []byte) ([]byte, error) {
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
-
-	val := db.listIndex.indexes.RPop(key)
-	if val == nil {
-		return nil, nil
-	}
-
-	listKey := list.EncodeCommandKey(key, list.RPop)
-	entry := &logfile.LogEntry{Key: listKey, Type: logfile.TypeDelete}
-	if _, err := db.writeLogEntry(entry, List); err != nil {
-		return nil, err
-	}
-	return val, nil
-}
-
-// LIndex returns the element at index index in the list stored at key.
-// The index is zero-based, so 0 means the first element, 1 the second element and so on.
-// Negative indices can be used to designate elements starting at the tail of the list.
-// For example: -1 means the last element, -2 means the penultimate and so forth.
-func (db *RoseDB) LIndex(key []byte, index int) []byte {
-	db.listIndex.mu.RLock()
-	defer db.listIndex.mu.RUnlock()
-	return db.listIndex.indexes.LIndex(key, index)
-}
-
-// LSet sets the list element at index to element.
-// returns whether is successful.
-func (db *RoseDB) LSet(key []byte, index int, value []byte) (bool, error) {
-	db.listIndex.mu.Lock()
-	defer db.listIndex.mu.Unlock()
-
-	i := strconv.Itoa(index)
-	encKey := db.encodeKey(key, []byte(i))
-	commandKey := list.EncodeCommandKey(encKey, list.LSet)
-	entry := &logfile.LogEntry{Key: commandKey, Value: value}
-	if _, err := db.writeLogEntry(entry, List); err != nil {
-		return false, err
-	}
-	ok := db.listIndex.indexes.LSet(key, index, value)
-	return ok, nil
+	return db.popInternal(key, false)
 }
 
 // LLen returns the length of the list stored at key.
 // If key does not exist, it is interpreted as an empty list and 0 is returned.
-func (db *RoseDB) LLen(key []byte) uint32 {
+func (db *RoseDB) LLen(key []byte) int {
 	db.listIndex.mu.RLock()
 	defer db.listIndex.mu.RUnlock()
-	return db.listIndex.indexes.LLen(key)
+
+	if db.listIndex.trees[string(key)] == nil {
+		return 0
+	}
+	headSeq, tailSeq, err := db.listMeta(key)
+	if err != nil {
+		return 0
+	}
+	return int(tailSeq - headSeq - 1)
+}
+
+func (db *RoseDB) encodeListKey(key []byte, seq uint32) []byte {
+	buf := make([]byte, len(key)+4)
+	binary.LittleEndian.PutUint32(buf[:4], seq)
+	copy(buf[4:], key[:])
+	return buf
+}
+
+func (db *RoseDB) decodeListKey(buf []byte) ([]byte, uint32) {
+	seq := binary.LittleEndian.Uint32(buf[:4])
+	key := make([]byte, len(buf[4:]))
+	copy(key[:], buf[4:])
+	return key, seq
+}
+
+func (db *RoseDB) listMeta(key []byte) (uint32, uint32, error) {
+	val, err := db.getVal(key, List)
+	if err != nil && err != ErrKeyNotFound {
+		return 0, 0, err
+	}
+
+	var headSeq uint32 = initialListSeq
+	var tailSeq uint32 = initialListSeq + 1
+	if len(val) != 0 {
+		headSeq = binary.LittleEndian.Uint32(val[:4])
+		tailSeq = binary.LittleEndian.Uint32(val[4:8])
+	}
+	return headSeq, tailSeq, nil
+}
+
+func (db *RoseDB) saveListMeta(key []byte, headSeq, tailSeq uint32) error {
+	buf := make([]byte, 8)
+	binary.LittleEndian.PutUint32(buf[:4], headSeq)
+	binary.LittleEndian.PutUint32(buf[4:8], tailSeq)
+	ent := &logfile.LogEntry{Key: key, Value: buf, Type: logfile.TypeListMeta}
+	pos, err := db.writeLogEntry(ent, List)
+	if err != nil {
+		return err
+	}
+	err = db.updateIndexTree(ent, pos, true, List)
+	return err
+}
+
+func (db *RoseDB) pushInternal(key []byte, val []byte, isLeft bool) error {
+	headSeq, tailSeq, err := db.listMeta(key)
+	var seq = headSeq
+	if !isLeft {
+		seq = tailSeq
+	}
+	encKey := db.encodeListKey(key, seq)
+	ent := &logfile.LogEntry{Key: encKey, Value: val}
+	valuePos, err := db.writeLogEntry(ent, List)
+	if err != nil {
+		return err
+	}
+	if err = db.updateIndexTree(ent, valuePos, true, List); err != nil {
+		return err
+	}
+
+	if isLeft {
+		headSeq--
+	} else {
+		tailSeq++
+	}
+	err = db.saveListMeta(key, headSeq, tailSeq)
+	return err
+}
+
+func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
+	if db.listIndex.trees[string(key)] == nil {
+		return nil, nil
+	}
+	db.listIndex.idxTree = db.listIndex.trees[string(key)]
+	headSeq, tailSeq, err := db.listMeta(key)
+	if err != nil {
+		return nil, err
+	}
+	size := tailSeq - headSeq - 1
+	if size <= 0 {
+		// reset meta
+		headSeq = initialListSeq
+		tailSeq = initialListSeq + 1
+		_ = db.saveListMeta(key, headSeq, tailSeq)
+		return nil, nil
+	}
+
+	var seq = headSeq + 1
+	if !isLeft {
+		seq = tailSeq - 1
+	}
+	encKey := db.encodeListKey(key, seq)
+	val, err := db.getVal(encKey, List)
+	if err != nil {
+		return nil, err
+	}
+
+	ent := &logfile.LogEntry{Key: encKey, Type: logfile.TypeDelete}
+	if _, err = db.writeLogEntry(ent, List); err != nil {
+		return nil, err
+	}
+	// send discard todo
+	db.listIndex.idxTree.Delete(encKey)
+	if isLeft {
+		headSeq++
+	} else {
+		tailSeq--
+	}
+	if err = db.saveListMeta(key, headSeq, tailSeq); err != nil {
+		return nil, err
+	}
+	return val, nil
 }

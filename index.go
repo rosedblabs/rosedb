@@ -2,13 +2,11 @@ package rosedb
 
 import (
 	"github.com/flower-corp/rosedb/ds/art"
-	"github.com/flower-corp/rosedb/ds/list"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
 	"io"
 	"sort"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,11 +29,11 @@ func (db *RoseDB) buildIndex(dataType DataType, ent *logfile.LogEntry, pos *valu
 	case String:
 		db.buildStrsIndex(ent, pos)
 	case List:
-		db.buildListIndex(ent)
+		db.buildListIndex(ent, pos)
 	case Hash:
 		db.buildHashIndex(ent, pos)
 	case Set:
-		db.buildSetIndex(ent, pos)
+		db.buildSetsIndex(ent, pos)
 	case ZSet:
 		db.buildZSetIndex(ent, pos)
 	}
@@ -58,26 +56,26 @@ func (db *RoseDB) buildStrsIndex(ent *logfile.LogEntry, pos *valuePos) {
 	db.strIndex.idxTree.Put(ent.Key, idxNode)
 }
 
-func (db *RoseDB) buildListIndex(ent *logfile.LogEntry) {
-	key, cmd := list.DecodeCommandKey(ent.Key)
-	switch cmd {
-	case list.LPush:
-		db.listIndex.indexes.LPush(key, ent.Value)
-	case list.RPush:
-		db.listIndex.indexes.RPush(key, ent.Value)
-	case list.LPop:
-		db.listIndex.indexes.LPop(key)
-	case list.RPop:
-		db.listIndex.indexes.RPop(key)
-	case list.LSet:
-		rawKey, i := db.decodeKey(key)
-		index, err := strconv.Atoi(string(i))
-		if err != nil {
-			logger.Errorf("decode lset key err at startup: %v", err)
-		} else {
-			db.listIndex.indexes.LSet(rawKey, index, ent.Value)
-		}
+func (db *RoseDB) buildListIndex(ent *logfile.LogEntry, pos *valuePos) {
+	key, _ := db.decodeListKey(ent.Key)
+	if db.listIndex.trees[string(key)] == nil {
+		db.listIndex.trees[string(key)] = art.NewART()
 	}
+	db.listIndex.idxTree = db.listIndex.trees[string(key)]
+
+	if ent.Type == logfile.TypeDelete {
+		db.listIndex.idxTree.Delete(ent.Key)
+		return
+	}
+	_, size := logfile.EncodeEntry(ent)
+	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
+	if db.opts.IndexMode == KeyValueMemMode {
+		idxNode.value = ent.Value
+	}
+	if ent.ExpiredAt != 0 {
+		idxNode.expiredAt = ent.ExpiredAt
+	}
+	db.listIndex.idxTree.Put(ent.Key, idxNode)
 }
 
 func (db *RoseDB) buildHashIndex(ent *logfile.LogEntry, pos *valuePos) {
@@ -97,7 +95,7 @@ func (db *RoseDB) buildHashIndex(ent *logfile.LogEntry, pos *valuePos) {
 	db.hashIndex.idxTree.Put(ent.Key, idxNode)
 }
 
-func (db *RoseDB) buildSetIndex(ent *logfile.LogEntry, pos *valuePos) {
+func (db *RoseDB) buildSetsIndex(ent *logfile.LogEntry, pos *valuePos) {
 	if db.setIndex.trees[string(ent.Key)] == nil {
 		db.setIndex.trees[string(ent.Key)] = art.NewART()
 	}
@@ -228,6 +226,8 @@ func (db *RoseDB) updateIndexTree(ent *logfile.LogEntry, pos *valuePos, sendDisc
 	switch dType {
 	case String:
 		idxTree = db.strIndex.idxTree
+	case List:
+		idxTree = db.listIndex.idxTree
 	case Hash:
 		idxTree = db.hashIndex.idxTree
 	case Set:
@@ -249,6 +249,8 @@ func (db *RoseDB) getVal(key []byte, dataType DataType) ([]byte, error) {
 	switch dataType {
 	case String:
 		idxTree = db.strIndex.idxTree
+	case List:
+		idxTree = db.listIndex.idxTree
 	case Hash:
 		idxTree = db.hashIndex.idxTree
 	case Set:

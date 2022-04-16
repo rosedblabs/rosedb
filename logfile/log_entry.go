@@ -16,6 +16,8 @@ type EntryType byte
 const (
 	// TypeDelete represents entry type is delete.
 	TypeDelete EntryType = iota + 1
+	// TypeListMeta represents entry is list meta.
+	TypeListMeta
 )
 
 // LogEntry is the data will be appended in log file.

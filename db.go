@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/flower-corp/rosedb/ds/art"
-	"github.com/flower-corp/rosedb/ds/list"
 	"github.com/flower-corp/rosedb/ds/zset"
 	"github.com/flower-corp/rosedb/ioselector"
 	"github.com/flower-corp/rosedb/logfile"
@@ -12,6 +11,7 @@ import (
 	"github.com/flower-corp/rosedb/util"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/signal"
 	"sort"
@@ -43,6 +43,7 @@ var (
 const (
 	logFileTypeNum   = 5
 	encodeHeaderSize = 10
+	initialListSeq   = math.MaxUint32 / 2
 )
 
 type (
@@ -86,7 +87,8 @@ type (
 
 	listIndex struct {
 		mu      *sync.RWMutex
-		indexes *list.List
+		trees   map[string]*art.AdaptiveRadixTree
+		idxTree *art.AdaptiveRadixTree
 	}
 
 	hashIndex struct {
@@ -115,7 +117,7 @@ func newStrsIndex() *strIndex {
 }
 
 func newListIdx() *listIndex {
-	return &listIndex{indexes: list.New(), mu: new(sync.RWMutex)}
+	return &listIndex{trees: make(map[string]*art.AdaptiveRadixTree), mu: new(sync.RWMutex)}
 }
 
 func newHashIdx() *hashIndex {
