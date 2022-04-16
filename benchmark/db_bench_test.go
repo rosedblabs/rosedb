@@ -67,3 +67,19 @@ func BenchmarkRoseDB_LPush(b *testing.B) {
 		assert.Nil(b, err)
 	}
 }
+
+func BenchmarkRoseDB_ZAdd(b *testing.B) {
+	keys := [][]byte{
+		[]byte("my_zset-1"),
+		[]byte("my_zset-2"),
+		[]byte("my_zset-3"),
+		[]byte("my_zset-4"),
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		k := rand.Int() % len(keys)
+		err := roseDB.ZAdd(keys[k], float64(i+100), getValue128B())
+		assert.Nil(b, err)
+	}
+}

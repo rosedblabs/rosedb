@@ -37,7 +37,7 @@ func (db *RoseDB) buildIndex(dataType DataType, ent *logfile.LogEntry, pos *valu
 	case Set:
 		db.buildSetIndex(ent, pos)
 	case ZSet:
-		db.buildZSetIndex(ent)
+		db.buildZSetIndex(ent, pos)
 	}
 }
 
@@ -112,15 +112,37 @@ func (db *RoseDB) buildSetIndex(ent *logfile.LogEntry, pos *valuePos) {
 	db.setIndex.idxTree.Put(ent.Value, idxNode)
 }
 
-func (db *RoseDB) buildZSetIndex(ent *logfile.LogEntry) {
+func (db *RoseDB) buildZSetIndex(ent *logfile.LogEntry, pos *valuePos) {
 	if ent.Type == logfile.TypeDelete {
 		db.zsetIndex.indexes.ZRem(string(ent.Key), string(ent.Value))
+		db.zsetIndex.idxTree.Delete(ent.Value)
 		return
 	}
 
 	key, scoreBuf := db.decodeKey(ent.Key)
 	score, _ := util.StrToFloat64(string(scoreBuf))
-	db.zsetIndex.indexes.ZAdd(string(key), score, string(ent.Value))
+
+	if db.zsetIndex.trees[string(key)] == nil {
+		db.zsetIndex.trees[string(key)] = art.NewART()
+	}
+	db.zsetIndex.idxTree = db.zsetIndex.trees[string(key)]
+
+	if err := db.zsetIndex.murhash.Write(ent.Value); err != nil {
+		logger.Fatalf("fail to write murmur hash: %v", err)
+	}
+	sum := db.zsetIndex.murhash.EncodeSum128()
+	db.zsetIndex.murhash.Reset()
+
+	_, size := logfile.EncodeEntry(ent)
+	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
+	if db.opts.IndexMode == KeyValueMemMode {
+		idxNode.value = ent.Value
+	}
+	if ent.ExpiredAt != 0 {
+		idxNode.expiredAt = ent.ExpiredAt
+	}
+	db.zsetIndex.indexes.ZAdd(string(key), score, string(sum))
+	db.zsetIndex.idxTree.Put(sum, idxNode)
 }
 
 func (db *RoseDB) loadIndexFromLogFiles() error {

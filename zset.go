@@ -32,7 +32,7 @@ func (db *RoseDB) ZAdd(key []byte, score float64, member []byte) error {
 	_, size := logfile.EncodeEntry(entry)
 	pos.zsetSize = size
 	ent := &logfile.LogEntry{Key: sum, Value: member}
-	if err := db.updateIndexTree(ent, pos, false, ZSet); err != nil {
+	if err := db.updateIndexTree(ent, pos, true, ZSet); err != nil {
 		return err
 	}
 	db.zsetIndex.indexes.ZAdd(string(key), score, string(sum))
@@ -58,11 +58,25 @@ func (db *RoseDB) ZRem(key, member []byte) error {
 	db.zsetIndex.mu.Lock()
 	defer db.zsetIndex.mu.Unlock()
 
-	if ok := db.zsetIndex.indexes.ZRem(string(key), string(member)); ok {
-		entry := &logfile.LogEntry{Key: key, Value: member, Type: logfile.TypeDelete}
-		if _, err := db.writeLogEntry(entry, ZSet); err != nil {
-			return err
-		}
+	if err := db.zsetIndex.murhash.Write(member); err != nil {
+		return err
+	}
+	sum := db.zsetIndex.murhash.EncodeSum128()
+	db.zsetIndex.murhash.Reset()
+
+	ok := db.zsetIndex.indexes.ZRem(string(key), string(sum))
+	if !ok {
+		return nil
+	}
+
+	if db.zsetIndex.trees[string(key)] == nil {
+		db.zsetIndex.trees[string(key)] = art.NewART()
+	}
+	db.zsetIndex.idxTree = db.zsetIndex.trees[string(key)]
+	db.zsetIndex.idxTree.Delete(sum)
+	entry := &logfile.LogEntry{Key: key, Value: sum, Type: logfile.TypeDelete}
+	if _, err := db.writeLogEntry(entry, ZSet); err != nil {
+		return err
 	}
 	return nil
 }
