@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"github.com/stretchr/testify/assert"
 	"path/filepath"
 	"testing"
 )
@@ -14,13 +15,21 @@ func TestRoseDB_SAdd(t *testing.T) {
 		t.Error("open db err ", err)
 	}
 
-	//db.SAdd(GetKey(12), GetValue16B())
-	//db.SAdd(GetKey(12), GetValue16B())
-	//db.SAdd(GetKey(12), GetValue16B())
+	setKey := []byte("my_set")
+	//for i := 0; i < 10; i++ {
+	//	db.SAdd(setKey, GetKey(i))
+	//}
 
-	members, err := db.SMembers(GetKey(12))
-	t.Log(err)
-	for _, m := range members {
-		t.Log(string(m))
+	members, err := db.SMembers(setKey)
+	assert.Nil(t, err)
+
+	for _, mem := range members {
+		t.Log(string(mem))
 	}
+
+	//pop, err := db.SPop(setKey, 3)
+	//assert.Nil(t, err)
+	//for _, mem := range pop {
+	//	t.Log(string(mem))
+	//}
 }
