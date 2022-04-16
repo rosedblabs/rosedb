@@ -14,15 +14,13 @@ func TestRoseDB_SAdd(t *testing.T) {
 		t.Error("open db err ", err)
 	}
 
-	db.SAdd(GetKey(12), GetValue16B())
-	db.SAdd(GetKey(13), GetValue16B())
-	db.SAdd(GetKey(12), GetValue16B())
+	//db.SAdd(GetKey(12), GetValue16B())
+	//db.SAdd(GetKey(12), GetValue16B())
+	//db.SAdd(GetKey(12), GetValue16B())
 
 	members, err := db.SMembers(GetKey(12))
 	t.Log(err)
 	for _, m := range members {
 		t.Log(string(m))
 	}
-
-	db.SRem(GetKey(12))
 }

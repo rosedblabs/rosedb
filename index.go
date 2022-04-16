@@ -102,14 +102,27 @@ func (db *RoseDB) buildSetIndex(ent *logfile.LogEntry, pos *valuePos) {
 		db.setIndex.trees[string(ent.Key)] = art.NewART()
 	}
 	db.setIndex.idxTree = db.setIndex.trees[string(ent.Key)]
+
 	if ent.Type == logfile.TypeDelete {
 		db.setIndex.idxTree.Delete(ent.Value)
 		return
 	}
 
+	if err := db.setIndex.murhash.Write(ent.Value); err != nil {
+		logger.Fatalf("fail to write murmur hash: %v", err)
+	}
+	sum := db.setIndex.murhash.EncodeSum128()
+	db.setIndex.murhash.Reset()
+
 	_, size := logfile.EncodeEntry(ent)
 	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
-	db.setIndex.idxTree.Put(ent.Value, idxNode)
+	if db.opts.IndexMode == KeyValueMemMode {
+		idxNode.value = ent.Value
+	}
+	if ent.ExpiredAt != 0 {
+		idxNode.expiredAt = ent.ExpiredAt
+	}
+	db.setIndex.idxTree.Put(sum, idxNode)
 }
 
 func (db *RoseDB) buildZSetIndex(ent *logfile.LogEntry, pos *valuePos) {
@@ -198,8 +211,8 @@ func (db *RoseDB) loadIndexFromLogFiles() error {
 }
 
 func (db *RoseDB) updateIndexTree(ent *logfile.LogEntry, pos *valuePos, sendDiscard bool, dType DataType) error {
-	var size = pos.zsetSize
-	if dType != ZSet {
+	var size = pos.setSize
+	if dType != ZSet && dType != Set {
 		_, size = logfile.EncodeEntry(ent)
 	}
 	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
@@ -223,9 +236,6 @@ func (db *RoseDB) updateIndexTree(ent *logfile.LogEntry, pos *valuePos, sendDisc
 		idxTree = db.zsetIndex.idxTree
 	}
 
-	if dType == Set {
-		idxNode.value, ent.Key = nil, ent.Value
-	}
 	oldVal, updated := idxTree.Put(ent.Key, idxNode)
 	if sendDiscard {
 		db.sendDiscard(oldVal, updated)
@@ -241,6 +251,8 @@ func (db *RoseDB) getVal(key []byte, dataType DataType) ([]byte, error) {
 		idxTree = db.strIndex.idxTree
 	case Hash:
 		idxTree = db.hashIndex.idxTree
+	case Set:
+		idxTree = db.setIndex.idxTree
 	case ZSet:
 		idxTree = db.zsetIndex.idxTree
 	}

@@ -30,7 +30,7 @@ func (db *RoseDB) ZAdd(key []byte, score float64, member []byte) error {
 	}
 
 	_, size := logfile.EncodeEntry(entry)
-	pos.zsetSize = size
+	pos.setSize = size
 	ent := &logfile.LogEntry{Key: sum, Value: member}
 	if err := db.updateIndexTree(ent, pos, true, ZSet); err != nil {
 		return err

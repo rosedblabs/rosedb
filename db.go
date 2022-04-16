@@ -66,9 +66,9 @@ type (
 	archivedFiles map[uint32]*logfile.LogFile
 
 	valuePos struct {
-		fid      uint32
-		offset   int64
-		zsetSize int // only used by zset
+		fid     uint32
+		offset  int64
+		setSize int // only used by set and zset
 	}
 
 	strIndex struct {
@@ -96,6 +96,7 @@ type (
 
 	setIndex struct {
 		mu      *sync.RWMutex
+		murhash *util.Murmur128
 		trees   map[string]*art.AdaptiveRadixTree
 		idxTree *art.AdaptiveRadixTree
 	}
@@ -124,6 +125,7 @@ func newHashIdx() *hashIndex {
 func newSetIdx() *setIndex {
 	return &setIndex{
 		idxTree: art.NewART(),
+		murhash: util.NewMurmur128(),
 		trees:   make(map[string]*art.AdaptiveRadixTree),
 		mu:      new(sync.RWMutex),
 	}

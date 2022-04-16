@@ -18,12 +18,21 @@ func (db *RoseDB) SAdd(key []byte, members ...[]byte) error {
 	}
 	db.setIndex.idxTree = db.setIndex.trees[string(key)]
 	for _, mem := range members {
+		if err := db.setIndex.murhash.Write(mem); err != nil {
+			return err
+		}
+		sum := db.setIndex.murhash.EncodeSum128()
+		db.setIndex.murhash.Reset()
+
 		ent := &logfile.LogEntry{Key: key, Value: mem}
 		valuePos, err := db.writeLogEntry(ent, Set)
 		if err != nil {
 			return err
 		}
-		if err := db.updateIndexTree(ent, valuePos, true, Set); err != nil {
+		entry := &logfile.LogEntry{Key: sum, Value: mem}
+		_, size := logfile.EncodeEntry(ent)
+		valuePos.setSize = size
+		if err := db.updateIndexTree(entry, valuePos, true, Set); err != nil {
 			return err
 		}
 	}
@@ -42,11 +51,18 @@ func (db *RoseDB) SRem(key []byte, members ...[]byte) error {
 	}
 	db.setIndex.idxTree = db.setIndex.trees[string(key)]
 	for _, mem := range members {
-		val, updated := db.setIndex.idxTree.Delete(mem)
+		db.setIndex.idxTree = db.setIndex.trees[string(key)]
+		if err := db.setIndex.murhash.Write(mem); err != nil {
+			return err
+		}
+		sum := db.setIndex.murhash.EncodeSum128()
+		db.setIndex.murhash.Reset()
+
+		val, updated := db.setIndex.idxTree.Delete(sum)
 		if !updated {
 			continue
 		}
-		entry := &logfile.LogEntry{Key: key, Value: mem, Type: logfile.TypeDelete}
+		entry := &logfile.LogEntry{Key: key, Value: sum, Type: logfile.TypeDelete}
 		pos, err := db.writeLogEntry(entry, Set)
 		if err != nil {
 			return err
@@ -82,7 +98,11 @@ func (db *RoseDB) SMembers(key []byte) ([][]byte, error) {
 		if node == nil {
 			continue
 		}
-		values = append(values, node.Key())
+		val, err := db.getVal(node.Key(), Set)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, val)
 	}
 	return values, nil
 }
