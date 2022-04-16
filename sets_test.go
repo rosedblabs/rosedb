@@ -16,9 +16,9 @@ func TestRoseDB_SAdd(t *testing.T) {
 	}
 
 	setKey := []byte("my_set")
-	//for i := 0; i < 10; i++ {
-	//	db.SAdd(setKey, GetKey(i))
-	//}
+	for i := 0; i < 10; i++ {
+		db.SAdd(setKey, GetKey(i))
+	}
 
 	members, err := db.SMembers(setKey)
 	assert.Nil(t, err)
@@ -32,4 +32,7 @@ func TestRoseDB_SAdd(t *testing.T) {
 	//for _, mem := range pop {
 	//	t.Log(string(mem))
 	//}
+
+	card := db.SCard(setKey)
+	t.Log(card)
 }

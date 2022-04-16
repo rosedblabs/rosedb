@@ -115,6 +115,16 @@ func (db *RoseDB) SMembers(key []byte) ([][]byte, error) {
 	return values, nil
 }
 
+// SCard returns the set cardinality (number of elements) of the set stored at key.
+func (db *RoseDB) SCard(key []byte) int {
+	db.setIndex.mu.RLock()
+	defer db.setIndex.mu.RUnlock()
+	if db.setIndex.trees[string(key)] == nil {
+		return 0
+	}
+	return db.setIndex.trees[string(key)].Size()
+}
+
 func (db *RoseDB) sremInternal(key []byte, member []byte) error {
 	db.setIndex.idxTree = db.setIndex.trees[string(key)]
 	if err := db.setIndex.murhash.Write(member); err != nil {

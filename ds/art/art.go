@@ -30,3 +30,7 @@ func (art *AdaptiveRadixTree) Delete(key []byte) (val interface{}, updated bool)
 func (art *AdaptiveRadixTree) Iterator() goart.Iterator {
 	return art.tree.Iterator()
 }
+
+func (art *AdaptiveRadixTree) Size() int {
+	return art.tree.Size()
+}
