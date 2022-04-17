@@ -9,18 +9,15 @@ import (
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
-	"io"
 	"io/ioutil"
 	"math"
 	"os"
-	"os/signal"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
-	"time"
 )
 
 var (
@@ -44,6 +41,7 @@ const (
 	logFileTypeNum   = 5
 	encodeHeaderSize = 10
 	initialListSeq   = math.MaxUint32 / 2
+	discardFilePath  = "DISCARD"
 )
 
 type (
@@ -52,7 +50,7 @@ type (
 		activeLogFiles   map[DataType]*logfile.LogFile
 		archivedLogFiles map[DataType]archivedFiles
 		fidMap           map[DataType][]uint32 // only used at startup, never update even though log files changed.
-		discard          *discard
+		discards         map[DataType]*discard
 		dumpState        ioselector.IOSelector
 		opts             Options
 		strIndex         *strIndex  // String indexes(adaptive-radix-tree).
@@ -151,21 +149,20 @@ func Open(opts Options) (*RoseDB, error) {
 		}
 	}
 
-	discard, err := newDiscard(opts.DBPath, discardFileName)
-	if err != nil {
-		return nil, err
-	}
-
 	db := &RoseDB{
 		activeLogFiles:   make(map[DataType]*logfile.LogFile),
 		archivedLogFiles: make(map[DataType]archivedFiles),
-		discard:          discard,
 		opts:             opts,
 		strIndex:         newStrsIndex(),
 		listIndex:        newListIdx(),
 		hashIndex:        newHashIdx(),
 		setIndex:         newSetIdx(),
 		zsetIndex:        newZSetIdx(),
+	}
+
+	// init discard file.
+	if err := db.initDiscard(); err != nil {
+		return nil, err
 	}
 
 	// load the log files from disk.
@@ -179,7 +176,7 @@ func Open(opts Options) (*RoseDB, error) {
 	}
 
 	// handle log files garbage collection.
-	go db.handleLogFileGC()
+	//go db.handleLogFileGC()
 	return db, nil
 }
 
@@ -269,9 +266,7 @@ func (db *RoseDB) writeLogEntry(ent *logfile.LogEntry, dataType DataType) (*valu
 			db.mu.Unlock()
 			return nil, err
 		}
-		if dataType == String {
-			db.discard.setTotal(lf.Fid, uint32(opts.LogFileSizeThreshold))
-		}
+		db.discards[dataType].setTotal(lf.Fid, uint32(opts.LogFileSizeThreshold))
 		db.activeLogFiles[dataType] = lf
 		activeLogFile = lf
 		db.mu.Unlock()
@@ -359,10 +354,29 @@ func (db *RoseDB) initLogFile(dataType DataType) error {
 		return err
 	}
 
-	if dataType == String {
-		db.discard.setTotal(lf.Fid, uint32(opts.LogFileSizeThreshold))
-	}
+	db.discards[dataType].setTotal(lf.Fid, uint32(opts.LogFileSizeThreshold))
 	db.activeLogFiles[dataType] = lf
+	return nil
+}
+
+func (db *RoseDB) initDiscard() error {
+	discardPath := filepath.Join(db.opts.DBPath, discardFilePath)
+	if !util.PathExist(discardPath) {
+		if err := os.MkdirAll(discardPath, os.ModePerm); err != nil {
+			return err
+		}
+	}
+
+	discards := make(map[DataType]*discard)
+	for i := String; i < logFileTypeNum; i++ {
+		name := logfile.FileNamesMap[logfile.FileType(i)] + discardFileName
+		dis, err := newDiscard(discardPath, name)
+		if err != nil {
+			return err
+		}
+		discards[i] = dis
+	}
+	db.discards = discards
 	return nil
 }
 
@@ -392,7 +406,7 @@ func (db *RoseDB) decodeKey(key []byte) ([]byte, []byte) {
 	return key[index:sep], key[sep:]
 }
 
-func (db *RoseDB) sendDiscard(oldVal interface{}, updated bool) {
+func (db *RoseDB) sendDiscard(oldVal interface{}, updated bool, dataType DataType) {
 	if !updated || oldVal == nil {
 		return
 	}
@@ -401,105 +415,8 @@ func (db *RoseDB) sendDiscard(oldVal interface{}, updated bool) {
 		return
 	}
 	select {
-	case db.discard.valChan <- node:
+	case db.discards[dataType].valChan <- node:
 	default:
 		logger.Warn("send to discard chan fail")
 	}
-}
-
-func (db *RoseDB) handleLogFileGC() {
-	if db.opts.LogFileGCInterval <= 0 {
-		return
-	}
-
-	quitSig := make(chan os.Signal, 1)
-	signal.Notify(quitSig, os.Interrupt, os.Kill, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	ticker := time.NewTicker(db.opts.LogFileGCInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			if err := db.doRunGC(); err != nil {
-				logger.Errorf("value log compaction err: %+v", err)
-			}
-		case <-quitSig:
-			return
-		}
-	}
-}
-
-func (db *RoseDB) doRunGC() error {
-	maybeRewrite := func(fid uint32, offset int64, entry *logfile.LogEntry) error {
-		db.strIndex.mu.Lock()
-		defer db.strIndex.mu.Unlock()
-		value := db.strIndex.idxTree.Get(entry.Key)
-		if value == nil {
-			return nil
-		}
-
-		indexNode, _ := value.(*indexNode)
-		if indexNode == nil {
-			return nil
-		}
-		// rewrite valid entry.
-		if indexNode.fid == fid && indexNode.offset == offset {
-			pos, err := db.writeLogEntry(entry, String)
-			if err != nil {
-				return err
-			}
-			if err = db.updateIndexTree(entry, pos, false, String); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	iterateAndHandle := func(file *logfile.LogFile) error {
-		var offset int64
-		ts := time.Now().Unix()
-		for {
-			entry, size, err := file.ReadLogEntry(offset)
-			if err != nil {
-				if err == io.EOF || err == logfile.ErrEndOfEntry {
-					break
-				}
-				return err
-			}
-			eoff := offset
-			offset += size
-			if entry.Type == logfile.TypeDelete || (entry.ExpiredAt != 0 && entry.ExpiredAt <= ts) {
-				continue
-			}
-			if err := maybeRewrite(file.Fid, eoff, entry); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	activeLogFile := db.getActiveLogFile(String)
-	activeFid := activeLogFile.Fid
-	ccl, err := db.discard.getCCL(activeFid, db.opts.LogFileGCRatio)
-	if err != nil {
-		return err
-	}
-
-	for _, fid := range ccl {
-		logFile := db.getArchivedLogFile(String, fid)
-		if logFile == nil {
-			return ErrLogFileNotFound
-		}
-		if err := iterateAndHandle(logFile); err != nil {
-			return err
-		}
-
-		db.mu.Lock()
-		delete(db.archivedLogFiles[String], logFile.Fid)
-		db.mu.Unlock()
-		if err := logFile.Delete(); err != nil {
-			return err
-		}
-		db.discard.clear(logFile.Fid)
-	}
-	return nil
 }

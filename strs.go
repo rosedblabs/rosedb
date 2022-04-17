@@ -68,12 +68,12 @@ func (db *RoseDB) Delete(key []byte) error {
 		return err
 	}
 	val, updated := db.strIndex.idxTree.Delete(key)
-	db.sendDiscard(val, updated)
+	db.sendDiscard(val, updated, String)
 	// The deleted entry itself is also invalid.
 	_, size := logfile.EncodeEntry(entry)
 	node := &indexNode{fid: pos.fid, entrySize: size}
 	select {
-	case db.discard.valChan <- node:
+	case db.discards[String].valChan <- node:
 	default:
 		logger.Warn("send to discard chan fail")
 	}

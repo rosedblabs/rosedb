@@ -238,7 +238,7 @@ func (db *RoseDB) updateIndexTree(ent *logfile.LogEntry, pos *valuePos, sendDisc
 
 	oldVal, updated := idxTree.Put(ent.Key, idxNode)
 	if sendDiscard {
-		db.sendDiscard(oldVal, updated)
+		db.sendDiscard(oldVal, updated, dType)
 	}
 	return nil
 }

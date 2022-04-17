@@ -52,12 +52,12 @@ func (db *RoseDB) HDel(key []byte, fields ...[]byte) (int, error) {
 		if updated {
 			count++
 		}
-		db.sendDiscard(val, updated)
+		db.sendDiscard(val, updated, Hash)
 		// The deleted entry itself is also invalid.
 		_, size := logfile.EncodeEntry(entry)
 		node := &indexNode{fid: valuePos.fid, entrySize: size}
 		select {
-		case db.discard.valChan <- node:
+		case db.discards[Hash].valChan <- node:
 		default:
 			logger.Warn("send to discard chan fail")
 		}

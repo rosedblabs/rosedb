@@ -17,7 +17,7 @@ const (
 	discardRecordSize = 12
 	// 8kb, contains mostly 682 records in file.
 	discardFileSize int64 = 2 << 12
-	discardFileName       = "DISCARD"
+	discardFileName       = "discard"
 )
 
 // ErrDiscardNoSpace no enough space for discard file.

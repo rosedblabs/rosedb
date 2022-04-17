@@ -143,12 +143,12 @@ func (db *RoseDB) sremInternal(key []byte, member []byte) error {
 		return err
 	}
 
-	db.sendDiscard(val, updated)
+	db.sendDiscard(val, updated, Set)
 	// The deleted entry itself is also invalid.
 	_, size := logfile.EncodeEntry(entry)
 	node := &indexNode{fid: pos.fid, entrySize: size}
 	select {
-	case db.discard.valChan <- node:
+	case db.discards[Set].valChan <- node:
 	default:
 		logger.Warn("send to discard chan fail")
 	}
