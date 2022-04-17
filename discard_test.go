@@ -25,7 +25,7 @@ func TestDiscard_listenUpdates(t *testing.T) {
 		assert.Nil(t, err)
 	}
 
-	ccl, err := db.discard.getCCL(10, 0.001)
+	ccl, err := db.discards[String].getCCL(10, 0.001)
 	assert.Nil(t, err)
 	assert.Equal(t, len(ccl), 1)
 }
