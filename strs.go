@@ -57,6 +57,34 @@ func (db *RoseDB) MGet(keys [][]byte) ([][]byte, error) {
 	return values, nil
 }
 
+// GetDel gets the value of the key and deletes the key. This method is similar
+// to Get method. It also deletes the key if it exists.
+func (db *RoseDB) GetDel(key []byte) ([]byte, error) {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	val, err := db.getVal(key, String)
+	if err != nil && val == nil {
+		return nil, nil
+	}
+
+	entry := &logfile.LogEntry{Key: key, Type: logfile.TypeDelete}
+	pos, err := db.writeLogEntry(entry, String)
+	if err != nil {
+		return nil, err
+	}
+	valDeleted, updated := db.strIndex.idxTree.Delete(key)
+	db.sendDiscard(valDeleted, updated, String)
+	_, size := logfile.EncodeEntry(entry)
+	node := &indexNode{fid: pos.fid, entrySize: size}
+	select {
+	case db.discards[String].valChan <- node:
+	default:
+		logger.Warn("send to discard chan fail")
+	}
+	return val, nil
+}
+
 // Delete value at the given key.
 func (db *RoseDB) Delete(key []byte) error {
 	db.strIndex.mu.Lock()
