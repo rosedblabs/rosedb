@@ -29,7 +29,11 @@ func (db *RoseDB) HGet(key, field []byte) ([]byte, error) {
 	defer db.hashIndex.mu.RUnlock()
 
 	hashKey := db.encodeKey(key, field)
-	return db.getVal(hashKey, Hash)
+	val, err := db.getVal(hashKey, Hash)
+	if err == ErrKeyNotFound {
+		return nil, nil
+	}
+	return val, err
 }
 
 // HDel removes the specified fields from the hash stored at key.
@@ -48,7 +52,7 @@ func (db *RoseDB) HDel(key []byte, fields ...[]byte) (int, error) {
 			return 0, err
 		}
 
-		val, updated := db.hashIndex.idxTree.Delete(key)
+		val, updated := db.hashIndex.idxTree.Delete(hashKey)
 		if updated {
 			count++
 		}
