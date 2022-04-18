@@ -88,10 +88,19 @@ func testRoseDBHGet(t *testing.T, ioType IOType, mode DataIndexMode) {
 }
 
 func TestRoseDB_HDel(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBHDel(t, FileIO, KeyOnlyMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBHDel(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBHDel(t *testing.T, ioType IOType, mode DataIndexMode) {
 	path := filepath.Join("/tmp", "rosedb")
 	opts := DefaultOptions(path)
-	//opts.IoType = ioType
-	//opts.IndexMode = mode
+	opts.IoType = ioType
+	opts.IndexMode = mode
 	db, err := Open(opts)
 	assert.Nil(t, err)
 	defer destroyDB(db)
