@@ -57,11 +57,14 @@ func (db *RoseDB) buildStrsIndex(ent *logfile.LogEntry, pos *valuePos) {
 }
 
 func (db *RoseDB) buildListIndex(ent *logfile.LogEntry, pos *valuePos) {
-	key, _ := db.decodeListKey(ent.Key)
-	if db.listIndex.trees[string(key)] == nil {
-		db.listIndex.trees[string(key)] = art.NewART()
+	var listKey = ent.Key
+	if ent.Type != logfile.TypeListMeta {
+		listKey, _ = db.decodeListKey(ent.Key)
 	}
-	db.listIndex.idxTree = db.listIndex.trees[string(key)]
+	if db.listIndex.trees[string(listKey)] == nil {
+		db.listIndex.trees[string(listKey)] = art.NewART()
+	}
+	db.listIndex.idxTree = db.listIndex.trees[string(listKey)]
 
 	if ent.Type == logfile.TypeDelete {
 		db.listIndex.idxTree.Delete(ent.Key)

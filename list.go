@@ -65,6 +65,7 @@ func (db *RoseDB) LLen(key []byte) int {
 	if db.listIndex.trees[string(key)] == nil {
 		return 0
 	}
+	db.listIndex.idxTree = db.listIndex.trees[string(key)]
 	headSeq, tailSeq, err := db.listMeta(key)
 	if err != nil {
 		return 0
@@ -151,9 +152,11 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 	size := tailSeq - headSeq - 1
 	if size <= 0 {
 		// reset meta
-		headSeq = initialListSeq
-		tailSeq = initialListSeq + 1
-		_ = db.saveListMeta(key, headSeq, tailSeq)
+		if headSeq != initialListSeq || tailSeq != initialListSeq+1 {
+			headSeq = initialListSeq
+			tailSeq = initialListSeq + 1
+			_ = db.saveListMeta(key, headSeq, tailSeq)
+		}
 		return nil, nil
 	}
 

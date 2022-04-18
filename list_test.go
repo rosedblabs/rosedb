@@ -8,21 +8,21 @@ import (
 
 func TestRoseDB_LPush(t *testing.T) {
 	t.Run("fileio", func(t *testing.T) {
-		testRoseDBPush(t, true, FileIO)
+		testRoseDBPush(t, true, FileIO, KeyOnlyMemMode)
 	})
 
 	t.Run("mmap", func(t *testing.T) {
-		testRoseDBPush(t, true, MMap)
+		testRoseDBPush(t, true, MMap, KeyValueMemMode)
 	})
 }
 
 func TestRoseDB_RPush(t *testing.T) {
 	t.Run("fileio", func(t *testing.T) {
-		testRoseDBPush(t, false, FileIO)
+		testRoseDBPush(t, false, FileIO, KeyOnlyMemMode)
 	})
 
 	t.Run("mmap", func(t *testing.T) {
-		testRoseDBPush(t, false, MMap)
+		testRoseDBPush(t, false, MMap, KeyValueMemMode)
 	})
 }
 
@@ -42,10 +42,11 @@ func TestRoseDB_Push_UntilRotateFile(t *testing.T) {
 	}
 }
 
-func testRoseDBPush(t *testing.T, isLush bool, ioType IOType) {
+func testRoseDBPush(t *testing.T, isLush bool, ioType IOType, mode DataIndexMode) {
 	path := filepath.Join("/tmp", "rosedb")
 	opts := DefaultOptions(path)
 	opts.IoType = ioType
+	opts.IndexMode = mode
 	db, err := Open(opts)
 	assert.Nil(t, err)
 	defer destroyDB(db)
@@ -83,4 +84,131 @@ func testRoseDBPush(t *testing.T, isLush bool, ioType IOType) {
 			}
 		})
 	}
+}
+
+func TestRoseDB_LPop(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBLPop(t, FileIO, KeyOnlyMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBLPop(t, MMap, KeyValueMemMode)
+	})
+}
+
+func TestRoseDB_RPop(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBRPop(t, FileIO, KeyOnlyMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBRPop(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBLPop(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	// none
+	listKey := []byte("my_list")
+	pop, err := db.LPop(listKey)
+	assert.Nil(t, pop)
+	assert.Nil(t, err)
+
+	// one
+	err = db.LPush(listKey, GetValue16B())
+	assert.Nil(t, err)
+	v1, err := db.LPop(listKey)
+	assert.Nil(t, err)
+	assert.NotNil(t, v1)
+
+	// rpush one
+	err = db.RPush(listKey, GetValue16B())
+	assert.Nil(t, err)
+	v2, err := db.LPop(listKey)
+	assert.Nil(t, err)
+	assert.NotNil(t, v2)
+
+	//	multi
+	err = db.LPush(listKey, GetKey(0), GetKey(1), GetKey(2))
+	assert.Nil(t, err)
+
+	var values [][]byte
+	for db.LLen(listKey) > 0 {
+		v, err := db.LPop(listKey)
+		assert.Nil(t, err)
+		values = append(values, v)
+	}
+	expected := [][]byte{GetKey(2), GetKey(1), GetKey(0)}
+	assert.Equal(t, expected, values)
+}
+
+func testRoseDBRPop(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	// none
+	listKey := []byte("my_list")
+	pop, err := db.RPop(listKey)
+	assert.Nil(t, pop)
+	assert.Nil(t, err)
+
+	// one
+	err = db.RPush(listKey, GetValue16B())
+	assert.Nil(t, err)
+	v1, err := db.RPop(listKey)
+	assert.Nil(t, err)
+	assert.NotNil(t, v1)
+
+	// lpush one
+	err = db.LPush(listKey, GetValue16B())
+	assert.Nil(t, err)
+	v2, err := db.RPop(listKey)
+	assert.Nil(t, err)
+	assert.NotNil(t, v2)
+
+	//	multi
+	err = db.RPush(listKey, GetKey(0), GetKey(1), GetKey(2))
+	assert.Nil(t, err)
+
+	var values [][]byte
+	for db.LLen(listKey) > 0 {
+		v, err := db.RPop(listKey)
+		assert.Nil(t, err)
+		values = append(values, v)
+	}
+	expected := [][]byte{GetKey(2), GetKey(1), GetKey(0)}
+	assert.Equal(t, expected, values)
+}
+
+func TestRoseDB_LLen(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	listKey := []byte("my_list")
+	err = db.LPush(listKey, GetValue16B(), GetValue16B(), GetValue16B())
+	assert.Nil(t, err)
+	assert.Equal(t, 3, db.LLen(listKey))
+
+	// close and reopen
+	err = db.Close()
+	assert.Nil(t, err)
+
+	db2, err := Open(opts)
+	assert.Nil(t, err)
+	err = db2.LPush(listKey, GetValue16B(), GetValue16B(), GetValue16B())
+	assert.Nil(t, err)
+	assert.Equal(t, 6, db2.LLen(listKey))
 }
