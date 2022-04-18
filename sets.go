@@ -18,6 +18,9 @@ func (db *RoseDB) SAdd(key []byte, members ...[]byte) error {
 	}
 	db.setIndex.idxTree = db.setIndex.trees[string(key)]
 	for _, mem := range members {
+		if len(mem) == 0 {
+			continue
+		}
 		if err := db.setIndex.murhash.Write(mem); err != nil {
 			return err
 		}
@@ -87,6 +90,24 @@ func (db *RoseDB) SRem(key []byte, members ...[]byte) error {
 		}
 	}
 	return nil
+}
+
+// SIsMember returns if member is a member of the set stored at key.
+func (db *RoseDB) SIsMember(key, member []byte) bool {
+	db.setIndex.mu.RLock()
+	defer db.setIndex.mu.RUnlock()
+
+	if db.setIndex.trees[string(key)] == nil {
+		return false
+	}
+	db.setIndex.idxTree = db.setIndex.trees[string(key)]
+	if err := db.setIndex.murhash.Write(member); err != nil {
+		return false
+	}
+	sum := db.setIndex.murhash.EncodeSum128()
+	db.setIndex.murhash.Reset()
+	node := db.setIndex.idxTree.Get(sum)
+	return node != nil
 }
 
 // SMembers returns all the members of the set value stored at key.
