@@ -144,3 +144,63 @@ func testRoseDBSIsMember(t *testing.T, ioType IOType, mode DataIndexMode) {
 	ok2 := db.SIsMember(setKey, GetKey(3))
 	assert.True(t, ok2)
 }
+
+func TestRoseDB_SMembers(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBSMembers(t, FileIO, KeyOnlyMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBSMembers(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBSMembers(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	setKey := []byte("my_set")
+	mems1, err := db.SMembers(setKey)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(mems1))
+
+	err = db.SAdd(setKey, GetKey(0), GetKey(1), GetKey(2))
+	assert.Nil(t, err)
+	mems2, err := db.SMembers(setKey)
+	assert.Equal(t, 3, len(mems2))
+
+	err = db.SRem(setKey, GetKey(2))
+	assert.Nil(t, err)
+	mems3, err := db.SMembers(setKey)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(mems3))
+}
+
+func TestRoseDB_SCard(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	setKey := []byte("my_set")
+	c1 := db.SCard(setKey)
+	assert.Equal(t, 0, c1)
+
+	err = db.SAdd(setKey, GetKey(0), GetKey(1), GetKey(2))
+	assert.Nil(t, err)
+
+	c2 := db.SCard(setKey)
+	assert.Equal(t, 3, c2)
+
+	err = db.Close()
+	assert.Nil(t, err)
+	db2, err := Open(opts)
+	assert.Nil(t, err)
+	c3 := db2.SCard(setKey)
+	assert.Equal(t, 3, c3)
+}
