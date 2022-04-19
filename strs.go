@@ -39,8 +39,8 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 // MGet get the values of all specified keys.
 // If the key that does not hold a string value or does not exist, nil is returned.
 func (db *RoseDB) MGet(keys [][]byte) ([][]byte, error) {
-	db.strIndex.mu.Lock()
-	defer db.strIndex.mu.Unlock()
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
 
 	if len(keys) == 0 {
 		return nil, ErrWrongNumberOfArgs
