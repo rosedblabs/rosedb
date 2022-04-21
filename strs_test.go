@@ -866,7 +866,7 @@ func testRoseDBDecr(t *testing.T, ioType IOType, mode DataIndexMode) {
 			db:      db,
 			key:     []byte("str-key"),
 			expVal:  0,
-			expErr:  ErrWrongKeyType,
+			expErr:  ErrWrongValueType,
 			wantErr: true,
 		},
 	}
@@ -980,7 +980,7 @@ func testRoseDBDecrBy(t *testing.T, ioType IOType, mode DataIndexMode) {
 			key:     []byte("str-key"),
 			decr:    5,
 			expVal:  0,
-			expErr:  ErrWrongKeyType,
+			expErr:  ErrWrongValueType,
 			wantErr: true,
 		},
 		{
@@ -1085,7 +1085,7 @@ func testRoseDBIncr(t *testing.T, ioType IOType, mode DataIndexMode) {
 			db:      db,
 			key:     []byte("str-key"),
 			expVal:  0,
-			expErr:  ErrWrongKeyType,
+			expErr:  ErrWrongValueType,
 			wantErr: true,
 		},
 	}
@@ -1199,7 +1199,7 @@ func testRoseDBIncrBy(t *testing.T, ioType IOType, mode DataIndexMode) {
 			key:     []byte("str-key"),
 			incr:    5,
 			expVal:  0,
-			expErr:  ErrWrongKeyType,
+			expErr:  ErrWrongValueType,
 			wantErr: true,
 		},
 		{

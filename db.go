@@ -33,8 +33,8 @@ var (
 	// ErrIntegerOverflow overflows int64 limitations
 	ErrIntegerOverflow = errors.New("increment or decrement overflow")
 
-	// ErrWrongKeyType value is not a number
-	ErrWrongKeyType = errors.New("value is not an integer")
+	// ErrWrongValueType value is not a number
+	ErrWrongValueType = errors.New("value is not an integer")
 )
 
 const (
