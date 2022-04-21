@@ -68,3 +68,21 @@ func (db *RoseDB) HDel(key []byte, fields ...[]byte) (int, error) {
 	}
 	return count, nil
 }
+
+// HExists returns whether the field exists in the hash stored at key.
+// If the hash contains field, it returns true.
+// If the hash does not contain field, or key does not exist, it returns false.
+func (db *RoseDB) HExists(key, field []byte) (bool, error) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	hashKey := db.encodeKey(key, field)
+	_, err := db.getVal(hashKey, Hash)
+	if err == nil {
+		return true, nil
+	}
+	if err == ErrKeyNotFound {
+		return false, nil
+	}
+	return false, err
+}

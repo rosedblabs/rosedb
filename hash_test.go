@@ -126,3 +126,34 @@ func testRoseDBHDel(t *testing.T, ioType IOType, mode DataIndexMode) {
 	assert.Nil(t, err)
 	assert.Nil(t, v1)
 }
+
+func TestRoseDB_HExists(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBHExists(t, FileIO, KeyOnlyMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBHExists(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBHExists(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	setKey := []byte("my_set")
+	err = db.HSet(setKey, GetKey(1), GetValue16B())
+	assert.Nil(t, err)
+
+	c1, err := db.HExists(setKey, GetKey(1))
+	assert.Nil(t, err)
+	assert.Equal(t, c1, true)
+
+	c2, err := db.HExists(setKey, GetKey(2))
+	assert.Nil(t, err)
+	assert.Equal(t, c2, false)
+}
