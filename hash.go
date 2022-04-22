@@ -77,12 +77,9 @@ func (db *RoseDB) HExists(key, field []byte) (bool, error) {
 	defer db.hashIndex.mu.RUnlock()
 
 	hashKey := db.encodeKey(key, field)
-	_, err := db.getVal(hashKey, Hash)
-	if err == nil {
-		return true, nil
+	val, err := db.getVal(hashKey, Hash)
+	if err != nil && err != ErrKeyNotFound {
+		return false, err
 	}
-	if err == ErrKeyNotFound {
-		return false, nil
-	}
-	return false, err
+	return val != nil, nil
 }
