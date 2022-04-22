@@ -1290,3 +1290,44 @@ func testRoseDBStrLen(t *testing.T, ioType IOType, mode DataIndexMode) {
 		})
 	}
 }
+
+func TestRoseDB_DiscardStat_Strs(t *testing.T) {
+	helper := func(isDelete bool) {
+		path := filepath.Join("/tmp", "rosedb")
+		opts := DefaultOptions(path)
+		opts.LogFileSizeThreshold = 64 << 20
+		db, err := Open(opts)
+		assert.Nil(t, err)
+		defer destroyDB(db)
+
+		writeCount := 500000
+		for i := 0; i < writeCount/2; i++ {
+			err := db.Set(GetKey(i), GetValue128B())
+			assert.Nil(t, err)
+		}
+
+		if isDelete {
+			for i := 0; i < writeCount/2; i++ {
+				err := db.Delete(GetKey(i))
+				assert.Nil(t, err)
+			}
+		} else {
+			for i := 0; i < writeCount/2; i++ {
+				err := db.Set(GetKey(i), GetValue128B())
+				assert.Nil(t, err)
+			}
+		}
+		_ = db.Sync()
+		ccl, err := db.discards[String].getCCL(10, 0.5)
+		assert.Nil(t, err)
+		assert.Equal(t, 1, len(ccl))
+	}
+
+	t.Run("rewrite", func(t *testing.T) {
+		helper(false)
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		helper(true)
+	})
+}

@@ -196,6 +196,10 @@ func (db *RoseDB) Close() error {
 			_ = file.Close()
 		}
 	}
+	// close discard files.
+	for _, dis := range db.discards {
+		_ = dis.close()
+	}
 	atomic.StoreUint32(&db.closed, 1)
 	return nil
 }
@@ -208,6 +212,12 @@ func (db *RoseDB) Sync() error {
 	// iterate and sync all the active files.
 	for _, activeFile := range db.activeLogFiles {
 		if err := activeFile.Sync(); err != nil {
+			return err
+		}
+	}
+	// sync discard file.
+	for _, dis := range db.discards {
+		if err := dis.sync(); err != nil {
 			return err
 		}
 	}

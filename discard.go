@@ -72,6 +72,14 @@ func newDiscard(path, name string) (*discard, error) {
 	return d, nil
 }
 
+func (d *discard) sync() error {
+	return d.file.Sync()
+}
+
+func (d *discard) close() error {
+	return d.file.Close()
+}
+
 // CCL means compaction cnadidate list.
 // iterate and find the file with most discarded data,
 // there are 682 records at most, no need to worry about the performance.
@@ -100,6 +108,9 @@ func (d *discard) getCCL(activeFid uint32, ratio float64) ([]uint32, error) {
 		}
 		if curRatio >= ratio && fid != activeFid {
 			ccl = append(ccl, fid)
+		}
+		if total > 0 {
+			logger.Infof("fid : %d, total : %d, discard : %d", fid, total, discard)
 		}
 	}
 

@@ -47,8 +47,7 @@ type Options struct {
 	Sync bool
 
 	// LogFileGCInterval a background goroutine will execute log file garbage collection periodically according to the interval.
-	// For String, we will pick the log file that meet the conditions for GC, then rewrite the valid data one by one.
-	// For List, Hash, Set, and ZSet, we will directly dump the data in memory to log files.
+	// It will pick the log file that meet the conditions for GC, then rewrite the valid data one by one.
 	// Default value is 10 minutes.
 	LogFileGCInterval time.Duration
 
