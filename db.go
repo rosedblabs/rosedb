@@ -73,9 +73,9 @@ type (
 	archivedFiles map[uint32]*logfile.LogFile
 
 	valuePos struct {
-		fid     uint32
-		offset  int64
-		setSize int // only used by set and zset
+		fid       uint32
+		offset    int64
+		entrySize int
 	}
 
 	strIndex struct {
@@ -99,6 +99,7 @@ type (
 
 	hashIndex struct {
 		mu      *sync.RWMutex
+		trees   map[string]*art.AdaptiveRadixTree
 		idxTree *art.AdaptiveRadixTree
 	}
 
@@ -127,7 +128,7 @@ func newListIdx() *listIndex {
 }
 
 func newHashIdx() *hashIndex {
-	return &hashIndex{idxTree: art.NewART(), mu: new(sync.RWMutex)}
+	return &hashIndex{trees: make(map[string]*art.AdaptiveRadixTree), mu: new(sync.RWMutex)}
 }
 
 func newSetIdx() *setIndex {
@@ -504,6 +505,61 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 		return nil
 	}
 
+	maybeRewriteHash := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
+		db.hashIndex.mu.Lock()
+		defer db.hashIndex.mu.Unlock()
+		indexVal := db.hashIndex.idxTree.Get(ent.Key)
+		if indexVal == nil {
+			return nil
+		}
+
+		node, _ := indexVal.(*indexNode)
+		if node != nil && node.fid == fid && node.offset == offset {
+			// rewrite entry
+			valuePos, err := db.writeLogEntry(ent, Hash)
+			if err != nil {
+				return err
+			}
+			// update index
+			if err = db.updateIndexTree(ent, valuePos, false, Hash); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	maybeRewriteSets := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
+		db.setIndex.mu.Lock()
+		defer db.setIndex.mu.Unlock()
+		if db.setIndex.trees[string(ent.Key)] == nil {
+			return nil
+		}
+		db.setIndex.idxTree = db.setIndex.trees[string(ent.Key)]
+		if err := db.setIndex.murhash.Write(ent.Value); err != nil {
+			logger.Fatalf("fail to write murmur hash: %v", err)
+		}
+		sum := db.setIndex.murhash.EncodeSum128()
+		db.setIndex.murhash.Reset()
+
+		indexVal := db.setIndex.idxTree.Get(sum)
+		if indexVal == nil {
+			return nil
+		}
+		node, _ := indexVal.(*indexNode)
+		if node != nil && node.fid == fid && node.offset == offset {
+			// rewrite entry
+			valuePos, err := db.writeLogEntry(ent, Set)
+			if err != nil {
+				return err
+			}
+			// update index
+			if err = db.updateIndexTree(ent, valuePos, false, Set); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	activeLogFile := db.getActiveLogFile(dataType)
 	if err := db.discards[dataType].sync(); err != nil {
 		return err
@@ -539,8 +595,17 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 			if ent.ExpiredAt != 0 && ent.ExpiredAt <= ts {
 				continue
 			}
-			if err := maybeRewriteStrs(archivedFile.Fid, off, ent); err != nil {
-				return err
+			var rewriteErr error
+			switch dataType {
+			case String:
+				rewriteErr = maybeRewriteStrs(archivedFile.Fid, off, ent)
+			case Hash:
+				rewriteErr = maybeRewriteHash(archivedFile.Fid, off, ent)
+			case Set:
+				rewriteErr = maybeRewriteSets(archivedFile.Fid, off, ent)
+			}
+			if rewriteErr != nil {
+				return rewriteErr
 			}
 		}
 

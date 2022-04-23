@@ -157,3 +157,60 @@ func testRoseDBHExists(t *testing.T, ioType IOType, mode DataIndexMode) {
 	assert.Nil(t, err)
 	assert.Equal(t, c2, false)
 }
+
+func TestRoseDB_DiscardStat_Hash(t *testing.T) {
+	helper := func(isDelete bool) {
+		path := filepath.Join("/tmp", "rosedb")
+		opts := DefaultOptions(path)
+		opts.LogFileSizeThreshold = 64 << 20
+		db, err := Open(opts)
+		assert.Nil(t, err)
+		//defer destroyDB(db)
+
+		hashKey := []byte("my_hash")
+		writeCount := 500000
+		for i := 0; i < writeCount/2; i++ {
+			err := db.HSet(hashKey, GetKey(i), GetValue128B())
+			assert.Nil(t, err)
+		}
+
+		if isDelete {
+			for i := 0; i < writeCount/2; i++ {
+				_, err := db.HDel(hashKey, GetKey(i))
+				assert.Nil(t, err)
+			}
+		} else {
+			for i := 0; i < writeCount/2; i++ {
+				err := db.HSet(hashKey, GetKey(i), GetValue128B())
+				assert.Nil(t, err)
+			}
+		}
+		_ = db.Sync()
+		ccl, err := db.discards[Hash].getCCL(10, 0.5)
+		assert.Nil(t, err)
+		assert.Equal(t, 1, len(ccl))
+	}
+
+	t.Run("rewrite", func(t *testing.T) {
+		helper(false)
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		helper(true)
+	})
+}
+
+func TestRoseDB_SetsGC(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.LogFileSizeThreshold = 64 << 20
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+	ccl, err := db.discards[Hash].getCCL(10, 0.5)
+	t.Log(err)
+	t.Log(ccl)
+
+	err = db.RunLogFileGC(Hash, 0, 0.1)
+	assert.Nil(t, err)
+}
