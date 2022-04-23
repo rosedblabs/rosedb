@@ -131,8 +131,8 @@ func (db *RoseDB) SCard(key []byte) int {
 // SDiff returns the members of the set difference between the first set and
 // all the successive sets. Returns error if no key is passed as a parameter.
 func (db *RoseDB) SDiff(keys ...[]byte) ([][]byte, error) {
-	db.strIndex.mu.RLock()
-	defer db.strIndex.mu.RUnlock()
+	db.setIndex.mu.RLock()
+	defer db.setIndex.mu.RUnlock()
 	if len(keys) == 0 {
 		return nil, ErrWrongNumberOfArgs
 	}
