@@ -1331,3 +1331,27 @@ func TestRoseDB_DiscardStat_Strs(t *testing.T) {
 		helper(true)
 	})
 }
+
+func TestRoseDB_StrsGC(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.LogFileSizeThreshold = 64 << 20
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	writeCount := 1000000
+	for i := 0; i < writeCount; i++ {
+		err := db.Set(GetKey(i), GetValue128B())
+		assert.Nil(t, err)
+	}
+	for i := 0; i < writeCount/4; i++ {
+		err := db.Delete(GetKey(i))
+		assert.Nil(t, err)
+	}
+
+	err = db.RunLogFileGC(String, 0, 0.6)
+	assert.Nil(t, err)
+	size := db.strIndex.idxTree.Size()
+	assert.Equal(t, writeCount-writeCount/4, size)
+}
