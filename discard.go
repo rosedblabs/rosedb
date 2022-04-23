@@ -33,7 +33,7 @@ type discard struct {
 	location map[uint32]int64 // offset of each fid
 }
 
-func newDiscard(path, name string) (*discard, error) {
+func newDiscard(path, name string, bufferSize int) (*discard, error) {
 	fname := filepath.Join(path, name)
 	file, err := ioselector.NewMMapSelector(fname, discardFileSize)
 	if err != nil {
@@ -63,13 +63,21 @@ func newDiscard(path, name string) (*discard, error) {
 	}
 
 	d := &discard{
-		valChan:  make(chan *indexNode, 4096),
+		valChan:  make(chan *indexNode, bufferSize),
 		file:     file,
 		freeList: freeList,
 		location: location,
 	}
 	go d.listenUpdates()
 	return d, nil
+}
+
+func (d *discard) sync() error {
+	return d.file.Sync()
+}
+
+func (d *discard) close() error {
+	return d.file.Close()
 }
 
 // CCL means compaction cnadidate list.

@@ -47,8 +47,7 @@ type Options struct {
 	Sync bool
 
 	// LogFileGCInterval a background goroutine will execute log file garbage collection periodically according to the interval.
-	// For String, we will pick the log file that meet the conditions for GC, then rewrite the valid data one by one.
-	// For List, Hash, Set, and ZSet, we will directly dump the data in memory to log files.
+	// It will pick the log file that meet the conditions for GC, then rewrite the valid data one by one.
 	// Default value is 10 minutes.
 	LogFileGCInterval time.Duration
 
@@ -62,6 +61,12 @@ type Options struct {
 	// Important!!! This option must be set to the same value as the first startup.
 	// Default value is 512MB.
 	LogFileSizeThreshold int64
+
+	// DiscardBufferSize a channel will be created to send the older entry size when a key updated or deleted.
+	// Entry size will be saved in the discard file, recording the invalid size in a log file, and be used when log file gc is running.
+	// This option represents the size of that channel.
+	// If you got errors like `send discard chan fail`, you can increase this option to avoid it.
+	DiscardBufferSize int
 }
 
 // DefaultOptions default options for opening a RoseDB.
@@ -74,5 +79,6 @@ func DefaultOptions(path string) Options {
 		LogFileGCInterval:    time.Minute * 10,
 		LogFileGCRatio:       0.5,
 		LogFileSizeThreshold: 512 << 20,
+		DiscardBufferSize:    4 << 12,
 	}
 }
