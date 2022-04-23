@@ -158,6 +158,39 @@ func testRoseDBHExists(t *testing.T, ioType IOType, mode DataIndexMode) {
 	assert.Equal(t, c2, false)
 }
 
+func TestRoseDB_HLen(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	hashKey := []byte("my_hash")
+	l1 := db.HLen(hashKey)
+	assert.Equal(t, 0, l1)
+
+	err = db.HSet(hashKey, GetKey(1), GetValue16B())
+	assert.Nil(t, err)
+	l2 := db.HLen(hashKey)
+	assert.Equal(t, 1, l2)
+
+	err = db.HSet(hashKey, GetKey(1), GetValue128B())
+	assert.Nil(t, err)
+
+	err = db.HSet(hashKey, GetKey(2), GetValue16B())
+	assert.Nil(t, err)
+	l3 := db.HLen(hashKey)
+	assert.Equal(t, 2, l3)
+
+	writeCount := 1000
+	for i := 0; i < writeCount; i++ {
+		err := db.HSet(hashKey, GetKey(i+100), GetValue16B())
+		assert.Nil(t, err)
+	}
+	l4 := db.HLen(hashKey)
+	assert.Equal(t, writeCount+2, l4)
+}
+
 func TestRoseDB_DiscardStat_Hash(t *testing.T) {
 	helper := func(isDelete bool) {
 		path := filepath.Join("/tmp", "rosedb")
@@ -165,11 +198,11 @@ func TestRoseDB_DiscardStat_Hash(t *testing.T) {
 		opts.LogFileSizeThreshold = 64 << 20
 		db, err := Open(opts)
 		assert.Nil(t, err)
-		//defer destroyDB(db)
+		defer destroyDB(db)
 
 		hashKey := []byte("my_hash")
 		writeCount := 500000
-		for i := 0; i < writeCount/2; i++ {
+		for i := 0; i < writeCount; i++ {
 			err := db.HSet(hashKey, GetKey(i), GetValue128B())
 			assert.Nil(t, err)
 		}
@@ -207,10 +240,21 @@ func TestRoseDB_SetsGC(t *testing.T) {
 	db, err := Open(opts)
 	assert.Nil(t, err)
 	defer destroyDB(db)
-	ccl, err := db.discards[Hash].getCCL(10, 0.5)
-	t.Log(err)
-	t.Log(ccl)
 
-	err = db.RunLogFileGC(Hash, 0, 0.1)
+	hashKey := []byte("my_hash")
+	writeCount := 500000
+	for i := 0; i < writeCount; i++ {
+		err := db.HSet(hashKey, GetKey(i), GetValue128B())
+		assert.Nil(t, err)
+	}
+	for i := 0; i < writeCount/2; i++ {
+		_, err := db.HDel(hashKey, GetKey(i))
+		assert.Nil(t, err)
+	}
+
+	err = db.RunLogFileGC(Hash, 0, 0.4)
 	assert.Nil(t, err)
+
+	l1 := db.HLen(hashKey)
+	assert.Equal(t, writeCount/2, l1)
 }

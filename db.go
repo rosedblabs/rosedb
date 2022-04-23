@@ -508,7 +508,12 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 	maybeRewriteHash := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
 		db.hashIndex.mu.Lock()
 		defer db.hashIndex.mu.Unlock()
-		indexVal := db.hashIndex.idxTree.Get(ent.Key)
+		key, field := db.decodeKey(ent.Key)
+		if db.hashIndex.trees[string(key)] == nil {
+			return nil
+		}
+		db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+		indexVal := db.hashIndex.idxTree.Get(field)
 		if indexVal == nil {
 			return nil
 		}
@@ -521,7 +526,10 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 				return err
 			}
 			// update index
-			if err = db.updateIndexTree(ent, valuePos, false, Hash); err != nil {
+			entry := &logfile.LogEntry{Key: field, Value: ent.Value}
+			_, size := logfile.EncodeEntry(ent)
+			valuePos.entrySize = size
+			if err = db.updateIndexTree(entry, valuePos, false, Hash); err != nil {
 				return err
 			}
 		}
@@ -553,7 +561,10 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 				return err
 			}
 			// update index
-			if err = db.updateIndexTree(ent, valuePos, false, Set); err != nil {
+			entry := &logfile.LogEntry{Key: sum, Value: node.value}
+			_, size := logfile.EncodeEntry(ent)
+			valuePos.entrySize = size
+			if err = db.updateIndexTree(entry, valuePos, false, Set); err != nil {
 				return err
 			}
 		}
