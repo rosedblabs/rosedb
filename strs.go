@@ -63,7 +63,10 @@ func (db *RoseDB) GetDel(key []byte) ([]byte, error) {
 	defer db.strIndex.mu.Unlock()
 
 	val, err := db.getVal(key, String)
-	if err != nil && val == nil {
+	if err != nil && err != ErrKeyNotFound {
+		return nil, err
+	}
+	if val == nil {
 		return nil, nil
 	}
 
@@ -72,6 +75,7 @@ func (db *RoseDB) GetDel(key []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	valDeleted, updated := db.strIndex.idxTree.Delete(key)
 	db.sendDiscard(valDeleted, updated, String)
 	_, size := logfile.EncodeEntry(entry)
