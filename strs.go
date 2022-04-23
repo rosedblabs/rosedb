@@ -45,16 +45,47 @@ func (db *RoseDB) MGet(keys [][]byte) ([][]byte, error) {
 	if len(keys) == 0 {
 		return nil, ErrWrongNumberOfArgs
 	}
-
 	values := make([][]byte, len(keys))
 	for i, key := range keys {
-		if val, err := db.getVal(key, String); err != nil && !errors.Is(ErrKeyNotFound, err) {
+		val, err := db.getVal(key, String)
+		if err != nil && !errors.Is(ErrKeyNotFound, err) {
 			return nil, err
-		} else {
-			values[i] = val
 		}
+		values[i] = val
 	}
 	return values, nil
+}
+
+// GetDel gets the value of the key and deletes the key. This method is similar
+// to Get method. It also deletes the key if it exists.
+func (db *RoseDB) GetDel(key []byte) ([]byte, error) {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	val, err := db.getVal(key, String)
+	if err != nil && err != ErrKeyNotFound {
+		return nil, err
+	}
+	if val == nil {
+		return nil, nil
+	}
+
+	entry := &logfile.LogEntry{Key: key, Type: logfile.TypeDelete}
+	pos, err := db.writeLogEntry(entry, String)
+	if err != nil {
+		return nil, err
+	}
+
+	valDeleted, updated := db.strIndex.idxTree.Delete(key)
+	db.sendDiscard(valDeleted, updated, String)
+	_, size := logfile.EncodeEntry(entry)
+	node := &indexNode{fid: pos.fid, entrySize: size}
+	select {
+	case db.discards[String].valChan <- node:
+	default:
+		logger.Warn("send to discard chan fail")
+	}
+	return val, nil
 }
 
 // Delete value at the given key.
@@ -131,10 +162,7 @@ func (db *RoseDB) MSet(args ...[]byte) error {
 	// Add multiple key-value pairs.
 	for i := 0; i < len(args); i += 2 {
 		key, value := args[i], args[i+1]
-		entry := &logfile.LogEntry{
-			Key:   key,
-			Value: value,
-		}
+		entry := &logfile.LogEntry{Key: key, Value: value}
 		valuePos, err := db.writeLogEntry(entry, String)
 		if err != nil {
 			return err
@@ -172,13 +200,12 @@ func (db *RoseDB) MSetNX(args ...[]byte) error {
 		}
 	}
 
-	var keys = make(map[uint64]struct{})
-
+	var addedKeys = make(map[uint64]struct{})
 	// Set keys to their values.
 	for i := 0; i < len(args); i += 2 {
 		key, value := args[i], args[i+1]
 		h := util.MemHash(key)
-		if _, ok := keys[h]; ok {
+		if _, ok := addedKeys[h]; ok {
 			continue
 		}
 		entry := &logfile.LogEntry{Key: key, Value: value}
@@ -190,7 +217,7 @@ func (db *RoseDB) MSetNX(args ...[]byte) error {
 		if err != nil {
 			return err
 		}
-		keys[h] = struct{}{}
+		addedKeys[h] = struct{}{}
 	}
 	return nil
 }
@@ -210,7 +237,6 @@ func (db *RoseDB) Append(key, value []byte) error {
 	if oldVal != nil {
 		value = append(oldVal, value...)
 	}
-
 	// write entry to log file.
 	entry := &logfile.LogEntry{Key: key, Value: value}
 	valuePos, err := db.writeLogEntry(entry, String)
@@ -272,7 +298,7 @@ func (db *RoseDB) incrDecrBy(key []byte, incr int64) (int64, error) {
 	}
 	valInt64, err := strconv.ParseInt(string(val), 10, 64)
 	if err != nil {
-		return 0, ErrWrongKeyType
+		return 0, ErrWrongValueType
 	}
 
 	if (incr < 0 && valInt64 < 0 && incr < (math.MinInt64-valInt64)) ||

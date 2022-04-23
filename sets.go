@@ -35,7 +35,7 @@ func (db *RoseDB) SAdd(key []byte, members ...[]byte) error {
 		}
 		entry := &logfile.LogEntry{Key: sum, Value: mem}
 		_, size := logfile.EncodeEntry(ent)
-		valuePos.setSize = size
+		valuePos.entrySize = size
 		if err := db.updateIndexTree(entry, valuePos, true, Set); err != nil {
 			return err
 		}

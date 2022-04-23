@@ -35,7 +35,7 @@ func TestDiscard_newDiscard(t *testing.T) {
 		path := filepath.Join("/tmp", "rosedb-discard")
 		os.MkdirAll(path, os.ModePerm)
 		defer os.RemoveAll(path)
-		dis, err := newDiscard(path, discardFileName)
+		dis, err := newDiscard(path, discardFileName, 4096)
 		assert.Nil(t, err)
 
 		assert.Equal(t, len(dis.freeList), 682)
@@ -46,7 +46,7 @@ func TestDiscard_newDiscard(t *testing.T) {
 		path := filepath.Join("/tmp", "rosedb-discard")
 		os.MkdirAll(path, os.ModePerm)
 		defer os.RemoveAll(path)
-		dis, err := newDiscard(path, discardFileName)
+		dis, err := newDiscard(path, discardFileName, 4096)
 		assert.Nil(t, err)
 
 		for i := 1; i < 300; i = i * 5 {
@@ -58,7 +58,7 @@ func TestDiscard_newDiscard(t *testing.T) {
 		assert.Equal(t, len(dis.location), 4)
 
 		// reopen
-		dis2, err := newDiscard(path, discardFileName)
+		dis2, err := newDiscard(path, discardFileName, 4096)
 		assert.Nil(t, err)
 		assert.Equal(t, len(dis2.freeList), 678)
 		assert.Equal(t, len(dis2.location), 4)
@@ -69,7 +69,7 @@ func TestDiscard_setTotal(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb-discard")
 	os.MkdirAll(path, os.ModePerm)
 	defer os.RemoveAll(path)
-	dis, err := newDiscard(path, discardFileName)
+	dis, err := newDiscard(path, discardFileName, 4096)
 	assert.Nil(t, err)
 
 	type args struct {
@@ -105,7 +105,7 @@ func TestDiscard_clear(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb-discard")
 	os.MkdirAll(path, os.ModePerm)
 	defer os.RemoveAll(path)
-	dis, err := newDiscard(path, discardFileName)
+	dis, err := newDiscard(path, discardFileName, 4096)
 	assert.Nil(t, err)
 
 	for i := 0; i < 682; i++ {
@@ -148,7 +148,7 @@ func TestDiscard_incrDiscard(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb-discard")
 	os.MkdirAll(path, os.ModePerm)
 	defer os.RemoveAll(path)
-	dis, err := newDiscard(path, discardFileName)
+	dis, err := newDiscard(path, discardFileName, 4096)
 	assert.Nil(t, err)
 
 	for i := 1; i < 600; i = i * 5 {
@@ -167,7 +167,7 @@ func TestDiscard_getCCL(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb-discard")
 	os.MkdirAll(path, os.ModePerm)
 	defer os.RemoveAll(path)
-	dis, err := newDiscard(path, discardFileName)
+	dis, err := newDiscard(path, discardFileName, 4096)
 	assert.Nil(t, err)
 
 	for i := 1; i < 2000; i = i * 5 {

@@ -866,7 +866,7 @@ func testRoseDBDecr(t *testing.T, ioType IOType, mode DataIndexMode) {
 			db:      db,
 			key:     []byte("str-key"),
 			expVal:  0,
-			expErr:  ErrWrongKeyType,
+			expErr:  ErrWrongValueType,
 			wantErr: true,
 		},
 	}
@@ -980,7 +980,7 @@ func testRoseDBDecrBy(t *testing.T, ioType IOType, mode DataIndexMode) {
 			key:     []byte("str-key"),
 			decr:    5,
 			expVal:  0,
-			expErr:  ErrWrongKeyType,
+			expErr:  ErrWrongValueType,
 			wantErr: true,
 		},
 		{
@@ -1085,7 +1085,7 @@ func testRoseDBIncr(t *testing.T, ioType IOType, mode DataIndexMode) {
 			db:      db,
 			key:     []byte("str-key"),
 			expVal:  0,
-			expErr:  ErrWrongKeyType,
+			expErr:  ErrWrongValueType,
 			wantErr: true,
 		},
 	}
@@ -1199,7 +1199,7 @@ func testRoseDBIncrBy(t *testing.T, ioType IOType, mode DataIndexMode) {
 			key:     []byte("str-key"),
 			incr:    5,
 			expVal:  0,
-			expErr:  ErrWrongKeyType,
+			expErr:  ErrWrongValueType,
 			wantErr: true,
 		},
 		{
@@ -1289,4 +1289,147 @@ func testRoseDBStrLen(t *testing.T, ioType IOType, mode DataIndexMode) {
 			}
 		})
 	}
+}
+
+func TestRoseDB_GetDel(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBGetDel(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBGetDel(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBGetDel(t, FileIO, KeyValueMemMode)
+	})
+}
+
+func testRoseDBGetDel(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.MSet(
+		[]byte("nil-value"), nil,
+		[]byte("key-1"), []byte("value-1"),
+		[]byte("key-2"), []byte("value-2"),
+		[]byte("key-3"), []byte("value-3"),
+		[]byte("key-4"), []byte("value-4"),
+	)
+	tests := []struct {
+		name   string
+		db     *RoseDB
+		key    []byte
+		expVal []byte
+		expErr error
+	}{
+		{
+			name:   "nil value",
+			db:     db,
+			key:    []byte("nil-value"),
+			expVal: nil,
+			expErr: nil,
+		},
+		{
+			name:   "not exist in db",
+			db:     db,
+			key:    []byte("not-exist-key"),
+			expVal: nil,
+			expErr: nil,
+		},
+		{
+			name:   "exist in db",
+			db:     db,
+			key:    []byte("key-1"),
+			expVal: []byte("value-1"),
+			expErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, err := tt.db.GetDel(tt.key)
+			if err != tt.expErr {
+				t.Errorf("GetDel(): expected error: %+v, actual error: %+v", tt.expErr, err)
+			}
+			if !bytes.Equal(val, tt.expVal) {
+				t.Errorf("GetDel(): expected val: %v, actual val: %v", tt.expVal, val)
+			}
+
+			val, _ = tt.db.Get(tt.key)
+			if val != nil {
+				t.Errorf("GetDel(): expected val(after Get()): <nil>, actual val(after Get()): %v", val)
+			}
+		})
+	}
+}
+
+func TestRoseDB_DiscardStat_Strs(t *testing.T) {
+	helper := func(isDelete bool) {
+		path := filepath.Join("/tmp", "rosedb")
+		opts := DefaultOptions(path)
+		opts.LogFileSizeThreshold = 64 << 20
+		db, err := Open(opts)
+		assert.Nil(t, err)
+		defer destroyDB(db)
+
+		writeCount := 500000
+		for i := 0; i < writeCount/2; i++ {
+			err := db.Set(GetKey(i), GetValue128B())
+			assert.Nil(t, err)
+		}
+
+		if isDelete {
+			for i := 0; i < writeCount/2; i++ {
+				err := db.Delete(GetKey(i))
+				assert.Nil(t, err)
+			}
+		} else {
+			for i := 0; i < writeCount/2; i++ {
+				err := db.Set(GetKey(i), GetValue128B())
+				assert.Nil(t, err)
+			}
+		}
+		_ = db.Sync()
+		ccl, err := db.discards[String].getCCL(10, 0.5)
+		assert.Nil(t, err)
+		assert.Equal(t, 1, len(ccl))
+	}
+
+	t.Run("rewrite", func(t *testing.T) {
+		helper(false)
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		helper(true)
+	})
+}
+
+func TestRoseDB_StrsGC(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.LogFileSizeThreshold = 64 << 20
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	writeCount := 1000000
+	for i := 0; i < writeCount; i++ {
+		err := db.Set(GetKey(i), GetValue128B())
+		assert.Nil(t, err)
+	}
+	for i := 0; i < writeCount/4; i++ {
+		err := db.Delete(GetKey(i))
+		assert.Nil(t, err)
+	}
+
+	err = db.RunLogFileGC(String, 0, 0.6)
+	assert.Nil(t, err)
+	size := db.strIndex.idxTree.Size()
+	assert.Equal(t, writeCount-writeCount/4, size)
 }

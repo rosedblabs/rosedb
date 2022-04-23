@@ -9,15 +9,19 @@ import (
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
+	"io"
 	"io/ioutil"
 	"math"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
+	"time"
 )
 
 var (
@@ -33,8 +37,11 @@ var (
 	// ErrIntegerOverflow overflows int64 limitations
 	ErrIntegerOverflow = errors.New("increment or decrement overflow")
 
-	// ErrWrongKeyType value is not a number
-	ErrWrongKeyType = errors.New("value is not an integer")
+	// ErrWrongValueType value is not a number
+	ErrWrongValueType = errors.New("value is not an integer")
+
+	// ErrGCRunning log file gc is running
+	ErrGCRunning = errors.New("log file gc is running, retry later")
 )
 
 const (
@@ -60,14 +67,15 @@ type (
 		zsetIndex        *zsetIndex // Sorted set indexes.
 		mu               sync.RWMutex
 		closed           uint32
+		gcState          int32
 	}
 
 	archivedFiles map[uint32]*logfile.LogFile
 
 	valuePos struct {
-		fid     uint32
-		offset  int64
-		setSize int // only used by set and zset
+		fid       uint32
+		offset    int64
+		entrySize int
 	}
 
 	strIndex struct {
@@ -91,6 +99,7 @@ type (
 
 	hashIndex struct {
 		mu      *sync.RWMutex
+		trees   map[string]*art.AdaptiveRadixTree
 		idxTree *art.AdaptiveRadixTree
 	}
 
@@ -119,7 +128,7 @@ func newListIdx() *listIndex {
 }
 
 func newHashIdx() *hashIndex {
-	return &hashIndex{idxTree: art.NewART(), mu: new(sync.RWMutex)}
+	return &hashIndex{trees: make(map[string]*art.AdaptiveRadixTree), mu: new(sync.RWMutex)}
 }
 
 func newSetIdx() *setIndex {
@@ -176,7 +185,7 @@ func Open(opts Options) (*RoseDB, error) {
 	}
 
 	// handle log files garbage collection.
-	//go db.handleLogFileGC()
+	go db.handleLogFileGC()
 	return db, nil
 }
 
@@ -196,6 +205,10 @@ func (db *RoseDB) Close() error {
 			_ = file.Close()
 		}
 	}
+	// close discard files.
+	for _, dis := range db.discards {
+		_ = dis.close()
+	}
 	atomic.StoreUint32(&db.closed, 1)
 	return nil
 }
@@ -211,7 +224,21 @@ func (db *RoseDB) Sync() error {
 			return err
 		}
 	}
+	// sync discard file.
+	for _, dis := range db.discards {
+		if err := dis.sync(); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// RunLogFileGC run log file garbage collection manually.
+func (db *RoseDB) RunLogFileGC(dataType DataType, fid int, gcRatio float64) error {
+	if atomic.LoadInt32(&db.gcState) > 0 {
+		return ErrGCRunning
+	}
+	return db.doRunGC(dataType, fid, gcRatio)
 }
 
 func (db *RoseDB) isClosed() bool {
@@ -370,7 +397,7 @@ func (db *RoseDB) initDiscard() error {
 	discards := make(map[DataType]*discard)
 	for i := String; i < logFileTypeNum; i++ {
 		name := logfile.FileNamesMap[logfile.FileType(i)] + discardFileName
-		dis, err := newDiscard(discardPath, name)
+		dis, err := newDiscard(discardPath, name, db.opts.DiscardBufferSize)
 		if err != nil {
 			return err
 		}
@@ -419,4 +446,187 @@ func (db *RoseDB) sendDiscard(oldVal interface{}, updated bool, dataType DataTyp
 	default:
 		logger.Warn("send to discard chan fail")
 	}
+}
+
+func (db *RoseDB) handleLogFileGC() {
+	if db.opts.LogFileGCInterval <= 0 {
+		return
+	}
+
+	quitSig := make(chan os.Signal, 1)
+	signal.Notify(quitSig, os.Interrupt, os.Kill, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	ticker := time.NewTicker(db.opts.LogFileGCInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if atomic.LoadInt32(&db.gcState) > 0 {
+				logger.Warn("log file gc is running, skip it")
+				break
+			}
+			for dType := String; dType < logFileTypeNum; dType++ {
+				go func(dataType DataType) {
+					err := db.doRunGC(dataType, -1, db.opts.LogFileGCRatio)
+					if err != nil {
+						logger.Errorf("log file gc err, dataType : [%v], err: [%v]", dataType, err)
+					}
+				}(dType)
+			}
+		case <-quitSig:
+			return
+		}
+	}
+}
+
+func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) error {
+	atomic.AddInt32(&db.gcState, 1)
+	defer atomic.AddInt32(&db.gcState, -1)
+
+	maybeRewriteStrs := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
+		db.strIndex.mu.Lock()
+		defer db.strIndex.mu.Unlock()
+		indexVal := db.strIndex.idxTree.Get(ent.Key)
+		if indexVal == nil {
+			return nil
+		}
+
+		node, _ := indexVal.(*indexNode)
+		if node != nil && node.fid == fid && node.offset == offset {
+			// rewrite entry
+			valuePos, err := db.writeLogEntry(ent, String)
+			if err != nil {
+				return err
+			}
+			// update index
+			if err = db.updateIndexTree(ent, valuePos, false, String); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	maybeRewriteHash := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
+		db.hashIndex.mu.Lock()
+		defer db.hashIndex.mu.Unlock()
+		key, field := db.decodeKey(ent.Key)
+		if db.hashIndex.trees[string(key)] == nil {
+			return nil
+		}
+		db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+		indexVal := db.hashIndex.idxTree.Get(field)
+		if indexVal == nil {
+			return nil
+		}
+
+		node, _ := indexVal.(*indexNode)
+		if node != nil && node.fid == fid && node.offset == offset {
+			// rewrite entry
+			valuePos, err := db.writeLogEntry(ent, Hash)
+			if err != nil {
+				return err
+			}
+			// update index
+			entry := &logfile.LogEntry{Key: field, Value: ent.Value}
+			_, size := logfile.EncodeEntry(ent)
+			valuePos.entrySize = size
+			if err = db.updateIndexTree(entry, valuePos, false, Hash); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	maybeRewriteSets := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
+		db.setIndex.mu.Lock()
+		defer db.setIndex.mu.Unlock()
+		if db.setIndex.trees[string(ent.Key)] == nil {
+			return nil
+		}
+		db.setIndex.idxTree = db.setIndex.trees[string(ent.Key)]
+		if err := db.setIndex.murhash.Write(ent.Value); err != nil {
+			logger.Fatalf("fail to write murmur hash: %v", err)
+		}
+		sum := db.setIndex.murhash.EncodeSum128()
+		db.setIndex.murhash.Reset()
+
+		indexVal := db.setIndex.idxTree.Get(sum)
+		if indexVal == nil {
+			return nil
+		}
+		node, _ := indexVal.(*indexNode)
+		if node != nil && node.fid == fid && node.offset == offset {
+			// rewrite entry
+			valuePos, err := db.writeLogEntry(ent, Set)
+			if err != nil {
+				return err
+			}
+			// update index
+			entry := &logfile.LogEntry{Key: sum, Value: node.value}
+			_, size := logfile.EncodeEntry(ent)
+			valuePos.entrySize = size
+			if err = db.updateIndexTree(entry, valuePos, false, Set); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	activeLogFile := db.getActiveLogFile(dataType)
+	if err := db.discards[dataType].sync(); err != nil {
+		return err
+	}
+	ccl, err := db.discards[dataType].getCCL(activeLogFile.Fid, gcRatio)
+	if err != nil {
+		return err
+	}
+	for _, fid := range ccl {
+		if specifiedFid >= 0 && uint32(specifiedFid) != fid {
+			continue
+		}
+		archivedFile := db.getArchivedLogFile(dataType, fid)
+		if archivedFile == nil {
+			continue
+		}
+
+		var offset int64
+		for {
+			ent, size, err := archivedFile.ReadLogEntry(offset)
+			if err != nil {
+				if err == io.EOF || err == logfile.ErrEndOfEntry {
+					break
+				}
+				return err
+			}
+			var off = offset
+			offset += size
+			if ent.Type == logfile.TypeDelete {
+				continue
+			}
+			ts := time.Now().Unix()
+			if ent.ExpiredAt != 0 && ent.ExpiredAt <= ts {
+				continue
+			}
+			var rewriteErr error
+			switch dataType {
+			case String:
+				rewriteErr = maybeRewriteStrs(archivedFile.Fid, off, ent)
+			case Hash:
+				rewriteErr = maybeRewriteHash(archivedFile.Fid, off, ent)
+			case Set:
+				rewriteErr = maybeRewriteSets(archivedFile.Fid, off, ent)
+			}
+			if rewriteErr != nil {
+				return rewriteErr
+			}
+		}
+
+		// delete older log file.
+		db.mu.Lock()
+		delete(db.archivedLogFiles[dataType], fid)
+		_ = archivedFile.Delete()
+		db.mu.Unlock()
+		// clear discard state.
+		db.discards[dataType].clear(fid)
+	}
+	return nil
 }
