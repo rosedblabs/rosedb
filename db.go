@@ -606,6 +606,9 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 	}
 
 	activeLogFile := db.getActiveLogFile(dataType)
+	if activeLogFile == nil {
+		return nil
+	}
 	if err := db.discards[dataType].sync(); err != nil {
 		return err
 	}
@@ -613,6 +616,7 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 	if err != nil {
 		return err
 	}
+
 	for _, fid := range ccl {
 		if specifiedFid >= 0 && uint32(specifiedFid) != fid {
 			continue
