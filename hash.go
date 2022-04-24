@@ -114,3 +114,23 @@ func (db *RoseDB) HLen(key []byte) int {
 	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
 	return db.hashIndex.idxTree.Size()
 }
+
+func (db *RoseDB) HKeys(key []byte) ([][]byte, error) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	var keys [][]byte
+	tree, ok := db.hashIndex.trees[string(key)]
+	if !ok {
+		return keys, nil
+	}
+	iter := tree.Iterator()
+	for iter.HasNext() {
+		node, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, node.Key())
+	}
+	return keys, nil
+}
