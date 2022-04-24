@@ -115,6 +115,7 @@ func (db *RoseDB) HLen(key []byte) int {
 	return db.hashIndex.idxTree.Size()
 }
 
+// HKeys returns all field names in the hash stored at key.
 func (db *RoseDB) HKeys(key []byte) ([][]byte, error) {
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
