@@ -233,7 +233,7 @@ func TestRoseDB_DiscardStat_Hash(t *testing.T) {
 	})
 }
 
-func TestRoseDB_SetsGC(t *testing.T) {
+func TestRoseDB_HashGC(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb")
 	opts := DefaultOptions(path)
 	opts.LogFileSizeThreshold = 64 << 20

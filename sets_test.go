@@ -204,3 +204,48 @@ func TestRoseDB_SCard(t *testing.T) {
 	c3 := db2.SCard(setKey)
 	assert.Equal(t, 3, c3)
 }
+
+func TestRoseDB_DiscardStat_Sets(t *testing.T) {
+	helper := func(isDelete bool) {
+		path := filepath.Join("/tmp", "rosedb")
+		opts := DefaultOptions(path)
+		opts.LogFileSizeThreshold = 64 << 20
+		db, err := Open(opts)
+		assert.Nil(t, err)
+		defer destroyDB(db)
+
+		setKey := []byte("my_set")
+		writeCount := 500000
+		for i := 0; i < writeCount; i++ {
+			err := db.SAdd(setKey, GetKey(i))
+			assert.Nil(t, err)
+		}
+
+		if isDelete {
+			for i := 0; i < writeCount/2; i++ {
+				err := db.SRem(setKey, GetKey(i))
+				assert.Nil(t, err)
+			}
+		} else {
+			for i := 0; i < writeCount/2; i++ {
+				err := db.SAdd(setKey, GetKey(i))
+				assert.Nil(t, err)
+			}
+		}
+		_ = db.Sync()
+		ccl, err := db.discards[Set].getCCL(10, 0.1)
+		assert.Nil(t, err)
+		assert.Equal(t, 1, len(ccl))
+	}
+
+	t.Run("rewrite", func(t *testing.T) {
+		helper(false)
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		helper(true)
+	})
+}
+
+func TestRoseDB_SetGC(t *testing.T) {
+}

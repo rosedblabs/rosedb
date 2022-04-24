@@ -561,10 +561,44 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 				return err
 			}
 			// update index
-			entry := &logfile.LogEntry{Key: sum, Value: node.value}
+			entry := &logfile.LogEntry{Key: sum, Value: ent.Value}
 			_, size := logfile.EncodeEntry(ent)
 			valuePos.entrySize = size
 			if err = db.updateIndexTree(entry, valuePos, false, Set); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	maybeRewriteZSet := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
+		db.zsetIndex.mu.Lock()
+		defer db.zsetIndex.mu.Unlock()
+		key, _ := db.decodeKey(ent.Key)
+		if db.zsetIndex.trees[string(key)] == nil {
+			return nil
+		}
+		db.zsetIndex.idxTree = db.zsetIndex.trees[string(key)]
+		if err := db.zsetIndex.murhash.Write(ent.Value); err != nil {
+			logger.Fatalf("fail to write murmur hash: %v", err)
+		}
+		sum := db.zsetIndex.murhash.EncodeSum128()
+		db.zsetIndex.murhash.Reset()
+
+		indexVal := db.zsetIndex.idxTree.Get(sum)
+		if indexVal == nil {
+			return nil
+		}
+		node, _ := indexVal.(*indexNode)
+		if node != nil && node.fid == fid && node.offset == node.offset {
+			valuePos, err := db.writeLogEntry(ent, ZSet)
+			if err != nil {
+				return err
+			}
+			entry := &logfile.LogEntry{Key: sum, Value: ent.Value}
+			_, size := logfile.EncodeEntry(ent)
+			valuePos.entrySize = size
+			if err = db.updateIndexTree(entry, valuePos, false, ZSet); err != nil {
 				return err
 			}
 		}
@@ -614,6 +648,8 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 				rewriteErr = maybeRewriteHash(archivedFile.Fid, off, ent)
 			case Set:
 				rewriteErr = maybeRewriteSets(archivedFile.Fid, off, ent)
+			case ZSet:
+				rewriteErr = maybeRewriteZSet(archivedFile.Fid, off, ent)
 			}
 			if rewriteErr != nil {
 				return rewriteErr
