@@ -258,3 +258,49 @@ func TestRoseDB_SetsGC(t *testing.T) {
 	l1 := db.HLen(hashKey)
 	assert.Equal(t, writeCount/2, l1)
 }
+
+func TestRoseDB_HKeys(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	hashKey := []byte("my_hash")
+	keys, err := db.HKeys(hashKey)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(keys))
+
+	err = db.HSet(hashKey, GetKey(1), GetValue16B())
+	assert.Nil(t, err)
+	keys, err = db.HKeys(hashKey)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(keys))
+	assert.Equal(t, GetKey(1), keys[0])
+
+	err = db.HSet(hashKey, GetKey(1), GetValue128B())
+	assert.Nil(t, err)
+	keys, err = db.HKeys(hashKey)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(keys))
+	assert.Equal(t, GetKey(1), keys[0])
+
+	err = db.HSet(hashKey, GetKey(2), GetValue16B())
+	assert.Nil(t, err)
+	keys, err = db.HKeys(hashKey)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(keys))
+	assert.Equal(t, [][]byte{GetKey(1), GetKey(2)}, keys)
+
+	writeCount := 1000
+	for i := 0; i < writeCount; i++ {
+		err := db.HSet(hashKey, GetKey(i+100), GetValue16B())
+		assert.Nil(t, err)
+	}
+	keys, err = db.HKeys(hashKey)
+	assert.Nil(t, err)
+	for i := 0; i < writeCount; i++ {
+		assert.Equal(t, GetKey(i+100), keys[i+2])
+	}
+
+}
