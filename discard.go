@@ -109,9 +109,6 @@ func (d *discard) getCCL(activeFid uint32, ratio float64) ([]uint32, error) {
 		if curRatio >= ratio && fid != activeFid {
 			ccl = append(ccl, fid)
 		}
-		if total > 0 {
-			logger.Infof("fid = %d, total = %d, discard = %d", fid, total, discard)
-		}
 	}
 
 	// sort in ascending order, guarantee the older file will compact firstly.

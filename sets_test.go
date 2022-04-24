@@ -248,4 +248,26 @@ func TestRoseDB_DiscardStat_Sets(t *testing.T) {
 }
 
 func TestRoseDB_SetGC(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.LogFileSizeThreshold = 64 << 20
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	setKey := []byte("my_set")
+	writeCount := 500000
+	for i := 0; i < writeCount; i++ {
+		err := db.SAdd(setKey, GetValue128B())
+		assert.Nil(t, err)
+	}
+
+	_, err = db.SPop(setKey, uint(writeCount/2))
+	assert.Nil(t, err)
+
+	err = db.RunLogFileGC(Set, 0, 0.1)
+	assert.Nil(t, err)
+
+	c1 := db.SCard(setKey)
+	assert.Equal(t, writeCount/2, c1)
 }
