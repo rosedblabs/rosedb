@@ -150,8 +150,8 @@ func (db *RoseDB) SDiff(keys ...[]byte) ([][]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, k := range members {
-			h := util.MemHash(k)
+		for _, value := range members {
+			h := util.MemHash(value)
 			if _, ok := successiveSet[h]; !ok {
 				successiveSet[h] = struct{}{}
 			}
@@ -161,10 +161,10 @@ func (db *RoseDB) SDiff(keys ...[]byte) ([][]byte, error) {
 		return firstSet, nil
 	}
 	res := make([][]byte, 0)
-	for _, k := range firstSet {
-		h := util.MemHash(k)
+	for _, value := range firstSet {
+		h := util.MemHash(value)
 		if _, ok := successiveSet[h]; !ok {
-			res = append(res, k)
+			res = append(res, value)
 		}
 	}
 	return res, nil
