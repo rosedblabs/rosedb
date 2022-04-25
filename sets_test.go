@@ -271,3 +271,67 @@ func TestRoseDB_SetGC(t *testing.T) {
 	c1 := db.SCard(setKey)
 	assert.Equal(t, writeCount/2, c1)
 }
+
+func TestRoseDB_SDiff(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.SAdd([]byte("key-1"), []byte("value-1"), []byte("value-2"), []byte("value-3"))
+	_ = db.SAdd([]byte("key-2"), []byte("value-4"), []byte("value-5"), []byte("value-6"), []byte("value-7"))
+	_ = db.SAdd([]byte("key-3"), []byte("value-2"), []byte("value-5"), []byte("value-8"), []byte("value-9"))
+	_ = db.SAdd([]byte("key-4"), []byte("value-1"), []byte("value-2"), []byte("value-3"))
+	testCases := []struct {
+		name       string
+		db         *RoseDB
+		keys       [][]byte
+		expDiffSet [][]byte
+		expErr     error
+	}{
+		{
+			name:       "empty key parameters",
+			db:         db,
+			keys:       [][]byte{},
+			expDiffSet: nil,
+			expErr:     ErrWrongNumberOfArgs,
+		},
+		{
+			name:       "one key parameter",
+			db:         db,
+			keys:       [][]byte{[]byte("key-2")},
+			expDiffSet: [][]byte{[]byte("value-5"), []byte("value-4"), []byte("value-6"), []byte("value-7")}, // todo check
+			expErr:     nil,
+		},
+		{
+			name:       "two key parameters",
+			db:         db,
+			keys:       [][]byte{[]byte("key-1"), []byte("key-3")},
+			expDiffSet: [][]byte{[]byte("value-3"), []byte("value-1")},
+			expErr:     nil,
+		},
+		{
+			name:       "multiple key parameters",
+			db:         db,
+			keys:       [][]byte{[]byte("key-1"), []byte("key-2"), []byte("key-3")},
+			expDiffSet: [][]byte{[]byte("value-3"), []byte("value-1")},
+			expErr:     nil,
+		},
+		{
+			name:       "no diff",
+			db:         db,
+			keys:       [][]byte{[]byte("key-1"), []byte("key-4")},
+			expDiffSet: [][]byte{},
+			expErr:     nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			diffSet, err := db.SDiff(tc.keys...)
+			assert.Equal(t, tc.expErr, err)
+			assert.Equal(t, tc.expDiffSet, diffSet)
+		})
+	}
+}

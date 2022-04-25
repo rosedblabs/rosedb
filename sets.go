@@ -4,6 +4,7 @@ import (
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
+	"github.com/flower-corp/rosedb/util"
 )
 
 // SAdd add the specified members to the set stored at key.
@@ -114,26 +115,7 @@ func (db *RoseDB) SIsMember(key, member []byte) bool {
 func (db *RoseDB) SMembers(key []byte) ([][]byte, error) {
 	db.setIndex.mu.RLock()
 	defer db.setIndex.mu.RUnlock()
-
-	if db.setIndex.trees[string(key)] == nil {
-		return nil, nil
-	}
-
-	var values [][]byte
-	db.setIndex.idxTree = db.setIndex.trees[string(key)]
-	iterator := db.setIndex.idxTree.Iterator()
-	for iterator.HasNext() {
-		node, _ := iterator.Next()
-		if node == nil {
-			continue
-		}
-		val, err := db.getVal(node.Key(), Set)
-		if err != nil {
-			return nil, err
-		}
-		values = append(values, val)
-	}
-	return values, nil
+	return db.sMembers(key)
 }
 
 // SCard returns the set cardinality (number of elements) of the set stored at key.
@@ -144,6 +126,48 @@ func (db *RoseDB) SCard(key []byte) int {
 		return 0
 	}
 	return db.setIndex.trees[string(key)].Size()
+}
+
+// SDiff returns the members of the set difference between the first set and
+// all the successive sets. Returns error if no key is passed as a parameter.
+func (db *RoseDB) SDiff(keys ...[]byte) ([][]byte, error) {
+	db.setIndex.mu.RLock()
+	defer db.setIndex.mu.RUnlock()
+	if len(keys) == 0 {
+		return nil, ErrWrongNumberOfArgs
+	}
+	if len(keys) == 1 {
+		return db.sMembers(keys[0])
+	}
+
+	firstSet, err := db.sMembers(keys[0])
+	if err != nil {
+		return nil, err
+	}
+	successiveSet := make(map[uint64]struct{})
+	for _, key := range keys[1:] {
+		members, err := db.sMembers(key)
+		if err != nil {
+			return nil, err
+		}
+		for _, value := range members {
+			h := util.MemHash(value)
+			if _, ok := successiveSet[h]; !ok {
+				successiveSet[h] = struct{}{}
+			}
+		}
+	}
+	if len(successiveSet) == 0 {
+		return firstSet, nil
+	}
+	res := make([][]byte, 0)
+	for _, value := range firstSet {
+		h := util.MemHash(value)
+		if _, ok := successiveSet[h]; !ok {
+			res = append(res, value)
+		}
+	}
+	return res, nil
 }
 
 func (db *RoseDB) sremInternal(key []byte, member []byte) error {
@@ -174,4 +198,27 @@ func (db *RoseDB) sremInternal(key []byte, member []byte) error {
 		logger.Warn("send to discard chan fail")
 	}
 	return nil
+}
+
+// sMembers is a helper method to get all members of the given set key.
+func (db *RoseDB) sMembers(key []byte) ([][]byte, error) {
+	if db.setIndex.trees[string(key)] == nil {
+		return nil, nil
+	}
+
+	var values [][]byte
+	db.setIndex.idxTree = db.setIndex.trees[string(key)]
+	iterator := db.setIndex.idxTree.Iterator()
+	for iterator.HasNext() {
+		node, _ := iterator.Next()
+		if node == nil {
+			continue
+		}
+		val, err := db.getVal(node.Key(), Set)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, val)
+	}
+	return values, nil
 }
