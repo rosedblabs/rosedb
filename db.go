@@ -468,7 +468,7 @@ func (db *RoseDB) handleLogFileGC() {
 				go func(dataType DataType) {
 					err := db.doRunGC(dataType, -1, db.opts.LogFileGCRatio)
 					if err != nil {
-						logger.Errorf("log file gc err, dataType : [%v], err: [%v]", dataType, err)
+						logger.Errorf("log file gc err, dataType: [%v], err: [%v]", dataType, err)
 					}
 				}(dType)
 			}
@@ -499,6 +499,35 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 			}
 			// update index
 			if err = db.updateIndexTree(ent, valuePos, false, String); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	maybeRewriteList := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
+		db.listIndex.mu.Lock()
+		defer db.listIndex.mu.Unlock()
+		var listKey = ent.Key
+		if ent.Type != logfile.TypeListMeta {
+			listKey, _ = db.decodeListKey(ent.Key)
+		}
+		if db.listIndex.trees[string(listKey)] == nil {
+			return nil
+		}
+		db.listIndex.idxTree = db.listIndex.trees[string(listKey)]
+		indexVal := db.listIndex.idxTree.Get(listKey)
+		if indexVal == nil {
+			return nil
+		}
+
+		node, _ := indexVal.(*indexNode)
+		if node != nil && node.fid == fid && node.offset == offset {
+			valuePos, err := db.writeLogEntry(ent, List)
+			if err != nil {
+				return err
+			}
+			if err = db.updateIndexTree(ent, valuePos, false, List); err != nil {
 				return err
 			}
 		}
@@ -648,6 +677,8 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 			switch dataType {
 			case String:
 				rewriteErr = maybeRewriteStrs(archivedFile.Fid, off, ent)
+			case List:
+				rewriteErr = maybeRewriteList(archivedFile.Fid, off, ent)
 			case Hash:
 				rewriteErr = maybeRewriteHash(archivedFile.Fid, off, ent)
 			case Set:
