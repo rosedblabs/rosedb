@@ -135,3 +135,30 @@ func (db *RoseDB) HKeys(key []byte) ([][]byte, error) {
 	}
 	return keys, nil
 }
+
+// HVals return all values in the hash stored at key.
+func (db *RoseDB) HVals(key []byte) ([][]byte, error) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	var vals [][]byte
+	tree, ok := db.hashIndex.trees[string(key)]
+	if !ok {
+		return vals, nil
+	}
+	db.hashIndex.idxTree = tree
+
+	iter := tree.Iterator()
+	for iter.HasNext() {
+		node, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		val, err := db.getVal(node.Key(), Hash)
+		if err == ErrKeyNotFound {
+			continue
+		}
+		vals = append(vals, val)
+	}
+	return vals, nil
+}
