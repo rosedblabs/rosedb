@@ -141,10 +141,10 @@ func (db *RoseDB) HVals(key []byte) ([][]byte, error) {
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
 
-	var vals [][]byte
+	var values [][]byte
 	tree, ok := db.hashIndex.trees[string(key)]
 	if !ok {
-		return vals, nil
+		return values, nil
 	}
 	db.hashIndex.idxTree = tree
 
@@ -155,10 +155,10 @@ func (db *RoseDB) HVals(key []byte) ([][]byte, error) {
 			return nil, err
 		}
 		val, err := db.getVal(node.Key(), Hash)
-		if err == ErrKeyNotFound {
-			continue
+		if err != nil && err != ErrKeyNotFound {
+			return nil, err
 		}
-		vals = append(vals, val)
+		values = append(values, val)
 	}
-	return vals, nil
+	return values, nil
 }
