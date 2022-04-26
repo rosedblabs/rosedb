@@ -27,8 +27,7 @@ func (db *RoseDB) HSet(key, field, value []byte) error {
 	entry := &logfile.LogEntry{Key: field, Value: value}
 	_, size := logfile.EncodeEntry(ent)
 	valuePos.entrySize = size
-	err = db.updateIndexTree(entry, valuePos, true, Hash)
-	return nil
+	return db.updateIndexTree(entry, valuePos, true, Hash)
 }
 
 // HGet returns the value associated with field in the hash stored at key.
