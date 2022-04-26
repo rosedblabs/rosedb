@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 )
@@ -19,8 +20,14 @@ func (db *RoseDB) HSet(key, field, value []byte) error {
 		return err
 	}
 
-	err = db.updateIndexTree(ent, valuePos, true, Hash)
-	return nil
+	if db.hashIndex.trees[string(key)] == nil {
+		db.hashIndex.trees[string(key)] = art.NewART()
+	}
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	entry := &logfile.LogEntry{Key: field, Value: value}
+	_, size := logfile.EncodeEntry(ent)
+	valuePos.entrySize = size
+	return db.updateIndexTree(entry, valuePos, true, Hash)
 }
 
 // HGet returns the value associated with field in the hash stored at key.
@@ -28,8 +35,11 @@ func (db *RoseDB) HGet(key, field []byte) ([]byte, error) {
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
 
-	hashKey := db.encodeKey(key, field)
-	val, err := db.getVal(hashKey, Hash)
+	if db.hashIndex.trees[string(key)] == nil {
+		return nil, nil
+	}
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	val, err := db.getVal(field, Hash)
 	if err == ErrKeyNotFound {
 		return nil, nil
 	}
@@ -43,6 +53,11 @@ func (db *RoseDB) HDel(key []byte, fields ...[]byte) (int, error) {
 	db.hashIndex.mu.Lock()
 	defer db.hashIndex.mu.Unlock()
 
+	if db.hashIndex.trees[string(key)] == nil {
+		return 0, nil
+	}
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+
 	var count int
 	for _, field := range fields {
 		hashKey := db.encodeKey(key, field)
@@ -52,7 +67,7 @@ func (db *RoseDB) HDel(key []byte, fields ...[]byte) (int, error) {
 			return 0, err
 		}
 
-		val, updated := db.hashIndex.idxTree.Delete(hashKey)
+		val, updated := db.hashIndex.idxTree.Delete(field)
 		if updated {
 			count++
 		}
@@ -76,10 +91,73 @@ func (db *RoseDB) HExists(key, field []byte) (bool, error) {
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
 
-	hashKey := db.encodeKey(key, field)
-	val, err := db.getVal(hashKey, Hash)
+	if db.hashIndex.trees[string(key)] == nil {
+		return false, nil
+	}
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	val, err := db.getVal(field, Hash)
 	if err != nil && err != ErrKeyNotFound {
 		return false, err
 	}
 	return val != nil, nil
+}
+
+// HLen returns the number of fields contained in the hash stored at key.
+func (db *RoseDB) HLen(key []byte) int {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	if db.hashIndex.trees[string(key)] == nil {
+		return 0
+	}
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	return db.hashIndex.idxTree.Size()
+}
+
+// HKeys returns all field names in the hash stored at key.
+func (db *RoseDB) HKeys(key []byte) ([][]byte, error) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	var keys [][]byte
+	tree, ok := db.hashIndex.trees[string(key)]
+	if !ok {
+		return keys, nil
+	}
+	iter := tree.Iterator()
+	for iter.HasNext() {
+		node, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, node.Key())
+	}
+	return keys, nil
+}
+
+// HVals return all values in the hash stored at key.
+func (db *RoseDB) HVals(key []byte) ([][]byte, error) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	var values [][]byte
+	tree, ok := db.hashIndex.trees[string(key)]
+	if !ok {
+		return values, nil
+	}
+	db.hashIndex.idxTree = tree
+
+	iter := tree.Iterator()
+	for iter.HasNext() {
+		node, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		val, err := db.getVal(node.Key(), Hash)
+		if err != nil && err != ErrKeyNotFound {
+			return nil, err
+		}
+		values = append(values, val)
+	}
+	return values, nil
 }

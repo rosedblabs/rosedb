@@ -82,8 +82,14 @@ func (db *RoseDB) buildListIndex(ent *logfile.LogEntry, pos *valuePos) {
 }
 
 func (db *RoseDB) buildHashIndex(ent *logfile.LogEntry, pos *valuePos) {
+	key, field := db.decodeKey(ent.Key)
+	if db.hashIndex.trees[string(key)] == nil {
+		db.hashIndex.trees[string(key)] = art.NewART()
+	}
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+
 	if ent.Type == logfile.TypeDelete {
-		db.hashIndex.idxTree.Delete(ent.Key)
+		db.hashIndex.idxTree.Delete(field)
 		return
 	}
 
@@ -95,7 +101,7 @@ func (db *RoseDB) buildHashIndex(ent *logfile.LogEntry, pos *valuePos) {
 	if ent.ExpiredAt != 0 {
 		idxNode.expiredAt = ent.ExpiredAt
 	}
-	db.hashIndex.idxTree.Put(ent.Key, idxNode)
+	db.hashIndex.idxTree.Put(field, idxNode)
 }
 
 func (db *RoseDB) buildSetsIndex(ent *logfile.LogEntry, pos *valuePos) {
@@ -212,8 +218,8 @@ func (db *RoseDB) loadIndexFromLogFiles() error {
 }
 
 func (db *RoseDB) updateIndexTree(ent *logfile.LogEntry, pos *valuePos, sendDiscard bool, dType DataType) error {
-	var size = pos.setSize
-	if dType != ZSet && dType != Set {
+	var size = pos.entrySize
+	if dType == String || dType == List {
 		_, size = logfile.EncodeEntry(ent)
 	}
 	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}

@@ -33,7 +33,7 @@ type discard struct {
 	location map[uint32]int64 // offset of each fid
 }
 
-func newDiscard(path, name string) (*discard, error) {
+func newDiscard(path, name string, bufferSize int) (*discard, error) {
 	fname := filepath.Join(path, name)
 	file, err := ioselector.NewMMapSelector(fname, discardFileSize)
 	if err != nil {
@@ -63,7 +63,7 @@ func newDiscard(path, name string) (*discard, error) {
 	}
 
 	d := &discard{
-		valChan:  make(chan *indexNode, 4096),
+		valChan:  make(chan *indexNode, bufferSize),
 		file:     file,
 		freeList: freeList,
 		location: location,
@@ -108,9 +108,6 @@ func (d *discard) getCCL(activeFid uint32, ratio float64) ([]uint32, error) {
 		}
 		if curRatio >= ratio && fid != activeFid {
 			ccl = append(ccl, fid)
-		}
-		if total > 0 {
-			logger.Infof("fid : %d, total : %d, discard : %d", fid, total, discard)
 		}
 	}
 
