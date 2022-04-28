@@ -48,7 +48,7 @@ type Options struct {
 
 	// LogFileGCInterval a background goroutine will execute log file garbage collection periodically according to the interval.
 	// It will pick the log file that meet the conditions for GC, then rewrite the valid data one by one.
-	// Default value is 10 minutes.
+	// Default value is 8 hours.
 	LogFileGCInterval time.Duration
 
 	// LogFileGCRatio if discarded data in log file exceeds this ratio, it can be picked up for compaction(garbage collection)
@@ -76,7 +76,7 @@ func DefaultOptions(path string) Options {
 		IndexMode:            KeyOnlyMemMode,
 		IoType:               FileIO,
 		Sync:                 false,
-		LogFileGCInterval:    time.Minute * 10,
+		LogFileGCInterval:    time.Hour * 8,
 		LogFileGCRatio:       0.5,
 		LogFileSizeThreshold: 512 << 20,
 		DiscardBufferSize:    4 << 12,
