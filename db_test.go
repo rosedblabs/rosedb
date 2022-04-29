@@ -111,24 +111,20 @@ func GetKey(n int) []byte {
 }
 
 func GetValue16B() []byte {
-	var str bytes.Buffer
-	for i := 0; i < 16; i++ {
-		str.WriteByte(alphabet[rand.Int()%36])
-	}
-	return []byte(str.String())
+	return GetValue(16)
 }
 
 func GetValue128B() []byte {
-	var str bytes.Buffer
-	for i := 0; i < 128; i++ {
-		str.WriteByte(alphabet[rand.Int()%36])
-	}
-	return []byte(str.String())
+	return GetValue(128)
 }
 
 func GetValue4K() []byte {
+	return GetValue(4096)
+}
+
+func GetValue(n int) []byte {
 	var str bytes.Buffer
-	for i := 0; i < 4096; i++ {
+	for i := 0; i < n; i++ {
 		str.WriteByte(alphabet[rand.Int()%36])
 	}
 	return []byte(str.String())

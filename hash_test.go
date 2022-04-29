@@ -369,3 +369,44 @@ func TestRoseDB_HVals(t *testing.T) {
 		oneRun(t, opts)
 	}
 }
+
+func TestRoseDB_HStrLen(t *testing.T) {
+	cases := []struct {
+		IOType
+		DataIndexMode
+	}{
+		{FileIO, KeyValueMemMode},
+		{FileIO, KeyOnlyMemMode},
+		{MMap, KeyValueMemMode},
+		{MMap, KeyOnlyMemMode},
+	}
+	oneRun := func(t *testing.T, opts Options) {
+		db, err := Open(opts)
+		assert.Nil(t, err)
+		defer destroyDB(db)
+
+		hashKey := []byte("my_hash")
+		key1 := GetKey(1)
+		kLen := db.HStrLen(hashKey, key1)
+		assert.Nil(t, err)
+		assert.Equal(t, 0, kLen)
+
+		for i := 0; i < 10; i++ {
+			key := GetKey(i)
+			val := GetValue(i)
+			err = db.HSet(hashKey, key, val)
+			assert.Nil(t, err)
+			kLen = db.HStrLen(hashKey, key)
+			assert.Nil(t, err)
+			assert.Equal(t, kLen, len(val))
+		}
+	}
+
+	for _, c := range cases {
+		path := filepath.Join("/tmp", "rosedb")
+		opts := DefaultOptions(path)
+		opts.IoType = c.IOType
+		opts.IndexMode = c.DataIndexMode
+		oneRun(t, opts)
+	}
+}
