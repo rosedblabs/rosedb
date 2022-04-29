@@ -12,6 +12,51 @@ rosedb is a fast, stable, and embedded storage engine based on `bitcask`, also s
 
 ![](https://github.com/flower-corp/rosedb/blob/main/resource/img/design-overview-rosedb.png)
 
+## Get Started
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/flower-corp/rosedb"
+	"github.com/flower-corp/rosedb/logger"
+	"os"
+	"path/filepath"
+)
+
+func main() {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := rosedb.DefaultOptions(path)
+	opts.IoType = rosedb.FileIO
+	opts.IndexMode = rosedb.KeyValueMemMode
+	db, err := rosedb.Open(opts)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if db != nil {
+			err := os.RemoveAll(opts.DBPath)
+			if err != nil {
+				logger.Errorf("destroy db err: %v", err)
+			}
+		}
+	}()
+
+	key := []byte("key_1")
+	val := []byte("val-1")
+	if err = db.Set(key, val); err != nil {
+		panic(err)
+	}
+
+	gotVal, err := db.Get(key)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("val is %s\n", string(gotVal))
+}
+```
+
 ## Contributing
 
 If you are intersted in contributing to rosedb, please see here: [CONTRIBUTING](https://github.com/roseduan/rosedb/blob/main/CONTRIBUTING.md)
