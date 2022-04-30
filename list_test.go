@@ -212,3 +212,77 @@ func TestRoseDB_LLen(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 6, db2.LLen(listKey))
 }
+
+func TestRoseDB_DiscardStat_List(t *testing.T) {
+	helper := func(isDelete bool) {
+		path := filepath.Join("/tmp", "rosedb")
+		opts := DefaultOptions(path)
+		opts.LogFileSizeThreshold = 64 << 20
+		db, err := Open(opts)
+		assert.Nil(t, err)
+		defer destroyDB(db)
+
+		listKey := []byte("my_list")
+		writeCount := 800000
+		for i := 0; i < writeCount; i++ {
+			err := db.LPush(listKey, GetKey(i))
+			assert.Nil(t, err)
+		}
+
+		for i := 0; i < writeCount/3; i++ {
+			if i%2 == 0 {
+				_, err := db.LPop(listKey)
+				assert.Nil(t, err)
+			} else {
+				_, err := db.RPop(listKey)
+				assert.Nil(t, err)
+			}
+		}
+
+		_ = db.Sync()
+		ccl, err := db.discards[List].getCCL(10, 0.2)
+		t.Log(err)
+		t.Log(ccl)
+		assert.Nil(t, err)
+		assert.Equal(t, 1, len(ccl))
+	}
+
+	t.Run("delete", func(t *testing.T) {
+		helper(true)
+	})
+}
+
+func TestRoseDB_ListGC(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.LogFileSizeThreshold = 64 << 20
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	listKey := []byte("my_list")
+	writeCount := 800000
+	for i := 0; i < writeCount; i++ {
+		err := db.LPush(listKey, GetKey(i))
+		assert.Nil(t, err)
+	}
+
+	for i := 0; i < writeCount/3; i++ {
+		if i%2 == 0 {
+			_, err := db.LPop(listKey)
+			assert.Nil(t, err)
+		} else {
+			_, err := db.RPop(listKey)
+			assert.Nil(t, err)
+		}
+	}
+
+	l1 := db.LLen(listKey)
+	assert.Equal(t, writeCount-writeCount/3, l1)
+
+	err = db.RunLogFileGC(List, 0, 0.3)
+	assert.Nil(t, err)
+
+	l2 := db.LLen(listKey)
+	assert.Equal(t, writeCount-writeCount/3, l2)
+}
