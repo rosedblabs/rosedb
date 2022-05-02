@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
+	"github.com/flower-corp/rosedb/logger"
 )
 
 // LPush insert all the specified values at the head of the list stored at key.
@@ -171,11 +172,11 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 	}
 
 	ent := &logfile.LogEntry{Key: encKey, Type: logfile.TypeDelete}
-	if _, err = db.writeLogEntry(ent, List); err != nil {
+	pos, err := db.writeLogEntry(ent, List)
+	if err != nil {
 		return nil, err
 	}
-	// send discard todo
-	db.listIndex.idxTree.Delete(encKey)
+	oldVal, updated := db.listIndex.idxTree.Delete(encKey)
 	if isLeft {
 		headSeq++
 	} else {
@@ -183,6 +184,15 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 	}
 	if err = db.saveListMeta(key, headSeq, tailSeq); err != nil {
 		return nil, err
+	}
+	// send discard
+	db.sendDiscard(oldVal, updated, List)
+	_, entrySize := logfile.EncodeEntry(ent)
+	node := &indexNode{fid: pos.fid, entrySize: entrySize}
+	select {
+	case db.discards[List].valChan <- node:
+	default:
+		logger.Warn("send to discard chan fail")
 	}
 	return val, nil
 }
