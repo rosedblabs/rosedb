@@ -335,3 +335,69 @@ func TestRoseDB_SDiff(t *testing.T) {
 		})
 	}
 }
+
+func TestRoseDB_SUnion(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.SAdd([]byte("key-1"), []byte("value-1"), []byte("value-2"), []byte("value-3"))
+	_ = db.SAdd([]byte("key-2"), []byte("value-4"), []byte("value-5"), []byte("value-6"), []byte("value-7"))
+	_ = db.SAdd([]byte("key-3"), []byte("value-2"), []byte("value-5"), []byte("value-8"), []byte("value-9"))
+	testCases := []struct {
+		name        string
+		db          *RoseDB
+		keys        [][]byte
+		expUnionSet [][]byte
+		expErr      error
+	}{
+		{
+			name:        "empty key parameters",
+			db:          db,
+			keys:        [][]byte{},
+			expUnionSet: nil,
+			expErr:      ErrWrongNumberOfArgs,
+		},
+		{
+			name:        "one key parameter",
+			db:          db,
+			keys:        [][]byte{[]byte("key-1")},
+			expUnionSet: [][]byte{[]byte("value-3"), []byte("value-2"), []byte("value-1")},
+			expErr:      nil,
+		},
+		{
+			name: "two key parameters",
+			db:   db,
+			keys: [][]byte{[]byte("key-1"), []byte("key-2")},
+			expUnionSet: [][]byte{[]byte("value-3"), []byte("value-2"), []byte("value-1"),
+				[]byte("value-5"), []byte("value-4"), []byte("value-6"), []byte("value-7")},
+			expErr: nil,
+		},
+		{
+			name: "multiple key parameters",
+			db:   db,
+			keys: [][]byte{[]byte("key-1"), []byte("key-2"), []byte("key-3")},
+			expUnionSet: [][]byte{[]byte("value-3"), []byte("value-2"), []byte("value-1"),
+				[]byte("value-5"), []byte("value-4"), []byte("value-6"), []byte("value-7"),
+				[]byte("value-8"), []byte("value-9")},
+			expErr: nil,
+		},
+		{
+			name:        "no union",
+			db:          db,
+			keys:        [][]byte{[]byte("key-10"), []byte("key-20")},
+			expUnionSet: [][]byte{},
+			expErr:      nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			unionSet, err := db.SUnion(tc.keys...)
+			assert.Equal(t, tc.expErr, err)
+			assert.Equal(t, tc.expUnionSet, unionSet)
+		})
+	}
+}
