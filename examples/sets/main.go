@@ -33,4 +33,13 @@ func main() {
 	for _, val := range diffSet {
 		fmt.Printf("%v\n", string(val))
 	}
+
+	unionSet, err := db.SUnion([]byte("fruits"), []byte("fav-fruits"))
+	if err != nil {
+		fmt.Printf("SUnion error: %v", err)
+	}
+	fmt.Println("\nSUnion set:")
+	for _, val := range unionSet {
+		fmt.Printf("%v\n", string(val))
+	}
 }
