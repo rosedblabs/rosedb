@@ -161,3 +161,34 @@ func (db *RoseDB) HVals(key []byte) ([][]byte, error) {
 	}
 	return values, nil
 }
+
+// HGetAll return all fields and values of the hash stored at key.
+func (db *RoseDB) HGetAll(key []byte) ([][]byte, error) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	tree, ok := db.hashIndex.trees[string(key)]
+	if !ok {
+		return [][]byte{}, nil
+	}
+	db.hashIndex.idxTree = tree
+
+	var index int
+	pairs := make([][]byte, tree.Size()*2)
+	iter := tree.Iterator()
+	for iter.HasNext() {
+		node, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		field := node.Key()
+		val, err := db.getVal(field, Hash)
+		if err != nil && err != ErrKeyNotFound {
+			return nil, err
+		}
+		pairs[index] = field
+		pairs[index+1] = val
+		index += 2
+	}
+	return pairs[:index], nil
+}

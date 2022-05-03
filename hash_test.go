@@ -369,3 +369,60 @@ func TestRoseDB_HVals(t *testing.T) {
 		oneRun(t, opts)
 	}
 }
+
+func TestRoseDB_HGetAll(t *testing.T) {
+	cases := []struct {
+		IOType
+		DataIndexMode
+	}{
+		{FileIO, KeyValueMemMode},
+		{FileIO, KeyOnlyMemMode},
+		{MMap, KeyValueMemMode},
+		{MMap, KeyOnlyMemMode},
+	}
+
+	oneRun := func(t *testing.T, opts Options) {
+		db, err := Open(opts)
+		assert.Nil(t, err)
+		defer destroyDB(db)
+
+		hashKey := []byte("my_hash")
+		pairs, err := db.HGetAll(hashKey)
+		assert.Nil(t, err)
+		assert.Equal(t, 0, len(pairs))
+
+		// one
+		val16B := GetValue16B()
+		err = db.HSet(hashKey, GetKey(1), val16B)
+		assert.Nil(t, err)
+		pairs, err = db.HGetAll(hashKey)
+		assert.Nil(t, err)
+		assert.Equal(t, 2, len(pairs))
+		assert.Equal(t, [][]byte{GetKey(1), val16B}, pairs)
+
+		val128B := GetValue128B()
+		err = db.HSet(hashKey, GetKey(1), val128B)
+		assert.Nil(t, err)
+		pairs, err = db.HGetAll(hashKey)
+		assert.Nil(t, err)
+		assert.Equal(t, 2, len(pairs))
+		assert.Equal(t, [][]byte{GetKey(1), val128B}, pairs)
+
+		// two
+		err = db.HSet(hashKey, GetKey(2), val16B)
+		assert.Nil(t, err)
+		pairs, err = db.HGetAll(hashKey)
+		assert.Nil(t, err)
+		assert.Equal(t, 4, len(pairs))
+		assert.Equal(t, GetKey(1), pairs[0])
+		assert.Equal(t, [][]byte{GetKey(1), val128B, GetKey(2), val16B}, pairs)
+	}
+
+	for _, c := range cases {
+		path := filepath.Join("/tmp", "rosedb")
+		opts := DefaultOptions(path)
+		opts.IoType = c.IOType
+		opts.IndexMode = c.DataIndexMode
+		oneRun(t, opts)
+	}
+}
