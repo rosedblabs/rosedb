@@ -2,10 +2,11 @@ package logfile
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"sync/atomic"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestOpenLogFile(t *testing.T) {
@@ -257,22 +258,22 @@ func testLogFileReadLogEntry(t *testing.T, ioType IOType) {
 			"read-entry-0", fields{lf: lf}, args{offset: offsets[0]}, entries[0], int64(len(vals[0])), false,
 		},
 		{
-			"read-entry-0", fields{lf: lf}, args{offset: offsets[1]}, entries[1], int64(len(vals[1])), false,
+			"read-entry-1", fields{lf: lf}, args{offset: offsets[1]}, entries[1], int64(len(vals[1])), false,
 		},
 		{
-			"read-entry-0", fields{lf: lf}, args{offset: offsets[2]}, &LogEntry{ExpiredAt: 994332343, Type: TypeDelete}, int64(len(vals[2])), false,
+			"read-entry-2", fields{lf: lf}, args{offset: offsets[2]}, &LogEntry{ExpiredAt: 994332343, Type: TypeDelete}, int64(len(vals[2])), false,
 		},
 		{
-			"read-entry-0", fields{lf: lf}, args{offset: offsets[3]}, &LogEntry{Key: []byte("k1"), Value: []byte{}, ExpiredAt: 7844332343}, int64(len(vals[3])), false,
+			"read-entry-3", fields{lf: lf}, args{offset: offsets[3]}, &LogEntry{Key: []byte("k1"), Value: []byte{}, ExpiredAt: 7844332343}, int64(len(vals[3])), false,
 		},
 		{
-			"read-entry-0", fields{lf: lf}, args{offset: offsets[4]}, &LogEntry{Key: []byte{}, Value: []byte("lotusdb"), ExpiredAt: 99400542343}, int64(len(vals[4])), false,
+			"read-entry-4", fields{lf: lf}, args{offset: offsets[4]}, &LogEntry{Key: []byte{}, Value: []byte("lotusdb"), ExpiredAt: 99400542343}, int64(len(vals[4])), false,
 		},
 		{
-			"read-entry-0", fields{lf: lf}, args{offset: offsets[5]}, entries[5], int64(len(vals[5])), false,
+			"read-entry-5", fields{lf: lf}, args{offset: offsets[5]}, entries[5], int64(len(vals[5])), false,
 		},
 		{
-			"read-entry-0", fields{lf: lf}, args{offset: offsets[6]}, entries[6], int64(len(vals[6])), false,
+			"read-entry-6", fields{lf: lf}, args{offset: offsets[6]}, entries[6], int64(len(vals[6])), false,
 		},
 	}
 	for _, tt := range tests {
