@@ -192,3 +192,20 @@ func (db *RoseDB) HGetAll(key []byte) ([][]byte, error) {
 	}
 	return pairs[:index], nil
 }
+
+// HStrLen returns the string length of the value associated with field in the hash stored at key.
+// If the key or the field do not exist, 0 is returned.
+func (db *RoseDB) HStrLen(key, field []byte) int {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	if db.hashIndex.trees[string(key)] == nil {
+		return 0
+	}
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	val, err := db.getVal(field, Hash)
+	if err == ErrKeyNotFound {
+		return 0
+	}
+	return len(val)
+}
