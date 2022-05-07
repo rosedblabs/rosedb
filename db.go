@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/ds/zset"
+	"github.com/flower-corp/rosedb/flock"
 	"github.com/flower-corp/rosedb/ioselector"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
@@ -49,6 +50,7 @@ const (
 	encodeHeaderSize = 10
 	initialListSeq   = math.MaxUint32 / 2
 	discardFilePath  = "DISCARD"
+	lockFileName     = "FLOCK"
 )
 
 type (
@@ -66,6 +68,7 @@ type (
 		setIndex         *setIndex  // Set indexes.
 		zsetIndex        *zsetIndex // Sorted set indexes.
 		mu               sync.RWMutex
+		fileLock         *flock.FileLockGuard
 		closed           uint32
 		gcState          int32
 	}
@@ -158,10 +161,18 @@ func Open(opts Options) (*RoseDB, error) {
 		}
 	}
 
+	// acquire file lock to prevent multiple processes from accessing the same directory.
+	lockPath := filepath.Join(opts.DBPath, lockFileName)
+	lockGuard, err := flock.AcquireFileLock(lockPath, false)
+	if err != nil {
+		return nil, err
+	}
+
 	db := &RoseDB{
 		activeLogFiles:   make(map[DataType]*logfile.LogFile),
 		archivedLogFiles: make(map[DataType]archivedFiles),
 		opts:             opts,
+		fileLock:         lockGuard,
 		strIndex:         newStrsIndex(),
 		listIndex:        newListIdx(),
 		hashIndex:        newHashIdx(),
@@ -194,6 +205,9 @@ func (db *RoseDB) Close() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
+	if db.fileLock != nil {
+		_ = db.fileLock.Release()
+	}
 	// close and sync the active file.
 	for _, activeFile := range db.activeLogFiles {
 		_ = activeFile.Close()

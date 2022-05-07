@@ -7,8 +7,6 @@ import (
 )
 
 func main() {
-
-
 	path := filepath.Join("/tmp", "rosedb")
 	opts := rosedb.DefaultOptions(path)
 	db, err := rosedb.Open(opts)
