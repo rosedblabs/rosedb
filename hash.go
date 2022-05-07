@@ -38,12 +38,13 @@ func (db *RoseDB) HSetNX(key, field, value []byte) (bool, error) {
 	defer db.hashIndex.mu.Unlock()
 
 	if db.hashIndex.trees[string(key)] == nil {
-		return false, nil
+		db.hashIndex.trees[string(key)] = art.NewART()
 	}
 	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
 	val, err := db.getVal(field, Hash)
-	if err != nil || val != nil {
-		return false, err
+	// field exists in db
+	if val != nil {
+		return false, nil
 	}
 	hashKey := db.encodeKey(key, field)
 	ent := &logfile.LogEntry{Key: hashKey, Value: value}
@@ -51,9 +52,7 @@ func (db *RoseDB) HSetNX(key, field, value []byte) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if db.hashIndex.trees[string(key)] == nil {
-		db.hashIndex.trees[string(key)] = art.NewART()
-	}
+
 	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
 	entry := &logfile.LogEntry{Key: field, Value: value}
 	_, size := logfile.EncodeEntry(ent)
