@@ -27,8 +27,7 @@ func (db *RoseDB) HSet(key, field, value []byte) error {
 	entry := &logfile.LogEntry{Key: field, Value: value}
 	_, size := logfile.EncodeEntry(ent)
 	valuePos.entrySize = size
-	err = db.updateIndexTree(entry, valuePos, true, Hash)
-	return nil
+	return db.updateIndexTree(entry, valuePos, true, Hash)
 }
 
 // HSetNX sets the given value only if the field doesn't exist. If the key
@@ -196,4 +195,52 @@ func (db *RoseDB) HVals(key []byte) ([][]byte, error) {
 		values = append(values, val)
 	}
 	return values, nil
+}
+
+// HGetAll return all fields and values of the hash stored at key.
+func (db *RoseDB) HGetAll(key []byte) ([][]byte, error) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	tree, ok := db.hashIndex.trees[string(key)]
+	if !ok {
+		return [][]byte{}, nil
+	}
+	db.hashIndex.idxTree = tree
+
+	var index int
+	pairs := make([][]byte, tree.Size()*2)
+	iter := tree.Iterator()
+	for iter.HasNext() {
+		node, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		field := node.Key()
+		val, err := db.getVal(field, Hash)
+		if err != nil && err != ErrKeyNotFound {
+			return nil, err
+		}
+		pairs[index] = field
+		pairs[index+1] = val
+		index += 2
+	}
+	return pairs[:index], nil
+}
+
+// HStrLen returns the string length of the value associated with field in the hash stored at key.
+// If the key or the field do not exist, 0 is returned.
+func (db *RoseDB) HStrLen(key, field []byte) int {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	if db.hashIndex.trees[string(key)] == nil {
+		return 0
+	}
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	val, err := db.getVal(field, Hash)
+	if err == ErrKeyNotFound {
+		return 0
+	}
+	return len(val)
 }

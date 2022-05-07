@@ -170,6 +170,37 @@ func (db *RoseDB) SDiff(keys ...[]byte) ([][]byte, error) {
 	return res, nil
 }
 
+// SUnion returns the members of the set resulting from the union of all the given sets.
+func (db *RoseDB) SUnion(keys ...[]byte) ([][]byte, error) {
+	db.setIndex.mu.RLock()
+	defer db.setIndex.mu.RUnlock()
+
+	if len(keys) == 0 {
+		return nil, ErrWrongNumberOfArgs
+	}
+
+	if len(keys) == 1 {
+		return db.sMembers(keys[0])
+	}
+
+	set := make(map[uint64]struct{})
+	unionSet := make([][]byte, 0)
+	for _, key := range keys {
+		values, err := db.sMembers(key)
+		if err != nil {
+			return nil, err
+		}
+		for _, val := range values {
+			h := util.MemHash(val)
+			if _, ok := set[h]; !ok {
+				set[h] = struct{}{}
+				unionSet = append(unionSet, val)
+			}
+		}
+	}
+	return unionSet, nil
+}
+
 func (db *RoseDB) sremInternal(key []byte, member []byte) error {
 	db.setIndex.idxTree = db.setIndex.trees[string(key)]
 	if err := db.setIndex.murhash.Write(member); err != nil {

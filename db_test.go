@@ -66,30 +66,6 @@ func TestLogFileGC(t *testing.T) {
 	}
 }
 
-func TestRoseDB_NewIterator(t *testing.T) {
-	path := filepath.Join("/tmp", "rosedb")
-	opts := DefaultOptions(path)
-	db, err := Open(opts)
-	defer destroyDB(db)
-	if err != nil {
-		t.Error("open db err ", err)
-	}
-
-	writeCount := 8
-	for i := 0; i < writeCount; i++ {
-		err := db.Set(GetKey(i), GetValue16B())
-		assert.Nil(t, err)
-	}
-
-	iter := db.NewIterator(IteratorOptions{
-		Limit: 20,
-	})
-	for iter.HasNext() {
-		assert.NotNil(t, iter.Key())
-		assert.NotNil(t, iter.Value())
-	}
-}
-
 func destroyDB(db *RoseDB) {
 	if db != nil {
 		err := os.RemoveAll(db.opts.DBPath)
@@ -111,24 +87,20 @@ func GetKey(n int) []byte {
 }
 
 func GetValue16B() []byte {
-	var str bytes.Buffer
-	for i := 0; i < 16; i++ {
-		str.WriteByte(alphabet[rand.Int()%36])
-	}
-	return []byte(str.String())
+	return GetValue(16)
 }
 
 func GetValue128B() []byte {
-	var str bytes.Buffer
-	for i := 0; i < 128; i++ {
-		str.WriteByte(alphabet[rand.Int()%36])
-	}
-	return []byte(str.String())
+	return GetValue(128)
 }
 
 func GetValue4K() []byte {
+	return GetValue(4096)
+}
+
+func GetValue(n int) []byte {
 	var str bytes.Buffer
-	for i := 0; i < 4096; i++ {
+	for i := 0; i < n; i++ {
 		str.WriteByte(alphabet[rand.Int()%36])
 	}
 	return []byte(str.String())
