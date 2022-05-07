@@ -186,7 +186,7 @@ func Open(opts Options) (*RoseDB, error) {
 	}
 
 	// load the log files from disk.
-	if err := db.loadLogFiles(false); err != nil {
+	if err := db.loadLogFiles(); err != nil {
 		return nil, err
 	}
 
@@ -326,7 +326,7 @@ func (db *RoseDB) writeLogEntry(ent *logfile.LogEntry, dataType DataType) (*valu
 	return &valuePos{fid: activeLogFile.Fid, offset: writeAt}, nil
 }
 
-func (db *RoseDB) loadLogFiles(excludeStrs bool) error {
+func (db *RoseDB) loadLogFiles() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	fileInfos, err := ioutil.ReadDir(db.opts.DBPath)
@@ -349,9 +349,6 @@ func (db *RoseDB) loadLogFiles(excludeStrs bool) error {
 	db.fidMap = fidMap
 
 	for dataType, fids := range fidMap {
-		if dataType == String && excludeStrs {
-			continue
-		}
 		if db.archivedLogFiles[dataType] == nil {
 			db.archivedLogFiles[dataType] = make(archivedFiles)
 		}
