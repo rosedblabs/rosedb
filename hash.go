@@ -46,6 +46,34 @@ func (db *RoseDB) HGet(key, field []byte) ([]byte, error) {
 	return val, err
 }
 
+// HMGet Returns the values associated with the specified fields in the hash stored at key.
+// HMGet For every field that does not exist in the hash, a nil value is returned.
+// Because non-existing keys are treated as empty hashes, running HMGET against a non-existing key will return a list of nil values.
+func (db *RoseDB) HMGet(key []byte, field ...[]byte) (vals [][]byte, err error) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	length := len(field)
+	if db.hashIndex.trees[string(key)] == nil { // key not exist
+		for i := 0; i < length; i++ {
+			vals = append(vals, nil)
+		}
+		return vals, nil
+	}
+	// key exist
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+
+	for _, v := range field {
+		val, err := db.getVal(v, Hash)
+		if err == ErrKeyNotFound {
+			vals = append(vals, nil)
+		} else {
+			vals = append(vals, val)
+		}
+	}
+	return
+}
+
 // HDel removes the specified fields from the hash stored at key.
 // Specified fields that do not exist within this hash are ignored.
 // If key does not exist, it is treated as an empty hash and this command returns false.
