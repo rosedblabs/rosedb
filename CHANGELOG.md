@@ -9,6 +9,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 ### 🚀 Features
 
 - Support `String`, `List`, ` Hash`, ` Set`, and `ZSet`
-- Iterator for `String`
 - Logfile garbage collection automatically
 - Support standard `FileIO` and `MMap`
+

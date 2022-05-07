@@ -4,17 +4,28 @@
 
 English| [简体中文](https://github.com/roseduan/rosedb/blob/main/README-CN.md)
 
-> Note: rosedb has no stable release now, don`t use it in production.
+rosedb is a fast, stable, and embedded NoSQL database based on `bitcask`, supports a variety of data structures such as `string`, `list`, `hash`, `set`, and `sorted set`.     
 
-rosedb is a fast, stable, and embedded storage engine based on `bitcask`, also supports a variety of data structures such as `string`, `list`, `hash`, `set`, and `sorted set`.     
+It is similar to `Redis` but store values on disk.
+
+Key features:
+
+* **Many data structures: `string`, `list`, `hash`, `set`, and `sorted set`**
+* **Easy to embed into your own Go application**
+* **High performance, suitable for both read and write intensive workload**
+* **Values are not limited by RAM**
 
 ## Design Overview
 
 ![](https://github.com/flower-corp/rosedb/blob/main/resource/img/design-overview-rosedb.png)
 
+## Quick Start
+
+**1. embedded usage:** see [examples](https://github.com/flower-corp/rosedb/tree/main/examples)
+
 ## Contributing
 
-If you are intersted in contributing to rosedb, please see here: [CONTRIBUTING](https://github.com/roseduan/rosedb/blob/main/CONTRIBUTING.md)
+If you are interested in contributing to rosedb, see [CONTRIBUTING](https://github.com/roseduan/rosedb/blob/main/CONTRIBUTING.md) and [how to contribute?](https://github.com/flower-corp/rosedb/issues/103)
 
 ## License
 

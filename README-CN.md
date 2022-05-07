@@ -4,13 +4,24 @@
 
 [English](https://github.com/roseduan/rosedb#rosedb) | 简体中文
 
-> 提示：rosedb 还没有稳定的 release 版本，暂时不要用于生产环境
+rosedb 是一个稳定、快速、内嵌的 NoSQL 数据库，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`。
 
-rosedb 是一个稳定、快速、内嵌的存储引擎，支持多种数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`。
+rosedb 类似于 `Redis`，但是可以选择将 value 存储到磁盘中。
+
+主要特性：
+
+* **支持丰富的数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`**
+* **内嵌使用，维护成本低**
+* **高性能，对读写负载的应用都适合**
+* **数据不局限于内存容量**
 
 ## 架构设计
 
 ![](https://github.com/flower-corp/rosedb/blob/main/resource/img/design-overview-rosedb.png)
+
+## 快速开始
+
+**1.内嵌使用，请参考：**[examples](https://github.com/flower-corp/rosedb/tree/main/examples)
 
 ## 参与贡献
 
