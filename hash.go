@@ -46,9 +46,10 @@ func (db *RoseDB) HGet(key, field []byte) ([]byte, error) {
 	return val, err
 }
 
-// HMGet Returns the values associated with the specified fields in the hash stored at key.
-// HMGet For every field that does not exist in the hash, a nil value is returned.
-// Because non-existing keys are treated as empty hashes, running HMGET against a non-existing key will return a list of nil values.
+// HMGet returns the values associated with the specified fields in the hash stored at the key.
+// For every field that does not exist in the hash, a nil value is returned.  Because non-existing
+// keys are treated as empty hashes, running HMGET against a non-existing key will return a list 
+// of nil values.
 func (db *RoseDB) HMGet(key []byte, field ...[]byte) (vals [][]byte, err error) {
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()

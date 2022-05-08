@@ -144,7 +144,7 @@ func testRoseDBHMGet(t *testing.T, ioType IOType, mode DataIndexMode) {
 			"not-exist-field", args{key: key, field: [][]byte{[]byte("e")}}, 1, [][]byte{nil}, false,
 		},
 		{
-			"nomal", args{key: key, field: [][]byte{[]byte("a"), []byte("b"), []byte("c")}}, 3,
+			"normal", args{key: key, field: [][]byte{[]byte("a"), []byte("b"), []byte("c")}}, 3,
 			[][]byte{[]byte("hash_data_01"), []byte("hash_data_02"), []byte("hash_data_03")}, false,
 		},
 		{
