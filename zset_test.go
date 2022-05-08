@@ -184,3 +184,30 @@ func testRoseDBZRange(t *testing.T, ioType IOType, mode DataIndexMode) {
 	assert.Nil(t, err)
 	assert.Equal(t, 4, len(values))
 }
+
+func TestRoseDB_ZSetGC(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.LogFileSizeThreshold = 32 << 20
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	zsetKey := []byte("my_zset")
+	writeCount := 500000
+	for i := 0; i < writeCount; i++ {
+		err := db.ZAdd(zsetKey, float64(i+100), GetKey(i))
+		assert.Nil(t, err)
+	}
+
+	for i := 0; i < writeCount/2; i++ {
+		err := db.ZRem(zsetKey, GetKey(i))
+		assert.Nil(t, err)
+	}
+
+	err = db.RunLogFileGC(ZSet, 0, 0.1)
+	assert.Nil(t, err)
+
+	card := db.ZCard(zsetKey)
+	assert.Equal(t, writeCount/2, card)
+}

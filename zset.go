@@ -3,6 +3,7 @@ package rosedb
 import (
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
+	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
 )
 
@@ -73,10 +74,22 @@ func (db *RoseDB) ZRem(key, member []byte) error {
 		db.zsetIndex.trees[string(key)] = art.NewART()
 	}
 	db.zsetIndex.idxTree = db.zsetIndex.trees[string(key)]
-	db.zsetIndex.idxTree.Delete(sum)
+
+	oldVal, deleted := db.zsetIndex.idxTree.Delete(sum)
+	db.sendDiscard(oldVal, deleted, ZSet)
 	entry := &logfile.LogEntry{Key: key, Value: sum, Type: logfile.TypeDelete}
-	if _, err := db.writeLogEntry(entry, ZSet); err != nil {
+	pos, err := db.writeLogEntry(entry, ZSet)
+	if err != nil {
 		return err
+	}
+
+	// The deleted entry itself is also invalid.
+	_, size := logfile.EncodeEntry(entry)
+	node := &indexNode{fid: pos.fid, entrySize: size}
+	select {
+	case db.discards[ZSet].valChan <- node:
+	default:
+		logger.Warn("send to discard chan fail")
 	}
 	return nil
 }

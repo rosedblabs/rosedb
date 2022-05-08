@@ -135,7 +135,9 @@ func (db *RoseDB) buildSetsIndex(ent *logfile.LogEntry, pos *valuePos) {
 func (db *RoseDB) buildZSetIndex(ent *logfile.LogEntry, pos *valuePos) {
 	if ent.Type == logfile.TypeDelete {
 		db.zsetIndex.indexes.ZRem(string(ent.Key), string(ent.Value))
-		db.zsetIndex.idxTree.Delete(ent.Value)
+		if db.zsetIndex.idxTree != nil {
+			db.zsetIndex.idxTree.Delete(ent.Value)
+		}
 		return
 	}
 
