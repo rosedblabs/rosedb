@@ -23,6 +23,10 @@ Key features:
 
 **1. embedded usage:** see [examples](https://github.com/flower-corp/rosedb/tree/main/examples)
 
+## Documentation
+
+See [wiki](https://github.com/flower-corp/rosedb/wiki)
+
 ## Contributing
 
 If you are interested in contributing to rosedb, see [CONTRIBUTING](https://github.com/roseduan/rosedb/blob/main/CONTRIBUTING.md) and [how to contribute?](https://github.com/flower-corp/rosedb/issues/103)

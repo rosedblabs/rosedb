@@ -23,6 +23,10 @@ rosedb 类似于 `Redis`，但是可以选择将 value 存储到磁盘中。
 
 **1.内嵌使用，请参考：**[examples](https://github.com/flower-corp/rosedb/tree/main/examples)
 
+## 文档
+
+请参考 [wiki](https://github.com/flower-corp/rosedb/wiki)
+
 ## 参与贡献
 
 感谢你的参与，完整的步骤及规范，请参考：[CONTRIBUTING](https://github.com/roseduan/rosedb/blob/main/CONTRIBUTING.md)
