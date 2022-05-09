@@ -23,6 +23,31 @@ Key features:
 
 **1. embedded usage:** see [examples](https://github.com/flower-corp/rosedb/tree/main/examples)
 
+**2. command line usage:**
+
+start rosedb server
+
+```shell
+cd rosedb
+make
+./rosedb-server [-option value]
+```
+
+access data via rosedb-cli(copy of redis-cli)
+
+```shell
+cd rosedb/cmd 
+./rosedb-cli -p 5200
+
+127.0.0.1:5200> 
+127.0.0.1:5200> set my_key RoseDB
+OK
+127.0.0.1:5200> get my_key
+"RoseDB"
+127.0.0.1:5200> 
+
+```
+
 ## Documentation
 
 See [wiki](https://github.com/flower-corp/rosedb/wiki)
