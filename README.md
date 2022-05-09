@@ -33,7 +33,7 @@ make
 ./rosedb-server [-option value]
 ```
 
-access data via rosedb-cli(copy of redis-cli)
+access data via `rosedb-cli`(a copy of `redis-cli`)
 
 ```shell
 cd rosedb/cmd 
