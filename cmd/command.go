@@ -107,9 +107,76 @@ func get(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 	return value, nil
 }
 
+func append(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("append")
+	}
+	key, value := args[0], args[1]
+	err := db.Append(key, value)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleInt(db.StrLen(key)), nil
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- List commands ---------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
+func lpush(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("lpush")
+	}
+	key, value := args[0], args[1:]
+	err := db.LPush(key, value...)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleInt(db.LLen(key)), nil
+}
+
+func rpush(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("rpush")
+	}
+	key, value := args[0], args[1:]
+	err := db.RPush(key, value...)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleInt(db.LLen(key)), nil
+}
+
+func lpop(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	if len(args) < 1 {
+		return nil, newWrongNumOfArgsError("lpop")
+	}
+	key := args[0]
+	value, err := db.LPop(key)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleString(value), nil
+}
+
+func rpop(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	if len(args) < 1 {
+		return nil, newWrongNumOfArgsError("rpop")
+	}
+	key := args[0]
+	value, err := db.RPop(key)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleString(value), nil
+}
+
+func llen(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	if len(args) < 1 {
+		return nil, newWrongNumOfArgsError("llen")
+	}
+	key := args[0]
+	return redcon.SimpleInt(db.LLen(key)), nil
+}
 
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |--------------------------- Hash commands ----------------------------|
