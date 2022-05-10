@@ -4,4 +4,4 @@ test/
 cmd/proto/*.pb.go
 main
 codecov.yaml
-./rosedb-server
+rosedb-server

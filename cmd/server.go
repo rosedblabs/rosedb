@@ -117,8 +117,7 @@ func (svr *Server) handler(conn redcon.Conn, cmd redcon.Command) {
 	case "ping":
 		conn.WriteString("PONG")
 	case "quit":
-		conn.WriteString(resultOK)
-		close(svr.signal)
+		_ = conn.Close()
 	default:
 		if res, err := cmdFunc(svr.db, cmd.Args[1:]); err != nil {
 			if err == rosedb.ErrKeyNotFound {
