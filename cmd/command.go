@@ -14,6 +14,38 @@ func newWrongNumOfArgsError(cmd string) error {
 	return fmt.Errorf("ERR wrong number of arguments for '%s' command", cmd)
 }
 
+// +-------+--------+----------+------------+-----------+-------+---------+
+// |---------------------- Server managment commands ---------------------|
+// +-------+--------+----------+------------+-----------+-------+---------+
+func info(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	// todo
+	return "info", nil
+}
+
+// +-------+--------+----------+------------+-----------+-------+---------+
+// |-------------------------- generic commands --------------------------|
+// +-------+--------+----------+------------+-----------+-------+---------+
+func del(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	if len(args) < 1 {
+		return nil, newWrongNumOfArgsError("del")
+	}
+	for _, key := range args {
+		if err := db.Delete(key); err != nil {
+			return 0, err
+		}
+		// delete other ds.
+	}
+	return redcon.SimpleInt(1), nil
+}
+
+func keyType(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	// todo
+	return "string", nil
+}
+
+// +-------+--------+----------+------------+-----------+-------+---------+
+// |-------------------------- String commands --------------------------|
+// +-------+--------+----------+------------+-----------+-------+---------+
 func set(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("set")
@@ -37,12 +69,18 @@ func get(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 	return value, nil
 }
 
-func keyType(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
-	// todo
-	return "string", nil
-}
+// +-------+--------+----------+------------+-----------+-------+---------+
+// |---------------------------- List commands ---------------------------|
+// +-------+--------+----------+------------+-----------+-------+---------+
 
-func info(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
-	// todo
-	return "info", nil
-}
+// +-------+--------+----------+------------+-----------+-------+---------+
+// |--------------------------- Hash commands ----------------------------|
+// +-------+--------+----------+------------+-----------+-------+---------+
+
+// +-------+--------+----------+------------+-----------+-------+---------+
+// |---------------------------- Set commands ----------------------------|
+// +-------+--------+----------+------------+-----------+-------+---------+
+
+// +-------+--------+----------+------------+-----------+-------+---------+
+// |------------------------- Sorted Set commands ------------------------|
+// +-------+--------+----------+------------+-----------+-------+---------+

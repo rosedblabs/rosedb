@@ -21,8 +21,10 @@ var supportedCommands = map[string]cmdHandler{
 	"set": set,
 	"get": get,
 
-	//
+	// generic
 	"type": keyType,
+	"del":  del,
+
 	"info": info,
 
 	// other
