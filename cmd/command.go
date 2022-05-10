@@ -1,13 +1,21 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/flower-corp/rosedb"
 	"github.com/tidwall/redcon"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const (
 	resultOK = "OK"
+)
+
+var (
+	errSyntax = errors.New("ERR syntax error ")
 )
 
 func newWrongNumOfArgsError(cmd string) error {
@@ -51,7 +59,37 @@ func set(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 		return nil, newWrongNumOfArgsError("set")
 	}
 	key, value := args[0], args[1]
-	err := db.Set(key, value)
+
+	var setErr error
+	if len(args) > 2 {
+		ex := strings.ToLower(string(args[2]))
+		if ex != "ex" || len(args) != 4 {
+			return nil, errSyntax
+		}
+		second, err := strconv.Atoi(string(args[3]))
+		if err != nil {
+			return nil, errSyntax
+		}
+		setErr = db.SetEX(key, value, time.Second*time.Duration(second))
+	} else {
+		setErr = db.Set(key, value)
+	}
+	if setErr != nil {
+		return nil, setErr
+	}
+	return redcon.SimpleString(resultOK), nil
+}
+
+func setex(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("get")
+	}
+	key, seconds, value := args[0], args[1], args[2]
+	sec, err := strconv.Atoi(string(seconds))
+	if err != nil {
+		return nil, errSyntax
+	}
+	err = db.SetEX(key, value, time.Second*time.Duration(sec))
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +97,7 @@ func set(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 }
 
 func get(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
-	if len(args) < 1 {
+	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("get")
 	}
 	value, err := db.Get(args[0])

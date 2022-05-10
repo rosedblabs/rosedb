@@ -18,8 +18,9 @@ type cmdHandler func(db *rosedb.RoseDB, args [][]byte) (interface{}, error)
 
 var supportedCommands = map[string]cmdHandler{
 	// string
-	"set": set,
-	"get": get,
+	"set":   set,
+	"setex": setex,
+	"get":   get,
 
 	// generic
 	"type": keyType,
