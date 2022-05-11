@@ -15,7 +15,8 @@ const (
 )
 
 var (
-	errSyntax = errors.New("ERR syntax error ")
+	errSyntax         = errors.New("ERR syntax error ")
+	errValueIsInvalid = errors.New("ERR value is not an integer or out of range")
 )
 
 func newWrongNumOfArgsError(cmd string) error {
@@ -107,8 +108,8 @@ func get(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 	return value, nil
 }
 
-func append(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
-	if len(args) < 2 {
+func appendStr(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
 		return nil, newWrongNumOfArgsError("append")
 	}
 	key, value := args[0], args[1]
@@ -147,31 +148,48 @@ func rpush(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 }
 
 func lpop(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	return popInternal(db, args, true)
+}
+
+func rpop(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	return popInternal(db, args, false)
+}
+
+func popInternal(db *rosedb.RoseDB, args [][]byte, isLeft bool) (interface{}, error) {
 	if len(args) < 1 {
 		return nil, newWrongNumOfArgsError("lpop")
 	}
 	key := args[0]
-	value, err := db.LPop(key)
-	if err != nil {
-		return nil, err
+	var count = 1
+	if len(args) == 2 {
+		c, err := strconv.Atoi(string(args[1]))
+		if err != nil {
+			return nil, errValueIsInvalid
+		}
+		count = c
 	}
-	return redcon.SimpleString(value), nil
-}
-
-func rpop(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
-	if len(args) < 1 {
-		return nil, newWrongNumOfArgsError("rpop")
+	total := db.LLen(key)
+	var values [][]byte
+	for i := 0; i < count && i < total; i++ {
+		var (
+			val []byte
+			err error
+		)
+		if isLeft {
+			val, err = db.LPop(key)
+		} else {
+			val, err = db.RPop(key)
+		}
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, val)
 	}
-	key := args[0]
-	value, err := db.RPop(key)
-	if err != nil {
-		return nil, err
-	}
-	return redcon.SimpleString(value), nil
+	return values, nil
 }
 
 func llen(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
-	if len(args) < 1 {
+	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("llen")
 	}
 	key := args[0]
