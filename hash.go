@@ -30,6 +30,40 @@ func (db *RoseDB) HSet(key, field, value []byte) error {
 	return db.updateIndexTree(entry, valuePos, true, Hash)
 }
 
+// HSetNX sets the given value only if the field doesn't exist. If the key
+// doesn't exist, new hash is created. If field already exist, HSetNX doesn't
+// have side effect.
+func (db *RoseDB) HSetNX(key, field, value []byte) (bool, error) {
+	db.hashIndex.mu.Lock()
+	defer db.hashIndex.mu.Unlock()
+
+	if db.hashIndex.trees[string(key)] == nil {
+		db.hashIndex.trees[string(key)] = art.NewART()
+	}
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	val, err := db.getVal(field, Hash)
+	// field exists in db
+	if val != nil {
+		return false, nil
+	}
+	hashKey := db.encodeKey(key, field)
+	ent := &logfile.LogEntry{Key: hashKey, Value: value}
+	valuePos, err := db.writeLogEntry(ent, Hash)
+	if err != nil {
+		return false, err
+	}
+
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	entry := &logfile.LogEntry{Key: field, Value: value}
+	_, size := logfile.EncodeEntry(ent)
+	valuePos.entrySize = size
+	err = db.updateIndexTree(entry, valuePos, true, Hash)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // HGet returns the value associated with field in the hash stored at key.
 func (db *RoseDB) HGet(key, field []byte) ([]byte, error) {
 	db.hashIndex.mu.RLock()

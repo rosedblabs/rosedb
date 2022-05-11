@@ -55,6 +55,82 @@ func testRoseDBHSet(t *testing.T, ioType IOType, mode DataIndexMode) {
 	}
 }
 
+func TestRoseDB_HSetNX(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBHSetNX(t, FileIO, KeyOnlyMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBHSetNX(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBHSetNX(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.HSet([]byte("key-1"), []byte("field-1"), []byte("value-1"))
+	_ = db.HSet([]byte("key-1"), []byte("field-2"), []byte("value-2"))
+	testCases := []struct {
+		name   string
+		db     *RoseDB
+		key    []byte
+		field  []byte
+		value  []byte
+		expRes bool
+		expErr error
+	}{
+		{
+			name:   "Non-exist key",
+			db:     db,
+			key:    []byte("key-2"),
+			field:  []byte("field-2"),
+			value:  []byte("value-2"),
+			expRes: true,
+			expErr: nil,
+		},
+		{
+			name:   "Exist key",
+			db:     db,
+			key:    []byte("key-1"),
+			field:  []byte("field-3"),
+			value:  []byte("value-3"),
+			expRes: true,
+			expErr: nil,
+		},
+		{
+			name:   "Non-exist field",
+			db:     db,
+			key:    []byte("key-1"),
+			field:  []byte("field-4"),
+			value:  []byte("value-4"),
+			expRes: true,
+			expErr: nil,
+		},
+		{
+			name:   "Exist field",
+			db:     db,
+			key:    []byte("key-1"),
+			field:  []byte("field-2"),
+			value:  []byte("value-3"),
+			expRes: false,
+			expErr: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok, err := tc.db.HSetNX(tc.key, tc.field, tc.value)
+			assert.Equal(t, tc.expErr, err)
+			assert.Equal(t, tc.expRes, ok)
+		})
+	}
+}
+
 func TestRoseDB_HGet(t *testing.T) {
 	t.Run("fileio", func(t *testing.T) {
 		testRoseDBHGet(t, FileIO, KeyOnlyMemMode)
