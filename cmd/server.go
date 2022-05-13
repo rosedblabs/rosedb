@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 )
 
 type cmdHandler func(db *rosedb.RoseDB, args [][]byte) (interface{}, error)
@@ -73,11 +74,13 @@ type Server struct {
 func main() {
 	flag.Parse()
 	opts := rosedb.DefaultOptions(dbPath)
+	now := time.Now()
 	db, err := rosedb.Open(opts)
 	if err != nil {
 		logger.Errorf("open rosedb err, fail to start server. %v", err)
 		return
 	}
+	logger.Infof("open db successfully, time cost: %v", time.Since(now))
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, os.Kill, syscall.SIGHUP,
@@ -99,7 +102,7 @@ func main() {
 }
 
 func (svr *Server) listen() {
-	logger.Info("rosedb server is running, ready to accept connections")
+	logger.Infof("rosedb server is running, ready to accept connections")
 	if err := svr.ser.ListenAndServe(); err != nil {
 		logger.Fatalf("listen and serve err, fail to start. %v", err)
 		return
