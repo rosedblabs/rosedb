@@ -42,7 +42,7 @@ func del(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 		if err := db.Delete(key); err != nil {
 			return 0, err
 		}
-		// delete other ds.
+		// delete other ds. todo
 	}
 	return redcon.SimpleInt(1), nil
 }
@@ -106,6 +106,21 @@ func get(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 		return nil, err
 	}
 	return value, nil
+}
+
+func mget(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+	if len(args) < 1 {
+		return nil, newWrongNumOfArgsError("mget")
+	}
+	var values [][]byte
+	for _, key := range args {
+		val, err := db.Get(key)
+		if err != nil && err != rosedb.ErrKeyNotFound {
+			return nil, err
+		}
+		values = append(values, val)
+	}
+	return values, nil
 }
 
 func appendStr(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
