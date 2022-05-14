@@ -110,7 +110,7 @@ func (svr *Server) stop() {
 	if err := svr.ser.Close(); err != nil {
 		logger.Errorf("close server err: %v", err)
 	}
-	logger.Info("rosedb is ready to exit, bye bye...")
+	logger.Infof("rosedb is ready to exit, bye bye...")
 }
 
 func (svr *Server) redconAccept(conn redcon.Conn) bool {

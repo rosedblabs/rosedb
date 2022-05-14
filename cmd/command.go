@@ -262,6 +262,29 @@ func llen(cli *Client, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |--------------------------- Hash commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
+func hset(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 || len(args)%2 == 0 {
+		return nil, newWrongNumOfArgsError("hset")
+	}
+	key := args[0]
+	var count int
+	for i := 1; i < len(args); i += 2 {
+		err := cli.db.HSet(key, args[i], args[i+1])
+		if err != nil {
+			return nil, err
+		}
+		count++
+	}
+	return redcon.SimpleInt(count), nil
+}
+
+func hget(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("hget")
+	}
+	val, err := cli.db.HGet(args[0], args[1])
+	return val, err
+}
 
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|

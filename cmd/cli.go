@@ -9,7 +9,7 @@ import (
 type cmdHandler func(cli *Client, args [][]byte) (interface{}, error)
 
 var supportedCommands = map[string]cmdHandler{
-	// string
+	// string commands
 	"set":    set,
 	"setex":  setex,
 	"get":    get,
@@ -23,16 +23,20 @@ var supportedCommands = map[string]cmdHandler{
 	"rpop":  rpop,
 	"llen":  llen,
 
-	// generic
+	// hash commands
+	"hset": hset,
+	"hget": hget,
+
+	// generic commands
 	"type": keyType,
 	"del":  del,
 
-	// connection management
+	// connection management commands
 	"select": selectDB,
 	"ping":   ping,
 	"quit":   nil,
 
-	// Server management
+	// server management commands
 	"info": info,
 }
 
