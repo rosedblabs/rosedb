@@ -289,6 +289,43 @@ func hget(cli *Client, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
+func sadd(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("sadd")
+	}
+	key := args[0]
+	var count int
+	for _, val := range args[1:] {
+		isMember := cli.db.SIsMember(key, val)
+		if !isMember {
+			err := cli.db.SAdd(key, val)
+			if err != nil {
+				return nil, err
+			}
+			count++
+		}
+	}
+	return redcon.SimpleInt(count), nil
+}
+
+func srem(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("srem")
+	}
+	key := args[0]
+	var count int
+	for _, val := range args[1:] {
+		isMember := cli.db.SIsMember(key, val)
+		if isMember {
+			err := cli.db.SRem(key, val)
+			if err != nil {
+				return nil, err
+			}
+			count++
+		}
+	}
+	return redcon.SimpleInt(count), nil
+}
 
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |------------------------- Sorted Set commands ------------------------|

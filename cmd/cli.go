@@ -27,6 +27,12 @@ var supportedCommands = map[string]cmdHandler{
 	"hset": hset,
 	"hget": hget,
 
+	// set commands
+	"sadd": sadd,
+	"srem": srem,
+
+	// zset commands
+
 	// generic commands
 	"type": keyType,
 	"del":  del,
