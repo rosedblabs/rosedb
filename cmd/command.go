@@ -5,18 +5,21 @@ import (
 	"fmt"
 	"github.com/flower-corp/rosedb"
 	"github.com/tidwall/redcon"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	resultOK = "OK"
+	resultOK   = "OK"
+	resultPong = "PONG"
 )
 
 var (
-	errSyntax         = errors.New("ERR syntax error ")
-	errValueIsInvalid = errors.New("ERR value is not an integer or out of range")
+	errSyntax            = errors.New("ERR syntax error ")
+	errValueIsInvalid    = errors.New("ERR value is not an integer or out of range")
+	errDBIndexOutOfRange = errors.New("ERR DB index is out of range")
 )
 
 func newWrongNumOfArgsError(cmd string) error {
@@ -24,22 +27,67 @@ func newWrongNumOfArgsError(cmd string) error {
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+
-// |---------------------- Server managment commands ---------------------|
+// |---------------------- server management commands ---------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
-func info(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+func info(cli *Client, args [][]byte) (interface{}, error) {
 	// todo
 	return "info", nil
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+
+// |---------------------- connection management commands ---------------------|
+// +-------+--------+----------+------------+-----------+-------+---------+
+func selectDB(cli *Client, args [][]byte) (interface{}, error) {
+	cli.svr.mu.Lock()
+	defer cli.svr.mu.Unlock()
+
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("select")
+	}
+	n, err := strconv.Atoi(string(args[0]))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+
+	if n < 0 || uint(n) >= cli.svr.opts.databases {
+		return nil, errDBIndexOutOfRange
+	}
+
+	db := cli.svr.dbs[n]
+	if db == nil {
+		path := filepath.Join(cli.svr.opts.dbPath, fmt.Sprintf(dbName, n))
+		opts := rosedb.DefaultOptions(path)
+		newdb, err := rosedb.Open(opts)
+		if err != nil {
+			return nil, err
+		}
+		db = newdb
+		cli.svr.dbs[n] = db
+	}
+	cli.db = db
+	return resultOK, nil
+}
+
+func ping(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) > 1 {
+		return nil, newWrongNumOfArgsError("ping")
+	}
+	var res = resultPong
+	if len(args) == 1 {
+		res = string(args[0])
+	}
+	return res, nil
+}
+
+// +-------+--------+----------+------------+-----------+-------+---------+
 // |-------------------------- generic commands --------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
-func del(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+func del(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 1 {
 		return nil, newWrongNumOfArgsError("del")
 	}
 	for _, key := range args {
-		if err := db.Delete(key); err != nil {
+		if err := cli.db.Delete(key); err != nil {
 			return 0, err
 		}
 		// delete other ds. todo
@@ -47,7 +95,7 @@ func del(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(1), nil
 }
 
-func keyType(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+func keyType(cli *Client, args [][]byte) (interface{}, error) {
 	// todo
 	return "string", nil
 }
@@ -55,7 +103,7 @@ func keyType(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |-------------------------- String commands --------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
-func set(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+func set(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("set")
 	}
@@ -71,9 +119,9 @@ func set(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 		if err != nil {
 			return nil, errSyntax
 		}
-		setErr = db.SetEX(key, value, time.Second*time.Duration(second))
+		setErr = cli.db.SetEX(key, value, time.Second*time.Duration(second))
 	} else {
-		setErr = db.Set(key, value)
+		setErr = cli.db.Set(key, value)
 	}
 	if setErr != nil {
 		return nil, setErr
@@ -81,7 +129,7 @@ func set(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 	return redcon.SimpleString(resultOK), nil
 }
 
-func setex(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+func setex(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 3 {
 		return nil, newWrongNumOfArgsError("get")
 	}
@@ -90,31 +138,31 @@ func setex(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 	if err != nil {
 		return nil, errSyntax
 	}
-	err = db.SetEX(key, value, time.Second*time.Duration(sec))
+	err = cli.db.SetEX(key, value, time.Second*time.Duration(sec))
 	if err != nil {
 		return nil, err
 	}
 	return redcon.SimpleString(resultOK), nil
 }
 
-func get(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+func get(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("get")
 	}
-	value, err := db.Get(args[0])
+	value, err := cli.db.Get(args[0])
 	if err != nil {
 		return nil, err
 	}
 	return value, nil
 }
 
-func mget(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+func mget(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 1 {
 		return nil, newWrongNumOfArgsError("mget")
 	}
 	var values [][]byte
 	for _, key := range args {
-		val, err := db.Get(key)
+		val, err := cli.db.Get(key)
 		if err != nil && err != rosedb.ErrKeyNotFound {
 			return nil, err
 		}
@@ -123,51 +171,51 @@ func mget(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
 	return values, nil
 }
 
-func appendStr(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+func appendStr(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 2 {
 		return nil, newWrongNumOfArgsError("append")
 	}
 	key, value := args[0], args[1]
-	err := db.Append(key, value)
+	err := cli.db.Append(key, value)
 	if err != nil {
 		return nil, err
 	}
-	return redcon.SimpleInt(db.StrLen(key)), nil
+	return redcon.SimpleInt(cli.db.StrLen(key)), nil
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- List commands ---------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
-func lpush(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+func lpush(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("lpush")
 	}
 	key, value := args[0], args[1:]
-	err := db.LPush(key, value...)
+	err := cli.db.LPush(key, value...)
 	if err != nil {
 		return nil, err
 	}
-	return redcon.SimpleInt(db.LLen(key)), nil
+	return redcon.SimpleInt(cli.db.LLen(key)), nil
 }
 
-func rpush(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+func rpush(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("rpush")
 	}
 	key, value := args[0], args[1:]
-	err := db.RPush(key, value...)
+	err := cli.db.RPush(key, value...)
 	if err != nil {
 		return nil, err
 	}
-	return redcon.SimpleInt(db.LLen(key)), nil
+	return redcon.SimpleInt(cli.db.LLen(key)), nil
 }
 
-func lpop(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
-	return popInternal(db, args, true)
+func lpop(cli *Client, args [][]byte) (interface{}, error) {
+	return popInternal(cli.db, args, true)
 }
 
-func rpop(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
-	return popInternal(db, args, false)
+func rpop(cli *Client, args [][]byte) (interface{}, error) {
+	return popInternal(cli.db, args, false)
 }
 
 func popInternal(db *rosedb.RoseDB, args [][]byte, isLeft bool) (interface{}, error) {
@@ -203,12 +251,12 @@ func popInternal(db *rosedb.RoseDB, args [][]byte, isLeft bool) (interface{}, er
 	return values, nil
 }
 
-func llen(db *rosedb.RoseDB, args [][]byte) (interface{}, error) {
+func llen(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("llen")
 	}
 	key := args[0]
-	return redcon.SimpleInt(db.LLen(key)), nil
+	return redcon.SimpleInt(cli.db.LLen(key)), nil
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+

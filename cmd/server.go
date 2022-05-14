@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/flower-corp/rosedb"
@@ -10,47 +11,24 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
 
-type cmdHandler func(db *rosedb.RoseDB, args [][]byte) (interface{}, error)
-
-var supportedCommands = map[string]cmdHandler{
-	// string
-	"set":    set,
-	"setex":  setex,
-	"get":    get,
-	"mget":   mget,
-	"append": appendStr,
-
-	// list
-	"lpush": lpush,
-	"rpush": rpush,
-	"lpop":  lpop,
-	"rpop":  rpop,
-	"llen":  llen,
-
-	// generic
-	"type": keyType,
-	"del":  del,
-
-	"info": info,
-
-	// other
-	"ping": nil,
-	"quit": nil,
-}
+var (
+	errClientIsNil = errors.New("ERR client conn is nil")
+)
 
 var (
-	defaultDBPath = filepath.Join("/tmp", "rosedb")
-	defaultHost   = "127.0.0.1"
-	defaultPort   = "5200"
+	defaultDBPath            = filepath.Join("/tmp", "rosedb")
+	defaultHost              = "127.0.0.1"
+	defaultPort              = "5200"
+	defaultDatabasesNum uint = 16
+)
 
-	dbPath string
-	host   string
-	port   string
+const (
+	dbName = "rosedb_%04d"
 )
 
 func init() {
@@ -58,40 +36,54 @@ func init() {
 	path, _ := filepath.Abs("resource/banner.txt")
 	banner, _ := ioutil.ReadFile(path)
 	fmt.Println(string(banner))
-
-	// options
-	flag.StringVar(&dbPath, "dbpath", defaultDBPath, "db path")
-	flag.StringVar(&host, "host", defaultHost, "server host")
-	flag.StringVar(&port, "port", defaultPort, "server port")
 }
 
 type Server struct {
-	db     *rosedb.RoseDB
+	dbs    map[int]*rosedb.RoseDB
 	ser    *redcon.Server
 	signal chan os.Signal
+	opts   ServerOptions
+	mu     *sync.RWMutex
+}
+
+type ServerOptions struct {
+	dbPath    string
+	host      string
+	port      string
+	databases uint
 }
 
 func main() {
+	// init server options
+	serverOpts := new(ServerOptions)
+	flag.StringVar(&serverOpts.dbPath, "dbpath", defaultDBPath, "db path")
+	flag.StringVar(&serverOpts.host, "host", defaultHost, "server host")
+	flag.StringVar(&serverOpts.port, "port", defaultPort, "server port")
+	flag.UintVar(&serverOpts.databases, "databases", defaultDatabasesNum, "the number of databases")
 	flag.Parse()
-	opts := rosedb.DefaultOptions(dbPath)
+
+	// open a default database
+	path := filepath.Join(serverOpts.dbPath, fmt.Sprintf(dbName, 0))
+	opts := rosedb.DefaultOptions(path)
 	now := time.Now()
 	db, err := rosedb.Open(opts)
 	if err != nil {
 		logger.Errorf("open rosedb err, fail to start server. %v", err)
 		return
 	}
-	logger.Infof("open db successfully, time cost: %v", time.Since(now))
+	logger.Infof("open db from [%s] successfully, time cost: %v", serverOpts.dbPath, time.Since(now))
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, os.Kill, syscall.SIGHUP,
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	svr := &Server{db: db, signal: sig}
-	addr := host + ":" + port
-	redServer := redcon.NewServerNetwork("tcp", addr, svr.handler,
-		func(conn redcon.Conn) bool {
-			return true
-		},
+	dbs := make(map[int]*rosedb.RoseDB)
+	dbs[0] = db
+
+	// init and start server
+	svr := &Server{dbs: dbs, signal: sig, opts: *serverOpts, mu: new(sync.RWMutex)}
+	addr := svr.opts.host + ":" + svr.opts.port
+	redServer := redcon.NewServerNetwork("tcp", addr, execClientCommand, svr.redconAccept,
 		func(conn redcon.Conn, err error) {
 		},
 	)
@@ -110,8 +102,10 @@ func (svr *Server) listen() {
 }
 
 func (svr *Server) stop() {
-	if err := svr.db.Close(); err != nil {
-		logger.Errorf("close db err: %v", err)
+	for _, db := range svr.dbs {
+		if err := db.Close(); err != nil {
+			logger.Errorf("close db err: %v", err)
+		}
 	}
 	if err := svr.ser.Close(); err != nil {
 		logger.Errorf("close server err: %v", err)
@@ -119,27 +113,12 @@ func (svr *Server) stop() {
 	logger.Info("rosedb is ready to exit, bye bye...")
 }
 
-func (svr *Server) handler(conn redcon.Conn, cmd redcon.Command) {
-	command := strings.ToLower(string(cmd.Args[0]))
-	cmdFunc, ok := supportedCommands[command]
-	if !ok {
-		conn.WriteError("ERR unsupported command '" + string(cmd.Args[0]) + "'")
-		return
-	}
-	switch command {
-	case "ping":
-		conn.WriteString("PONG")
-	case "quit":
-		_ = conn.Close()
-	default:
-		if res, err := cmdFunc(svr.db, cmd.Args[1:]); err != nil {
-			if err == rosedb.ErrKeyNotFound {
-				conn.WriteNull()
-			} else {
-				conn.WriteError(err.Error())
-			}
-		} else {
-			conn.WriteAny(res)
-		}
-	}
+func (svr *Server) redconAccept(conn redcon.Conn) bool {
+	cli := new(Client)
+	cli.svr = svr
+	svr.mu.RLock()
+	cli.db = svr.dbs[0]
+	svr.mu.RUnlock()
+	conn.SetContext(cli)
+	return true
 }
