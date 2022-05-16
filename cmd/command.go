@@ -27,7 +27,7 @@ func newWrongNumOfArgsError(cmd string) error {
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+
-// |---------------------- server management commands ---------------------|
+// |---------------------- server management commands --------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
 func info(cli *Client, args [][]byte) (interface{}, error) {
 	// todo
@@ -35,7 +35,7 @@ func info(cli *Client, args [][]byte) (interface{}, error) {
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+
-// |---------------------- connection management commands ---------------------|
+// |-------------------- connection management commands ------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
 func selectDB(cli *Client, args [][]byte) (interface{}, error) {
 	cli.svr.mu.Lock()
