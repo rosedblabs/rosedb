@@ -23,6 +23,37 @@ Key features:
 
 **1. embedded usage:** see [examples](https://github.com/flower-corp/rosedb/tree/main/examples)
 
+**2. command line usage:**
+
+start rosedb server
+
+```shell
+cd rosedb
+make
+./rosedb-server [-option value]
+```
+
+access data via `cli`(a copy of `redis-cli`)
+
+> Only mac now, download redis-cli according to your os.
+
+```shell
+cd rosedb/tools
+./cli-mac -p 5200
+
+127.0.0.1:5200> 
+127.0.0.1:5200> set my_key RoseDB
+OK
+127.0.0.1:5200> get my_key
+"RoseDB"
+127.0.0.1:5200> 
+
+```
+
+## Documentation
+
+See [wiki](https://github.com/flower-corp/rosedb/wiki)
+
 ## Contributing
 
 If you are interested in contributing to rosedb, see [CONTRIBUTING](https://github.com/roseduan/rosedb/blob/main/CONTRIBUTING.md) and [how to contribute?](https://github.com/flower-corp/rosedb/issues/103)

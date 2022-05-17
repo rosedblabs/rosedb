@@ -40,4 +40,16 @@ func main() {
 		fmt.Printf("Hkeys error: %v", err)
 	}
 	fmt.Println("The fields in watermelon are:", fields)
+
+	ok, err := db.HSetNX([]byte("key-1"), []byte("field-1"), []byte("value-1"))
+	if err != nil {
+		fmt.Printf("HSetNx error: %v", err)
+	}
+	fmt.Println(ok)
+
+	value, err = db.HGet([]byte("key-1"), []byte("field-1"))
+	if err != nil {
+		fmt.Printf("Error when key-1/field-1 is trying to get: %v", err)
+	}
+	fmt.Printf("key-1/value-1: %s", string(value))
 }

@@ -1,9 +1,10 @@
 package rosedb
 
 import (
-	"github.com/stretchr/testify/assert"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRoseDB_HSet(t *testing.T) {
@@ -54,6 +55,82 @@ func testRoseDBHSet(t *testing.T, ioType IOType, mode DataIndexMode) {
 	}
 }
 
+func TestRoseDB_HSetNX(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBHSetNX(t, FileIO, KeyOnlyMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBHSetNX(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBHSetNX(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.HSet([]byte("key-1"), []byte("field-1"), []byte("value-1"))
+	_ = db.HSet([]byte("key-1"), []byte("field-2"), []byte("value-2"))
+	testCases := []struct {
+		name   string
+		db     *RoseDB
+		key    []byte
+		field  []byte
+		value  []byte
+		expRes bool
+		expErr error
+	}{
+		{
+			name:   "Non-exist key",
+			db:     db,
+			key:    []byte("key-2"),
+			field:  []byte("field-2"),
+			value:  []byte("value-2"),
+			expRes: true,
+			expErr: nil,
+		},
+		{
+			name:   "Exist key",
+			db:     db,
+			key:    []byte("key-1"),
+			field:  []byte("field-3"),
+			value:  []byte("value-3"),
+			expRes: true,
+			expErr: nil,
+		},
+		{
+			name:   "Non-exist field",
+			db:     db,
+			key:    []byte("key-1"),
+			field:  []byte("field-4"),
+			value:  []byte("value-4"),
+			expRes: true,
+			expErr: nil,
+		},
+		{
+			name:   "Exist field",
+			db:     db,
+			key:    []byte("key-1"),
+			field:  []byte("field-2"),
+			value:  []byte("value-3"),
+			expRes: false,
+			expErr: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ok, err := tc.db.HSetNX(tc.key, tc.field, tc.value)
+			assert.Equal(t, tc.expErr, err)
+			assert.Equal(t, tc.expRes, ok)
+		})
+	}
+}
+
 func TestRoseDB_HGet(t *testing.T) {
 	t.Run("fileio", func(t *testing.T) {
 		testRoseDBHGet(t, FileIO, KeyOnlyMemMode)
@@ -85,6 +162,87 @@ func testRoseDBHGet(t *testing.T, ioType IOType, mode DataIndexMode) {
 	v2, err := db.HGet(setKey, GetKey(1))
 	assert.Nil(t, err)
 	assert.Equal(t, GetKey(222), v2)
+}
+
+func TestRoseDB_HMGet(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBHMGet(t, FileIO, KeyOnlyMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBHMGet(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBHMGet(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	setKey := []byte("my_set")
+	err = db.HSet(setKey, GetKey(1), GetKey(111))
+	assert.Nil(t, err)
+
+	v1, err := db.HMGet(setKey, GetKey(1))
+	assert.Nil(t, err)
+	assert.Equal(t, [][]byte{GetKey(111)}, v1)
+	//--------------------------------------------------------------------------
+	// newe cases
+	//--------------------------------------------------------------------------
+	key := []byte("my_hash")
+
+	db.HSet(key, []byte("a"), []byte("hash_data_01"))
+	db.HSet(key, []byte("b"), []byte("hash_data_02"))
+	db.HSet(key, []byte("c"), []byte("hash_data_03"))
+
+	type args struct {
+		key   []byte
+		field [][]byte
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		wantLen int
+		want    [][]byte
+		wantErr bool
+	}{
+		{
+			"nil", args{key: key, field: nil}, 0, nil, false,
+		},
+		{
+			"not-exist-key", args{key: []byte("not-exist"), field: [][]byte{[]byte("a"), []byte("b")}}, 2, [][]byte{nil, nil}, false,
+		},
+		{
+			"not-exist-field", args{key: key, field: [][]byte{[]byte("e")}}, 1, [][]byte{nil}, false,
+		},
+		{
+			"normal", args{key: key, field: [][]byte{[]byte("a"), []byte("b"), []byte("c")}}, 3,
+			[][]byte{[]byte("hash_data_01"), []byte("hash_data_02"), []byte("hash_data_03")}, false,
+		},
+		{
+			"normal-2", args{key: key, field: [][]byte{[]byte("a"), []byte("e"), []byte("c")}}, 3,
+			[][]byte{[]byte("hash_data_01"), nil, []byte("hash_data_03")}, false,
+		},
+	}
+	// test 1 field get
+	val, err := db.HMGet(key, []byte("a"))
+	assert.Nil(t, err)
+	assert.Equal(t, [][]byte{[]byte("hash_data_01")}, val)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vals, err := db.HMGet(tt.args.key, tt.args.field...)
+			assert.Equal(t, tt.wantLen, len(vals), "the result len is not the same!")
+			assert.Equal(t, tt.want, vals, "the result is not the same!")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("db.HMGet() error = %v, wantErr= %v", err, tt.wantErr)
+			}
+		})
+	}
 }
 
 func TestRoseDB_HDel(t *testing.T) {
