@@ -79,7 +79,7 @@ func testRoseDBPush(t *testing.T, isLush bool, ioType IOType, mode DataIndexMode
 				}
 			} else {
 				if err := tt.db.RPush(tt.args.key, tt.args.values...); (err != nil) != tt.wantErr {
-					t.Errorf("LPush() error = %v, wantErr %v", err, tt.wantErr)
+					t.Errorf("RPush() error = %v, wantErr %v", err, tt.wantErr)
 				}
 			}
 		})
@@ -287,6 +287,74 @@ func TestRoseDB_ListGC(t *testing.T) {
 	assert.Equal(t, writeCount-writeCount/3, l2)
 }
 
+func TestRoseDB_LPushX(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBPushX(t, true, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBPushX(t, true, MMap, KeyValueMemMode)
+	})
+}
+
+func TestRoseDB_RPushX(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBPushX(t, false, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBPushX(t, false, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBPushX(t *testing.T, isLPush bool, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	err = db.LPush(GetKey(1), []byte("1"))
+	assert.Nil(t, err)
+	err = db.LPush(GetKey(2), []byte("1"))
+	assert.Nil(t, err)
+
+	type args struct {
+		key    []byte
+		values [][]byte
+	}
+	tests := []struct {
+		name    string
+		db      *RoseDB
+		args    args
+		wantErr bool
+	}{
+		{
+			"nil-key", db, args{key: GetKey(0), values: [][]byte{GetValue16B()}}, true,
+		},
+		{
+			"one-value", db, args{key: GetKey(1), values: [][]byte{GetValue16B()}}, false,
+		},
+		{
+			"multi-value", db, args{key: GetKey(2), values: [][]byte{GetValue16B(), GetValue16B(), GetValue16B()}}, false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if isLPush {
+				if err := tt.db.LPushX(tt.args.key, tt.args.values...); (err != nil) != tt.wantErr {
+					t.Errorf("LPushX() error = %v, wantErr %v", err, tt.wantErr)
+				}
+			} else {
+				if err := tt.db.RPushX(tt.args.key, tt.args.values...); (err != nil) != tt.wantErr {
+					t.Errorf("RPushX() error = %v, wantErr %v", err, tt.wantErr)
+				}
+			}
+		})
+	}
+}
 func TestRoseDB_LIndex(t *testing.T) {
 	t.Run("fileio", func(t *testing.T) {
 		testRoseDBRLIndex(t, FileIO, KeyOnlyMemMode)

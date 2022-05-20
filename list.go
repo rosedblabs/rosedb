@@ -25,6 +25,26 @@ func (db *RoseDB) LPush(key []byte, values ...[]byte) error {
 	return nil
 }
 
+// LPushX insert specified values at the head of the list stored at key,
+// only if key already exists and holds a list.
+// In contrary to LPUSH, no operation will be performed when key does not yet exist.
+func (db *RoseDB) LPushX(key []byte, values ...[]byte) error {
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	if db.listIndex.trees[string(key)] == nil {
+		return ErrKeyNotFound
+	}
+
+	db.listIndex.idxTree = db.listIndex.trees[string(key)]
+	for _, val := range values {
+		if err := db.pushInternal(key, val, true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // RPush insert all the specified values at the tail of the list stored at key.
 // If key does not exist, it is created as empty list before performing the push operation.
 func (db *RoseDB) RPush(key []byte, values ...[]byte) error {
@@ -33,6 +53,25 @@ func (db *RoseDB) RPush(key []byte, values ...[]byte) error {
 
 	if db.listIndex.trees[string(key)] == nil {
 		db.listIndex.trees[string(key)] = art.NewART()
+	}
+	db.listIndex.idxTree = db.listIndex.trees[string(key)]
+	for _, val := range values {
+		if err := db.pushInternal(key, val, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// RPushX insert specified values at the tail of the list stored at key,
+// only if key already exists and holds a list.
+// In contrary to RPUSH, no operation will be performed when key does not yet exist.
+func (db *RoseDB) RPushX(key []byte, values ...[]byte) error {
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	if db.listIndex.trees[string(key)] == nil {
+		return ErrKeyNotFound
 	}
 	db.listIndex.idxTree = db.listIndex.trees[string(key)]
 	for _, val := range values {
@@ -155,6 +194,9 @@ func (db *RoseDB) saveListMeta(key []byte, headSeq, tailSeq uint32) error {
 
 func (db *RoseDB) pushInternal(key []byte, val []byte, isLeft bool) error {
 	headSeq, tailSeq, err := db.listMeta(key)
+	if err != nil {
+		return err
+	}
 	var seq = headSeq
 	if !isLeft {
 		seq = tailSeq
