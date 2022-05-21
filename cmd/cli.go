@@ -17,6 +17,7 @@ var supportedCommands = map[string]cmdHandler{
 	"msetnx": msetnx,
 	"decr":   decr,
 	"decrby": decrBy,
+	"incr":   incr,
 	"get":    get,
 	"mget":   mget,
 	"append": appendStr,

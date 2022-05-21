@@ -199,6 +199,14 @@ func decrBy(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.DecrBy(key, decrInt64Val)
 }
 
+func incr(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("incr")
+	}
+	key := args[0]
+	return cli.db.Incr(key)
+}
+
 func get(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("get")
