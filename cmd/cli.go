@@ -15,6 +15,7 @@ var supportedCommands = map[string]cmdHandler{
 	"get":    get,
 	"mget":   mget,
 	"append": appendStr,
+	"getdel": getDel,
 
 	// list
 	"lpush": lpush,

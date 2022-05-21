@@ -28,7 +28,7 @@ var (
 )
 
 const (
-	dbName = "rosedb_%04d"
+	dbName = "rosedb-%04d"
 )
 
 func init() {
