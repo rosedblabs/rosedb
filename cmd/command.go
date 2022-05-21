@@ -145,6 +145,18 @@ func setex(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleString(resultOK), nil
 }
 
+func setnx(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("setnx")
+	}
+	key, value := args[0], args[1]
+	err := cli.db.SetNX(key, value)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleString(resultOK), nil
+}
+
 func get(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("get")
