@@ -207,6 +207,18 @@ func incr(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.Incr(key)
 }
 
+func incrBy(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("incrby")
+	}
+	key, incrVal := args[0], args[1]
+	incrInt64Val, err := strconv.ParseInt(string(incrVal), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return cli.db.IncrBy(key, incrInt64Val)
+}
+
 func get(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("get")
