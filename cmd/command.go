@@ -376,6 +376,22 @@ func hset(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(count), nil
 }
 
+func hsetnx(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("hsetnx")
+	}
+
+	key, field, value := args[0], args[1], args[2]
+	ok, err := cli.db.HSetNX(key, field, value)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		return redcon.SimpleInt(1), nil
+	}
+	return redcon.SimpleInt(0), nil
+}
+
 func hget(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 2 {
 		return nil, newWrongNumOfArgsError("hget")

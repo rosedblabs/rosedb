@@ -34,8 +34,9 @@ var supportedCommands = map[string]cmdHandler{
 	"lindex": lIndex,
 
 	// hash commands
-	"hset": hset,
-	"hget": hget,
+	"hset":   hset,
+	"hsetnx": hsetnx,
+	"hget":   hget,
 
 	// set commands
 	"sadd": sadd,
