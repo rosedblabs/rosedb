@@ -19,6 +19,7 @@ var supportedCommands = map[string]cmdHandler{
 	"decrby": decrBy,
 	"incr":   incr,
 	"incrby": incrBy,
+	"strlen": strLen,
 	"get":    get,
 	"mget":   mget,
 	"append": appendStr,

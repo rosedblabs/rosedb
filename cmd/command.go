@@ -219,6 +219,13 @@ func incrBy(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.IncrBy(key, incrInt64Val)
 }
 
+func strLen(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("strlen")
+	}
+	return cli.db.StrLen(args[0]), nil
+}
+
 func get(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("get")
