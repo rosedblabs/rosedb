@@ -184,8 +184,19 @@ func decr(cli *Client, args [][]byte) (interface{}, error) {
 		return nil, newWrongNumOfArgsError("decr")
 	}
 	key := args[0]
-	newVal, err := cli.db.Decr(key)
-	return newVal, err
+	return cli.db.Decr(key)
+}
+
+func decrBy(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("decrby")
+	}
+	key, decrVal := args[0], args[1]
+	decrInt64Val, err := strconv.ParseInt(string(decrVal), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return cli.db.DecrBy(key, decrInt64Val)
 }
 
 func get(cli *Client, args [][]byte) (interface{}, error) {
