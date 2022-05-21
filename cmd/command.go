@@ -168,6 +168,17 @@ func mset(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleString(resultOK), nil
 }
 
+func msetnx(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) == 0 || len(args)%2 != 0 {
+		return nil, newWrongNumOfArgsError("msetnx")
+	}
+	err := cli.db.MSetNX(args...)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleString(resultOK), nil
+}
+
 func get(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("get")

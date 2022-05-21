@@ -14,6 +14,7 @@ var supportedCommands = map[string]cmdHandler{
 	"setex":  setex,
 	"setnx":  setnx,
 	"mset":   mset,
+	"msetnx": msetnx,
 	"get":    get,
 	"mget":   mget,
 	"append": appendStr,
