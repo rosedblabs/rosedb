@@ -345,6 +345,18 @@ func llen(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(cli.db.LLen(key)), nil
 }
 
+func lIndex(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("lindex")
+	}
+	key, index := args[0], args[1]
+	intIndex, err := strconv.Atoi(string(index))
+	if err != nil {
+		return nil, err
+	}
+	return cli.db.LIndex(key, intIndex)
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |--------------------------- Hash commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+

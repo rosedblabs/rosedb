@@ -26,11 +26,12 @@ var supportedCommands = map[string]cmdHandler{
 	"getdel": getDel,
 
 	// list
-	"lpush": lpush,
-	"rpush": rpush,
-	"lpop":  lpop,
-	"rpop":  rpop,
-	"llen":  llen,
+	"lpush":  lpush,
+	"rpush":  rpush,
+	"lpop":   lpop,
+	"rpop":   rpop,
+	"llen":   llen,
+	"lindex": lIndex,
 
 	// hash commands
 	"hset": hset,
