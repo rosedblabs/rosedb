@@ -179,6 +179,15 @@ func msetnx(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleString(resultOK), nil
 }
 
+func decr(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("decr")
+	}
+	key := args[0]
+	newVal, err := cli.db.Decr(key)
+	return newVal, err
+}
+
 func get(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("get")
