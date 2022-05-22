@@ -436,6 +436,13 @@ func hlen(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(cli.db.HLen(args[0])), nil
 }
 
+func hkeys(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("hkeys")
+	}
+	return cli.db.HKeys(args[0])
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
