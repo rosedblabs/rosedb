@@ -1,9 +1,32 @@
 package art
 
 import (
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 )
+
+func TestAdaptiveRadixTree_PrefixScan(t *testing.T) {
+	art := NewART()
+	art.Put([]byte("acse"), 123)
+	art.Put([]byte("cced"), 123)
+	art.Put([]byte("acde"), 123)
+	art.Put([]byte("bbfe"), 123)
+	art.Put([]byte("bbfc"), 123)
+	art.Put([]byte("eefs"), 123)
+
+	keys1 := art.PrefixScan([]byte("bbf"), -1)
+	assert.Equal(t, 0, len(keys1))
+
+	keys2 := art.PrefixScan(nil, 0)
+	assert.Equal(t, 0, len(keys2))
+
+	keys3 := art.PrefixScan([]byte("b"), 1)
+	assert.Equal(t, 1, len(keys3))
+
+	keys4 := art.PrefixScan(nil, 6)
+	assert.Equal(t, 6, len(keys4))
+}
 
 func TestAdaptiveRadixTree_Put(t *testing.T) {
 	tree := NewART()

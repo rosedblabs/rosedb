@@ -625,3 +625,25 @@ func TestRoseDB_HStrLen(t *testing.T) {
 		oneRun(t, opts)
 	}
 }
+
+func TestRoseDB_HScan(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	setKey := []byte("my_set")
+	err = db.HSet(setKey, GetKey(32), GetValue16B())
+	assert.Nil(t, err)
+	err = db.HSet(setKey, GetKey(21), GetValue16B())
+	assert.Nil(t, err)
+	err = db.HSet(setKey, GetKey(14), GetValue16B())
+	assert.Nil(t, err)
+	err = db.HSet(setKey, GetKey(43), GetValue16B())
+	assert.Nil(t, err)
+
+	values, err := db.HScan(setKey, []byte("kv"), "", 100)
+	assert.Nil(t, err)
+	assert.Equal(t, 8, len(values))
+}
