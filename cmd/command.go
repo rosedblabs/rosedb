@@ -464,6 +464,18 @@ func hstrlen(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(cli.db.HStrLen(args[0], args[1])), nil
 }
 
+func hscan(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 4 {
+		return nil, newWrongNumOfArgsError("hscan")
+	}
+	pattern := string(args[2])
+	count, err := strconv.Atoi(string(args[3]))
+	if err != nil {
+		return nil, err
+	}
+	return cli.db.HScan(args[0], args[1], pattern, count)
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
