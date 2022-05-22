@@ -593,3 +593,11 @@ func zAdd(cli *Client, args [][]byte) (interface{}, error) {
 	}
 	return redcon.SimpleInt(len(args[1:]) / 2), nil
 }
+
+func zScore(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("zscore")
+	}
+	_, score := cli.db.ZScore(args[0], args[1])
+	return score, nil
+}

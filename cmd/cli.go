@@ -58,7 +58,8 @@ var supportedCommands = map[string]cmdHandler{
 	"sunion":    sUnion,
 
 	// zset commands
-	"zadd": zAdd,
+	"zadd":   zAdd,
+	"zscore": zScore,
 
 	// generic commands
 	"type": keyType,
