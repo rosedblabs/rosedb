@@ -622,3 +622,18 @@ func zCard(cli *Client, args [][]byte) (interface{}, error) {
 	}
 	return redcon.SimpleInt(cli.db.ZCard(args[0])), nil
 }
+
+func zRange(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("zrange")
+	}
+	start, err := strconv.Atoi(string(args[1]))
+	if err != nil {
+		return nil, err
+	}
+	stop, err := strconv.Atoi(string(args[2]))
+	if err != nil {
+		return nil, err
+	}
+	return cli.db.ZRange(args[0], start, stop)
+}
