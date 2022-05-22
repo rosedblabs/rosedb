@@ -429,6 +429,13 @@ func hexists(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(0), nil
 }
 
+func hlen(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("hlen")
+	}
+	return redcon.SimpleInt(cli.db.HLen(args[0])), nil
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
