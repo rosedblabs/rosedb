@@ -43,6 +43,7 @@ var supportedCommands = map[string]cmdHandler{
 	"hlen":    hlen,
 	"hkeys":   hkeys,
 	"hvals":   hvals,
+	"hgetall": hgetall,
 
 	// set commands
 	"sadd": sadd,

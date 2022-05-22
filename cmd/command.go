@@ -447,7 +447,14 @@ func hvals(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("hvals")
 	}
-	return cli.db.HVals(args[1])
+	return cli.db.HVals(args[0])
+}
+
+func hgetall(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("hgetall")
+	}
+	return cli.db.HGetAll(args[0])
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+
