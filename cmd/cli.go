@@ -48,9 +48,10 @@ var supportedCommands = map[string]cmdHandler{
 	"hscan":   hscan,
 
 	// set commands
-	"sadd": sadd,
-	"srem": srem,
-	"spop": sPop,
+	"sadd":      sadd,
+	"srem":      srem,
+	"spop":      sPop,
+	"sismember": sIsMember,
 
 	// zset commands
 

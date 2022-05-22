@@ -528,6 +528,22 @@ func sPop(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.SPop(args[0], uint(count))
 }
 
+func sIsMember(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("sismember")
+	}
+	res := make([]redcon.SimpleInt, len(args[1:]))
+	key := args[0]
+	for _, mem := range args[1:] {
+		if ok := cli.db.SIsMember(key, mem); ok {
+			res = append(res, redcon.SimpleInt(1))
+		} else {
+			res = append(res, redcon.SimpleInt(0))
+		}
+	}
+	return res, nil
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |------------------------- Sorted Set commands ------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
