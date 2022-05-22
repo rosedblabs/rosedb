@@ -565,6 +565,13 @@ func sDiff(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.SDiff(args...)
 }
 
+func sUnion(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) == 0 {
+		return nil, newWrongNumOfArgsError("sunion")
+	}
+	return cli.db.SUnion(args...)
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |------------------------- Sorted Set commands ------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
