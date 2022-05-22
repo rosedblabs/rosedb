@@ -129,7 +129,7 @@ func set(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleString(resultOK), nil
 }
 
-func setex(cli *Client, args [][]byte) (interface{}, error) {
+func setEx(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 3 {
 		return nil, newWrongNumOfArgsError("get")
 	}
@@ -145,7 +145,7 @@ func setex(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleString(resultOK), nil
 }
 
-func setnx(cli *Client, args [][]byte) (interface{}, error) {
+func setNX(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 2 {
 		return nil, newWrongNumOfArgsError("setnx")
 	}
@@ -157,7 +157,7 @@ func setnx(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleString(resultOK), nil
 }
 
-func mset(cli *Client, args [][]byte) (interface{}, error) {
+func mSet(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) == 0 || len(args)%2 != 0 {
 		return nil, newWrongNumOfArgsError("mset")
 	}
@@ -168,7 +168,7 @@ func mset(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleString(resultOK), nil
 }
 
-func msetnx(cli *Client, args [][]byte) (interface{}, error) {
+func mSetNX(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) == 0 || len(args)%2 != 0 {
 		return nil, newWrongNumOfArgsError("msetnx")
 	}
@@ -237,7 +237,7 @@ func get(cli *Client, args [][]byte) (interface{}, error) {
 	return value, nil
 }
 
-func mget(cli *Client, args [][]byte) (interface{}, error) {
+func mGet(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 1 {
 		return nil, newWrongNumOfArgsError("mget")
 	}
@@ -272,7 +272,7 @@ func getDel(cli *Client, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- List commands ---------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
-func lpush(cli *Client, args [][]byte) (interface{}, error) {
+func lPush(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("lpush")
 	}
@@ -284,7 +284,7 @@ func lpush(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(cli.db.LLen(key)), nil
 }
 
-func rpush(cli *Client, args [][]byte) (interface{}, error) {
+func rPush(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("rpush")
 	}
@@ -296,11 +296,11 @@ func rpush(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(cli.db.LLen(key)), nil
 }
 
-func lpop(cli *Client, args [][]byte) (interface{}, error) {
+func lPop(cli *Client, args [][]byte) (interface{}, error) {
 	return popInternal(cli.db, args, true)
 }
 
-func rpop(cli *Client, args [][]byte) (interface{}, error) {
+func rPop(cli *Client, args [][]byte) (interface{}, error) {
 	return popInternal(cli.db, args, false)
 }
 
@@ -337,7 +337,7 @@ func popInternal(db *rosedb.RoseDB, args [][]byte, isLeft bool) (interface{}, er
 	return values, nil
 }
 
-func llen(cli *Client, args [][]byte) (interface{}, error) {
+func lLen(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("llen")
 	}
@@ -360,7 +360,7 @@ func lIndex(cli *Client, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |--------------------------- Hash commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
-func hset(cli *Client, args [][]byte) (interface{}, error) {
+func hSet(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 || len(args)%2 == 0 {
 		return nil, newWrongNumOfArgsError("hset")
 	}
@@ -376,7 +376,7 @@ func hset(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(count), nil
 }
 
-func hsetnx(cli *Client, args [][]byte) (interface{}, error) {
+func hSetNX(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 3 {
 		return nil, newWrongNumOfArgsError("hsetnx")
 	}
@@ -392,7 +392,7 @@ func hsetnx(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(0), nil
 }
 
-func hget(cli *Client, args [][]byte) (interface{}, error) {
+func hGet(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 2 {
 		return nil, newWrongNumOfArgsError("hget")
 	}
@@ -400,14 +400,14 @@ func hget(cli *Client, args [][]byte) (interface{}, error) {
 	return val, err
 }
 
-func hmget(cli *Client, args [][]byte) (interface{}, error) {
+func hmGet(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("hmget")
 	}
 	return cli.db.HMGet(args[0], args[1:]...)
 }
 
-func hdel(cli *Client, args [][]byte) (interface{}, error) {
+func hDel(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("hdel")
 	}
@@ -415,7 +415,7 @@ func hdel(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(count), err
 }
 
-func hexists(cli *Client, args [][]byte) (interface{}, error) {
+func hExists(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 2 {
 		return nil, newWrongNumOfArgsError("hexists")
 	}
@@ -429,42 +429,42 @@ func hexists(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(0), nil
 }
 
-func hlen(cli *Client, args [][]byte) (interface{}, error) {
+func hLen(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("hlen")
 	}
 	return redcon.SimpleInt(cli.db.HLen(args[0])), nil
 }
 
-func hkeys(cli *Client, args [][]byte) (interface{}, error) {
+func hKeys(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("hkeys")
 	}
 	return cli.db.HKeys(args[0])
 }
 
-func hvals(cli *Client, args [][]byte) (interface{}, error) {
+func hVals(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("hvals")
 	}
 	return cli.db.HVals(args[0])
 }
 
-func hgetall(cli *Client, args [][]byte) (interface{}, error) {
+func hGetAll(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("hgetall")
 	}
 	return cli.db.HGetAll(args[0])
 }
 
-func hstrlen(cli *Client, args [][]byte) (interface{}, error) {
+func hStrLen(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 2 {
 		return nil, newWrongNumOfArgsError("hstrlen")
 	}
 	return redcon.SimpleInt(cli.db.HStrLen(args[0], args[1])), nil
 }
 
-func hscan(cli *Client, args [][]byte) (interface{}, error) {
+func hScan(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 4 {
 		return nil, newWrongNumOfArgsError("hscan")
 	}
@@ -479,7 +479,7 @@ func hscan(cli *Client, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
-func sadd(cli *Client, args [][]byte) (interface{}, error) {
+func sAdd(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("sadd")
 	}
@@ -498,7 +498,7 @@ func sadd(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(count), nil
 }
 
-func srem(cli *Client, args [][]byte) (interface{}, error) {
+func sRem(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("srem")
 	}
