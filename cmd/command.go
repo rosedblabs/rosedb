@@ -615,3 +615,10 @@ func zRem(cli *Client, args [][]byte) (interface{}, error) {
 	}
 	return redcon.SimpleInt(len(args[1:]) / 2), nil
 }
+
+func zCard(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("zcard")
+	}
+	return redcon.SimpleInt(cli.db.ZCard(args[0])), nil
+}
