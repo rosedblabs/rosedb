@@ -400,6 +400,13 @@ func hget(cli *Client, args [][]byte) (interface{}, error) {
 	return val, err
 }
 
+func hmget(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("hmget")
+	}
+	return cli.db.HMGet(args[0], args[1:]...)
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
