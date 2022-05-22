@@ -551,6 +551,13 @@ func sMembers(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.SMembers(args[0])
 }
 
+func sCard(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("scard")
+	}
+	return redcon.SimpleInt(cli.db.SCard(args[0])), nil
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |------------------------- Sorted Set commands ------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+

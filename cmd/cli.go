@@ -53,6 +53,7 @@ var supportedCommands = map[string]cmdHandler{
 	"spop":      sPop,
 	"sismember": sIsMember,
 	"smembers":  sMembers,
+	"scard":     sCard,
 
 	// zset commands
 
