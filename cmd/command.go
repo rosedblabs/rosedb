@@ -443,6 +443,13 @@ func hkeys(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.HKeys(args[0])
 }
 
+func hvals(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("hvals")
+	}
+	return cli.db.HVals(args[1])
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
