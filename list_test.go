@@ -393,12 +393,12 @@ func testRoseDBRLIndex(t *testing.T, ioType IOType, mode DataIndexMode) {
 
 	// out of right range with one
 	rOut1, err := db.LIndex(listKey, 1)
-	assert.Nil(t, err)
+	assert.Equal(t, ErrWrongIndex, err)
 	assert.Nil(t, rOut1)
 
 	// out of left range with one
 	lOut1, err := db.LIndex(listKey, -2)
-	assert.Nil(t, err)
+	assert.Equal(t, ErrWrongIndex, err)
 	assert.Nil(t, lOut1)
 
 	// two
@@ -423,11 +423,75 @@ func testRoseDBRLIndex(t *testing.T, ioType IOType, mode DataIndexMode) {
 
 	// out of right range with two
 	rOut2, err := db.LIndex(listKey, 2)
-	assert.Nil(t, err)
+	assert.Equal(t, ErrWrongIndex, err)
 	assert.Nil(t, rOut2)
 
 	// out of left range with two
 	lOut2, err := db.LIndex(listKey, -3)
-	assert.Nil(t, err)
+	assert.Equal(t, ErrWrongIndex, err)
 	assert.Nil(t, lOut2)
+}
+
+func TestRoseDB_LSet(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBLSet(t, FileIO, KeyOnlyMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBLSet(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBLSet(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	// none
+	listKey := []byte("my_list")
+	err = db.LSet(listKey, 0, GetKey(1))
+	assert.Equal(t, err, ErrKeyNotFound)
+
+	// one
+	err = db.RPush(listKey, GetKey(1))
+	assert.Nil(t, err)
+	err = db.LSet(listKey, 0, GetKey(111))
+	assert.Nil(t, err)
+	lPop, err := db.LPop(listKey)
+	assert.Nil(t, err)
+	assert.Equal(t, GetKey(111), lPop)
+
+	// three
+	err = db.RPush(listKey, GetKey(1))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, GetKey(2))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, GetKey(3))
+	assert.Nil(t, err)
+	err = db.LSet(listKey, 0, GetKey(111))
+	assert.Nil(t, err)
+	err = db.LSet(listKey, 1, GetKey(222))
+	assert.Nil(t, err)
+	err = db.LSet(listKey, -1, GetKey(333))
+	assert.Nil(t, err)
+	lPop, err = db.LPop(listKey)
+	assert.Nil(t, err)
+	assert.Equal(t, GetKey(111), lPop)
+	lPop, err = db.LPop(listKey)
+	assert.Nil(t, err)
+	assert.Equal(t, GetKey(222), lPop)
+	lPop, err = db.LPop(listKey)
+	assert.Nil(t, err)
+	assert.Equal(t, GetKey(333), lPop)
+
+	// out of range
+	err = db.RPush(listKey, GetKey(1))
+	assert.Nil(t, err)
+	err = db.LSet(listKey, 1, GetKey(111))
+	assert.Equal(t, err, ErrWrongIndex)
+	err = db.LSet(listKey, -2, GetKey(111))
+	assert.Equal(t, err, ErrWrongIndex)
 }
