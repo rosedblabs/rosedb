@@ -517,6 +517,17 @@ func srem(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(count), nil
 }
 
+func sPop(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("spop")
+	}
+	count, err := strconv.ParseUint(string(args[1]), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return cli.db.SPop(args[0], uint(count))
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |------------------------- Sorted Set commands ------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+

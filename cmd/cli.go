@@ -50,6 +50,7 @@ var supportedCommands = map[string]cmdHandler{
 	// set commands
 	"sadd": sadd,
 	"srem": srem,
+	"spop": sPop,
 
 	// zset commands
 
