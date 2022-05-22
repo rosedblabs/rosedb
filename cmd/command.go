@@ -407,6 +407,14 @@ func hmget(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.HMGet(args[0], args[1:]...)
 }
 
+func hdel(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("hdel")
+	}
+	count, err := cli.db.HDel(args[0], args[1:]...)
+	return redcon.SimpleInt(count), err
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
