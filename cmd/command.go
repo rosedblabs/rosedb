@@ -415,6 +415,20 @@ func hdel(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(count), err
 }
 
+func hexists(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("hexists")
+	}
+	ok, err := cli.db.HExists(args[0], args[1])
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		return redcon.SimpleInt(1), nil
+	}
+	return redcon.SimpleInt(0), nil
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
