@@ -457,6 +457,13 @@ func hgetall(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.HGetAll(args[0])
 }
 
+func hstrlen(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("hstrlen")
+	}
+	return redcon.SimpleInt(cli.db.HStrLen(args[0], args[1])), nil
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
