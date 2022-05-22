@@ -544,6 +544,13 @@ func sIsMember(cli *Client, args [][]byte) (interface{}, error) {
 	return res, nil
 }
 
+func sMembers(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("smembers")
+	}
+	return cli.db.SMembers(args[0])
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |------------------------- Sorted Set commands ------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
