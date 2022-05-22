@@ -575,3 +575,21 @@ func sUnion(cli *Client, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |------------------------- Sorted Set commands ------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
+
+func zAdd(cli *Client, args [][]byte) (interface{}, error) {
+	if (len(args)-1)%2 != 0 {
+		return nil, newWrongNumOfArgsError("zadd")
+	}
+	key := args[0]
+	for i := 1; i < len(args); i += 2 {
+		score, err := strconv.ParseFloat(string(args[i]), 64)
+		if err != nil {
+			return nil, err
+		}
+		err = cli.db.ZAdd(key, score, args[i+1])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return redcon.SimpleInt(len(args[1:]) / 2), nil
+}
