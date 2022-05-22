@@ -558,6 +558,13 @@ func sCard(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(cli.db.SCard(args[0])), nil
 }
 
+func sDiff(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) == 0 {
+		return nil, newWrongNumOfArgsError("sdiff")
+	}
+	return cli.db.SDiff(args...)
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |------------------------- Sorted Set commands ------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
