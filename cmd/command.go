@@ -601,3 +601,17 @@ func zScore(cli *Client, args [][]byte) (interface{}, error) {
 	_, score := cli.db.ZScore(args[0], args[1])
 	return score, nil
 }
+
+func zRem(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("zrem")
+	}
+	key := args[0]
+	for _, member := range args[1:] {
+		err := cli.db.ZRem(key, member)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return redcon.SimpleInt(len(args[1:]) / 2), nil
+}

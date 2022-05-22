@@ -60,6 +60,7 @@ var supportedCommands = map[string]cmdHandler{
 	// zset commands
 	"zadd":   zAdd,
 	"zscore": zScore,
+	"zrem":   zRem,
 
 	// generic commands
 	"type": keyType,
