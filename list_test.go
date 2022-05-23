@@ -355,3 +355,79 @@ func testRoseDBPushX(t *testing.T, isLPush bool, ioType IOType, mode DataIndexMo
 		})
 	}
 }
+func TestRoseDB_LIndex(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBRLIndex(t, FileIO, KeyOnlyMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBRLIndex(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBRLIndex(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	// none
+	listKey := []byte("my_list")
+	v, err := db.LIndex(listKey, 0)
+	assert.Nil(t, v)
+	assert.Nil(t, err)
+
+	// one
+	err = db.RPush(listKey, GetKey(1))
+	assert.Nil(t, err)
+
+	lVal1, err := db.LIndex(listKey, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, lVal1, GetKey(1))
+
+	rVal1, err := db.LIndex(listKey, -1)
+	assert.Nil(t, err)
+	assert.Equal(t, rVal1, GetKey(1))
+
+	// out of right range with one
+	rOut1, err := db.LIndex(listKey, 1)
+	assert.Nil(t, err)
+	assert.Nil(t, rOut1)
+
+	// out of left range with one
+	lOut1, err := db.LIndex(listKey, -2)
+	assert.Nil(t, err)
+	assert.Nil(t, lOut1)
+
+	// two
+	err = db.RPush(listKey, GetKey(2))
+	assert.Nil(t, err)
+
+	lVal1, err = db.LIndex(listKey, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, lVal1, GetKey(1))
+
+	lVal2, err := db.LIndex(listKey, 1)
+	assert.Nil(t, err)
+	assert.Equal(t, lVal2, GetKey(2))
+
+	rVal1, err = db.LIndex(listKey, -2)
+	assert.Nil(t, err)
+	assert.Equal(t, rVal1, GetKey(1))
+
+	rVal2, err := db.LIndex(listKey, -1)
+	assert.Nil(t, err)
+	assert.Equal(t, rVal2, GetKey(2))
+
+	// out of right range with two
+	rOut2, err := db.LIndex(listKey, 2)
+	assert.Nil(t, err)
+	assert.Nil(t, rOut2)
+
+	// out of left range with two
+	lOut2, err := db.LIndex(listKey, -3)
+	assert.Nil(t, err)
+	assert.Nil(t, lOut2)
+}

@@ -113,6 +113,43 @@ func (db *RoseDB) LLen(key []byte) int {
 	return int(tailSeq - headSeq - 1)
 }
 
+// LIndex returns the element at index in the list stored at key.
+// If index is out of range, it returns nil.
+func (db *RoseDB) LIndex(key []byte, index int) ([]byte, error) {
+	db.listIndex.mu.RLock()
+	defer db.listIndex.mu.RUnlock()
+
+	if db.listIndex.trees[string(key)] == nil {
+		return nil, nil
+	}
+	db.listIndex.idxTree = db.listIndex.trees[string(key)]
+	headSeq, tailSeq, err := db.listMeta(key)
+	if err != nil {
+		return nil, err
+	}
+
+	var seq uint32
+	if index >= 0 {
+		seq = headSeq + uint32(index) + 1
+		// out of range
+		if seq >= tailSeq {
+			return nil, nil
+		}
+	} else {
+		seq = tailSeq - uint32(-index)
+		// out of range
+		if seq <= headSeq {
+			return nil, nil
+		}
+	}
+	encKey := db.encodeListKey(key, seq)
+	val, err := db.getVal(encKey, List)
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
+}
+
 func (db *RoseDB) encodeListKey(key []byte, seq uint32) []byte {
 	buf := make([]byte, len(key)+4)
 	binary.LittleEndian.PutUint32(buf[:4], seq)

@@ -160,15 +160,12 @@ func mget(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 1 {
 		return nil, newWrongNumOfArgsError("mget")
 	}
-	var values [][]byte
+	var keys [][]byte
 	for _, key := range args {
-		val, err := cli.db.Get(key)
-		if err != nil && err != rosedb.ErrKeyNotFound {
-			return nil, err
-		}
-		values = append(values, val)
+		keys = append(keys, key)
 	}
-	return values, nil
+	values, err := cli.db.MGet(keys)
+	return values, err
 }
 
 func appendStr(cli *Client, args [][]byte) (interface{}, error) {
@@ -181,6 +178,14 @@ func appendStr(cli *Client, args [][]byte) (interface{}, error) {
 		return nil, err
 	}
 	return redcon.SimpleInt(cli.db.StrLen(key)), nil
+}
+
+func getDel(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("getdel")
+	}
+	val, err := cli.db.GetDel(args[0])
+	return val, err
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+

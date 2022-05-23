@@ -29,7 +29,8 @@ func (db *RoseDB) Set(key, value []byte) error {
 	return err
 }
 
-// Get get the value of key. If the key does not exist an error is returned.
+// Get get the value of key.
+// If the key does not exist the error ErrKeyNotFound is returned.
 func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	db.strIndex.mu.RLock()
 	defer db.strIndex.mu.RUnlock()

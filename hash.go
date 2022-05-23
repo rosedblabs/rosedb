@@ -4,6 +4,7 @@ import (
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
+	"regexp"
 )
 
 // HSet sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
@@ -272,4 +273,44 @@ func (db *RoseDB) HStrLen(key, field []byte) int {
 		return 0
 	}
 	return len(val)
+}
+
+func (db *RoseDB) HScan(key []byte, prefix []byte, pattern string, count int) ([][]byte, error) {
+	if count <= 0 {
+		return nil, nil
+	}
+
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+	if db.hashIndex.trees[string(key)] == nil {
+		return nil, nil
+	}
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	fields := db.hashIndex.idxTree.PrefixScan(prefix, count)
+	if len(fields) == 0 {
+		return nil, nil
+	}
+
+	var reg *regexp.Regexp
+	if pattern != "" {
+		var err error
+		if reg, err = regexp.Compile(pattern); err != nil {
+			return nil, err
+		}
+	}
+
+	values := make([][]byte, 2*len(fields))
+	var index int
+	for _, field := range fields {
+		if reg != nil && !reg.Match(field) {
+			continue
+		}
+		val, err := db.getVal(field, Hash)
+		if err != nil && err != ErrKeyNotFound {
+			return nil, err
+		}
+		values[index], values[index+1] = field, val
+		index += 2
+	}
+	return values, nil
 }

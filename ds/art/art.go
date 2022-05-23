@@ -31,6 +31,27 @@ func (art *AdaptiveRadixTree) Iterator() goart.Iterator {
 	return art.tree.Iterator()
 }
 
+func (art *AdaptiveRadixTree) PrefixScan(prefix []byte, count int) (keys [][]byte) {
+	cb := func(node goart.Node) bool {
+		if node.Kind() != goart.Leaf {
+			return true
+		}
+		if count <= 0 {
+			return false
+		}
+		keys = append(keys, node.Key())
+		count--
+		return true
+	}
+
+	if len(prefix) == 0 {
+		art.tree.ForEach(cb)
+	} else {
+		art.tree.ForEachPrefix(prefix, cb)
+	}
+	return
+}
+
 func (art *AdaptiveRadixTree) Size() int {
 	return art.tree.Size()
 }
