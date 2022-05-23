@@ -537,7 +537,7 @@ func testConvertLogicalIndexToSeq(t *testing.T, ioType IOType, mode DataIndexMod
 	opts.IoType = ioType
 	opts.IndexMode = mode
 	db, err := Open(opts)
-	// assert.Nil(t, err)
+	assert.Nil(t, err)
 	defer destroyDB(db)
 
 	listKey := []byte("my_list")
