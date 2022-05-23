@@ -3,13 +3,6 @@ package rosedb
 import (
 	"encoding/binary"
 	"errors"
-	"github.com/flower-corp/rosedb/ds/art"
-	"github.com/flower-corp/rosedb/ds/zset"
-	"github.com/flower-corp/rosedb/flock"
-	"github.com/flower-corp/rosedb/ioselector"
-	"github.com/flower-corp/rosedb/logfile"
-	"github.com/flower-corp/rosedb/logger"
-	"github.com/flower-corp/rosedb/util"
 	"io"
 	"io/ioutil"
 	"math"
@@ -23,6 +16,14 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/flower-corp/rosedb/ds/art"
+	"github.com/flower-corp/rosedb/ds/zset"
+	"github.com/flower-corp/rosedb/flock"
+	"github.com/flower-corp/rosedb/ioselector"
+	"github.com/flower-corp/rosedb/logfile"
+	"github.com/flower-corp/rosedb/logger"
+	"github.com/flower-corp/rosedb/util"
 )
 
 var (
@@ -43,6 +44,12 @@ var (
 
 	// ErrGCRunning log file gc is running
 	ErrGCRunning = errors.New("log file gc is running, retry later")
+
+	// ErrIndexOutOfRange logical index out of range
+	ErrIndexOutOfRange = errors.New("index out of range")
+
+	// ErrIndexStartLagerThanEnd after convertion, staret index bigger than end index
+	ErrIndexStartLagerThanEnd = errors.New("start physical seq lager than end physical seq")
 )
 
 const (
