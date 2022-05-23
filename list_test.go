@@ -438,9 +438,9 @@ func TestRoseDB_LRange(t *testing.T) {
 		testRoseDBLRange(t, FileIO, KeyOnlyMemMode)
 	})
 
-	// t.Run("mmap", func(t *testing.T) {
-	// 	testRoseDBLRange(t, MMap, KeyValueMemMode)
-	// })
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBLRange(t, MMap, KeyValueMemMode)
+	})
 }
 
 func testRoseDBLRange(t *testing.T, ioType IOType, mode DataIndexMode) {
@@ -489,13 +489,11 @@ func testRoseDBLRange(t *testing.T, ioType IOType, mode DataIndexMode) {
 		},
 		{
 			"end reset to endSeq", db, args{key: listKey, start: 0, end: 8},
-			[][]byte{[]byte("negative one"), []byte("zero"), []byte("one"),
-				[]byte("two"), []byte("three")}, false,
+			[][]byte{[]byte("negative one"), []byte("zero"), []byte("one"), []byte("two"), []byte("three")}, false,
 		},
 		{
 			"start and end reset", db, args{key: listKey, start: -100, end: 100},
-			[][]byte{[]byte("negative one"), []byte("zero"), []byte("one"),
-				[]byte("two"), []byte("three")}, false,
+			[][]byte{[]byte("negative one"), []byte("zero"), []byte("one"), []byte("two"), []byte("three")}, false,
 		},
 		{
 			"start negative end postive", db, args{key: listKey, start: -4, end: 2},
@@ -529,10 +527,9 @@ func TestRoseDB_convertLogicalIndexToSeq(t *testing.T) {
 		testConvertLogicalIndexToSeq(t, FileIO, KeyOnlyMemMode)
 	})
 
-	// t.Run("mmap", func(t *testing.T) {
-	// 	testConvertLogicalIndexToSeq(t, MMap, KeyValueMemMode)
-	// })
-
+	t.Run("mmap", func(t *testing.T) {
+		testConvertLogicalIndexToSeq(t, MMap, KeyValueMemMode)
+	})
 }
 
 func testConvertLogicalIndexToSeq(t *testing.T, ioType IOType, mode DataIndexMode) {
@@ -570,7 +567,7 @@ func testConvertLogicalIndexToSeq(t *testing.T, ioType IOType, mode DataIndexMod
 		wantErr  bool
 	}{
 		{
-			"not-exist-key", db, args{key: []byte("not-exist"), index: 0}, uint32(initialListSeq), true,
+			"not-exist-key", db, args{key: []byte("not-exist"), index: 0}, uint32(initialListSeq) + 1, false,
 		},
 		{
 			"0", db, args{key: listKey, index: 0}, uint32(initialListSeq - 1), false,

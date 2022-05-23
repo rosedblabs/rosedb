@@ -2,7 +2,6 @@ package rosedb
 
 import (
 	"encoding/binary"
-	"errors"
 
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
@@ -219,6 +218,7 @@ func (db *RoseDB) LRange(key []byte, start, end int) (values [][]byte, err error
 }
 
 // convertLogicalIndexToSeq just convert logical index to physical seq
+// whether physical seq legal or not, just convert
 func (db *RoseDB) convertLogicalIndexToSeq(headSeq, tailSeq uint32, index int) (uint32, error) {
 	var seq uint32
 
