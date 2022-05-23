@@ -3,14 +3,13 @@ package rosedb
 import (
 	"bytes"
 	"fmt"
+	"github.com/flower-corp/rosedb/logger"
+	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/flower-corp/rosedb/logger"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestOpen(t *testing.T) {

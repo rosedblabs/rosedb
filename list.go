@@ -2,7 +2,6 @@ package rosedb
 
 import (
 	"encoding/binary"
-
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
