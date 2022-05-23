@@ -4,7 +4,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"path/filepath"
 	"testing"
-
 )
 
 func TestRoseDB_LPush(t *testing.T) {
