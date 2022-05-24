@@ -190,6 +190,75 @@ func testRoseDBRPop(t *testing.T, ioType IOType, mode DataIndexMode) {
 	assert.Equal(t, expected, values)
 }
 
+func TestRoseDB_LMove(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBLMove(t, FileIO, KeyOnlyMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBLMove(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBLMove(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	// none
+	srcListKey := []byte("src_list")
+	dstListKey := []byte("dst_list")
+	v, err := db.LMove(srcListKey, dstListKey, true, true)
+	assert.Nil(t, v)
+	assert.Nil(t, err)
+
+	err = db.RPush(srcListKey, GetKey(1), GetKey(2), GetKey(3), GetKey(4), GetKey(5))
+	assert.Nil(t, err)
+
+	// left-pop left-push
+	v, err = db.LMove(srcListKey, dstListKey, true, true)
+	assert.Nil(t, err)
+	assert.Equal(t, v, GetKey(1))
+	// src[2, 3, 4, 5]	dst[1]
+
+	// left-pop right-push
+	v, err = db.LMove(srcListKey, dstListKey, true, false)
+	assert.Nil(t, err)
+	assert.Equal(t, v, GetKey(2))
+	// src[3, 4, 5]		dst[1, 2]
+
+	// right-pop left-push
+	v, err = db.LMove(srcListKey, dstListKey, false, true)
+	assert.Nil(t, err)
+	assert.Equal(t, v, GetKey(5))
+	// src[3, 4]		dst[5, 1, 2]
+
+	// right-pop right-push
+	v, err = db.LMove(srcListKey, dstListKey, false, false)
+	assert.Nil(t, err)
+	assert.Equal(t, v, GetKey(4))
+	// src[3]		dst[5, 1, 2, 4]
+
+	v, err = db.LIndex(dstListKey, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, v, GetKey(5))
+
+	v, err = db.LIndex(dstListKey, 1)
+	assert.Nil(t, err)
+	assert.Equal(t, v, GetKey(1))
+
+	v, err = db.LIndex(dstListKey, 2)
+	assert.Nil(t, err)
+	assert.Equal(t, v, GetKey(2))
+
+	v, err = db.LIndex(dstListKey, 3)
+	assert.Nil(t, err)
+	assert.Equal(t, v, GetKey(4))
+}
+
 func TestRoseDB_LLen(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb")
 	opts := DefaultOptions(path)

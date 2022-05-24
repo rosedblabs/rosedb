@@ -22,6 +22,7 @@ var supportedCommands = map[string]cmdHandler{
 	"rpush": rpush,
 	"lpop":  lpop,
 	"rpop":  rpop,
+	"lmove": lmove,
 	"llen":  llen,
 
 	// hash commands
