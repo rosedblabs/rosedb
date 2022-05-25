@@ -223,7 +223,7 @@ func rpop(cli *Client, args [][]byte) (interface{}, error) {
 	return popInternal(cli.db, args, false)
 }
 
-func lmove(cli *Client, args [][]byte) (interface{}, error) {
+func lMove(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 4 {
 		return nil, newWrongNumOfArgsError("lmove")
 	}
