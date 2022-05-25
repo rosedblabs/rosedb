@@ -96,7 +96,7 @@ func (db *RoseDB) RPop(key []byte) ([]byte, error) {
 	return db.popInternal(key, false)
 }
 
-// LMove Atomically returns and removes the first/last element of the list stored at source,
+// LMove atomically returns and removes the first/last element of the list stored at source,
 // and pushes the element at the first/last element of the list stored at destination.
 func (db *RoseDB) LMove(srcKey, dstKey []byte, srcIsLeft, dstIsLeft bool) ([]byte, error) {
 	db.listIndex.mu.Lock()
