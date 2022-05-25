@@ -248,12 +248,7 @@ func lMove(cli *Client, args [][]byte) (interface{}, error) {
 		return nil, errSyntax
 	}
 
-	value, err := cli.db.LMove(srcKey, dstKey, srcIsLeft, dstIsLeft)
-	if err != nil {
-		return nil, err
-	}
-
-	return value, nil
+	return cli.db.LMove(srcKey, dstKey, srcIsLeft, dstIsLeft)
 }
 
 func popInternal(db *rosedb.RoseDB, args [][]byte, isLeft bool) (interface{}, error) {
