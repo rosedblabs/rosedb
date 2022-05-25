@@ -96,6 +96,31 @@ func (db *RoseDB) RPop(key []byte) ([]byte, error) {
 	return db.popInternal(key, false)
 }
 
+// LMove atomically returns and removes the first/last element of the list stored at source,
+// and pushes the element at the first/last element of the list stored at destination.
+func (db *RoseDB) LMove(srcKey, dstKey []byte, srcIsLeft, dstIsLeft bool) ([]byte, error) {
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	popValue, err := db.popInternal(srcKey, srcIsLeft)
+	if err != nil {
+		return nil, err
+	}
+	if popValue == nil {
+		return nil, nil
+	}
+
+	if db.listIndex.trees[string(dstKey)] == nil {
+		db.listIndex.trees[string(dstKey)] = art.NewART()
+	}
+	db.listIndex.idxTree = db.listIndex.trees[string(dstKey)]
+	if err = db.pushInternal(dstKey, popValue, dstIsLeft); err != nil {
+		return nil, err
+	}
+
+	return popValue, nil
+}
+
 // LLen returns the length of the list stored at key.
 // If key does not exist, it is interpreted as an empty list and 0 is returned.
 func (db *RoseDB) LLen(key []byte) int {
