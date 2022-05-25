@@ -67,7 +67,7 @@ func main() {
 		fmt.Printf("mset error: %v\n", err)
 	}
 
-	err = db.MSetNX([]byte("key-11"), []byte("value-11"))
+	err = db.MSetNX([]byte("key-11"), []byte("value-11"), []byte("key-22"), []byte("value-22"))
 	if err != nil {
 		fmt.Printf("msetnx error: %v\n", err)
 	}
@@ -75,11 +75,35 @@ func main() {
 	fmt.Printf("key-11: %v\n", string(val))
 	fmt.Printf("A example of missing value: %v\n", err)
 
+	// mget
+	keys := [][]byte{
+		[]byte("key-1"),
+		[]byte("not exist"),
+		[]byte("key-11"),
+	}
+	vals, err := db.MGet(keys)
+	if err != nil {
+		fmt.Printf("mget err : %v\n", err)
+	} else {
+		fmt.Printf("mget values : %v\n", vals)
+	}
+
 	// example of append
 	err = db.Delete([]byte("append"))
 	if err != nil {
 		fmt.Printf("delete data err: %v", err)
 		return
+	}
+
+	_, err = db.GetDel([]byte("not-exist"))
+	if err != nil {
+		fmt.Printf("getdel data err: %v", err)
+	}
+	gdVal, err := db.GetDel([]byte("key-22"))
+	if err != nil {
+		fmt.Printf("getdel data err: %v", err)
+	} else {
+		fmt.Println("getdel val : ", string(gdVal))
 	}
 
 	err = db.Append([]byte("append"), []byte("Rose"))

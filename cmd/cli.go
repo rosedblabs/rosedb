@@ -30,6 +30,7 @@ var supportedCommands = map[string]cmdHandler{
 	"rpush":  rPush,
 	"lpop":   lPop,
 	"rpop":   rPop,
+	"lmove":  lMove,
 	"llen":   lLen,
 	"lindex": lIndex,
 

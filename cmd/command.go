@@ -304,6 +304,34 @@ func rPop(cli *Client, args [][]byte) (interface{}, error) {
 	return popInternal(cli.db, args, false)
 }
 
+func lMove(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 4 {
+		return nil, newWrongNumOfArgsError("lmove")
+	}
+
+	srcKey, dstKey := args[0], args[1]
+	from, to := strings.ToLower(string(args[2])), strings.ToLower(string(args[3]))
+	var srcIsLeft, dstIsLeft bool
+
+	if from == "left" {
+		srcIsLeft = true
+	} else if from == "right" {
+		srcIsLeft = false
+	} else {
+		return nil, errSyntax
+	}
+
+	if to == "left" {
+		dstIsLeft = true
+	} else if to == "right" {
+		dstIsLeft = false
+	} else {
+		return nil, errSyntax
+	}
+
+	return cli.db.LMove(srcKey, dstKey, srcIsLeft, dstIsLeft)
+}
+
 func popInternal(db *rosedb.RoseDB, args [][]byte, isLeft bool) (interface{}, error) {
 	if len(args) < 1 {
 		return nil, newWrongNumOfArgsError("lpop")
