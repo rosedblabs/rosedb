@@ -11,7 +11,7 @@ type cmdHandler func(cli *Client, args [][]byte) (interface{}, error)
 var supportedCommands = map[string]cmdHandler{
 	// string commands
 	"set":    set,
-	"setex":  setEx,
+	"setex":  setEX,
 	"setnx":  setNX,
 	"mset":   mSet,
 	"msetnx": mSetNX,

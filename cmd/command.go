@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/flower-corp/rosedb"
+	"github.com/flower-corp/rosedb/util"
 	"github.com/tidwall/redcon"
 	"path/filepath"
 	"strconv"
@@ -129,14 +130,14 @@ func set(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleString(resultOK), nil
 }
 
-func setEx(cli *Client, args [][]byte) (interface{}, error) {
+func setEX(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 3 {
 		return nil, newWrongNumOfArgsError("get")
 	}
 	key, seconds, value := args[0], args[1], args[2]
 	sec, err := strconv.Atoi(string(seconds))
 	if err != nil {
-		return nil, errSyntax
+		return nil, errValueIsInvalid
 	}
 	err = cli.db.SetEX(key, value, time.Second*time.Duration(sec))
 	if err != nil {
@@ -192,9 +193,9 @@ func decrBy(cli *Client, args [][]byte) (interface{}, error) {
 		return nil, newWrongNumOfArgsError("decrby")
 	}
 	key, decrVal := args[0], args[1]
-	decrInt64Val, err := strconv.ParseInt(string(decrVal), 10, 64)
+	decrInt64Val, err := util.StrToInt64(string(decrVal))
 	if err != nil {
-		return nil, err
+		return nil, errValueIsInvalid
 	}
 	return cli.db.DecrBy(key, decrInt64Val)
 }
@@ -212,9 +213,9 @@ func incrBy(cli *Client, args [][]byte) (interface{}, error) {
 		return nil, newWrongNumOfArgsError("incrby")
 	}
 	key, incrVal := args[0], args[1]
-	incrInt64Val, err := strconv.ParseInt(string(incrVal), 10, 64)
+	incrInt64Val, err := util.StrToInt64(string(incrVal))
 	if err != nil {
-		return nil, err
+		return nil, errValueIsInvalid
 	}
 	return cli.db.IncrBy(key, incrInt64Val)
 }
@@ -380,7 +381,7 @@ func lIndex(cli *Client, args [][]byte) (interface{}, error) {
 	key, index := args[0], args[1]
 	intIndex, err := strconv.Atoi(string(index))
 	if err != nil {
-		return nil, err
+		return nil, errValueIsInvalid
 	}
 	return cli.db.LIndex(key, intIndex)
 }
@@ -549,9 +550,9 @@ func sPop(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 2 {
 		return nil, newWrongNumOfArgsError("spop")
 	}
-	count, err := strconv.ParseUint(string(args[1]), 10, 64)
+	count, err := util.StrToUint(string(args[1]))
 	if err != nil {
-		return nil, err
+		return nil, errValueIsInvalid
 	}
 	return cli.db.SPop(args[0], uint(count))
 }
@@ -610,9 +611,9 @@ func zAdd(cli *Client, args [][]byte) (interface{}, error) {
 	}
 	key := args[0]
 	for i := 1; i < len(args); i += 2 {
-		score, err := strconv.ParseFloat(string(args[i]), 64)
+		score, err := util.StrToFloat64(string(args[i]))
 		if err != nil {
-			return nil, err
+			return nil, errValueIsInvalid
 		}
 		err = cli.db.ZAdd(key, score, args[i+1])
 		if err != nil {
