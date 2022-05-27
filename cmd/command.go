@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/flower-corp/rosedb"
+	"github.com/flower-corp/rosedb/util"
 	"github.com/tidwall/redcon"
 	"path/filepath"
 	"strconv"
@@ -129,20 +130,101 @@ func set(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleString(resultOK), nil
 }
 
-func setex(cli *Client, args [][]byte) (interface{}, error) {
+func setEX(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 3 {
 		return nil, newWrongNumOfArgsError("get")
 	}
 	key, seconds, value := args[0], args[1], args[2]
 	sec, err := strconv.Atoi(string(seconds))
 	if err != nil {
-		return nil, errSyntax
+		return nil, errValueIsInvalid
 	}
 	err = cli.db.SetEX(key, value, time.Second*time.Duration(sec))
 	if err != nil {
 		return nil, err
 	}
 	return redcon.SimpleString(resultOK), nil
+}
+
+func setNX(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("setnx")
+	}
+	key, value := args[0], args[1]
+	err := cli.db.SetNX(key, value)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleString(resultOK), nil
+}
+
+func mSet(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) == 0 || len(args)%2 != 0 {
+		return nil, newWrongNumOfArgsError("mset")
+	}
+	err := cli.db.MSet(args...)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleString(resultOK), nil
+}
+
+func mSetNX(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) == 0 || len(args)%2 != 0 {
+		return nil, newWrongNumOfArgsError("msetnx")
+	}
+	err := cli.db.MSetNX(args...)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleString(resultOK), nil
+}
+
+func decr(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("decr")
+	}
+	key := args[0]
+	return cli.db.Decr(key)
+}
+
+func decrBy(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("decrby")
+	}
+	key, decrVal := args[0], args[1]
+	decrInt64Val, err := util.StrToInt64(string(decrVal))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	return cli.db.DecrBy(key, decrInt64Val)
+}
+
+func incr(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("incr")
+	}
+	key := args[0]
+	return cli.db.Incr(key)
+}
+
+func incrBy(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("incrby")
+	}
+	key, incrVal := args[0], args[1]
+	incrInt64Val, err := util.StrToInt64(string(incrVal))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	return cli.db.IncrBy(key, incrInt64Val)
+}
+
+func strLen(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("strlen")
+	}
+	return cli.db.StrLen(args[0]), nil
 }
 
 func get(cli *Client, args [][]byte) (interface{}, error) {
@@ -156,7 +238,7 @@ func get(cli *Client, args [][]byte) (interface{}, error) {
 	return value, nil
 }
 
-func mget(cli *Client, args [][]byte) (interface{}, error) {
+func mGet(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 1 {
 		return nil, newWrongNumOfArgsError("mget")
 	}
@@ -191,7 +273,7 @@ func getDel(cli *Client, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- List commands ---------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
-func lpush(cli *Client, args [][]byte) (interface{}, error) {
+func lPush(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("lpush")
 	}
@@ -203,7 +285,7 @@ func lpush(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(cli.db.LLen(key)), nil
 }
 
-func rpush(cli *Client, args [][]byte) (interface{}, error) {
+func rPush(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("rpush")
 	}
@@ -215,11 +297,11 @@ func rpush(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(cli.db.LLen(key)), nil
 }
 
-func lpop(cli *Client, args [][]byte) (interface{}, error) {
+func lPop(cli *Client, args [][]byte) (interface{}, error) {
 	return popInternal(cli.db, args, true)
 }
 
-func rpop(cli *Client, args [][]byte) (interface{}, error) {
+func rPop(cli *Client, args [][]byte) (interface{}, error) {
 	return popInternal(cli.db, args, false)
 }
 
@@ -284,7 +366,7 @@ func popInternal(db *rosedb.RoseDB, args [][]byte, isLeft bool) (interface{}, er
 	return values, nil
 }
 
-func llen(cli *Client, args [][]byte) (interface{}, error) {
+func lLen(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("llen")
 	}
@@ -292,10 +374,22 @@ func llen(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(cli.db.LLen(key)), nil
 }
 
+func lIndex(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("lindex")
+	}
+	key, index := args[0], args[1]
+	intIndex, err := strconv.Atoi(string(index))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	return cli.db.LIndex(key, intIndex)
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |--------------------------- Hash commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
-func hset(cli *Client, args [][]byte) (interface{}, error) {
+func hSet(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 || len(args)%2 == 0 {
 		return nil, newWrongNumOfArgsError("hset")
 	}
@@ -311,7 +405,23 @@ func hset(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(count), nil
 }
 
-func hget(cli *Client, args [][]byte) (interface{}, error) {
+func hSetNX(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("hsetnx")
+	}
+
+	key, field, value := args[0], args[1], args[2]
+	ok, err := cli.db.HSetNX(key, field, value)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		return redcon.SimpleInt(1), nil
+	}
+	return redcon.SimpleInt(0), nil
+}
+
+func hGet(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 2 {
 		return nil, newWrongNumOfArgsError("hget")
 	}
@@ -319,10 +429,86 @@ func hget(cli *Client, args [][]byte) (interface{}, error) {
 	return val, err
 }
 
+func hmGet(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("hmget")
+	}
+	return cli.db.HMGet(args[0], args[1:]...)
+}
+
+func hDel(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("hdel")
+	}
+	count, err := cli.db.HDel(args[0], args[1:]...)
+	return redcon.SimpleInt(count), err
+}
+
+func hExists(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("hexists")
+	}
+	ok, err := cli.db.HExists(args[0], args[1])
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		return redcon.SimpleInt(1), nil
+	}
+	return redcon.SimpleInt(0), nil
+}
+
+func hLen(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("hlen")
+	}
+	return redcon.SimpleInt(cli.db.HLen(args[0])), nil
+}
+
+func hKeys(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("hkeys")
+	}
+	return cli.db.HKeys(args[0])
+}
+
+func hVals(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("hvals")
+	}
+	return cli.db.HVals(args[0])
+}
+
+func hGetAll(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("hgetall")
+	}
+	return cli.db.HGetAll(args[0])
+}
+
+func hStrLen(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("hstrlen")
+	}
+	return redcon.SimpleInt(cli.db.HStrLen(args[0], args[1])), nil
+}
+
+func hScan(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 4 {
+		return nil, newWrongNumOfArgsError("hscan")
+	}
+	pattern := string(args[2])
+	count, err := strconv.Atoi(string(args[3]))
+	if err != nil {
+		return nil, err
+	}
+	return cli.db.HScan(args[0], args[1], pattern, count)
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
-func sadd(cli *Client, args [][]byte) (interface{}, error) {
+func sAdd(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("sadd")
 	}
@@ -341,7 +527,7 @@ func sadd(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(count), nil
 }
 
-func srem(cli *Client, args [][]byte) (interface{}, error) {
+func sRem(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("srem")
 	}
@@ -360,6 +546,123 @@ func srem(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(count), nil
 }
 
+func sPop(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("spop")
+	}
+	count, err := util.StrToUint(string(args[1]))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	return cli.db.SPop(args[0], uint(count))
+}
+
+func sIsMember(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("sismember")
+	}
+	res := make([]redcon.SimpleInt, len(args[1:]))
+	key := args[0]
+	for _, mem := range args[1:] {
+		if ok := cli.db.SIsMember(key, mem); ok {
+			res = append(res, redcon.SimpleInt(1))
+		} else {
+			res = append(res, redcon.SimpleInt(0))
+		}
+	}
+	return res, nil
+}
+
+func sMembers(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("smembers")
+	}
+	return cli.db.SMembers(args[0])
+}
+
+func sCard(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("scard")
+	}
+	return redcon.SimpleInt(cli.db.SCard(args[0])), nil
+}
+
+func sDiff(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) == 0 {
+		return nil, newWrongNumOfArgsError("sdiff")
+	}
+	return cli.db.SDiff(args...)
+}
+
+func sUnion(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) == 0 {
+		return nil, newWrongNumOfArgsError("sunion")
+	}
+	return cli.db.SUnion(args...)
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |------------------------- Sorted Set commands ------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
+
+func zAdd(cli *Client, args [][]byte) (interface{}, error) {
+	if (len(args)-1)%2 != 0 {
+		return nil, newWrongNumOfArgsError("zadd")
+	}
+	key := args[0]
+	for i := 1; i < len(args); i += 2 {
+		score, err := util.StrToFloat64(string(args[i]))
+		if err != nil {
+			return nil, errValueIsInvalid
+		}
+		err = cli.db.ZAdd(key, score, args[i+1])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return redcon.SimpleInt(len(args[1:]) / 2), nil
+}
+
+func zScore(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("zscore")
+	}
+	_, score := cli.db.ZScore(args[0], args[1])
+	return score, nil
+}
+
+func zRem(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("zrem")
+	}
+	key := args[0]
+	for _, member := range args[1:] {
+		err := cli.db.ZRem(key, member)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return redcon.SimpleInt(len(args[1:]) / 2), nil
+}
+
+func zCard(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("zcard")
+	}
+	return redcon.SimpleInt(cli.db.ZCard(args[0])), nil
+}
+
+func zRange(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("zrange")
+	}
+	start, err := strconv.Atoi(string(args[1]))
+	if err != nil {
+		return nil, err
+	}
+	stop, err := strconv.Atoi(string(args[2]))
+	if err != nil {
+		return nil, err
+	}
+	return cli.db.ZRange(args[0], start, stop)
+}
