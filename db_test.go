@@ -103,5 +103,5 @@ func GetValue(n int) []byte {
 	for i := 0; i < n; i++ {
 		str.WriteByte(alphabet[rand.Int()%36])
 	}
-	return []byte(str.String())
+	return str.Bytes()
 }

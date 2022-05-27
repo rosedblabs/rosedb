@@ -43,6 +43,12 @@ var (
 
 	// ErrGCRunning log file gc is running
 	ErrGCRunning = errors.New("log file gc is running, retry later")
+
+	// ErrIndexOutOfRange logical index out of range
+	ErrIndexOutOfRange = errors.New("index out of range")
+
+	// ErrIndexStartLagerThanEnd after convertion, start index bigger than end index
+	ErrIndexStartLagerThanEnd = errors.New("start physical seq lager than end physical seq")
 )
 
 const (
