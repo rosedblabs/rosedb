@@ -54,6 +54,15 @@ OK
 
 See [wiki](https://github.com/flower-corp/rosedb/wiki)
 
+## Community
+
+Welcome to join the [Slack channel](https://join.slack.com/t/flowercorp-slack/shared_invite/zt-19oj8ecqb-V02ycMV0BH1~Tn6tfeTz6A) and [Discussions](https://github.com/flower-corp/rosedb/discussions) to connect with RoseDB team members and other users.
+
+If you are a Chinese user, you are also welcome to join our WeChat group, scan the QR code and you will be invited:
+
+| <img src="https://i.loli.net/2021/05/06/tGTH7SXg8w95slA.jpg" width="200px" align="left"/> |
+| ------------------------------------------------------------ |
+
 ## Contributing
 
 If you are interested in contributing to rosedb, see [CONTRIBUTING](https://github.com/roseduan/rosedb/blob/main/CONTRIBUTING.md) and [how to contribute?](https://github.com/flower-corp/rosedb/issues/103)
