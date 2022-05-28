@@ -1,10 +1,14 @@
 package rosedb
 
 import (
+	"bytes"
+	"errors"
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
+	"math"
 	"regexp"
+	"strconv"
 )
 
 // HSet sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
@@ -313,4 +317,54 @@ func (db *RoseDB) HScan(key []byte, prefix []byte, pattern string, count int) ([
 		index += 2
 	}
 	return values, nil
+}
+
+// HIncrby increments the number stored at field in the hash stored at key by increment.
+// If key does not exist, a new key holding a hash is created.
+// If field does not exist the value is set to 0 before the operation is performed.
+// The range of values supported by HINCRBY is limited to 64bit signed integers.
+func (db *RoseDB) HIncrby(key, field []byte, incr int64) (int64, error) {
+	db.hashIndex.mu.Lock()
+	defer db.hashIndex.mu.Unlock()
+
+	if db.hashIndex.trees[string(key)] == nil {
+		db.hashIndex.trees[string(key)] = art.NewART()
+	}
+
+	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	val, err := db.getVal(field, Hash)
+	if err != nil && !errors.Is(err, ErrKeyNotFound) {
+		return 0, err
+	}
+	if bytes.Equal(val, nil) {
+		val = []byte("0")
+	}
+	valInt64, err := strconv.ParseInt(string(val), 10, 64)
+	if err != nil {
+		return 0, ErrWrongValueType
+	}
+
+	if (incr < 0 && valInt64 < 0 && incr < (math.MinInt64-valInt64)) ||
+		(incr > 0 && valInt64 > 0 && incr > (math.MaxInt64-valInt64)) {
+		return 0, ErrIntegerOverflow
+	}
+
+	valInt64 += incr
+	val = []byte(strconv.FormatInt(valInt64, 10))
+
+	hashKey := db.encodeKey(key, field)
+	ent := &logfile.LogEntry{Key: hashKey, Value: val}
+	valuePos, err := db.writeLogEntry(ent, Hash)
+	if err != nil {
+		return 0, err
+	}
+
+	entry := &logfile.LogEntry{Key: field, Value: val}
+	_, size := logfile.EncodeEntry(ent)
+	valuePos.entrySize = size
+	err = db.updateIndexTree(entry, valuePos, true, Hash)
+	if err != nil {
+		return 0, err
+	}
+	return valInt64, nil
 }
