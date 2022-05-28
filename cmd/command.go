@@ -505,7 +505,7 @@ func hScan(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.HScan(args[0], args[1], pattern, count)
 }
 
-func hIncrby(cli *Client, args [][]byte) (interface{}, error) {
+func hIncrBy(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 3 {
 		return nil, newWrongNumOfArgsError("hincrby")
 	}
