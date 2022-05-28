@@ -152,20 +152,9 @@ func (db *RoseDB) LIndex(key []byte, index int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	var seq uint32
-	if index >= 0 {
-		seq = headSeq + uint32(index) + 1
-		// out of range
-		if seq >= tailSeq {
-			return nil, nil
-		}
-	} else {
-		seq = tailSeq - uint32(-index)
-		// out of range
-		if seq <= headSeq {
-			return nil, nil
-		}
+	seq, err := db.listSequence(headSeq, tailSeq, index)
+	if err != nil {
+		return nil, err
 	}
 	encKey := db.encodeListKey(key, seq)
 	val, err := db.getVal(encKey, List)
@@ -173,6 +162,35 @@ func (db *RoseDB) LIndex(key []byte, index int) ([]byte, error) {
 		return nil, err
 	}
 	return val, nil
+}
+
+// LSet Sets the list element at index to element.
+func (db *RoseDB) LSet(key []byte, index int, value []byte) error {
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	if db.listIndex.trees[string(key)] == nil {
+		return ErrKeyNotFound
+	}
+	db.listIndex.idxTree = db.listIndex.trees[string(key)]
+	headSeq, tailSeq, err := db.listMeta(key)
+	if err != nil {
+		return err
+	}
+	seq, err := db.listSequence(headSeq, tailSeq, index)
+	if err != nil {
+		return err
+	}
+	encKey := db.encodeListKey(key, seq)
+	ent := &logfile.LogEntry{Key: encKey, Value: value}
+	valuePos, err := db.writeLogEntry(ent, List)
+	if err != nil {
+		return err
+	}
+	if err = db.updateIndexTree(ent, valuePos, true, List); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (db *RoseDB) encodeListKey(key []byte, seq uint32) []byte {
@@ -299,4 +317,22 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 		logger.Warn("send to discard chan fail")
 	}
 	return val, nil
+}
+
+func (db *RoseDB) listSequence(headSeq, tailSeq uint32, index int) (uint32, error) {
+	var seq uint32
+	if index >= 0 {
+		seq = headSeq + uint32(index) + 1
+		// out of range
+		if seq >= tailSeq {
+			return 0, ErrWrongIndex
+		}
+	} else {
+		seq = tailSeq - uint32(-index)
+		// out of range
+		if seq <= headSeq {
+			return 0, ErrWrongIndex
+		}
+	}
+	return seq, nil
 }
