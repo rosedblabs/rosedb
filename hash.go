@@ -6,6 +6,7 @@ import (
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
+	"github.com/flower-corp/rosedb/util"
 	"math"
 	"regexp"
 	"strconv"
@@ -339,7 +340,7 @@ func (db *RoseDB) HIncrby(key, field []byte, incr int64) (int64, error) {
 	if bytes.Equal(val, nil) {
 		val = []byte("0")
 	}
-	valInt64, err := strconv.ParseInt(string(val), 10, 64)
+	valInt64, err := util.StrToInt64(string(val))
 	if err != nil {
 		return 0, ErrWrongValueType
 	}
