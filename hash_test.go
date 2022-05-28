@@ -649,7 +649,7 @@ func TestRoseDB_HScan(t *testing.T) {
 	assert.Equal(t, 8, len(values))
 }
 
-func TestRoseDB_HIncrby(t *testing.T) {
+func TestRoseDB_HIncrBy(t *testing.T) {
 	cases := []struct {
 		IOType
 		DataIndexMode
