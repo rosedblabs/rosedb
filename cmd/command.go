@@ -514,7 +514,7 @@ func hIncrBy(cli *Client, args [][]byte) (interface{}, error) {
 	if err != nil {
 		return nil, errValueIsInvalid
 	}
-	return cli.db.HIncrby(key, field, incrInt64Val)
+	return cli.db.HIncrBy(key, field, incrInt64Val)
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+

@@ -668,7 +668,7 @@ func TestRoseDB_HIncrBy(t *testing.T) {
 		// both key and field do not exist
 		hashKey := []byte("my_hash")
 		field1 := []byte("field1")
-		valInt64, err := db.HIncrby(hashKey, field1, 1)
+		valInt64, err := db.HIncrBy(hashKey, field1, 1)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(1), valInt64)
 		valByte, err := db.HGet(hashKey, field1)
@@ -677,7 +677,7 @@ func TestRoseDB_HIncrBy(t *testing.T) {
 
 		// field does not exist
 		field2 := []byte("field2")
-		valInt64, err = db.HIncrby(hashKey, field2, 2)
+		valInt64, err = db.HIncrBy(hashKey, field2, 2)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(2), valInt64)
 		valByte, err = db.HGet(hashKey, field2)
@@ -685,7 +685,7 @@ func TestRoseDB_HIncrBy(t *testing.T) {
 		assert.Equal(t, []byte("2"), valByte)
 
 		// increment(1 + 2)
-		valInt64, err = db.HIncrby(hashKey, field1, 2)
+		valInt64, err = db.HIncrBy(hashKey, field1, 2)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(3), valInt64)
 		valByte, err = db.HGet(hashKey, field1)
@@ -693,7 +693,7 @@ func TestRoseDB_HIncrBy(t *testing.T) {
 		assert.Equal(t, []byte("3"), valByte)
 
 		// negative incr(3 - 4)
-		valInt64, err = db.HIncrby(hashKey, field1, -4)
+		valInt64, err = db.HIncrBy(hashKey, field1, -4)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(-1), valInt64)
 		valByte, err = db.HGet(hashKey, field1)
@@ -701,18 +701,18 @@ func TestRoseDB_HIncrBy(t *testing.T) {
 		assert.Equal(t, []byte("-1"), valByte)
 
 		// overflow value-min(-1 + math.MinInt64)
-		_, err = db.HIncrby(hashKey, field1, math.MinInt64)
+		_, err = db.HIncrBy(hashKey, field1, math.MinInt64)
 		assert.Equal(t, ErrIntegerOverflow, err)
 
 		// overflow value-max(2 + math.MaxInt64)
-		_, err = db.HIncrby(hashKey, field2, math.MaxInt64)
+		_, err = db.HIncrBy(hashKey, field2, math.MaxInt64)
 		assert.Equal(t, ErrIntegerOverflow, err)
 
 		// wrong value type
 		wrongField := []byte("wrong_field")
 		err = db.HSet(hashKey, wrongField, []byte("wrong_val"))
 		assert.Nil(t, err)
-		_, err = db.HIncrby(hashKey, wrongField, 1)
+		_, err = db.HIncrBy(hashKey, wrongField, 1)
 		assert.Equal(t, ErrWrongValueType, err)
 	}
 
