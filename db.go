@@ -44,8 +44,8 @@ var (
 	// ErrWrongIndex index is out of range
 	ErrWrongIndex = errors.New("index is out of range")
 
-	// ErrIndexStartLagerThanEnd start index lager than end index after conversion
-	ErrIndexStartLagerThanEnd = errors.New("start physical seq lager than end physical seq")
+	// ErrIndexStartLargerThanEnd start index larger than end index after conversion
+	ErrIndexStartLargerThanEnd = errors.New("start physical seq larger than end physical seq")
 
 	// ErrGCRunning log file gc is running
 	ErrGCRunning = errors.New("log file gc is running, retry later")

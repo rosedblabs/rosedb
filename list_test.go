@@ -718,7 +718,7 @@ func testRoseDBLRange(t *testing.T, ioType IOType, mode DataIndexMode) {
 			"end out of range", db, args{key: listKey, start: 1, end: -8}, [][]byte(nil), true,
 		},
 		{
-			"end lager than start", db, args{key: listKey, start: -1, end: 1}, [][]byte(nil), true,
+			"end larger than start", db, args{key: listKey, start: -1, end: 1}, [][]byte(nil), true,
 		},
 	}
 
