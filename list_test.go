@@ -564,3 +564,82 @@ func testRoseDBLSet(t *testing.T, ioType IOType, mode DataIndexMode) {
 	err = db.LSet(listKey, -2, GetKey(111))
 	assert.Equal(t, err, ErrWrongIndex)
 }
+
+
+func TestRoseDB_listSequence(t *testing.T) {
+
+	t.Run("fileio", func(t *testing.T) {
+		testListSequence(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testListSequence(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testListSequence(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	listKey := []byte("my_list")
+	// prepare List
+	err = db.LPush(listKey, []byte("zero"))
+	assert.Nil(t, err)
+	err = db.LPush(listKey, []byte("negative one"))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, []byte("one"))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, []byte("two"))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, []byte("three"))
+	assert.Nil(t, err)
+
+	type args struct {
+		key   []byte
+		index int
+	}
+
+	tests := []struct {
+		name     string
+		db       *RoseDB
+		args     args
+		expected uint32
+		wantErr  bool
+	}{
+		{
+			"not-exist-key", db, args{key: []byte("not-exist"), index: 0}, uint32(initialListSeq) + 1, false,
+		},
+		{
+			"0", db, args{key: listKey, index: 0}, uint32(initialListSeq - 1), false,
+		},
+		{
+			"negative-1", db, args{key: listKey, index: -3}, uint32(initialListSeq + 1), false,
+		},
+		{
+			"negative-2", db, args{key: listKey, index: -4}, uint32(initialListSeq), false,
+		},
+		{
+			"postive-1", db, args{key: listKey, index: 1}, uint32(initialListSeq), false,
+		},
+		{
+			"postive-2", db, args{key: listKey, index: 3}, uint32(initialListSeq + 2), false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			start, end, err := db.listMeta(tt.args.key)
+			assert.Nil(t, err)
+			actual, err := tt.db.listSequence(start, end, tt.args.index)
+			assert.Equal(t, tt.expected, actual, "expected is not the same with actual")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("convertLogicalIndexToSeq() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

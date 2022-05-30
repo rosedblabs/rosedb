@@ -181,6 +181,11 @@ func (db *RoseDB) LSet(key []byte, index int, value []byte) error {
 	if err != nil {
 		return err
 	}
+
+	if seq >= tailSeq || seq <= headSeq {
+		return ErrWrongIndex
+	}
+	
 	encKey := db.encodeListKey(key, seq)
 	ent := &logfile.LogEntry{Key: encKey, Value: value}
 	valuePos, err := db.writeLogEntry(ent, List)
@@ -321,18 +326,11 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 
 func (db *RoseDB) listSequence(headSeq, tailSeq uint32, index int) (uint32, error) {
 	var seq uint32
+
 	if index >= 0 {
 		seq = headSeq + uint32(index) + 1
-		// out of range
-		if seq >= tailSeq {
-			return 0, ErrWrongIndex
-		}
 	} else {
 		seq = tailSeq - uint32(-index)
-		// out of range
-		if seq <= headSeq {
-			return 0, ErrWrongIndex
-		}
 	}
 	return seq, nil
 }
