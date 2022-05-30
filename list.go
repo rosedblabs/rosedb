@@ -198,6 +198,71 @@ func (db *RoseDB) LSet(key []byte, index int, value []byte) error {
 	return nil
 }
 
+// LRange returns the specified elements of the list stored at key.
+// The offsets start and stop are zero-based indexes, with 0 being the first element
+// of the list (the head of the list), 1 being the next element and so on.
+// These offsets can also be negative numbers indicating offsets starting at the end of the list.
+// For example, -1 is the last element of the list, -2 the penultimate, and so on.
+// If start is larger than the end of the list, an empty list is returned.
+// If stop is larger than the actual end of the list, Redis will treat it like the last element of the list.
+func (db *RoseDB) LRange(key []byte, start, end int) (values [][]byte, err error) {
+	db.listIndex.mu.RLock()
+	defer db.listIndex.mu.RUnlock()
+
+	if db.listIndex.trees[string(key)] == nil {
+		return nil, ErrKeyNotFound
+	}
+
+	db.listIndex.idxTree = db.listIndex.trees[string(key)]
+	// get List DataType meta info
+	headSeq, tailSeq, err := db.listMeta(key)
+	if err != nil {
+		return nil, err
+	}
+
+	var startSeq, endSeq uint32
+
+	// logical address to physical address
+	startSeq, err = db.listSequence(headSeq, tailSeq, start)
+	if err != nil {
+		return nil, err
+	}
+	endSeq, err = db.listSequence(headSeq, tailSeq, end)
+	if err != nil {
+		return nil, err
+	}
+	// normalize startSeq
+	if startSeq <= headSeq {
+		startSeq = headSeq + 1
+	}
+	if startSeq >= tailSeq {
+		return nil, ErrWrongIndex
+	}
+	// normalize endSeq
+	if endSeq >= tailSeq {
+		endSeq = tailSeq - 1
+	}
+	if endSeq <= headSeq {
+		return nil, ErrWrongIndex
+	}
+
+	if startSeq > endSeq {
+		return nil, ErrIndexStartLagerThanEnd
+	}
+
+	// the endSeq value is included
+	for seq := startSeq; seq < endSeq+1; seq++ {
+		encKey := db.encodeListKey(key, seq)
+		val, err := db.getVal(encKey, List)
+
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, val)
+	}
+	return values, nil
+}
+
 func (db *RoseDB) encodeListKey(key []byte, seq uint32) []byte {
 	buf := make([]byte, len(key)+4)
 	binary.LittleEndian.PutUint32(buf[:4], seq)
@@ -324,6 +389,8 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 	return val, nil
 }
 
+// listSequence just convert logical index to physical seq.
+// whether physical seq is legal or not, just convert it
 func (db *RoseDB) listSequence(headSeq, tailSeq uint32, index int) (uint32, error) {
 	var seq uint32
 
