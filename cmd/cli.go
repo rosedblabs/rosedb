@@ -1,9 +1,10 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/flower-corp/rosedb"
 	"github.com/tidwall/redcon"
-	"strings"
 )
 
 type cmdHandler func(cli *Client, args [][]byte) (interface{}, error)
@@ -33,6 +34,8 @@ var supportedCommands = map[string]cmdHandler{
 	"lmove":  lMove,
 	"llen":   lLen,
 	"lindex": lIndex,
+	"lset":   lSet,
+	"lrange": lRange,
 
 	// hash commands
 	"hset":    hSet,
