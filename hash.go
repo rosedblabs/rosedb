@@ -323,7 +323,7 @@ func (db *RoseDB) HScan(key []byte, prefix []byte, pattern string, count int) ([
 // HIncrBy increments the number stored at field in the hash stored at key by increment.
 // If key does not exist, a new key holding a hash is created. If field does not exist
 // the value is set to 0 before the operation is performed. The range of values supported
-//  by HINCRBY is limited to 64bit signed integers.
+// by HINCRBY is limited to 64bit signed integers.
 func (db *RoseDB) HIncrBy(key, field []byte, incr int64) (int64, error) {
 	db.hashIndex.mu.Lock()
 	defer db.hashIndex.mu.Unlock()
