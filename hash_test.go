@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"math"
 	"path/filepath"
 	"testing"
 
@@ -646,4 +647,80 @@ func TestRoseDB_HScan(t *testing.T) {
 	values, err := db.HScan(setKey, []byte("kv"), "", 100)
 	assert.Nil(t, err)
 	assert.Equal(t, 8, len(values))
+}
+
+func TestRoseDB_HIncrBy(t *testing.T) {
+	cases := []struct {
+		IOType
+		DataIndexMode
+	}{
+		{FileIO, KeyValueMemMode},
+		{FileIO, KeyOnlyMemMode},
+		{MMap, KeyValueMemMode},
+		{MMap, KeyOnlyMemMode},
+	}
+
+	oneRun := func(t *testing.T, opts Options) {
+		db, err := Open(opts)
+		assert.Nil(t, err)
+		defer destroyDB(db)
+
+		// both key and field do not exist
+		hashKey := []byte("my_hash")
+		field1 := []byte("field1")
+		valInt64, err := db.HIncrBy(hashKey, field1, 1)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), valInt64)
+		valByte, err := db.HGet(hashKey, field1)
+		assert.Nil(t, err)
+		assert.Equal(t, []byte("1"), valByte)
+
+		// field does not exist
+		field2 := []byte("field2")
+		valInt64, err = db.HIncrBy(hashKey, field2, 2)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(2), valInt64)
+		valByte, err = db.HGet(hashKey, field2)
+		assert.Nil(t, err)
+		assert.Equal(t, []byte("2"), valByte)
+
+		// increment(1 + 2)
+		valInt64, err = db.HIncrBy(hashKey, field1, 2)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(3), valInt64)
+		valByte, err = db.HGet(hashKey, field1)
+		assert.Nil(t, err)
+		assert.Equal(t, []byte("3"), valByte)
+
+		// negative incr(3 - 4)
+		valInt64, err = db.HIncrBy(hashKey, field1, -4)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(-1), valInt64)
+		valByte, err = db.HGet(hashKey, field1)
+		assert.Nil(t, err)
+		assert.Equal(t, []byte("-1"), valByte)
+
+		// overflow value-min(-1 + math.MinInt64)
+		_, err = db.HIncrBy(hashKey, field1, math.MinInt64)
+		assert.Equal(t, ErrIntegerOverflow, err)
+
+		// overflow value-max(2 + math.MaxInt64)
+		_, err = db.HIncrBy(hashKey, field2, math.MaxInt64)
+		assert.Equal(t, ErrIntegerOverflow, err)
+
+		// wrong value type
+		wrongField := []byte("wrong_field")
+		err = db.HSet(hashKey, wrongField, []byte("wrong_val"))
+		assert.Nil(t, err)
+		_, err = db.HIncrBy(hashKey, wrongField, 1)
+		assert.Equal(t, ErrWrongValueType, err)
+	}
+
+	for _, c := range cases {
+		path := filepath.Join("/tmp", "rosedb")
+		opts := DefaultOptions(path)
+		opts.IoType = c.IOType
+		opts.IndexMode = c.DataIndexMode
+		oneRun(t, opts)
+	}
 }
