@@ -17,7 +17,7 @@ func (db *RoseDB) SAdd(key []byte, members ...[]byte) error {
 	if db.setIndex.trees[string(key)] == nil {
 		db.setIndex.trees[string(key)] = art.NewART()
 	}
-	db.setIndex.idxTree = db.setIndex.trees[string(key)]
+	idxTree := db.setIndex.trees[string(key)]
 	for _, mem := range members {
 		if len(mem) == 0 {
 			continue
@@ -36,7 +36,7 @@ func (db *RoseDB) SAdd(key []byte, members ...[]byte) error {
 		entry := &logfile.LogEntry{Key: sum, Value: mem}
 		_, size := logfile.EncodeEntry(ent)
 		valuePos.entrySize = size
-		if err := db.updateIndexTree(entry, valuePos, true, Set); err != nil {
+		if err := db.updateIndexTree(idxTree, entry, valuePos, true, Set); err != nil {
 			return err
 		}
 	}
@@ -50,17 +50,17 @@ func (db *RoseDB) SPop(key []byte, count uint) ([][]byte, error) {
 	if db.setIndex.trees[string(key)] == nil {
 		return nil, nil
 	}
-	db.setIndex.idxTree = db.setIndex.trees[string(key)]
+	idxTree := db.setIndex.trees[string(key)]
 
 	var values [][]byte
-	iter := db.setIndex.idxTree.Iterator()
+	iter := idxTree.Iterator()
 	for iter.HasNext() && count > 0 {
 		count--
 		node, _ := iter.Next()
 		if node == nil {
 			continue
 		}
-		val, err := db.getVal(node.Key(), Set)
+		val, err := db.getVal(idxTree, node.Key(), Set)
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +84,6 @@ func (db *RoseDB) SRem(key []byte, members ...[]byte) error {
 	if db.setIndex.trees[string(key)] == nil {
 		return nil
 	}
-	db.setIndex.idxTree = db.setIndex.trees[string(key)]
 	for _, mem := range members {
 		if err := db.sremInternal(key, mem); err != nil {
 			return err
@@ -101,13 +100,13 @@ func (db *RoseDB) SIsMember(key, member []byte) bool {
 	if db.setIndex.trees[string(key)] == nil {
 		return false
 	}
-	db.setIndex.idxTree = db.setIndex.trees[string(key)]
+	idxTree := db.setIndex.trees[string(key)]
 	if err := db.setIndex.murhash.Write(member); err != nil {
 		return false
 	}
 	sum := db.setIndex.murhash.EncodeSum128()
 	db.setIndex.murhash.Reset()
-	node := db.setIndex.idxTree.Get(sum)
+	node := idxTree.Get(sum)
 	return node != nil
 }
 
@@ -202,14 +201,14 @@ func (db *RoseDB) SUnion(keys ...[]byte) ([][]byte, error) {
 }
 
 func (db *RoseDB) sremInternal(key []byte, member []byte) error {
-	db.setIndex.idxTree = db.setIndex.trees[string(key)]
+	idxTree := db.setIndex.trees[string(key)]
 	if err := db.setIndex.murhash.Write(member); err != nil {
 		return err
 	}
 	sum := db.setIndex.murhash.EncodeSum128()
 	db.setIndex.murhash.Reset()
 
-	val, updated := db.setIndex.idxTree.Delete(sum)
+	val, updated := idxTree.Delete(sum)
 	if !updated {
 		return nil
 	}
@@ -238,14 +237,14 @@ func (db *RoseDB) sMembers(key []byte) ([][]byte, error) {
 	}
 
 	var values [][]byte
-	db.setIndex.idxTree = db.setIndex.trees[string(key)]
-	iterator := db.setIndex.idxTree.Iterator()
+	idxTree := db.setIndex.trees[string(key)]
+	iterator := idxTree.Iterator()
 	for iterator.HasNext() {
 		node, _ := iterator.Next()
 		if node == nil {
 			continue
 		}
-		val, err := db.getVal(node.Key(), Set)
+		val, err := db.getVal(idxTree, node.Key(), Set)
 		if err != nil {
 			return nil, err
 		}

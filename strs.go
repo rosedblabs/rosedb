@@ -25,7 +25,7 @@ func (db *RoseDB) Set(key, value []byte) error {
 		return err
 	}
 	// set String index info, stored at adaptive radix tree.
-	err = db.updateIndexTree(entry, valuePos, true, String)
+	err = db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
 	return err
 }
 
@@ -34,7 +34,7 @@ func (db *RoseDB) Set(key, value []byte) error {
 func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	db.strIndex.mu.RLock()
 	defer db.strIndex.mu.RUnlock()
-	return db.getVal(key, String)
+	return db.getVal(db.strIndex.idxTree, key, String)
 }
 
 // MGet get the values of all specified keys.
@@ -48,7 +48,7 @@ func (db *RoseDB) MGet(keys [][]byte) ([][]byte, error) {
 	}
 	values := make([][]byte, len(keys))
 	for i, key := range keys {
-		val, err := db.getVal(key, String)
+		val, err := db.getVal(db.strIndex.idxTree, key, String)
 		if err != nil && !errors.Is(ErrKeyNotFound, err) {
 			return nil, err
 		}
@@ -63,7 +63,7 @@ func (db *RoseDB) GetDel(key []byte) ([]byte, error) {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	val, err := db.getVal(key, String)
+	val, err := db.getVal(db.strIndex.idxTree, key, String)
 	if err != nil && err != ErrKeyNotFound {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (db *RoseDB) SetEX(key, value []byte, duration time.Duration) error {
 		return err
 	}
 
-	err = db.updateIndexTree(entry, valuePos, true, String)
+	err = db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
 	return err
 }
 
@@ -133,7 +133,7 @@ func (db *RoseDB) SetNX(key, value []byte) error {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	val, err := db.getVal(key, String)
+	val, err := db.getVal(db.strIndex.idxTree, key, String)
 	if err != nil && !errors.Is(err, ErrKeyNotFound) {
 		return err
 	}
@@ -148,7 +148,7 @@ func (db *RoseDB) SetNX(key, value []byte) error {
 		return err
 	}
 
-	return db.updateIndexTree(entry, valuePos, true, String)
+	return db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
 }
 
 // MSet is multiple set command. Parameter order should be like "key", "value", "key", "value", ...
@@ -168,7 +168,7 @@ func (db *RoseDB) MSet(args ...[]byte) error {
 		if err != nil {
 			return err
 		}
-		err = db.updateIndexTree(entry, valuePos, true, String)
+		err = db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
 		if err != nil {
 			return err
 		}
@@ -189,7 +189,7 @@ func (db *RoseDB) MSetNX(args ...[]byte) error {
 	// Firstly, check each keys whether they are exists.
 	for i := 0; i < len(args); i += 2 {
 		key := args[i]
-		val, err := db.getVal(key, String)
+		val, err := db.getVal(db.strIndex.idxTree, key, String)
 		if err != nil && !errors.Is(err, ErrKeyNotFound) {
 			return err
 		}
@@ -214,7 +214,7 @@ func (db *RoseDB) MSetNX(args ...[]byte) error {
 		if err != nil {
 			return err
 		}
-		err = db.updateIndexTree(entry, valPos, true, String)
+		err = db.updateIndexTree(db.strIndex.idxTree, entry, valPos, true, String)
 		if err != nil {
 			return err
 		}
@@ -229,7 +229,7 @@ func (db *RoseDB) Append(key, value []byte) error {
 	db.strIndex.mu.Lock()
 	defer db.strIndex.mu.Unlock()
 
-	oldVal, err := db.getVal(key, String)
+	oldVal, err := db.getVal(db.strIndex.idxTree, key, String)
 	if err != nil && !errors.Is(err, ErrKeyNotFound) {
 		return err
 	}
@@ -244,7 +244,7 @@ func (db *RoseDB) Append(key, value []byte) error {
 	if err != nil {
 		return err
 	}
-	err = db.updateIndexTree(entry, valuePos, true, String)
+	err = db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
 	return err
 }
 
@@ -290,7 +290,7 @@ func (db *RoseDB) IncrBy(key []byte, incr int64) (int64, error) {
 
 // incrDecrBy is a helper method for Incr, IncrBy, Decr, and DecrBy methods. It updates the key by incr.
 func (db *RoseDB) incrDecrBy(key []byte, incr int64) (int64, error) {
-	val, err := db.getVal(key, String)
+	val, err := db.getVal(db.strIndex.idxTree, key, String)
 	if err != nil && !errors.Is(err, ErrKeyNotFound) {
 		return 0, err
 	}
@@ -314,7 +314,7 @@ func (db *RoseDB) incrDecrBy(key []byte, incr int64) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	err = db.updateIndexTree(entry, valuePos, true, String)
+	err = db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
 	if err != nil {
 		return 0, err
 	}
@@ -327,7 +327,7 @@ func (db *RoseDB) StrLen(key []byte) int {
 	db.strIndex.mu.RLock()
 	defer db.strIndex.mu.RUnlock()
 
-	val, err := db.getVal(key, String)
+	val, err := db.getVal(db.strIndex.idxTree, key, String)
 	if err != nil {
 		return 0
 	}

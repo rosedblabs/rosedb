@@ -16,7 +16,6 @@ func (db *RoseDB) LPush(key []byte, values ...[]byte) error {
 	if db.listIndex.trees[string(key)] == nil {
 		db.listIndex.trees[string(key)] = art.NewART()
 	}
-	db.listIndex.idxTree = db.listIndex.trees[string(key)]
 	for _, val := range values {
 		if err := db.pushInternal(key, val, true); err != nil {
 			return err
@@ -36,7 +35,6 @@ func (db *RoseDB) LPushX(key []byte, values ...[]byte) error {
 		return ErrKeyNotFound
 	}
 
-	db.listIndex.idxTree = db.listIndex.trees[string(key)]
 	for _, val := range values {
 		if err := db.pushInternal(key, val, true); err != nil {
 			return err
@@ -54,7 +52,6 @@ func (db *RoseDB) RPush(key []byte, values ...[]byte) error {
 	if db.listIndex.trees[string(key)] == nil {
 		db.listIndex.trees[string(key)] = art.NewART()
 	}
-	db.listIndex.idxTree = db.listIndex.trees[string(key)]
 	for _, val := range values {
 		if err := db.pushInternal(key, val, false); err != nil {
 			return err
@@ -73,7 +70,6 @@ func (db *RoseDB) RPushX(key []byte, values ...[]byte) error {
 	if db.listIndex.trees[string(key)] == nil {
 		return ErrKeyNotFound
 	}
-	db.listIndex.idxTree = db.listIndex.trees[string(key)]
 	for _, val := range values {
 		if err := db.pushInternal(key, val, false); err != nil {
 			return err
@@ -113,7 +109,6 @@ func (db *RoseDB) LMove(srcKey, dstKey []byte, srcIsLeft, dstIsLeft bool) ([]byt
 	if db.listIndex.trees[string(dstKey)] == nil {
 		db.listIndex.trees[string(dstKey)] = art.NewART()
 	}
-	db.listIndex.idxTree = db.listIndex.trees[string(dstKey)]
 	if err = db.pushInternal(dstKey, popValue, dstIsLeft); err != nil {
 		return nil, err
 	}
@@ -130,8 +125,8 @@ func (db *RoseDB) LLen(key []byte) int {
 	if db.listIndex.trees[string(key)] == nil {
 		return 0
 	}
-	db.listIndex.idxTree = db.listIndex.trees[string(key)]
-	headSeq, tailSeq, err := db.listMeta(key)
+	idxTree := db.listIndex.trees[string(key)]
+	headSeq, tailSeq, err := db.listMeta(idxTree, key)
 	if err != nil {
 		return 0
 	}
@@ -147,17 +142,19 @@ func (db *RoseDB) LIndex(key []byte, index int) ([]byte, error) {
 	if db.listIndex.trees[string(key)] == nil {
 		return nil, nil
 	}
-	db.listIndex.idxTree = db.listIndex.trees[string(key)]
-	headSeq, tailSeq, err := db.listMeta(key)
+	idxTree := db.listIndex.trees[string(key)]
+	headSeq, tailSeq, err := db.listMeta(idxTree, key)
 	if err != nil {
 		return nil, err
 	}
+
 	seq, err := db.listSequence(headSeq, tailSeq, index)
 	if err != nil {
 		return nil, err
 	}
+
 	encKey := db.encodeListKey(key, seq)
-	val, err := db.getVal(encKey, List)
+	val, err := db.getVal(idxTree, encKey, List)
 	if err != nil {
 		return nil, err
 	}
@@ -172,11 +169,12 @@ func (db *RoseDB) LSet(key []byte, index int, value []byte) error {
 	if db.listIndex.trees[string(key)] == nil {
 		return ErrKeyNotFound
 	}
-	db.listIndex.idxTree = db.listIndex.trees[string(key)]
-	headSeq, tailSeq, err := db.listMeta(key)
+	idxTree := db.listIndex.trees[string(key)]
+	headSeq, tailSeq, err := db.listMeta(idxTree, key)
 	if err != nil {
 		return err
 	}
+
 	seq, err := db.listSequence(headSeq, tailSeq, index)
 	if err != nil {
 		return err
@@ -187,7 +185,7 @@ func (db *RoseDB) LSet(key []byte, index int, value []byte) error {
 	if err != nil {
 		return err
 	}
-	if err = db.updateIndexTree(ent, valuePos, true, List); err != nil {
+	if err = db.updateIndexTree(idxTree, ent, valuePos, true, List); err != nil {
 		return err
 	}
 	return nil
@@ -207,8 +205,8 @@ func (db *RoseDB) decodeListKey(buf []byte) ([]byte, uint32) {
 	return key, seq
 }
 
-func (db *RoseDB) listMeta(key []byte) (uint32, uint32, error) {
-	val, err := db.getVal(key, List)
+func (db *RoseDB) listMeta(idxTree *art.AdaptiveRadixTree, key []byte) (uint32, uint32, error) {
+	val, err := db.getVal(idxTree, key, List)
 	if err != nil && err != ErrKeyNotFound {
 		return 0, 0, err
 	}
@@ -222,7 +220,7 @@ func (db *RoseDB) listMeta(key []byte) (uint32, uint32, error) {
 	return headSeq, tailSeq, nil
 }
 
-func (db *RoseDB) saveListMeta(key []byte, headSeq, tailSeq uint32) error {
+func (db *RoseDB) saveListMeta(idxTree *art.AdaptiveRadixTree, key []byte, headSeq, tailSeq uint32) error {
 	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint32(buf[:4], headSeq)
 	binary.LittleEndian.PutUint32(buf[4:8], tailSeq)
@@ -231,12 +229,13 @@ func (db *RoseDB) saveListMeta(key []byte, headSeq, tailSeq uint32) error {
 	if err != nil {
 		return err
 	}
-	err = db.updateIndexTree(ent, pos, true, List)
+	err = db.updateIndexTree(idxTree, ent, pos, true, List)
 	return err
 }
 
 func (db *RoseDB) pushInternal(key []byte, val []byte, isLeft bool) error {
-	headSeq, tailSeq, err := db.listMeta(key)
+	idxTree := db.listIndex.trees[string(key)]
+	headSeq, tailSeq, err := db.listMeta(idxTree, key)
 	if err != nil {
 		return err
 	}
@@ -250,7 +249,8 @@ func (db *RoseDB) pushInternal(key []byte, val []byte, isLeft bool) error {
 	if err != nil {
 		return err
 	}
-	if err = db.updateIndexTree(ent, valuePos, true, List); err != nil {
+
+	if err = db.updateIndexTree(idxTree, ent, valuePos, true, List); err != nil {
 		return err
 	}
 
@@ -259,7 +259,7 @@ func (db *RoseDB) pushInternal(key []byte, val []byte, isLeft bool) error {
 	} else {
 		tailSeq++
 	}
-	err = db.saveListMeta(key, headSeq, tailSeq)
+	err = db.saveListMeta(idxTree, key, headSeq, tailSeq)
 	return err
 }
 
@@ -267,8 +267,8 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 	if db.listIndex.trees[string(key)] == nil {
 		return nil, nil
 	}
-	db.listIndex.idxTree = db.listIndex.trees[string(key)]
-	headSeq, tailSeq, err := db.listMeta(key)
+	idxTree := db.listIndex.trees[string(key)]
+	headSeq, tailSeq, err := db.listMeta(idxTree, key)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +278,7 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 		if headSeq != initialListSeq || tailSeq != initialListSeq+1 {
 			headSeq = initialListSeq
 			tailSeq = initialListSeq + 1
-			_ = db.saveListMeta(key, headSeq, tailSeq)
+			_ = db.saveListMeta(idxTree, key, headSeq, tailSeq)
 		}
 		return nil, nil
 	}
@@ -288,7 +288,7 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 		seq = tailSeq - 1
 	}
 	encKey := db.encodeListKey(key, seq)
-	val, err := db.getVal(encKey, List)
+	val, err := db.getVal(idxTree, encKey, List)
 	if err != nil {
 		return nil, err
 	}
@@ -298,13 +298,13 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	oldVal, updated := db.listIndex.idxTree.Delete(encKey)
+	oldVal, updated := idxTree.Delete(encKey)
 	if isLeft {
 		headSeq++
 	} else {
 		tailSeq--
 	}
-	if err = db.saveListMeta(key, headSeq, tailSeq); err != nil {
+	if err = db.saveListMeta(idxTree, key, headSeq, tailSeq); err != nil {
 		return nil, err
 	}
 	// send discard

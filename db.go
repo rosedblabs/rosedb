@@ -98,22 +98,19 @@ type (
 	}
 
 	listIndex struct {
-		mu      *sync.RWMutex
-		trees   map[string]*art.AdaptiveRadixTree
-		idxTree *art.AdaptiveRadixTree
+		mu    *sync.RWMutex
+		trees map[string]*art.AdaptiveRadixTree
 	}
 
 	hashIndex struct {
-		mu      *sync.RWMutex
-		trees   map[string]*art.AdaptiveRadixTree
-		idxTree *art.AdaptiveRadixTree
+		mu    *sync.RWMutex
+		trees map[string]*art.AdaptiveRadixTree
 	}
 
 	setIndex struct {
 		mu      *sync.RWMutex
 		murhash *util.Murmur128
 		trees   map[string]*art.AdaptiveRadixTree
-		idxTree *art.AdaptiveRadixTree
 	}
 
 	zsetIndex struct {
@@ -121,7 +118,6 @@ type (
 		indexes *zset.SortedSet
 		murhash *util.Murmur128
 		trees   map[string]*art.AdaptiveRadixTree
-		idxTree *art.AdaptiveRadixTree
 	}
 )
 
@@ -139,7 +135,6 @@ func newHashIdx() *hashIndex {
 
 func newSetIdx() *setIndex {
 	return &setIndex{
-		idxTree: art.NewART(),
 		murhash: util.NewMurmur128(),
 		trees:   make(map[string]*art.AdaptiveRadixTree),
 		mu:      new(sync.RWMutex),
@@ -512,7 +507,7 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 				return err
 			}
 			// update index
-			if err = db.updateIndexTree(ent, valuePos, false, String); err != nil {
+			if err = db.updateIndexTree(db.strIndex.idxTree, ent, valuePos, false, String); err != nil {
 				return err
 			}
 		}
@@ -529,8 +524,8 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 		if db.listIndex.trees[string(listKey)] == nil {
 			return nil
 		}
-		db.listIndex.idxTree = db.listIndex.trees[string(listKey)]
-		indexVal := db.listIndex.idxTree.Get(listKey)
+		idxTree := db.listIndex.trees[string(listKey)]
+		indexVal := idxTree.Get(listKey)
 		if indexVal == nil {
 			return nil
 		}
@@ -541,7 +536,7 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 			if err != nil {
 				return err
 			}
-			if err = db.updateIndexTree(ent, valuePos, false, List); err != nil {
+			if err = db.updateIndexTree(idxTree, ent, valuePos, false, List); err != nil {
 				return err
 			}
 		}
@@ -555,8 +550,8 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 		if db.hashIndex.trees[string(key)] == nil {
 			return nil
 		}
-		db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
-		indexVal := db.hashIndex.idxTree.Get(field)
+		idxTree := db.hashIndex.trees[string(key)]
+		indexVal := idxTree.Get(field)
 		if indexVal == nil {
 			return nil
 		}
@@ -572,7 +567,7 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 			entry := &logfile.LogEntry{Key: field, Value: ent.Value}
 			_, size := logfile.EncodeEntry(ent)
 			valuePos.entrySize = size
-			if err = db.updateIndexTree(entry, valuePos, false, Hash); err != nil {
+			if err = db.updateIndexTree(idxTree, entry, valuePos, false, Hash); err != nil {
 				return err
 			}
 		}
@@ -585,14 +580,14 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 		if db.setIndex.trees[string(ent.Key)] == nil {
 			return nil
 		}
-		db.setIndex.idxTree = db.setIndex.trees[string(ent.Key)]
+		idxTree := db.setIndex.trees[string(ent.Key)]
 		if err := db.setIndex.murhash.Write(ent.Value); err != nil {
 			logger.Fatalf("fail to write murmur hash: %v", err)
 		}
 		sum := db.setIndex.murhash.EncodeSum128()
 		db.setIndex.murhash.Reset()
 
-		indexVal := db.setIndex.idxTree.Get(sum)
+		indexVal := idxTree.Get(sum)
 		if indexVal == nil {
 			return nil
 		}
@@ -607,7 +602,7 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 			entry := &logfile.LogEntry{Key: sum, Value: ent.Value}
 			_, size := logfile.EncodeEntry(ent)
 			valuePos.entrySize = size
-			if err = db.updateIndexTree(entry, valuePos, false, Set); err != nil {
+			if err = db.updateIndexTree(idxTree, entry, valuePos, false, Set); err != nil {
 				return err
 			}
 		}
@@ -621,14 +616,14 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 		if db.zsetIndex.trees[string(key)] == nil {
 			return nil
 		}
-		db.zsetIndex.idxTree = db.zsetIndex.trees[string(key)]
+		idxTree := db.zsetIndex.trees[string(key)]
 		if err := db.zsetIndex.murhash.Write(ent.Value); err != nil {
 			logger.Fatalf("fail to write murmur hash: %v", err)
 		}
 		sum := db.zsetIndex.murhash.EncodeSum128()
 		db.zsetIndex.murhash.Reset()
 
-		indexVal := db.zsetIndex.idxTree.Get(sum)
+		indexVal := idxTree.Get(sum)
 		if indexVal == nil {
 			return nil
 		}
@@ -641,7 +636,7 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 			entry := &logfile.LogEntry{Key: sum, Value: ent.Value}
 			_, size := logfile.EncodeEntry(ent)
 			valuePos.entrySize = size
-			if err = db.updateIndexTree(entry, valuePos, false, ZSet); err != nil {
+			if err = db.updateIndexTree(idxTree, entry, valuePos, false, ZSet); err != nil {
 				return err
 			}
 		}

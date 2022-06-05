@@ -29,11 +29,11 @@ func (db *RoseDB) HSet(key, field, value []byte) error {
 	if db.hashIndex.trees[string(key)] == nil {
 		db.hashIndex.trees[string(key)] = art.NewART()
 	}
-	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	idxTree := db.hashIndex.trees[string(key)]
 	entry := &logfile.LogEntry{Key: field, Value: value}
 	_, size := logfile.EncodeEntry(ent)
 	valuePos.entrySize = size
-	return db.updateIndexTree(entry, valuePos, true, Hash)
+	return db.updateIndexTree(idxTree, entry, valuePos, true, Hash)
 }
 
 // HSetNX sets the given value only if the field doesn't exist.
@@ -46,8 +46,8 @@ func (db *RoseDB) HSetNX(key, field, value []byte) (bool, error) {
 	if db.hashIndex.trees[string(key)] == nil {
 		db.hashIndex.trees[string(key)] = art.NewART()
 	}
-	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
-	val, err := db.getVal(field, Hash)
+	idxTree := db.hashIndex.trees[string(key)]
+	val, err := db.getVal(idxTree, field, Hash)
 	// field exists in db
 	if val != nil {
 		return false, nil
@@ -59,11 +59,10 @@ func (db *RoseDB) HSetNX(key, field, value []byte) (bool, error) {
 		return false, err
 	}
 
-	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
 	entry := &logfile.LogEntry{Key: field, Value: value}
 	_, size := logfile.EncodeEntry(ent)
 	valuePos.entrySize = size
-	err = db.updateIndexTree(entry, valuePos, true, Hash)
+	err = db.updateIndexTree(idxTree, entry, valuePos, true, Hash)
 	if err != nil {
 		return false, err
 	}
@@ -78,8 +77,8 @@ func (db *RoseDB) HGet(key, field []byte) ([]byte, error) {
 	if db.hashIndex.trees[string(key)] == nil {
 		return nil, nil
 	}
-	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
-	val, err := db.getVal(field, Hash)
+	idxTree := db.hashIndex.trees[string(key)]
+	val, err := db.getVal(idxTree, field, Hash)
 	if err == ErrKeyNotFound {
 		return nil, nil
 	}
@@ -90,11 +89,11 @@ func (db *RoseDB) HGet(key, field []byte) ([]byte, error) {
 // For every field that does not exist in the hash, a nil value is returned.
 // Because non-existing keys are treated as empty hashes,
 // running HMGET against a non-existing key will return a list of nil values.
-func (db *RoseDB) HMGet(key []byte, field ...[]byte) (vals [][]byte, err error) {
+func (db *RoseDB) HMGet(key []byte, fields ...[]byte) (vals [][]byte, err error) {
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
 
-	length := len(field)
+	length := len(fields)
 	// key not exist
 	if db.hashIndex.trees[string(key)] == nil {
 		for i := 0; i < length; i++ {
@@ -103,10 +102,10 @@ func (db *RoseDB) HMGet(key []byte, field ...[]byte) (vals [][]byte, err error) 
 		return vals, nil
 	}
 	// key exist
-	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	idxTree := db.hashIndex.trees[string(key)]
 
-	for _, v := range field {
-		val, err := db.getVal(v, Hash)
+	for _, field := range fields {
+		val, err := db.getVal(idxTree, field, Hash)
 		if err == ErrKeyNotFound {
 			vals = append(vals, nil)
 		} else {
@@ -126,7 +125,7 @@ func (db *RoseDB) HDel(key []byte, fields ...[]byte) (int, error) {
 	if db.hashIndex.trees[string(key)] == nil {
 		return 0, nil
 	}
-	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
+	idxTree := db.hashIndex.trees[string(key)]
 
 	var count int
 	for _, field := range fields {
@@ -137,7 +136,7 @@ func (db *RoseDB) HDel(key []byte, fields ...[]byte) (int, error) {
 			return 0, err
 		}
 
-		val, updated := db.hashIndex.idxTree.Delete(field)
+		val, updated := idxTree.Delete(field)
 		if updated {
 			count++
 		}
@@ -164,8 +163,8 @@ func (db *RoseDB) HExists(key, field []byte) (bool, error) {
 	if db.hashIndex.trees[string(key)] == nil {
 		return false, nil
 	}
-	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
-	val, err := db.getVal(field, Hash)
+	idxTree := db.hashIndex.trees[string(key)]
+	val, err := db.getVal(idxTree, field, Hash)
 	if err != nil && err != ErrKeyNotFound {
 		return false, err
 	}
@@ -180,8 +179,8 @@ func (db *RoseDB) HLen(key []byte) int {
 	if db.hashIndex.trees[string(key)] == nil {
 		return 0
 	}
-	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
-	return db.hashIndex.idxTree.Size()
+	idxTree := db.hashIndex.trees[string(key)]
+	return idxTree.Size()
 }
 
 // HKeys returns all field names in the hash stored at key.
@@ -215,7 +214,6 @@ func (db *RoseDB) HVals(key []byte) ([][]byte, error) {
 	if !ok {
 		return values, nil
 	}
-	db.hashIndex.idxTree = tree
 
 	iter := tree.Iterator()
 	for iter.HasNext() {
@@ -223,7 +221,7 @@ func (db *RoseDB) HVals(key []byte) ([][]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		val, err := db.getVal(node.Key(), Hash)
+		val, err := db.getVal(tree, node.Key(), Hash)
 		if err != nil && err != ErrKeyNotFound {
 			return nil, err
 		}
@@ -241,7 +239,6 @@ func (db *RoseDB) HGetAll(key []byte) ([][]byte, error) {
 	if !ok {
 		return [][]byte{}, nil
 	}
-	db.hashIndex.idxTree = tree
 
 	var index int
 	pairs := make([][]byte, tree.Size()*2)
@@ -252,12 +249,11 @@ func (db *RoseDB) HGetAll(key []byte) ([][]byte, error) {
 			return nil, err
 		}
 		field := node.Key()
-		val, err := db.getVal(field, Hash)
+		val, err := db.getVal(tree, field, Hash)
 		if err != nil && err != ErrKeyNotFound {
 			return nil, err
 		}
-		pairs[index] = field
-		pairs[index+1] = val
+		pairs[index], pairs[index+1] = field, val
 		index += 2
 	}
 	return pairs[:index], nil
@@ -272,8 +268,8 @@ func (db *RoseDB) HStrLen(key, field []byte) int {
 	if db.hashIndex.trees[string(key)] == nil {
 		return 0
 	}
-	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
-	val, err := db.getVal(field, Hash)
+	idxTree := db.hashIndex.trees[string(key)]
+	val, err := db.getVal(idxTree, field, Hash)
 	if err == ErrKeyNotFound {
 		return 0
 	}
@@ -290,8 +286,8 @@ func (db *RoseDB) HScan(key []byte, prefix []byte, pattern string, count int) ([
 	if db.hashIndex.trees[string(key)] == nil {
 		return nil, nil
 	}
-	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
-	fields := db.hashIndex.idxTree.PrefixScan(prefix, count)
+	idxTree := db.hashIndex.trees[string(key)]
+	fields := idxTree.PrefixScan(prefix, count)
 	if len(fields) == 0 {
 		return nil, nil
 	}
@@ -310,7 +306,7 @@ func (db *RoseDB) HScan(key []byte, prefix []byte, pattern string, count int) ([
 		if reg != nil && !reg.Match(field) {
 			continue
 		}
-		val, err := db.getVal(field, Hash)
+		val, err := db.getVal(idxTree, field, Hash)
 		if err != nil && err != ErrKeyNotFound {
 			return nil, err
 		}
@@ -332,8 +328,8 @@ func (db *RoseDB) HIncrBy(key, field []byte, incr int64) (int64, error) {
 		db.hashIndex.trees[string(key)] = art.NewART()
 	}
 
-	db.hashIndex.idxTree = db.hashIndex.trees[string(key)]
-	val, err := db.getVal(field, Hash)
+	idxTree := db.hashIndex.trees[string(key)]
+	val, err := db.getVal(idxTree, field, Hash)
 	if err != nil && !errors.Is(err, ErrKeyNotFound) {
 		return 0, err
 	}
@@ -363,7 +359,7 @@ func (db *RoseDB) HIncrBy(key, field []byte, incr int64) (int64, error) {
 	entry := &logfile.LogEntry{Key: field, Value: val}
 	_, size := logfile.EncodeEntry(ent)
 	valuePos.entrySize = size
-	err = db.updateIndexTree(entry, valuePos, true, Hash)
+	err = db.updateIndexTree(idxTree, entry, valuePos, true, Hash)
 	if err != nil {
 		return 0, err
 	}
