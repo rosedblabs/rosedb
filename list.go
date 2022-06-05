@@ -235,19 +235,14 @@ func (db *RoseDB) LRange(key []byte, start, end int) (values [][]byte, err error
 	if startSeq <= headSeq {
 		startSeq = headSeq + 1
 	}
-	if startSeq >= tailSeq {
-		return nil, ErrWrongIndex
-	}
+
 	// normalize endSeq
 	if endSeq >= tailSeq {
 		endSeq = tailSeq - 1
 	}
-	if endSeq <= headSeq {
-		return nil, ErrWrongIndex
-	}
 
-	if startSeq > endSeq {
-		return nil, ErrIndexStartLargerThanEnd
+	if startSeq >= tailSeq || endSeq <= headSeq || startSeq > endSeq{
+		return nil, ErrWrongIndex
 	}
 
 	// the endSeq value is included
