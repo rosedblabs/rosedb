@@ -612,9 +612,6 @@ func testListSequence(t *testing.T, ioType IOType, mode DataIndexMode) {
 		wantErr  bool
 	}{
 		{
-			"not-exist-key", db, args{key: []byte("not-exist"), index: 0}, uint32(initialListSeq) + 1, false,
-		},
-		{
 			"0", db, args{key: listKey, index: 0}, uint32(initialListSeq - 1), false,
 		},
 		{
@@ -634,9 +631,6 @@ func testListSequence(t *testing.T, ioType IOType, mode DataIndexMode) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			idxTree := db.listIndex.trees[string(tt.args.key)]
-			if idxTree == nil {
-				return
-			}
 			start, end, err := db.listMeta(idxTree, tt.args.key)
 			assert.Nil(t, err)
 			actual, err := tt.db.listSequence(start, end, tt.args.index)
