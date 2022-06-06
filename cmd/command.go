@@ -541,6 +541,18 @@ func hScan(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.HScan(args[0], args[1], pattern, count)
 }
 
+func hIncrBy(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("hincrby")
+	}
+	key, field, incrVal := args[0], args[1], args[2]
+	incrInt64Val, err := util.StrToInt64(string(incrVal))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	return cli.db.HIncrBy(key, field, incrInt64Val)
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
