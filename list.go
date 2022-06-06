@@ -211,9 +211,9 @@ func (db *RoseDB) LRange(key []byte, start, end int) (values [][]byte, err error
 		return nil, ErrKeyNotFound
 	}
 
-	db.listIndex.idxTree = db.listIndex.trees[string(key)]
+	idxTree := db.listIndex.trees[string(key)]
 	// get List DataType meta info
-	headSeq, tailSeq, err := db.listMeta(key)
+	headSeq, tailSeq, err := db.listMeta(idxTree, key)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +246,7 @@ func (db *RoseDB) LRange(key []byte, start, end int) (values [][]byte, err error
 	// the endSeq value is included
 	for seq := startSeq; seq < endSeq+1; seq++ {
 		encKey := db.encodeListKey(key, seq)
-		val, err := db.getVal(encKey, List)
+		val, err := db.getVal(idxTree, encKey, List)
 
 		if err != nil {
 			return nil, err
