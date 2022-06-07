@@ -386,6 +386,42 @@ func lIndex(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.LIndex(key, intIndex)
 }
 
+func lSet(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("lset")
+	}
+
+	key, index, value := args[0], args[1], args[2]
+	i, err := strconv.Atoi(string(index))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	err = cli.db.LSet(key, i, value)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleString(resultOK), nil
+}
+
+func lRange(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("lrange")
+	}
+
+	key, start, end := args[0], args[1], args[2]
+	s, err := strconv.Atoi(string(start))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+
+	e, err := strconv.Atoi(string(end))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	
+	return cli.db.LRange(key, s, e)
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |--------------------------- Hash commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+

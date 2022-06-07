@@ -564,3 +564,169 @@ func testRoseDBLSet(t *testing.T, ioType IOType, mode DataIndexMode) {
 	err = db.LSet(listKey, -2, GetKey(111))
 	assert.Equal(t, err, ErrWrongIndex)
 }
+
+
+func TestRoseDB_listSequence(t *testing.T) {
+
+	t.Run("fileio", func(t *testing.T) {
+		testListSequence(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testListSequence(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testListSequence(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	listKey := []byte("my_list")
+	// prepare List
+	err = db.LPush(listKey, []byte("zero"))
+	assert.Nil(t, err)
+	err = db.LPush(listKey, []byte("negative one"))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, []byte("one"))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, []byte("two"))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, []byte("three"))
+	assert.Nil(t, err)
+
+	type args struct {
+		key   []byte
+		index int
+	}
+
+	tests := []struct {
+		name     string
+		db       *RoseDB
+		args     args
+		expected uint32
+		wantErr  bool
+	}{
+		{
+			"0", db, args{key: listKey, index: 0}, uint32(initialListSeq - 1), false,
+		},
+		{
+			"negative-1", db, args{key: listKey, index: -3}, uint32(initialListSeq + 1), false,
+		},
+		{
+			"negative-2", db, args{key: listKey, index: -4}, uint32(initialListSeq), false,
+		},
+		{
+			"postive-1", db, args{key: listKey, index: 1}, uint32(initialListSeq), false,
+		},
+		{
+			"postive-2", db, args{key: listKey, index: 3}, uint32(initialListSeq + 2), false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			idxTree := db.listIndex.trees[string(tt.args.key)]
+			start, end, err := db.listMeta(idxTree, tt.args.key)
+			assert.Nil(t, err)
+			actual, err := tt.db.listSequence(start, end, tt.args.index)
+			assert.Equal(t, tt.expected, actual, "expected is not the same with actual")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("convertLogicalIndexToSeq() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+
+func TestRoseDB_LRange(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBLRange(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBLRange(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBLRange(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	type args struct {
+		key   []byte
+		start int
+		end   int
+	}
+
+	listKey := []byte("my_list")
+	// prepare List
+	err = db.LPush(listKey, []byte("zero"))
+	assert.Nil(t, err)
+	err = db.LPush(listKey, []byte("negative one"))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, []byte("one"))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, []byte("two"))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, []byte("three"))
+	assert.Nil(t, err)
+
+	tests := []struct {
+		name       string
+		db         *RoseDB
+		args       args
+		wantValues [][]byte
+		wantErr    bool
+	}{
+		{
+			"nil-key", db, args{key: nil, start: 0, end: 3}, [][]byte(nil), true,
+		},
+		{
+			"start==end", db, args{key: listKey, start: 1, end: 1}, [][]byte{[]byte("zero")}, false,
+		},
+		{
+			"start==end==tailSeq", db, args{key: listKey, start: 4, end: 4}, [][]byte{[]byte("three")}, false,
+		},
+		{
+			"end reset to endSeq", db, args{key: listKey, start: 0, end: 8},
+			[][]byte{[]byte("negative one"), []byte("zero"), []byte("one"), []byte("two"), []byte("three")}, false,
+		},
+		{
+			"start and end reset", db, args{key: listKey, start: -100, end: 100},
+			[][]byte{[]byte("negative one"), []byte("zero"), []byte("one"), []byte("two"), []byte("three")}, false,
+		},
+		{
+			"start negative end postive", db, args{key: listKey, start: -4, end: 2},
+			[][]byte{[]byte("zero"), []byte("one")}, false,
+		},
+		{
+			"start out of range", db, args{key: listKey, start: 5, end: 10}, [][]byte(nil), true,
+		},
+		{
+			"end out of range", db, args{key: listKey, start: 1, end: -8}, [][]byte(nil), true,
+		},
+		{
+			"end larger than start", db, args{key: listKey, start: -1, end: 1}, [][]byte(nil), true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, actualErr := tt.db.LRange(tt.args.key, tt.args.start, tt.args.end)
+			assert.Equal(t, tt.wantValues, actual, "acutal is not the same with expected")
+			if (actualErr != nil) != tt.wantErr {
+				t.Errorf("LRange() error = %v, wantErr %v", actualErr, tt.wantErr)
+			}
+		})
+	}
+}
