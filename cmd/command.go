@@ -418,7 +418,7 @@ func lRange(cli *Client, args [][]byte) (interface{}, error) {
 	if err != nil {
 		return nil, errValueIsInvalid
 	}
-	
+
 	return cli.db.LRange(key, s, e)
 }
 

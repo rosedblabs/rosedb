@@ -565,7 +565,6 @@ func testRoseDBLSet(t *testing.T, ioType IOType, mode DataIndexMode) {
 	assert.Equal(t, err, ErrWrongIndex)
 }
 
-
 func TestRoseDB_listSequence(t *testing.T) {
 
 	t.Run("fileio", func(t *testing.T) {
@@ -641,7 +640,6 @@ func testListSequence(t *testing.T, ioType IOType, mode DataIndexMode) {
 		})
 	}
 }
-
 
 func TestRoseDB_LRange(t *testing.T) {
 	t.Run("fileio", func(t *testing.T) {

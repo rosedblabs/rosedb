@@ -2,9 +2,7 @@ package zset
 
 import (
 	"github.com/stretchr/testify/assert"
-	"math/rand"
 	"testing"
-	"time"
 )
 
 func InitZSet() *SortedSet {
@@ -21,64 +19,59 @@ func InitZSet() *SortedSet {
 }
 
 func TestSortedSet_ZAdd(t *testing.T) {
+	zSet := InitZSet()
+	zSet.ZAdd("myzset", 39, "mmd")
 
-	t.Run("normal data", func(t *testing.T) {
-		zSet := InitZSet()
-		zSet.ZAdd("myzset", 39, "mmd")
-
-		t.Log(zSet.ZCard("myzset"))
-		t.Log(zSet.ZScore("myzset", "ced"))
-		t.Log(zSet.ZScore("myzset", "mmd"))
-	})
+	c1 := zSet.ZCard("myzset")
+	assert.Equal(t, 8, c1)
 }
 
 func TestSortedSet_ZScore(t *testing.T) {
 	zSet := InitZSet()
-	t.Log(zSet.ZScore("myzset", "acd"))
-	t.Log(zSet.ZScore("myzset", "ccd"))
-	t.Log(zSet.ZScore("myzset", "ccd"))
-	t.Log(zSet.ZScore("myzset", "accsssss"))
+	ok, s1 := zSet.ZScore("myzset", "acd")
+	assert.Equal(t, true, ok)
+	assert.Equal(t, float64(12), s1)
+
+	ok, s2 := zSet.ZScore("myzset", "aaa")
+	assert.Equal(t, false, ok)
+	assert.Equal(t, float64(0), s2)
 }
 
 func TestSortedSet_ZRank(t *testing.T) {
-
 	key := "myzset"
 	zset := InitZSet()
-	rank := zset.ZRank(key, "acd")
-	t.Log(rank)
+	r1 := zset.ZRank(key, "acd")
+	assert.Equal(t, int64(0), r1)
 
-	t.Log(zset.ZRank(key, "acc"))
-	t.Log(zset.ZRank(key, "mcd"))
-	t.Log(zset.ZRank(key, "ecd"))
-	t.Log(zset.ZRank(key, "bcd"))
+	r2 := zset.ZRank(key, "bcd")
+	assert.Equal(t, int64(1), r2)
+
+	r3 := zset.ZRank(key, "not exist")
+	assert.Equal(t, int64(-1), r3)
 }
 
 func TestSortedSet_ZRevRank(t *testing.T) {
-	zset := InitZSet()
 	key := "myzset"
+	zset := InitZSet()
+	r1 := zset.ZRevRank(key, "acd")
+	assert.Equal(t, int64(6), r1)
 
-	rank := zset.ZRevRank(key, "acc")
-	t.Log(rank)
+	r2 := zset.ZRevRank(key, "bcd")
+	assert.Equal(t, int64(5), r2)
 
-	t.Log(zset.ZRevRank(key, "ccd"))
-	t.Log(zset.ZRevRank(key, "acd"))
-
-	t.Log(zset.ZRevRank(key, "bcd"))
-	t.Log(zset.ZRevRank(key, "mcd"))
-	t.Log(zset.ZRevRank(key, "ecd"))
+	r3 := zset.ZRevRank(key, "not exist")
+	assert.Equal(t, int64(-1), r3)
 }
 
 func TestSortedSet_ZIncrBy(t *testing.T) {
 	zset := InitZSet()
 	key := "myzset"
 
-	incrBy := zset.ZIncrBy(key, 300, "acd")
-	t.Log(incrBy)
+	incr1 := zset.ZIncrBy(key, 300, "acd")
+	assert.Equal(t, float64(312), incr1)
 
-	t.Log(zset.ZIncrBy(key, 100, "acc"))
-
-	t.Log(zset.ZRank(key, "acd"))
-	t.Log(zset.ZRank(key, "acc"))
+	incr2 := zset.ZIncrBy(key, 100, "acc")
+	assert.Equal(t, float64(132), incr2)
 }
 
 func TestSortedSet_ZRange(t *testing.T) {
@@ -97,11 +90,11 @@ func TestSortedSet_ZRangeWithScores(t *testing.T) {
 	zSet := InitZSet()
 	key := "myzset"
 
-	ran := zSet.ZRangeWithScores(key, 0, -1)
-	t.Log(len(ran))
+	values := zSet.ZRangeWithScores(key, 0, -1)
+	assert.NotNil(t, values)
 
-	for _, v := range ran {
-		t.Logf("%+v", v)
+	for _, v := range values {
+		assert.NotNil(t, v)
 	}
 }
 
@@ -109,11 +102,11 @@ func TestSortedSet_ZRevRange(t *testing.T) {
 	zSet := InitZSet()
 	key := "myzset"
 
-	ran := zSet.ZRevRange(key, 0, -1)
-	t.Log(len(ran))
+	values := zSet.ZRevRange(key, 0, -1)
+	assert.NotNil(t, values)
 
-	for _, v := range ran {
-		t.Logf("%+v", v)
+	for _, v := range values {
+		assert.NotNil(t, v)
 	}
 }
 
@@ -121,11 +114,11 @@ func TestSortedSet_ZRevRangeWithScores(t *testing.T) {
 	zSet := InitZSet()
 	key := "myzset"
 
-	ran := zSet.ZRevRangeWithScores(key, 0, -1)
-	t.Log(len(ran))
+	values := zSet.ZRevRangeWithScores(key, 0, -1)
+	assert.NotNil(t, values)
 
-	for _, v := range ran {
-		t.Logf("%+v", v)
+	for _, v := range values {
+		assert.NotNil(t, v)
 	}
 }
 
@@ -133,11 +126,11 @@ func TestSortedSet_ZRem(t *testing.T) {
 	zset := InitZSet()
 	key := "myzset"
 
-	ok := zset.ZRem(key, "acd")
+	ok1 := zset.ZRem(key, "acd")
+	assert.Equal(t, true, ok1)
 
-	t.Log(ok)
-	t.Log(zset.ZRem(key, "aaaaaaa"))
-	t.Log(zset.ZCard(key))
+	ok2 := zset.ZRem(key, "aaaaaaa")
+	assert.Equal(t, false, ok2)
 }
 
 func TestSortedSet_ZGetByRank(t *testing.T) {
@@ -148,100 +141,11 @@ func TestSortedSet_ZGetByRank(t *testing.T) {
 		val := zset.ZGetByRank(key, rank)
 		if val != nil {
 			for _, v := range val {
-				t.Logf("%+v ", v)
+				assert.NotNil(t, v)
 			}
 		}
 	}
-	t.Run("normal status", func(t *testing.T) {
-		getRank(0)
-		getRank(4)
-		getRank(6)
-	})
-	t.Run("rank range out of len", func(t *testing.T) {
-		getRank(-1)
-		getRank(100)
-	})
-}
-
-func TestSortedSet_ZRevGetByRank(t *testing.T) {
-	zset := InitZSet()
-	key := "myzset"
-
-	rand.Seed(time.Now().Unix())
-	s := "abcdefghijklmnopqrstuvwxyz"
-	randomVal := func() (val string) {
-		for i := 0; i < 12; i++ {
-			val += string(s[rand.Intn(26)])
-		}
-		return
-	}
-
-	for i := 0; i < 100; i++ {
-		zset.ZAdd("myzset", float64(rand.Intn(100000)), randomVal())
-	}
-
-	val := zset.ZGetByRank(key, 0)
-	if val != nil {
-		for _, v := range val {
-			t.Logf("%+v ", v)
-		}
-	}
-
-	dummy := zset.record["myzset"].skl.head
-	p := dummy.level[0].forward
-	for i := 0; i < 100; i++ {
-		t.Log(p.member, p.score)
-		p = p.level[0].forward
-	}
-}
-
-func TestSortedSet_ZScoreRange(t *testing.T) {
-	zset := InitZSet()
-	key := "myzset"
-
-	zset.ZAdd(key, 13, "aa")
-
-	val := zset.ZScoreRange(key, -12, 500)
-	assert.NotNil(t, val)
-}
-
-func TestSortedSet_ZRevScoreRange(t *testing.T) {
-	zset := InitZSet()
-	key := "myzset"
-
-	t.Run("normal", func(t *testing.T) {
-		zset.ZAdd(key, 45, "aa")
-
-		val := zset.ZRevScoreRange(key, 17, 17)
-		for _, v := range val {
-			t.Logf("%+v", v)
-		}
-	})
-}
-
-func TestSortedSet_ZCard(t *testing.T) {
-	zSet := InitZSet()
-	card := zSet.ZCard("myzset")
-	assert.Equal(t, 7, card)
-}
-
-func TestSortedSet_ZClear(t *testing.T) {
-	zset := InitZSet()
-	key := "myzset"
-	zset.ZClear(key)
-
-	card := zset.ZCard(key)
-	assert.Equal(t, card, 0)
-}
-
-func TestSortedSet_ZKeyExists(t *testing.T) {
-	zset := InitZSet()
-	key := "myzset"
-
-	ok1 := zset.ZKeyExists(key)
-	assert.Equal(t, ok1, true)
-
-	zset.ZClear(key)
-	ok2 := zset.ZKeyExists(key)
-	assert.Equal(t, ok2, false)
+	getRank(0)
+	getRank(4)
+	getRank(6)
 }

@@ -8,7 +8,7 @@ import (
 
 // FileLockGuard holds a lock of file on a directory.
 type FileLockGuard struct {
-	// file descirptor on directory.
+	// file descriptor on directory.
 	fd syscall.Handle
 }
 

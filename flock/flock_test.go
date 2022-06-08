@@ -40,6 +40,9 @@ func TestAcquireFileLock(t *testing.T) {
 				} else {
 					flock = lock
 				}
+				if readOnly && times > 1 && lock != nil {
+					_ = lock.Release()
+				}
 			}()
 		}
 		wg.Wait()
@@ -82,7 +85,7 @@ func TestFileLockGuard_Release(t *testing.T) {
 
 	assert.Nil(t, err)
 	defer func() {
-		_ = os.Remove(path)
+		_ = os.RemoveAll(path)
 	}()
 
 	lock, err := AcquireFileLock(filepath.Join(path, "FLOCK"), false)

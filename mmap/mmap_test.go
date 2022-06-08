@@ -2,15 +2,22 @@ package mmap
 
 import (
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
 func TestMmap(t *testing.T) {
-	fd, err := os.OpenFile("/tmp"+string(os.PathSeparator)+"mmap.txt", os.O_CREATE|os.O_RDWR, 0644)
+	dir, err := ioutil.TempDir("", "rosedb-mmap-test")
+	assert.Nil(t, err)
+	path := filepath.Join(dir, "mmap.txt")
+
+	fd, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	assert.Nil(t, err)
 	defer func() {
 		if fd != nil {
+			_ = fd.Close()
 			err := os.Remove(fd.Name())
 			assert.Nil(t, err)
 		}
@@ -25,9 +32,6 @@ func TestMmap(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		{
-			"zero-size", args{fd: fd, writable: true, size: 0}, true,
-		},
 		{
 			"normal-size", args{fd: fd, writable: true, size: 100}, false,
 		},
@@ -50,10 +54,15 @@ func TestMmap(t *testing.T) {
 }
 
 func TestMunmap(t *testing.T) {
-	fd, err := os.OpenFile("/tmp"+string(os.PathSeparator)+"mmap.txt", os.O_CREATE|os.O_RDWR, 0644)
+	dir, err := ioutil.TempDir("", "rosedb-mmap-test")
+	assert.Nil(t, err)
+	path := filepath.Join(dir, "mmap.txt")
+
+	fd, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	assert.Nil(t, err)
 	defer func() {
 		if fd != nil {
+			_ = fd.Close()
 			err := os.Remove(fd.Name())
 			assert.Nil(t, err)
 		}
@@ -66,10 +75,15 @@ func TestMunmap(t *testing.T) {
 }
 
 func TestMsync(t *testing.T) {
-	fd, err := os.OpenFile("/tmp"+string(os.PathSeparator)+"mmap.txt", os.O_CREATE|os.O_RDWR, 0644)
+	dir, err := ioutil.TempDir("", "rosedb-mmap-test")
+	assert.Nil(t, err)
+	path := filepath.Join(dir, "mmap.txt")
+
+	fd, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	assert.Nil(t, err)
 	defer func() {
 		if fd != nil {
+			_ = fd.Close()
 			err := os.Remove(fd.Name())
 			assert.Nil(t, err)
 		}
@@ -82,11 +96,16 @@ func TestMsync(t *testing.T) {
 }
 
 func TestMadvise(t *testing.T) {
-	fd, err := os.OpenFile("/tmp"+string(os.PathSeparator)+"mmap.txt", os.O_CREATE|os.O_RDWR, 0644)
+	dir, err := ioutil.TempDir("", "rosedb-mmap-test")
+	assert.Nil(t, err)
+	path := filepath.Join(dir, "mmap.txt")
+
+	fd, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	assert.Nil(t, err)
 	defer func() {
 		if fd != nil {
-			err := os.Remove(fd.Name())
+			_ = fd.Close()
+			err := os.RemoveAll(path)
 			assert.Nil(t, err)
 		}
 	}()

@@ -183,7 +183,7 @@ func (db *RoseDB) LSet(key []byte, index int, value []byte) error {
 	if seq >= tailSeq || seq <= headSeq {
 		return ErrWrongIndex
 	}
-	
+
 	encKey := db.encodeListKey(key, seq)
 	ent := &logfile.LogEntry{Key: encKey, Value: value}
 	valuePos, err := db.writeLogEntry(ent, List)
@@ -239,7 +239,7 @@ func (db *RoseDB) LRange(key []byte, start, end int) (values [][]byte, err error
 		endSeq = tailSeq - 1
 	}
 
-	if startSeq >= tailSeq || endSeq <= headSeq || startSeq > endSeq{
+	if startSeq >= tailSeq || endSeq <= headSeq || startSeq > endSeq {
 		return nil, ErrWrongIndex
 	}
 
