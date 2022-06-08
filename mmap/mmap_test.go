@@ -1,6 +1,7 @@
 package mmap
 
 import (
+	"github.com/flower-corp/rosedb/logger"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
@@ -18,8 +19,7 @@ func TestMmap(t *testing.T) {
 	defer func() {
 		if fd != nil {
 			_ = fd.Close()
-			err := os.Remove(fd.Name())
-			assert.Nil(t, err)
+			destroyDir(path)
 		}
 	}()
 	type args struct {
@@ -63,8 +63,7 @@ func TestMunmap(t *testing.T) {
 	defer func() {
 		if fd != nil {
 			_ = fd.Close()
-			err := os.Remove(fd.Name())
-			assert.Nil(t, err)
+			destroyDir(path)
 		}
 	}()
 
@@ -84,8 +83,7 @@ func TestMsync(t *testing.T) {
 	defer func() {
 		if fd != nil {
 			_ = fd.Close()
-			err := os.Remove(fd.Name())
-			assert.Nil(t, err)
+			destroyDir(path)
 		}
 	}()
 
@@ -105,8 +103,7 @@ func TestMadvise(t *testing.T) {
 	defer func() {
 		if fd != nil {
 			_ = fd.Close()
-			err := os.RemoveAll(path)
-			assert.Nil(t, err)
+			destroyDir(path)
 		}
 	}()
 
@@ -114,4 +111,10 @@ func TestMadvise(t *testing.T) {
 	assert.Nil(t, err)
 	err = Madvise(buf, false)
 	assert.Nil(t, err)
+}
+
+func destroyDir(dir string) {
+	if err := os.RemoveAll(dir); err != nil {
+		logger.Warnf("remove dir err: %v", err)
+	}
 }
