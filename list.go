@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"encoding/binary"
+
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
@@ -153,6 +154,10 @@ func (db *RoseDB) LIndex(key []byte, index int) ([]byte, error) {
 		return nil, err
 	}
 
+	if seq >= tailSeq || seq <= headSeq {
+		return nil, ErrWrongIndex
+	}
+
 	encKey := db.encodeListKey(key, seq)
 	val, err := db.getVal(idxTree, encKey, List)
 	if err != nil {
@@ -183,7 +188,7 @@ func (db *RoseDB) LSet(key []byte, index int, value []byte) error {
 	if seq >= tailSeq || seq <= headSeq {
 		return ErrWrongIndex
 	}
-	
+
 	encKey := db.encodeListKey(key, seq)
 	ent := &logfile.LogEntry{Key: encKey, Value: value}
 	valuePos, err := db.writeLogEntry(ent, List)
@@ -239,7 +244,7 @@ func (db *RoseDB) LRange(key []byte, start, end int) (values [][]byte, err error
 		endSeq = tailSeq - 1
 	}
 
-	if startSeq >= tailSeq || endSeq <= headSeq || startSeq > endSeq{
+	if startSeq >= tailSeq || endSeq <= headSeq || startSeq > endSeq {
 		return nil, ErrWrongIndex
 	}
 
