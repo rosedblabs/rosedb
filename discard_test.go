@@ -11,7 +11,7 @@ func TestDiscard_listenUpdates(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb")
 	opts := DefaultOptions(path)
 	db, err := Open(opts)
-	defer os.RemoveAll(path)
+	defer destroyDB(db)
 	assert.Nil(t, err)
 
 	writeCount := 600000
@@ -33,10 +33,13 @@ func TestDiscard_listenUpdates(t *testing.T) {
 func TestDiscard_newDiscard(t *testing.T) {
 	t.Run("init", func(t *testing.T) {
 		path := filepath.Join("/tmp", "rosedb-discard")
-		os.MkdirAll(path, os.ModePerm)
-		defer os.RemoveAll(path)
+		_ = os.MkdirAll(path, os.ModePerm)
 		dis, err := newDiscard(path, discardFileName, 4096)
 		assert.Nil(t, err)
+		defer func() {
+			_ = dis.file.Delete()
+			_ = os.RemoveAll(path)
+		}()
 
 		assert.Equal(t, len(dis.freeList), 682)
 		assert.Equal(t, len(dis.location), 0)
@@ -44,10 +47,13 @@ func TestDiscard_newDiscard(t *testing.T) {
 
 	t.Run("with-data", func(t *testing.T) {
 		path := filepath.Join("/tmp", "rosedb-discard")
-		os.MkdirAll(path, os.ModePerm)
-		defer os.RemoveAll(path)
+		_ = os.MkdirAll(path, os.ModePerm)
 		dis, err := newDiscard(path, discardFileName, 4096)
 		assert.Nil(t, err)
+		defer func() {
+			_ = dis.file.Delete()
+			_ = os.RemoveAll(path)
+		}()
 
 		for i := 1; i < 300; i = i * 5 {
 			dis.setTotal(uint32(i), 223)
@@ -67,10 +73,13 @@ func TestDiscard_newDiscard(t *testing.T) {
 
 func TestDiscard_setTotal(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb-discard")
-	os.MkdirAll(path, os.ModePerm)
-	defer os.RemoveAll(path)
+	_ = os.MkdirAll(path, os.ModePerm)
 	dis, err := newDiscard(path, discardFileName, 4096)
 	assert.Nil(t, err)
+	defer func() {
+		_ = dis.file.Delete()
+		_ = os.RemoveAll(path)
+	}()
 
 	type args struct {
 		fid       uint32
@@ -103,10 +112,13 @@ func TestDiscard_setTotal(t *testing.T) {
 
 func TestDiscard_clear(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb-discard")
-	os.MkdirAll(path, os.ModePerm)
-	defer os.RemoveAll(path)
+	_ = os.MkdirAll(path, os.ModePerm)
 	dis, err := newDiscard(path, discardFileName, 4096)
 	assert.Nil(t, err)
+	defer func() {
+		_ = dis.file.Delete()
+		_ = os.RemoveAll(path)
+	}()
 
 	for i := 0; i < 682; i++ {
 		dis.setTotal(uint32(i), uint32(i+100))
@@ -146,10 +158,13 @@ func TestDiscard_clear(t *testing.T) {
 
 func TestDiscard_incrDiscard(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb-discard")
-	os.MkdirAll(path, os.ModePerm)
-	defer os.RemoveAll(path)
+	_ = os.MkdirAll(path, os.ModePerm)
 	dis, err := newDiscard(path, discardFileName, 4096)
 	assert.Nil(t, err)
+	defer func() {
+		_ = dis.file.Delete()
+		_ = os.RemoveAll(path)
+	}()
 
 	for i := 1; i < 600; i = i * 5 {
 		dis.setTotal(uint32(i-1), uint32(i+1000))
@@ -165,10 +180,13 @@ func TestDiscard_incrDiscard(t *testing.T) {
 
 func TestDiscard_getCCL(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb-discard")
-	os.MkdirAll(path, os.ModePerm)
-	defer os.RemoveAll(path)
+	_ = os.MkdirAll(path, os.ModePerm)
 	dis, err := newDiscard(path, discardFileName, 4096)
 	assert.Nil(t, err)
+	defer func() {
+		_ = dis.file.Delete()
+		_ = os.RemoveAll(path)
+	}()
 
 	for i := 1; i < 2000; i = i * 5 {
 		dis.setTotal(uint32(i-1), uint32(i+1000))
