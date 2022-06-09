@@ -37,7 +37,7 @@ func TestDiscard_newDiscard(t *testing.T) {
 		dis, err := newDiscard(path, discardFileName, 4096)
 		assert.Nil(t, err)
 		defer func() {
-			_ = dis.file.Delete()
+			_ = dis.file.Close()
 			_ = os.RemoveAll(path)
 		}()
 
@@ -51,7 +51,7 @@ func TestDiscard_newDiscard(t *testing.T) {
 		dis, err := newDiscard(path, discardFileName, 4096)
 		assert.Nil(t, err)
 		defer func() {
-			_ = dis.file.Delete()
+			_ = dis.file.Close()
 			_ = os.RemoveAll(path)
 		}()
 
@@ -65,6 +65,9 @@ func TestDiscard_newDiscard(t *testing.T) {
 
 		// reopen
 		dis2, err := newDiscard(path, discardFileName, 4096)
+		defer func() {
+			_ = dis2.file.Close()
+		}()
 		assert.Nil(t, err)
 		assert.Equal(t, len(dis2.freeList), 678)
 		assert.Equal(t, len(dis2.location), 4)
@@ -77,7 +80,7 @@ func TestDiscard_setTotal(t *testing.T) {
 	dis, err := newDiscard(path, discardFileName, 4096)
 	assert.Nil(t, err)
 	defer func() {
-		_ = dis.file.Delete()
+		_ = dis.file.Close()
 		_ = os.RemoveAll(path)
 	}()
 
@@ -116,7 +119,7 @@ func TestDiscard_clear(t *testing.T) {
 	dis, err := newDiscard(path, discardFileName, 4096)
 	assert.Nil(t, err)
 	defer func() {
-		_ = dis.file.Delete()
+		_ = dis.file.Close()
 		_ = os.RemoveAll(path)
 	}()
 
@@ -162,7 +165,7 @@ func TestDiscard_incrDiscard(t *testing.T) {
 	dis, err := newDiscard(path, discardFileName, 4096)
 	assert.Nil(t, err)
 	defer func() {
-		_ = dis.file.Delete()
+		_ = dis.file.Close()
 		_ = os.RemoveAll(path)
 	}()
 
@@ -184,7 +187,7 @@ func TestDiscard_getCCL(t *testing.T) {
 	dis, err := newDiscard(path, discardFileName, 4096)
 	assert.Nil(t, err)
 	defer func() {
-		_ = dis.file.Delete()
+		_ = dis.file.Close()
 		_ = os.RemoveAll(path)
 	}()
 
