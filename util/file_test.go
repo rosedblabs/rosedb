@@ -17,15 +17,18 @@ func TestPathExist(t *testing.T) {
 	assert.Nil(t, err)
 	defer func() {
 		err := os.RemoveAll(filepath.Join("/tmp", "path"))
-		t.Log(err)
+		assert.Nil(t, err)
 	}()
 
 	existedFile, err := filepath.Abs(filepath.Join("/tmp", "path", "lotusdb-file1"))
 	assert.Nil(t, err)
 	noExistedFile, err := filepath.Abs(filepath.Join("/tmp", "path", "lotusdb-file2"))
 	assert.Nil(t, err)
-	_, err = os.OpenFile(existedFile, os.O_CREATE, 0644)
+	f, err := os.OpenFile(existedFile, os.O_CREATE, 0644)
 	assert.Nil(t, err)
+	defer func() {
+		_ = f.Close()
+	}()
 
 	type args struct {
 		path string
@@ -84,15 +87,19 @@ func TestCopyDir(t *testing.T) {
 }
 
 func TestCopyFile(t *testing.T) {
-	path := "/tmp/path/lotusdb-1"
+	path := filepath.Join("/tmp", "path", "lotusdb-1")
 	err := os.MkdirAll(path, os.ModePerm)
 	assert.Nil(t, err)
-	defer os.RemoveAll("/tmp/path")
+	defer func() {
+		_ = os.RemoveAll(filepath.Join("/tmp", "path"))
+	}()
 
-	file := "/tmp/path/lotusdb-1/001.vlog"
-	_, err = os.OpenFile(file, os.O_CREATE, 0644)
+	file := filepath.Join(path, "001.vlog")
+	f, err := os.OpenFile(file, os.O_CREATE, 0644)
 	assert.Nil(t, err)
 
 	err = CopyFile(file, path+"/001.vlog-bak")
 	assert.Nil(t, err)
+
+	_ = f.Close()
 }

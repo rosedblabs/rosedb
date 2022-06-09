@@ -322,7 +322,7 @@ func TestLogFile_Close(t *testing.T) {
 		file, err := OpenLogFile("/tmp", fid, 100, Sets, ioType)
 		assert.Nil(t, err)
 
-		err = file.Close()
+		err = file.Delete()
 		assert.Nil(t, err)
 	}
 
