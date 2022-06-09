@@ -68,6 +68,7 @@ func TestLogFileGC(t *testing.T) {
 
 func destroyDB(db *RoseDB) {
 	if db != nil {
+		_ = db.Close()
 		err := os.RemoveAll(db.opts.DBPath)
 		if err != nil {
 			logger.Errorf("destroy db err: %v", err)
