@@ -75,9 +75,10 @@ func TestCopyDir(t *testing.T) {
 	assert.Nil(t, err)
 	err = os.MkdirAll(subpath2, os.ModePerm)
 	assert.Nil(t, err)
-	_, err = os.OpenFile(subFile, os.O_CREATE, os.ModePerm)
+	f, err := os.OpenFile(subFile, os.O_CREATE, os.ModePerm)
 	assert.Nil(t, err)
 	defer func() {
+		_ = f.Close()
 		_ = os.RemoveAll(path)
 		_ = os.RemoveAll(destPath)
 	}()
