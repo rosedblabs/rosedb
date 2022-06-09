@@ -201,6 +201,9 @@ func TestRoseDB_SCard(t *testing.T) {
 	assert.Nil(t, err)
 	db2, err := Open(opts)
 	assert.Nil(t, err)
+	defer func() {
+		_ = db2.Close()
+	}()
 	c3 := db2.SCard(setKey)
 	assert.Equal(t, 3, c3)
 }

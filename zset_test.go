@@ -87,6 +87,9 @@ func testRoseDBZScore(t *testing.T, ioType IOType, mode DataIndexMode) {
 	assert.Nil(t, err)
 	db2, err := Open(opts)
 	assert.Nil(t, err)
+	defer func() {
+		_ = db2.Close()
+	}()
 	ok4, score4 := db2.ZScore(zsetKey, GetKey(0))
 	assert.Equal(t, true, ok4)
 	assert.Equal(t, 223.33, score4)

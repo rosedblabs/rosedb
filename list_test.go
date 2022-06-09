@@ -277,6 +277,9 @@ func TestRoseDB_LLen(t *testing.T) {
 
 	db2, err := Open(opts)
 	assert.Nil(t, err)
+	defer func() {
+		_ = db2.Close()
+	}()
 	err = db2.LPush(listKey, GetValue16B(), GetValue16B(), GetValue16B())
 	assert.Nil(t, err)
 	assert.Equal(t, 6, db2.LLen(listKey))
