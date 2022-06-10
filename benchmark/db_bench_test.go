@@ -13,7 +13,7 @@ import (
 var roseDB *rosedb.RoseDB
 
 func init() {
-	path := filepath.Join("/tmp", "rosedb_Bench")
+	path := filepath.Join("/tmp", "rosedb_bench")
 	opts := rosedb.DefaultOptions(path)
 	var err error
 	roseDB, err = rosedb.Open(opts)
