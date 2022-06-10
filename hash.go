@@ -26,9 +26,9 @@ func (db *RoseDB) HSet(key []byte, args ...[]byte) error {
 
 	// add multiple field value pairs
 	for i := 0; i < len(args); i += 2 {
-		f, v := args[i], args[i+1]
-		hashKey := db.encodeKey(key, f)
-		entry := &logfile.LogEntry{Key: hashKey, Value: v}
+		field, value := args[i], args[i+1]
+		hashKey := db.encodeKey(key, field)
+		entry := &logfile.LogEntry{Key: hashKey, Value: value}
 		valuePos, err := db.writeLogEntry(entry, Hash)
 		if err != nil {
 			return err
@@ -39,7 +39,7 @@ func (db *RoseDB) HSet(key []byte, args ...[]byte) error {
 		}
 		idxTree := db.hashIndex.trees[string(key)]
 
-		ent := &logfile.LogEntry{Key: f, Value: v}
+		ent := &logfile.LogEntry{Key: field, Value: value}
 		_, size := logfile.EncodeEntry(entry)
 		valuePos.entrySize = size
 		err = db.updateIndexTree(idxTree, ent, valuePos, true, Hash)
