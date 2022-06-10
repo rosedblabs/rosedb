@@ -79,6 +79,6 @@ func DefaultOptions(path string) Options {
 		LogFileGCInterval:    time.Hour * 8,
 		LogFileGCRatio:       0.5,
 		LogFileSizeThreshold: 512 << 20,
-		DiscardBufferSize:    4 << 12,
+		DiscardBufferSize:    8 << 20,
 	}
 }

@@ -12,8 +12,11 @@ func TestRoseDB_HSet(t *testing.T) {
 	t.Run("fileio", func(t *testing.T) {
 		testRoseDBHSet(t, FileIO, KeyOnlyMemMode)
 	})
-	t.Run("fileio", func(t *testing.T) {
+	t.Run("mmap", func(t *testing.T) {
 		testRoseDBHSet(t, MMap, KeyValueMemMode)
+	})
+	t.Run("mmap-key-only", func(t *testing.T) {
+		testRoseDBHSet(t, MMap, KeyOnlyMemMode)
 	})
 }
 
