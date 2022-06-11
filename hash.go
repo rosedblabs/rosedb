@@ -23,6 +23,10 @@ func (db *RoseDB) HSet(key []byte, args ...[]byte) error {
 	if len(args) == 0 || len(args)&1 == 1 {
 		return ErrWrongNumberOfArgs
 	}
+	if db.hashIndex.trees[string(key)] == nil {
+		db.hashIndex.trees[string(key)] = art.NewART()
+	}
+	idxTree := db.hashIndex.trees[string(key)]
 
 	// add multiple field value pairs
 	for i := 0; i < len(args); i += 2 {
@@ -33,11 +37,6 @@ func (db *RoseDB) HSet(key []byte, args ...[]byte) error {
 		if err != nil {
 			return err
 		}
-
-		if db.hashIndex.trees[string(key)] == nil {
-			db.hashIndex.trees[string(key)] = art.NewART()
-		}
-		idxTree := db.hashIndex.trees[string(key)]
 
 		ent := &logfile.LogEntry{Key: field, Value: value}
 		_, size := logfile.EncodeEntry(entry)
