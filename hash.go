@@ -15,25 +15,39 @@ import (
 // HSet sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
 // If field already exists in the hash, it is overwritten.
 // Return num of elements in hash of the specified key.
-func (db *RoseDB) HSet(key, field, value []byte) error {
+// Multiple field-value pair is accepted. Parameter order should be like "key", "field", "value", "field", "value"...
+func (db *RoseDB) HSet(key []byte, args ...[]byte) error {
 	db.hashIndex.mu.Lock()
 	defer db.hashIndex.mu.Unlock()
 
-	hashKey := db.encodeKey(key, field)
-	ent := &logfile.LogEntry{Key: hashKey, Value: value}
-	valuePos, err := db.writeLogEntry(ent, Hash)
-	if err != nil {
-		return err
+	if len(args) == 0 || len(args)&1 == 1 {
+		return ErrWrongNumberOfArgs
 	}
 
-	if db.hashIndex.trees[string(key)] == nil {
-		db.hashIndex.trees[string(key)] = art.NewART()
+	// add multiple field value pairs
+	for i := 0; i < len(args); i += 2 {
+		field, value := args[i], args[i+1]
+		hashKey := db.encodeKey(key, field)
+		entry := &logfile.LogEntry{Key: hashKey, Value: value}
+		valuePos, err := db.writeLogEntry(entry, Hash)
+		if err != nil {
+			return err
+		}
+
+		if db.hashIndex.trees[string(key)] == nil {
+			db.hashIndex.trees[string(key)] = art.NewART()
+		}
+		idxTree := db.hashIndex.trees[string(key)]
+
+		ent := &logfile.LogEntry{Key: field, Value: value}
+		_, size := logfile.EncodeEntry(entry)
+		valuePos.entrySize = size
+		err = db.updateIndexTree(idxTree, ent, valuePos, true, Hash)
+		if err != nil {
+			return err
+		}
 	}
-	idxTree := db.hashIndex.trees[string(key)]
-	entry := &logfile.LogEntry{Key: field, Value: value}
-	_, size := logfile.EncodeEntry(ent)
-	valuePos.entrySize = size
-	return db.updateIndexTree(idxTree, entry, valuePos, true, Hash)
+	return nil
 }
 
 // HSetNX sets the given value only if the field doesn't exist.
