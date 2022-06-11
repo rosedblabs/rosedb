@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"encoding/binary"
+
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
@@ -151,6 +152,10 @@ func (db *RoseDB) LIndex(key []byte, index int) ([]byte, error) {
 	seq, err := db.listSequence(headSeq, tailSeq, index)
 	if err != nil {
 		return nil, err
+	}
+
+	if seq >= tailSeq || seq <= headSeq {
+		return nil, ErrWrongIndex
 	}
 
 	encKey := db.encodeListKey(key, seq)

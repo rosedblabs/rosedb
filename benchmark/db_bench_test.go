@@ -2,17 +2,18 @@ package benchmark
 
 import (
 	"fmt"
-	"github.com/flower-corp/rosedb"
-	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"path/filepath"
 	"testing"
+
+	"github.com/flower-corp/rosedb"
+	"github.com/stretchr/testify/assert"
 )
 
 var roseDB *rosedb.RoseDB
 
 func init() {
-	path := filepath.Join("/tmp", "rosedb")
+	path := filepath.Join("/tmp", "rosedb_bench")
 	opts := rosedb.DefaultOptions(path)
 	var err error
 	roseDB, err = rosedb.Open(opts)
