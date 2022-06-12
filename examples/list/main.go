@@ -22,8 +22,24 @@ func main() {
 		return
 	}
 
+	err = db.LPushX([]byte("not-exist"), []byte("Tom"))
+	fmt.Println(err) // ErrKeyNotFound
+	err = db.LPushX([]byte("students"), []byte("Rose"))
+	if err != nil {
+		fmt.Printf("write data err: %v", err)
+		return
+	}
+
 	// dataStruct: Ming, Jame, Tom, Jack, Wei
 	err = db.RPush([]byte("students"), []byte("Jack"), []byte("Wei"))
+	if err != nil {
+		fmt.Printf("write data err: %v", err)
+		return
+	}
+
+	err = db.RPushX([]byte("not-exist"), []byte("Jack"))
+	fmt.Println(err) // ErrKeyNotFound
+	err = db.RPushX([]byte("students"), []byte("Duan"))
 	if err != nil {
 		fmt.Printf("write data err: %v", err)
 		return
@@ -49,5 +65,4 @@ func main() {
 		return
 	}
 	fmt.Println(string(rPopStu))
-
 }
