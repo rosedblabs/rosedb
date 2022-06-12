@@ -45,7 +45,7 @@ func TestLogFileGC(t *testing.T) {
 
 	writeCount := 800000
 	for i := 0; i < writeCount; i++ {
-		err := db.Set(GetKey(i), GetValue128B())
+		err := db.Set(GetKey(i), GetValue16B())
 		assert.Nil(t, err)
 	}
 

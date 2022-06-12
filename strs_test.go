@@ -1420,7 +1420,7 @@ func TestRoseDB_StrsGC(t *testing.T) {
 
 	writeCount := 1000000
 	for i := 0; i < writeCount; i++ {
-		err := db.Set(GetKey(i), GetValue128B())
+		err := db.Set(GetKey(i), GetValue16B())
 		assert.Nil(t, err)
 	}
 	for i := 0; i < writeCount/4; i++ {

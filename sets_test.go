@@ -261,7 +261,7 @@ func TestRoseDB_SetGC(t *testing.T) {
 	setKey := []byte("my_set")
 	writeCount := 500000
 	for i := 0; i < writeCount; i++ {
-		err := db.SAdd(setKey, GetValue128B())
+		err := db.SAdd(setKey, GetValue16B())
 		assert.Nil(t, err)
 	}
 

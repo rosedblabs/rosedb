@@ -6,7 +6,6 @@ import (
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/ds/zset"
 	"github.com/flower-corp/rosedb/flock"
-	"github.com/flower-corp/rosedb/ioselector"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
@@ -63,7 +62,6 @@ type (
 		archivedLogFiles map[DataType]archivedFiles
 		fidMap           map[DataType][]uint32 // only used at startup, never update even though log files changed.
 		discards         map[DataType]*discard
-		dumpState        ioselector.IOSelector
 		opts             Options
 		strIndex         *strIndex  // String indexes(adaptive-radix-tree).
 		listIndex        *listIndex // List indexes.
@@ -222,6 +220,11 @@ func (db *RoseDB) Close() error {
 		dis.closeChan()
 	}
 	atomic.StoreUint32(&db.closed, 1)
+	db.strIndex = nil
+	db.hashIndex = nil
+	db.listIndex = nil
+	db.zsetIndex = nil
+	db.setIndex = nil
 	return nil
 }
 

@@ -432,7 +432,7 @@ func TestRoseDB_HashGC(t *testing.T) {
 	hashKey := []byte("my_hash")
 	writeCount := 500000
 	for i := 0; i < writeCount; i++ {
-		err := db.HSet(hashKey, GetKey(i), GetValue128B())
+		err := db.HSet(hashKey, GetKey(i), GetValue16B())
 		assert.Nil(t, err)
 	}
 	for i := 0; i < writeCount/2; i++ {
