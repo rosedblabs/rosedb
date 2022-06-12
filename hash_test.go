@@ -1,11 +1,11 @@
 package rosedb
 
 import (
+	"errors"
+	"github.com/stretchr/testify/assert"
 	"math"
 	"path/filepath"
 	"testing"
-	"errors"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestRoseDB_HSet(t *testing.T) {

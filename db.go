@@ -217,9 +217,9 @@ func (db *RoseDB) Close() error {
 			_ = file.Close()
 		}
 	}
-	// close discard files.
+	// close discard channel.
 	for _, dis := range db.discards {
-		_ = dis.close()
+		dis.closeChan()
 	}
 	atomic.StoreUint32(&db.closed, 1)
 	return nil
