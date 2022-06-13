@@ -285,12 +285,36 @@ func lPush(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(cli.db.LLen(key)), nil
 }
 
+func lPushX(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("lpush")
+	}
+	key, value := args[0], args[1:]
+	err := cli.db.LPushX(key, value...)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleInt(cli.db.LLen(key)), nil
+}
+
 func rPush(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("rpush")
 	}
 	key, value := args[0], args[1:]
 	err := cli.db.RPush(key, value...)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleInt(cli.db.LLen(key)), nil
+}
+
+func rPushX(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("rpush")
+	}
+	key, value := args[0], args[1:]
+	err := cli.db.RPushX(key, value...)
 	if err != nil {
 		return nil, err
 	}

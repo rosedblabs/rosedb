@@ -12,23 +12,25 @@ type cmdHandler func(cli *Client, args [][]byte) (interface{}, error)
 var supportedCommands = map[string]cmdHandler{
 	// string commands
 	"set":    set,
+	"get":    get,
+	"mget":   mGet,
+	"getdel": getDel,
 	"setex":  setEX,
 	"setnx":  setNX,
 	"mset":   mSet,
 	"msetnx": mSetNX,
+	"append": appendStr,
 	"decr":   decr,
 	"decrby": decrBy,
 	"incr":   incr,
 	"incrby": incrBy,
 	"strlen": strLen,
-	"get":    get,
-	"mget":   mGet,
-	"append": appendStr,
-	"getdel": getDel,
 
 	// list
 	"lpush":  lPush,
+	"lpushx": lPushX,
 	"rpush":  rPush,
+	"rpushx": rPushX,
 	"lpop":   lPop,
 	"rpop":   rPop,
 	"lmove":  lMove,
@@ -54,8 +56,8 @@ var supportedCommands = map[string]cmdHandler{
 
 	// set commands
 	"sadd":      sAdd,
-	"srem":      sRem,
 	"spop":      sPop,
+	"srem":      sRem,
 	"sismember": sIsMember,
 	"smembers":  sMembers,
 	"scard":     sCard,
