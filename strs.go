@@ -77,8 +77,8 @@ func (db *RoseDB) GetDel(key []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	valDeleted, updated := db.strIndex.idxTree.Delete(key)
-	db.sendDiscard(valDeleted, updated, String)
+	oldVal, updated := db.strIndex.idxTree.Delete(key)
+	db.sendDiscard(oldVal, updated, String)
 	_, size := logfile.EncodeEntry(entry)
 	node := &indexNode{fid: pos.fid, entrySize: size}
 	select {
@@ -124,8 +124,7 @@ func (db *RoseDB) SetEX(key, value []byte, duration time.Duration) error {
 		return err
 	}
 
-	err = db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
-	return err
+	return db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
 }
 
 // SetNX sets the key-value pair if it is not exist. It returns nil if the key already exists.
