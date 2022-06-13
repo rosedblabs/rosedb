@@ -177,7 +177,6 @@ func (db *RoseDB) SUnion(keys ...[]byte) ([][]byte, error) {
 	if len(keys) == 0 {
 		return nil, ErrWrongNumberOfArgs
 	}
-
 	if len(keys) == 1 {
 		return db.sMembers(keys[0])
 	}

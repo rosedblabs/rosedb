@@ -10,6 +10,7 @@ rosedb 类似于 `Redis`，但是可以选择将 value 存储到磁盘中。
 
 主要特性：
 
+* **兼容 Redis 协议**
 * **支持丰富的数据结构，包含 `String`、`List`、`Hash`、`Set`、`Sorted Set`**
 * **内嵌使用，维护成本低**
 * **高性能，对读写负载的应用都适合**
@@ -21,7 +22,34 @@ rosedb 类似于 `Redis`，但是可以选择将 value 存储到磁盘中。
 
 ## 快速开始
 
-**1.内嵌使用，请参考：**[examples](https://github.com/flower-corp/rosedb/tree/main/examples)
+**1. 内嵌使用，请参考：**[examples](https://github.com/flower-corp/rosedb/tree/main/examples)
+
+**2. 做为 Server 使用**
+
+启动 rosedb server：
+
+```shell
+cd rosedb
+make
+./rosedb-server [-option value]
+```
+
+通过 cli 工具访问数据(这里的 cli 工具实际上就是 `redis-cli`)
+
+> 目前 cli 工具只有 mac 系统的，可根据你的系统下载对应的 redis-cli 工具
+
+```shell
+cd rosedb/tools
+./cli-mac -p 5200
+
+127.0.0.1:5200> 
+127.0.0.1:5200> set my_key RoseDB
+OK
+127.0.0.1:5200> get my_key
+"RoseDB"
+127.0.0.1:5200> 
+
+```
 
 ## 文档
 
