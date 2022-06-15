@@ -1433,3 +1433,67 @@ func TestRoseDB_StrsGC(t *testing.T) {
 	size := db.strIndex.idxTree.Size()
 	assert.Equal(t, writeCount-writeCount/4, size)
 }
+
+func TestRoseDB_Count(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	c1 := db.Count()
+	assert.Equal(t, 0, c1)
+
+	for i := 0; i < 100; i++ {
+		err = db.Set(GetKey(i), GetValue16B())
+		assert.Nil(t, err)
+	}
+	c2 := db.Count()
+	assert.Equal(t, 100, c2)
+}
+
+func TestRoseDB_Scan(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBScan(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBScan(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBScan(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	for i := 0; i < 100; i++ {
+		err = db.Set(GetKey(i), GetValue16B())
+		assert.Nil(t, err)
+	}
+
+	values, err := db.Scan(nil, "", 10)
+	assert.Nil(t, err)
+	assert.Equal(t, 20, len(values))
+
+	db.Set([]byte("aba"), GetValue16B())
+	db.Set([]byte("aab"), GetValue16B())
+	db.Set([]byte("aac"), GetValue16B())
+	db.Set([]byte("abc"), GetValue16B())
+
+	values, err = db.Scan([]byte("ab"), "", 20)
+	assert.Nil(t, err)
+	assert.Equal(t, 4, len(values))
+
+	db.Set([]byte("1223"), GetValue16B())
+	db.Set([]byte("55"), GetValue16B())
+	db.Set([]byte("9001"), GetValue16B())
+
+	values, err = db.Scan(nil, "^[0-9]*$", 3)
+	assert.Nil(t, err)
+	assert.Equal(t, 6, len(values))
+}

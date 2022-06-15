@@ -8,6 +8,7 @@ import (
 	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
 	"math"
+	"regexp"
 	"strconv"
 	"time"
 )
@@ -332,4 +333,58 @@ func (db *RoseDB) StrLen(key []byte) int {
 	}
 
 	return binary.Size(val)
+}
+
+// Count returns the total number of keys of String.
+func (db *RoseDB) Count() int {
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+
+	if db.strIndex.idxTree == nil {
+		return 0
+	}
+	return db.strIndex.idxTree.Size()
+}
+
+// Scan iterates over all keys of type String and finds its value.
+// Parameter prefix will match key`s prefix, and pattern is a regular expression that also matchs the key.
+// Parameter count limits the number of keys, a nil slice will be returned if count is not a positive number.
+// The returned values will be a mixed data of keys and values, like [key1, value1, key2, value2, etc...].
+func (db *RoseDB) Scan(prefix []byte, pattern string, count int) ([][]byte, error) {
+	if count <= 0 {
+		return nil, nil
+	}
+
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+	if db.strIndex.idxTree == nil {
+		return nil, nil
+	}
+	keys := db.strIndex.idxTree.PrefixScan(prefix, count)
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	var reg *regexp.Regexp
+	if pattern != "" {
+		var err error
+		if reg, err = regexp.Compile(pattern); err != nil {
+			return nil, err
+		}
+	}
+
+	values := make([][]byte, 2*len(keys))
+	var index int
+	for _, key := range keys {
+		if reg != nil && !reg.Match(key) {
+			continue
+		}
+		val, err := db.getVal(db.strIndex.idxTree, key, String)
+		if err != nil && err != ErrKeyNotFound {
+			return nil, err
+		}
+		values[index], values[index+1] = key, val
+		index += 2
+	}
+	return values, nil
 }

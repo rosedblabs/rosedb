@@ -289,6 +289,10 @@ func (db *RoseDB) HStrLen(key, field []byte) int {
 	return len(val)
 }
 
+// HScan iterates over a specified key of type Hash and finds its fields and values.
+// Parameter prefix will match field`s prefix, and pattern is a regular expression that also matchs the field.
+// Parameter count limits the number of keys, a nil slice will be returned if count is not a positive number.
+// The returned values will be a mixed data of fields and values, like [field1, value1, field2, value2, etc...].
 func (db *RoseDB) HScan(key []byte, prefix []byte, pattern string, count int) ([][]byte, error) {
 	if count <= 0 {
 		return nil, nil
