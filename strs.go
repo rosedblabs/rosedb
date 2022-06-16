@@ -2,7 +2,6 @@ package rosedb
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
@@ -331,8 +330,7 @@ func (db *RoseDB) StrLen(key []byte) int {
 	if err != nil {
 		return 0
 	}
-
-	return binary.Size(val)
+	return len(val)
 }
 
 // Count returns the total number of keys of String.

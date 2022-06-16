@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -69,6 +70,9 @@ func TestLogFileGC(t *testing.T) {
 func destroyDB(db *RoseDB) {
 	if db != nil {
 		_ = db.Close()
+		if runtime.GOOS == "windows" {
+			time.Sleep(time.Millisecond * 100)
+		}
 		err := os.RemoveAll(db.opts.DBPath)
 		if err != nil {
 			logger.Errorf("destroy db err: %v", err)
