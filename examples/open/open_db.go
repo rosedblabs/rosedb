@@ -16,5 +16,7 @@ func main() {
 		fmt.Printf("open rosedb err: %v", err)
 		return
 	}
-	_ = db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 }
