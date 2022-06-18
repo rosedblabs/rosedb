@@ -386,3 +386,47 @@ func (db *RoseDB) Scan(prefix []byte, pattern string, count int) ([][]byte, erro
 	}
 	return values, nil
 }
+
+// Expire set the expiration time for the given key.
+func (db *RoseDB) Expire(key []byte, duration time.Duration) error {
+	if duration <= 0 {
+		return nil
+	}
+	db.strIndex.mu.Lock()
+	val, err := db.getVal(db.strIndex.idxTree, key, String)
+	if err != nil {
+		db.strIndex.mu.Unlock()
+		return err
+	}
+	db.strIndex.mu.Unlock()
+	return db.SetEX(key, val, duration)
+}
+
+// TTL get ttl(time to live) for the given key.
+func (db *RoseDB) TTL(key []byte) (int64, error) {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	node, err := db.getIndexNode(db.strIndex.idxTree, key)
+	if err != nil {
+		return 0, err
+	}
+	var ttl int64
+	if node.expiredAt != 0 {
+		ttl = node.expiredAt - time.Now().Unix()
+	}
+	return ttl, nil
+}
+
+// Persist remove the expiration time for the given key.
+func (db *RoseDB) Persist(key []byte) error {
+	db.strIndex.mu.Lock()
+	val, err := db.getVal(db.strIndex.idxTree, key, String)
+	if err != nil {
+		db.strIndex.mu.Unlock()
+		return err
+	}
+	db.strIndex.mu.Unlock()
+
+	return db.Set(key, val)
+}

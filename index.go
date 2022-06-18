@@ -242,10 +242,23 @@ func (db *RoseDB) updateIndexTree(idxTree *art.AdaptiveRadixTree,
 	return nil
 }
 
+// get index node info from an adaptive radix tree in memory.
+func (db *RoseDB) getIndexNode(idxTree *art.AdaptiveRadixTree, key []byte) (*indexNode, error) {
+	rawValue := idxTree.Get(key)
+	if rawValue == nil {
+		return nil, ErrKeyNotFound
+	}
+	idxNode, _ := rawValue.(*indexNode)
+	if idxNode == nil {
+		return nil, ErrKeyNotFound
+	}
+	return idxNode, nil
+}
+
 func (db *RoseDB) getVal(idxTree *art.AdaptiveRadixTree,
 	key []byte, dataType DataType) ([]byte, error) {
 
-	// Get index info from a skip list in memory.
+	// Get index info from an adaptive radix tree in memory.
 	rawValue := idxTree.Get(key)
 	if rawValue == nil {
 		return nil, ErrKeyNotFound
