@@ -133,26 +133,27 @@ func (db *RoseDB) buildSetsIndex(ent *logfile.LogEntry, pos *valuePos) {
 }
 
 func (db *RoseDB) buildZSetIndex(ent *logfile.LogEntry, pos *valuePos) {
-	idxTree := db.zsetIndex.trees[string(ent.Key)]
 	if ent.Type == logfile.TypeDelete {
 		db.zsetIndex.indexes.ZRem(string(ent.Key), string(ent.Value))
-		if idxTree != nil {
-			idxTree.Delete(ent.Value)
+		if db.zsetIndex.trees[string(ent.Key)] != nil {
+			db.zsetIndex.trees[string(ent.Key)].Delete(ent.Value)
 		}
 		return
 	}
 
 	key, scoreBuf := db.decodeKey(ent.Key)
 	score, _ := util.StrToFloat64(string(scoreBuf))
-
-	if idxTree == nil {
-		idxTree = art.NewART()
-	}
 	if err := db.zsetIndex.murhash.Write(ent.Value); err != nil {
 		logger.Fatalf("fail to write murmur hash: %v", err)
 	}
 	sum := db.zsetIndex.murhash.EncodeSum128()
 	db.zsetIndex.murhash.Reset()
+
+	idxTree := db.zsetIndex.trees[string(key)]
+	if idxTree == nil {
+		idxTree = art.NewART()
+		db.zsetIndex.trees[string(key)] = idxTree
+	}
 
 	_, size := logfile.EncodeEntry(ent)
 	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}

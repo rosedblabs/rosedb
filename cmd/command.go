@@ -738,3 +738,40 @@ func zRange(cli *Client, args [][]byte) (interface{}, error) {
 	}
 	return cli.db.ZRange(args[0], start, stop)
 }
+
+func zRevRange(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("zrevrange")
+	}
+	start, err := strconv.Atoi(string(args[1]))
+	if err != nil {
+		return nil, err
+	}
+	stop, err := strconv.Atoi(string(args[2]))
+	if err != nil {
+		return nil, err
+	}
+	return cli.db.ZRevRange(args[0], start, stop)
+}
+
+func zRank(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("zrank")
+	}
+	ok, rank := cli.db.ZRank(args[0], args[1])
+	if !ok {
+		return nil, nil
+	}
+	return rank, nil
+}
+
+func zRevRank(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("zrevrank")
+	}
+	ok, rank := cli.db.ZRevRank(args[0], args[1])
+	if !ok {
+		return nil, nil
+	}
+	return rank, nil
+}

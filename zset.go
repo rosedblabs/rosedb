@@ -103,6 +103,28 @@ func (db *RoseDB) ZCard(key []byte) int {
 
 // ZRange returns the specified range of elements in the sorted set stored at key.
 func (db *RoseDB) ZRange(key []byte, start, stop int) ([][]byte, error) {
+	return db.zRangeInternal(key, start, stop, false)
+}
+
+// ZRevRange returns the specified range of elements in the sorted set stored at key.
+// The elements are considered to be ordered from the highest to the lowest score.
+func (db *RoseDB) ZRevRange(key []byte, start, stop int) ([][]byte, error) {
+	return db.zRangeInternal(key, start, stop, true)
+}
+
+// ZRank returns the rank of member in the sorted set stored at key, with the scores ordered from low to high.
+// The rank (or index) is 0-based, which means that the member with the lowest score has rank 0.
+func (db *RoseDB) ZRank(key []byte, member []byte) (ok bool, rank int) {
+	return db.zRankInternal(key, member, false)
+}
+
+// ZRevRank returns the rank of member in the sorted set stored at key, with the scores ordered from high to low.
+// The rank (or index) is 0-based, which means that the member with the highest score has rank 0.
+func (db *RoseDB) ZRevRank(key []byte, member []byte) (ok bool, rank int) {
+	return db.zRankInternal(key, member, true)
+}
+
+func (db *RoseDB) zRangeInternal(key []byte, start, stop int, rev bool) ([][]byte, error) {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 	if db.zsetIndex.trees[string(key)] == nil {
@@ -111,7 +133,12 @@ func (db *RoseDB) ZRange(key []byte, start, stop int) ([][]byte, error) {
 	idxTree := db.zsetIndex.trees[string(key)]
 
 	var res [][]byte
-	values := db.zsetIndex.indexes.ZRange(string(key), start, stop)
+	var values []interface{}
+	if rev {
+		values = db.zsetIndex.indexes.ZRevRange(string(key), start, stop)
+	} else {
+		values = db.zsetIndex.indexes.ZRange(string(key), start, stop)
+	}
 	for _, val := range values {
 		v, _ := val.(string)
 		if val, err := db.getVal(idxTree, []byte(v), ZSet); err != nil {
@@ -121,4 +148,30 @@ func (db *RoseDB) ZRange(key []byte, start, stop int) ([][]byte, error) {
 		}
 	}
 	return res, nil
+}
+
+func (db *RoseDB) zRankInternal(key []byte, member []byte, rev bool) (ok bool, rank int) {
+	db.zsetIndex.mu.RLock()
+	defer db.zsetIndex.mu.RUnlock()
+	if db.zsetIndex.trees[string(key)] == nil {
+		return
+	}
+
+	if err := db.zsetIndex.murhash.Write(member); err != nil {
+		return
+	}
+	sum := db.zsetIndex.murhash.EncodeSum128()
+	db.zsetIndex.murhash.Reset()
+
+	var result int64
+	if rev {
+		result = db.zsetIndex.indexes.ZRevRank(string(key), string(sum))
+	} else {
+		result = db.zsetIndex.indexes.ZRank(string(key), string(sum))
+	}
+	if result != -1 {
+		ok = true
+		rank = int(result)
+	}
+	return
 }
