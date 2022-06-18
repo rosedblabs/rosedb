@@ -248,6 +248,27 @@ func (db *RoseDB) Sync() error {
 	return nil
 }
 
+// Backup copies the db directory to the given path for backup.
+// It will create the path if it does not exist.
+func (db *RoseDB) Backup(path string) error {
+	// if log file gc is running, can not backuo the db.
+	if atomic.LoadInt32(&db.gcState) > 0 {
+		return ErrGCRunning
+	}
+
+	if err := db.Sync(); err != nil {
+		return err
+	}
+	if !util.PathExist(path) {
+		if err := os.MkdirAll(path, os.ModePerm); err != nil {
+			return err
+		}
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	return util.CopyDir(db.opts.DBPath, path)
+}
+
 // RunLogFileGC run log file garbage collection manually.
 func (db *RoseDB) RunLogFileGC(dataType DataType, fid int, gcRatio float64) error {
 	if atomic.LoadInt32(&db.gcState) > 0 {

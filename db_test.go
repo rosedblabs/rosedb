@@ -67,6 +67,34 @@ func TestLogFileGC(t *testing.T) {
 	}
 }
 
+func TestRoseDB_Backup(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	defer destroyDB(db)
+	if err != nil {
+		t.Error("open db err ", err)
+	}
+
+	for i := 0; i < 10; i++ {
+		err := db.Set(GetKey(i), GetValue128B())
+		assert.Nil(t, err)
+	}
+
+	backupPath := filepath.Join("/tmp", "rosedb-backup")
+	err = db.Backup(backupPath)
+	assert.Nil(t, err)
+
+	// open the backup database
+	opts2 := DefaultOptions(backupPath)
+	db2, err := Open(opts2)
+	assert.Nil(t, err)
+	defer destroyDB(db2)
+	val, err := db2.Get(GetKey(4))
+	assert.Nil(t, err)
+	assert.NotNil(t, val)
+}
+
 func destroyDB(db *RoseDB) {
 	if db != nil {
 		_ = db.Close()
