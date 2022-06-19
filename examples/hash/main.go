@@ -52,4 +52,22 @@ func main() {
 		fmt.Printf("Error when key-1/field-1 is trying to get: %v", err)
 	}
 	fmt.Printf("key-1/value-1: %s", string(value))
+
+	_ = db.HSet([]byte("my_hash"), []byte("f1"), []byte("val-1"), []byte("f2"), []byte("val-2"))
+	values, err := db.HMGet([]byte("my_hash"), []byte("f1"), []byte("f2"))
+	if err != nil {
+		fmt.Printf("hmget err: %v", err)
+		return
+	}
+	fmt.Println("\n-----hmget results-----")
+	for _, v := range values {
+		fmt.Println(string(v))
+	}
+
+	res, err := db.HDel([]byte("my_hash"), []byte("f1"))
+	if err != nil {
+		fmt.Printf("hdel err: %v", err)
+		return
+	}
+	fmt.Println("hdel result : ", res)
 }
