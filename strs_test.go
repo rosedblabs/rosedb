@@ -296,11 +296,11 @@ func testRoseDBMGet(t *testing.T, ioType IOType, mode DataIndexMode) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.db.MGet(tt.args.keys)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("MGet() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Get() got = %v, want %v", got, tt.want)
+				t.Errorf("MGet() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
