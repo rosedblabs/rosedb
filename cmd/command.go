@@ -254,18 +254,17 @@ func getRange(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 3 {
 		return nil, newWrongNumOfArgsError("getrange")
 	}
-	key, start, end := args[0], args[1], args[2]
-	s, err := strconv.Atoi(string(start))
+	start, err := strconv.Atoi(string(args[1]))
 	if err != nil {
 		return nil, errValueIsInvalid
 	}
 
-	e, err := strconv.Atoi(string(end))
+	end, err := strconv.Atoi(string(args[2]))
 	if err != nil {
 		return nil, errValueIsInvalid
 	}
 
-	return cli.db.GetRange(key, s, e)
+	return cli.db.GetRange(args[0], start, end)
 }
 
 func appendStr(cli *Client, args [][]byte) (interface{}, error) {

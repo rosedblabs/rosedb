@@ -67,6 +67,9 @@ func (db *RoseDB) GetRange(key []byte, start, end int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(val) == 0 {
+		return []byte{}, nil
+	}
 	// Negative offsets can be used in order to provide an offset starting from the end of the string.
 	// So -1 means the last character, -2 the penultimate and so forth
 	if start < 0 {
@@ -83,11 +86,11 @@ func (db *RoseDB) GetRange(key []byte, start, end int) ([]byte, error) {
 	}
 
 	// handles out of range requests by limiting the resulting range to the actual length of the string.
-	if start > len(val)-1 {
-		return []byte{}, nil
-	}
 	if end > len(val)-1 {
 		end = len(val) - 1
+	}
+	if start > len(val)-1 || start > end {
+		return []byte{}, nil
 	}
 	return val[start : end+1], nil
 }

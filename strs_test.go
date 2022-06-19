@@ -332,6 +332,10 @@ func testRoseDBGetRange(t *testing.T, ioType IOType, mode DataIndexMode) {
 	val := []byte("test-val")
 	db.Set(key, val)
 
+	keyEmpty := []byte("key-empty")
+	valEmpty := []byte("")
+	db.Set(keyEmpty, valEmpty)
+
 	type args struct {
 		key   []byte
 		start int
@@ -348,6 +352,12 @@ func testRoseDBGetRange(t *testing.T, ioType IOType, mode DataIndexMode) {
 			args:    args{key: []byte("missing key"), start: 0, end: 7},
 			want:    nil,
 			wantErr: true,
+		},
+		{
+			name:    "empty",
+			args:    args{key: keyEmpty, start: 0, end: 0},
+			want:    valEmpty,
+			wantErr: false,
 		},
 		{
 			name:    "all strings",
@@ -406,6 +416,12 @@ func testRoseDBGetRange(t *testing.T, ioType IOType, mode DataIndexMode) {
 		{
 			name:    "start over end",
 			args:    args{key: key, start: 1, end: 0},
+			want:    []byte{},
+			wantErr: false,
+		},
+		{
+			name:    "start and end both are positive numbers, and start > end",
+			args:    args{key: key, start: 3, end: 1},
 			want:    []byte{},
 			wantErr: false,
 		},
