@@ -465,7 +465,7 @@ func (db *RoseDB) handleLogFileGC() {
 	}
 
 	quitSig := make(chan os.Signal, 1)
-	signal.Notify(quitSig, os.Interrupt, os.Kill, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(quitSig, syscall.SIGKILL, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	ticker := time.NewTicker(db.opts.LogFileGCInterval)
 	defer ticker.Stop()
 	for {
