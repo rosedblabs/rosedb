@@ -285,12 +285,36 @@ func lPush(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(cli.db.LLen(key)), nil
 }
 
+func lPushX(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("lpush")
+	}
+	key, value := args[0], args[1:]
+	err := cli.db.LPushX(key, value...)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleInt(cli.db.LLen(key)), nil
+}
+
 func rPush(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("rpush")
 	}
 	key, value := args[0], args[1:]
 	err := cli.db.RPush(key, value...)
+	if err != nil {
+		return nil, err
+	}
+	return redcon.SimpleInt(cli.db.LLen(key)), nil
+}
+
+func rPushX(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("rpush")
+	}
+	key, value := args[0], args[1:]
+	err := cli.db.RPushX(key, value...)
 	if err != nil {
 		return nil, err
 	}
@@ -713,4 +737,41 @@ func zRange(cli *Client, args [][]byte) (interface{}, error) {
 		return nil, err
 	}
 	return cli.db.ZRange(args[0], start, stop)
+}
+
+func zRevRange(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("zrevrange")
+	}
+	start, err := strconv.Atoi(string(args[1]))
+	if err != nil {
+		return nil, err
+	}
+	stop, err := strconv.Atoi(string(args[2]))
+	if err != nil {
+		return nil, err
+	}
+	return cli.db.ZRevRange(args[0], start, stop)
+}
+
+func zRank(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("zrank")
+	}
+	ok, rank := cli.db.ZRank(args[0], args[1])
+	if !ok {
+		return nil, nil
+	}
+	return rank, nil
+}
+
+func zRevRank(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("zrevrank")
+	}
+	ok, rank := cli.db.ZRevRank(args[0], args[1])
+	if !ok {
+		return nil, nil
+	}
+	return rank, nil
 }

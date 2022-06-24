@@ -188,6 +188,75 @@ func testRoseDBZRange(t *testing.T, ioType IOType, mode DataIndexMode) {
 	assert.Equal(t, 4, len(values))
 }
 
+func TestRoseDB_ZRevRange(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBZRevRange(t, FileIO, KeyValueMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBZRevRange(t, MMap, KeyOnlyMemMode)
+	})
+}
+
+func testRoseDBZRevRange(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	zsetKey := []byte("my_zset")
+	for i := 0; i < 100; i++ {
+		err := db.ZAdd(zsetKey, float64(i+100), GetKey(i))
+		assert.Nil(t, err)
+	}
+
+	ok, score := db.ZScore(zsetKey, GetKey(3))
+	assert.True(t, ok)
+	assert.Equal(t, float64(103), score)
+
+	values, err := db.ZRevRange(zsetKey, 1, 10)
+	assert.Nil(t, err)
+	assert.Equal(t, 10, len(values))
+}
+
+func TestRoseDB_ZRank(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBZRank(t, FileIO, KeyValueMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBZRank(t, MMap, KeyOnlyMemMode)
+	})
+}
+
+func testRoseDBZRank(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	zsetKey := []byte("my_zset")
+	for i := 0; i < 100; i++ {
+		err := db.ZAdd(zsetKey, float64(i+100), GetKey(i))
+		assert.Nil(t, err)
+	}
+
+	ok, r1 := db.ZRank(zsetKey, GetKey(-1))
+	assert.False(t, ok)
+	assert.Equal(t, 0, r1)
+
+	ok, r2 := db.ZRank(zsetKey, GetKey(3))
+	assert.True(t, ok)
+	assert.Equal(t, 3, r2)
+	ok, r3 := db.ZRevRank(zsetKey, GetKey(1))
+	assert.True(t, ok)
+	assert.Equal(t, 98, r3)
+}
+
 func TestRoseDB_ZSetGC(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb")
 	opts := DefaultOptions(path)

@@ -133,26 +133,27 @@ func (db *RoseDB) buildSetsIndex(ent *logfile.LogEntry, pos *valuePos) {
 }
 
 func (db *RoseDB) buildZSetIndex(ent *logfile.LogEntry, pos *valuePos) {
-	idxTree := db.zsetIndex.trees[string(ent.Key)]
 	if ent.Type == logfile.TypeDelete {
 		db.zsetIndex.indexes.ZRem(string(ent.Key), string(ent.Value))
-		if idxTree != nil {
-			idxTree.Delete(ent.Value)
+		if db.zsetIndex.trees[string(ent.Key)] != nil {
+			db.zsetIndex.trees[string(ent.Key)].Delete(ent.Value)
 		}
 		return
 	}
 
 	key, scoreBuf := db.decodeKey(ent.Key)
 	score, _ := util.StrToFloat64(string(scoreBuf))
-
-	if idxTree == nil {
-		idxTree = art.NewART()
-	}
 	if err := db.zsetIndex.murhash.Write(ent.Value); err != nil {
 		logger.Fatalf("fail to write murmur hash: %v", err)
 	}
 	sum := db.zsetIndex.murhash.EncodeSum128()
 	db.zsetIndex.murhash.Reset()
+
+	idxTree := db.zsetIndex.trees[string(key)]
+	if idxTree == nil {
+		idxTree = art.NewART()
+		db.zsetIndex.trees[string(key)] = idxTree
+	}
 
 	_, size := logfile.EncodeEntry(ent)
 	idxNode := &indexNode{fid: pos.fid, offset: pos.offset, entrySize: size}
@@ -241,10 +242,23 @@ func (db *RoseDB) updateIndexTree(idxTree *art.AdaptiveRadixTree,
 	return nil
 }
 
+// get index node info from an adaptive radix tree in memory.
+func (db *RoseDB) getIndexNode(idxTree *art.AdaptiveRadixTree, key []byte) (*indexNode, error) {
+	rawValue := idxTree.Get(key)
+	if rawValue == nil {
+		return nil, ErrKeyNotFound
+	}
+	idxNode, _ := rawValue.(*indexNode)
+	if idxNode == nil {
+		return nil, ErrKeyNotFound
+	}
+	return idxNode, nil
+}
+
 func (db *RoseDB) getVal(idxTree *art.AdaptiveRadixTree,
 	key []byte, dataType DataType) ([]byte, error) {
 
-	// Get index info from a skip list in memory.
+	// Get index info from an adaptive radix tree in memory.
 	rawValue := idxTree.Get(key)
 	if rawValue == nil {
 		return nil, ErrKeyNotFound

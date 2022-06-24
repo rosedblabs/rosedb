@@ -1433,3 +1433,178 @@ func TestRoseDB_StrsGC(t *testing.T) {
 	size := db.strIndex.idxTree.Size()
 	assert.Equal(t, writeCount-writeCount/4, size)
 }
+
+func TestRoseDB_Count(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	c1 := db.Count()
+	assert.Equal(t, 0, c1)
+
+	for i := 0; i < 100; i++ {
+		err = db.Set(GetKey(i), GetValue16B())
+		assert.Nil(t, err)
+	}
+	c2 := db.Count()
+	assert.Equal(t, 100, c2)
+}
+
+func TestRoseDB_Scan(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBScan(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBScan(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBScan(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	for i := 0; i < 100; i++ {
+		err = db.Set(GetKey(i), GetValue16B())
+		assert.Nil(t, err)
+	}
+
+	values, err := db.Scan(nil, "", 10)
+	assert.Nil(t, err)
+	assert.Equal(t, 20, len(values))
+
+	db.Set([]byte("aba"), GetValue16B())
+	db.Set([]byte("aab"), GetValue16B())
+	db.Set([]byte("aac"), GetValue16B())
+	db.Set([]byte("abc"), GetValue16B())
+
+	values, err = db.Scan([]byte("ab"), "", 20)
+	assert.Nil(t, err)
+	assert.Equal(t, 4, len(values))
+
+	db.Set([]byte("1223"), GetValue16B())
+	db.Set([]byte("55"), GetValue16B())
+	db.Set([]byte("9001"), GetValue16B())
+
+	values, err = db.Scan(nil, "^[0-9]*$", 3)
+	assert.Nil(t, err)
+	assert.Equal(t, 6, len(values))
+}
+
+func TestRoseDB_Expire(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBExpire(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBExpire(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBExpire(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	t.Run("normal", func(t *testing.T) {
+		err = db.Expire(GetKey(31), time.Second*2)
+		assert.Equal(t, ErrKeyNotFound, err)
+
+		err = db.Set(GetKey(55), GetValue16B())
+		assert.Nil(t, err)
+		err = db.Expire(GetKey(55), time.Second*1)
+		assert.Nil(t, err)
+
+		time.Sleep(time.Second)
+		_, err = db.Get(GetKey(55))
+		assert.Equal(t, ErrKeyNotFound, err)
+	})
+
+	t.Run("set-twice", func(t *testing.T) {
+		err := db.Set(GetKey(66), GetValue16B())
+		assert.Nil(t, err)
+
+		db.Expire(GetKey(66), time.Second*100)
+		db.Expire(GetKey(66), time.Second*1)
+		time.Sleep(time.Second)
+		_, err = db.Get(GetKey(66))
+		assert.Equal(t, ErrKeyNotFound, err)
+	})
+}
+
+func TestRoseDB_TTL(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	t1, err := db.TTL(GetKey(111))
+	assert.Equal(t, int64(0), t1)
+	assert.Equal(t, ErrKeyNotFound, err)
+
+	err = db.SetEX(GetKey(123), GetValue16B(), time.Second*30)
+	assert.Nil(t, err)
+
+	t2, err := db.TTL(GetKey(123))
+	assert.Equal(t, int64(30), t2)
+	assert.Nil(t, err)
+
+	err = db.Set(GetKey(007), GetValue16B())
+	assert.Nil(t, err)
+	db.Expire(GetKey(007), time.Second*50)
+
+	t3, err := db.TTL(GetKey(007))
+	assert.Equal(t, int64(50), t3)
+	assert.Nil(t, err)
+
+	db.SetEX(GetKey(999), GetValue16B(), time.Second*5)
+	db.Expire(GetKey(999), time.Second*100)
+	db.Expire(GetKey(999), time.Second*10)
+
+	t4, err := db.TTL(GetKey(999))
+	assert.Equal(t, int64(10), t4)
+	assert.Nil(t, err)
+}
+
+func TestRoseDB_Persist(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBPersist(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBPersist(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBPersist(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	err = db.SetEX(GetKey(900), GetValue16B(), time.Second*1)
+	assert.Nil(t, err)
+	err = db.Persist(GetKey(900))
+	assert.Nil(t, err)
+
+	time.Sleep(time.Second)
+
+	val, err := db.Get(GetKey(900))
+	assert.Nil(t, err)
+	assert.NotNil(t, val)
+}

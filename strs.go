@@ -2,12 +2,12 @@ package rosedb
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
 	"math"
+	"regexp"
 	"strconv"
 	"time"
 )
@@ -77,8 +77,8 @@ func (db *RoseDB) GetDel(key []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	valDeleted, updated := db.strIndex.idxTree.Delete(key)
-	db.sendDiscard(valDeleted, updated, String)
+	oldVal, updated := db.strIndex.idxTree.Delete(key)
+	db.sendDiscard(oldVal, updated, String)
 	_, size := logfile.EncodeEntry(entry)
 	node := &indexNode{fid: pos.fid, entrySize: size}
 	select {
@@ -124,8 +124,7 @@ func (db *RoseDB) SetEX(key, value []byte, duration time.Duration) error {
 		return err
 	}
 
-	err = db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
-	return err
+	return db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
 }
 
 // SetNX sets the key-value pair if it is not exist. It returns nil if the key already exists.
@@ -331,6 +330,103 @@ func (db *RoseDB) StrLen(key []byte) int {
 	if err != nil {
 		return 0
 	}
+	return len(val)
+}
 
-	return binary.Size(val)
+// Count returns the total number of keys of String.
+func (db *RoseDB) Count() int {
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+
+	if db.strIndex.idxTree == nil {
+		return 0
+	}
+	return db.strIndex.idxTree.Size()
+}
+
+// Scan iterates over all keys of type String and finds its value.
+// Parameter prefix will match key`s prefix, and pattern is a regular expression that also matchs the key.
+// Parameter count limits the number of keys, a nil slice will be returned if count is not a positive number.
+// The returned values will be a mixed data of keys and values, like [key1, value1, key2, value2, etc...].
+func (db *RoseDB) Scan(prefix []byte, pattern string, count int) ([][]byte, error) {
+	if count <= 0 {
+		return nil, nil
+	}
+
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+	if db.strIndex.idxTree == nil {
+		return nil, nil
+	}
+	keys := db.strIndex.idxTree.PrefixScan(prefix, count)
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	var reg *regexp.Regexp
+	if pattern != "" {
+		var err error
+		if reg, err = regexp.Compile(pattern); err != nil {
+			return nil, err
+		}
+	}
+
+	values := make([][]byte, 2*len(keys))
+	var index int
+	for _, key := range keys {
+		if reg != nil && !reg.Match(key) {
+			continue
+		}
+		val, err := db.getVal(db.strIndex.idxTree, key, String)
+		if err != nil && err != ErrKeyNotFound {
+			return nil, err
+		}
+		values[index], values[index+1] = key, val
+		index += 2
+	}
+	return values, nil
+}
+
+// Expire set the expiration time for the given key.
+func (db *RoseDB) Expire(key []byte, duration time.Duration) error {
+	if duration <= 0 {
+		return nil
+	}
+	db.strIndex.mu.Lock()
+	val, err := db.getVal(db.strIndex.idxTree, key, String)
+	if err != nil {
+		db.strIndex.mu.Unlock()
+		return err
+	}
+	db.strIndex.mu.Unlock()
+	return db.SetEX(key, val, duration)
+}
+
+// TTL get ttl(time to live) for the given key.
+func (db *RoseDB) TTL(key []byte) (int64, error) {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	node, err := db.getIndexNode(db.strIndex.idxTree, key)
+	if err != nil {
+		return 0, err
+	}
+	var ttl int64
+	if node.expiredAt != 0 {
+		ttl = node.expiredAt - time.Now().Unix()
+	}
+	return ttl, nil
+}
+
+// Persist remove the expiration time for the given key.
+func (db *RoseDB) Persist(key []byte) error {
+	db.strIndex.mu.Lock()
+	val, err := db.getVal(db.strIndex.idxTree, key, String)
+	if err != nil {
+		db.strIndex.mu.Unlock()
+		return err
+	}
+	db.strIndex.mu.Unlock()
+
+	return db.Set(key, val)
 }

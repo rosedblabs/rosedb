@@ -10,6 +10,7 @@ It is similar to `Redis` but store values on disk.
 
 Key features:
 
+* **Compatible with Redis protocol (not fully)**
 * **Many data structures: `string`, `list`, `hash`, `set`, and `sorted set`**
 * **Easy to embed into your own Go application**
 * **High performance, suitable for both read and write intensive workload**
