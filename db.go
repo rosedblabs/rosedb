@@ -528,7 +528,7 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 			return nil
 		}
 		idxTree := db.listIndex.trees[string(listKey)]
-		indexVal := idxTree.Get(listKey)
+		indexVal := idxTree.Get(ent.Key)
 		if indexVal == nil {
 			return nil
 		}
