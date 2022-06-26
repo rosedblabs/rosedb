@@ -57,6 +57,44 @@ func (db *RoseDB) MGet(keys [][]byte) ([][]byte, error) {
 	return values, nil
 }
 
+// GetRange returns the substring of the string value stored at key,
+// determined by the offsets start and end.
+func (db *RoseDB) GetRange(key []byte, start, end int) ([]byte, error) {
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+
+	val, err := db.getVal(db.strIndex.idxTree, key, String)
+	if err != nil {
+		return nil, err
+	}
+	if len(val) == 0 {
+		return []byte{}, nil
+	}
+	// Negative offsets can be used in order to provide an offset starting from the end of the string.
+	// So -1 means the last character, -2 the penultimate and so forth
+	if start < 0 {
+		start = len(val) + start
+		if start < 0 {
+			start = 0
+		}
+	}
+	if end < 0 {
+		end = len(val) + end
+		if end < 0 {
+			end = 0
+		}
+	}
+
+	// handles out of range requests by limiting the resulting range to the actual length of the string.
+	if end > len(val)-1 {
+		end = len(val) - 1
+	}
+	if start > len(val)-1 || start > end {
+		return []byte{}, nil
+	}
+	return val[start : end+1], nil
+}
+
 // GetDel gets the value of the key and deletes the key. This method is similar
 // to Get method. It also deletes the key if it exists.
 func (db *RoseDB) GetDel(key []byte) ([]byte, error) {

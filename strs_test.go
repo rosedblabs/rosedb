@@ -179,7 +179,6 @@ func TestRoseDB_MGet(t *testing.T) {
 	t.Run("key-val-mem-mode", func(t *testing.T) {
 		testRoseDBMGet(t, MMap, KeyValueMemMode)
 	})
-
 }
 
 func testRoseDBMGet(t *testing.T, ioType IOType, mode DataIndexMode) {
@@ -296,11 +295,146 @@ func testRoseDBMGet(t *testing.T, ioType IOType, mode DataIndexMode) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.db.MGet(tt.args.keys)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("MGet() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Get() got = %v, want %v", got, tt.want)
+				t.Errorf("MGet() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRoseDB_GetRange(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBGetRange(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBGetRange(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBGetRange(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBGetRange(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	key := []byte("key")
+	val := []byte("test-val")
+	db.Set(key, val)
+
+	keyEmpty := []byte("key-empty")
+	valEmpty := []byte("")
+	db.Set(keyEmpty, valEmpty)
+
+	type args struct {
+		key   []byte
+		start int
+		end   int
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []byte
+		wantErr bool
+	}{
+		{
+			name:    "key not found",
+			args:    args{key: []byte("missing key"), start: 0, end: 7},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "empty",
+			args:    args{key: keyEmpty, start: 0, end: 0},
+			want:    valEmpty,
+			wantErr: false,
+		},
+		{
+			name:    "all strings",
+			args:    args{key: key, start: 0, end: 7},
+			want:    val,
+			wantErr: false,
+		},
+		{
+			name:    "trim 1 length",
+			args:    args{key: key, start: 1, end: 6},
+			want:    []byte("est-va"),
+			wantErr: false,
+		},
+		{
+			name:    "all strings with end neg",
+			args:    args{key: key, start: 0, end: -1},
+			want:    val,
+			wantErr: false,
+		},
+		{
+			name:    "start neg",
+			args:    args{key: key, start: -1, end: 7},
+			want:    []byte("l"),
+			wantErr: false,
+		},
+		{
+			name:    "over start neg limit",
+			args:    args{key: key, start: -9, end: 0},
+			want:    []byte("t"),
+			wantErr: false,
+		},
+		{
+			name:    "end neg",
+			args:    args{key: key, start: 7, end: -1},
+			want:    []byte("l"),
+			wantErr: false,
+		},
+		{
+			name:    "over end neg limit",
+			args:    args{key: key, start: 0, end: -9},
+			want:    []byte("t"),
+			wantErr: false,
+		},
+		{
+			name:    "over end limit",
+			args:    args{key: key, start: 0, end: 8},
+			want:    val,
+			wantErr: false,
+		},
+		{
+			name:    "over start limit",
+			args:    args{key: key, start: 8, end: 8},
+			want:    []byte{},
+			wantErr: false,
+		},
+		{
+			name:    "start over end",
+			args:    args{key: key, start: 1, end: 0},
+			want:    []byte{},
+			wantErr: false,
+		},
+		{
+			name:    "start and end both are positive numbers, and start > end",
+			args:    args{key: key, start: 3, end: 1},
+			want:    []byte{},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := db.GetRange(tt.args.key, tt.args.start, tt.args.end)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetRange() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetRange() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
