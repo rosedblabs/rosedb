@@ -2,7 +2,7 @@
 
 First of all, thanks for your contribution, you can participate in this project in the following ways:
 
-* crete a new pull request
+* create a new pull request
 * report a bug
 * create new issues
 * contribute documentation
@@ -10,7 +10,7 @@ First of all, thanks for your contribution, you can participate in this project 
 
 ## Before you started
 
-Before you started, pelase make sure to read and observe our [Code Of Conduct](https://github.com/roseduan/rosedb/blob/main/CODE_OF_CONDUCT.md).
+Before you start, please make sure to read and observe our [Code Of Conduct](https://github.com/roseduan/rosedb/blob/main/CODE_OF_CONDUCT.md).
 
 ## Contribution steps
 
@@ -24,7 +24,7 @@ Before you started, pelase make sure to read and observe our [Code Of Conduct](h
 
 Your code should comply with the following principles：
 
-* All code should tested in your local environment, try to avoid bugs.
+* All code should be tested in your local environment, try to avoid bugs.
 
 * All public methods should have the corresponding test method.
 
