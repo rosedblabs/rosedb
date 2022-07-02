@@ -390,9 +390,6 @@ func (db *RoseDB) HIncrBy(key, field []byte, incr int64) (int64, error) {
 // fields. If called with a negative count, the behavior changes and the command is allowed
 // to return the same field multiple times.
 func (db *RoseDB) HRandfield(key []byte, count interface{}) ([][]byte, error) {
-	db.hashIndex.mu.RLock()
-	defer db.hashIndex.mu.RUnlock()
-
 	countInt, ok := count.(int)
 	if count != nil {
 		if !ok {
@@ -402,22 +399,14 @@ func (db *RoseDB) HRandfield(key []byte, count interface{}) ([][]byte, error) {
 			return [][]byte{}, nil
 		}
 	}
-	tree, ok := db.hashIndex.trees[string(key)]
-	if !ok {
-		return [][]byte{}, ErrKeyNotFound
+	keys, err := db.HKeys(key)
+	if err != nil {
+		return [][]byte{}, err
 	}
-	var i int
-	keys := make([][]byte, tree.Size())
-	iter := tree.Iterator()
-	for iter.HasNext() {
-		node, err := iter.Next()
-		if err != nil {
-			return nil, err
-		}
-		keys[i] = node.Key()
-		i++
+	if len(keys) == 0 {
+		return [][]byte{}, nil
 	}
-	keys = keys[:i]
+
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	// return a random field
