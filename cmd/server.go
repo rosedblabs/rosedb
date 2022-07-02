@@ -74,8 +74,7 @@ func main() {
 	logger.Infof("open db from [%s] successfully, time cost: %v", serverOpts.dbPath, time.Since(now))
 
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGKILL, syscall.SIGHUP,
-		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	dbs := make(map[int]*rosedb.RoseDB)
 	dbs[0] = db
