@@ -753,3 +753,94 @@ func TestRoseDB_HIncrBy(t *testing.T) {
 		oneRun(t, opts)
 	}
 }
+
+func TestRoseDB_HRandfield(t *testing.T) {
+	cases := []struct {
+		IOType
+		DataIndexMode
+	}{
+		{FileIO, KeyValueMemMode},
+		{FileIO, KeyOnlyMemMode},
+		{MMap, KeyValueMemMode},
+		{MMap, KeyOnlyMemMode},
+	}
+
+	hashKey := []byte("my_hash")
+	field1 := []byte("field1")
+	field2 := []byte("field2")
+	field3 := []byte("field3")
+	field4 := []byte("field4")
+	field5 := []byte("field5")
+
+	distinctFunc := func(keys [][]byte, count int) {
+		if count > 5 {
+			count = 5
+		}
+		assert.Equal(t, count, len(keys))
+		for i := 0; i < len(keys); i++ {
+			assert.Contains(t, [][]byte{field1, field2, field3, field4, field5}, keys[i])
+			for j := 0; j < len(keys); j++ {
+				if i == j {
+					continue
+				}
+				assert.NotEqual(t, keys[i], keys[j])
+			}
+		}
+	}
+	duplicationFunc := func(keys [][]byte, count int) {
+		assert.Equal(t, count, len(keys))
+		for i := 0; i < len(keys); i++ {
+			assert.Contains(t, [][]byte{field1, field2, field3, field4, field5}, keys[i])
+		}
+	}
+
+	oneRun := func(t *testing.T, opts Options) {
+		db, err := Open(opts)
+		assert.Nil(t, err)
+		defer destroyDB(db)
+
+		db.HSet(hashKey, field1, GetValue16B(), field2, GetValue16B(), field3, GetValue16B(), field4, GetValue16B(), field5, GetValue16B())
+
+		// error wrong value type
+		keys, err := db.HRandfield(hashKey, []byte("WrongValueType"))
+		assert.Equal(t, ErrWrongValueType, err)
+
+		// empty
+		keys, err = db.HRandfield(hashKey, 0)
+		assert.Nil(t, err)
+		assert.Equal(t, 0, len(keys))
+
+		// key not found
+		keys, err = db.HRandfield([]byte("key-not-found"), 1)
+		assert.Nil(t, err)
+		assert.Equal(t, 0, len(keys))
+
+		// return a random field from the hash value
+		keys, err = db.HRandfield(hashKey, nil)
+		assert.Nil(t, err)
+		assert.Equal(t, 1, len(keys))
+		assert.Contains(t, [][]byte{field1, field2, field3, field4, field5}, keys[0])
+
+		// return random fields from the hash value by count i
+		for i := 1; i <= 10; i++ {
+			keys, err = db.HRandfield(hashKey, i)
+			assert.Nil(t, err)
+			distinctFunc(keys, i)
+		}
+
+		// return the same field multiple times by count -i
+		for i := 1; i <= 10; i++ {
+			keys, err = db.HRandfield(hashKey, -i)
+			assert.Nil(t, err)
+			duplicationFunc(keys, i)
+		}
+	}
+
+	for _, c := range cases {
+		path := filepath.Join("/tmp", "rosedb")
+		opts := DefaultOptions(path)
+		opts.IoType = c.IOType
+		opts.IndexMode = c.DataIndexMode
+		oneRun(t, opts)
+	}
+}

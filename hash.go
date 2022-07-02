@@ -8,8 +8,10 @@ import (
 	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
 	"math"
+	"math/rand"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 // HSet sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
@@ -381,4 +383,68 @@ func (db *RoseDB) HIncrBy(key, field []byte, incr int64) (int64, error) {
 		return 0, err
 	}
 	return valInt64, nil
+}
+
+// HRandfield return a random field from the hash value stored at key, when called with just
+// the key argument. If the provided count argument is positive, return an array of distinct
+// fields. If called with a negative count, the behavior changes and the command is allowed
+// to return the same field multiple times.
+func (db *RoseDB) HRandfield(key []byte, count interface{}) ([][]byte, error) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	countInt, ok := count.(int)
+	if count != nil {
+		if !ok {
+			return [][]byte{}, ErrWrongValueType
+		}
+		if countInt == 0 {
+			return [][]byte{}, nil
+		}
+	}
+	tree, ok := db.hashIndex.trees[string(key)]
+	if !ok {
+		return [][]byte{}, ErrKeyNotFound
+	}
+	var i int
+	keys := make([][]byte, tree.Size())
+	iter := tree.Iterator()
+	for iter.HasNext() {
+		node, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		keys[i] = node.Key()
+		i++
+	}
+	keys = keys[:i]
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	// return a random field
+	if count == nil {
+		rndIdx := rnd.Intn(len(keys))
+		return keys[rndIdx : rndIdx+1], nil
+	}
+	// return an array of distinct fields
+	if countInt > 0 {
+		// return all fields
+		if countInt >= len(keys) {
+			return keys, nil
+		}
+		// reduce diff count to avoid creating duplicates
+		diff := len(keys) - countInt
+		for i := 0; i < diff; i++ {
+			rndIdx := rnd.Intn(len(keys))
+			keys = append(keys[:rndIdx], keys[rndIdx+1:]...)
+		}
+		return keys, nil
+	}
+	// return the same field multiple times
+	countInt = -countInt
+	dupKeys := make([][]byte, countInt)
+	for i := 0; i < countInt; i++ {
+		rndIdx := rnd.Intn(len(keys))
+		dupKeys[i] = keys[rndIdx]
+	}
+	return dupKeys, nil
 }
