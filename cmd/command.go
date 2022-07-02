@@ -599,7 +599,7 @@ func hRandfield(cli *Client, args [][]byte) (interface{}, error) {
 		return nil, newWrongNumOfArgsError("hrandfield")
 	}
 	if len(args) == 1 {
-		keys, err := cli.db.HRandfield(args[0], nil)
+		keys, err := cli.db.HRandfield(args[0], 1)
 		if err != nil {
 			return nil, err
 		}

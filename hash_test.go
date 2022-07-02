@@ -801,12 +801,8 @@ func TestRoseDB_HRandfield(t *testing.T) {
 
 		db.HSet(hashKey, field1, GetValue16B(), field2, GetValue16B(), field3, GetValue16B(), field4, GetValue16B(), field5, GetValue16B())
 
-		// error wrong value type
-		keys, err := db.HRandfield(hashKey, []byte("WrongValueType"))
-		assert.Equal(t, ErrWrongValueType, err)
-
 		// empty
-		keys, err = db.HRandfield(hashKey, 0)
+		keys, err := db.HRandfield(hashKey, 0)
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(keys))
 
@@ -816,7 +812,7 @@ func TestRoseDB_HRandfield(t *testing.T) {
 		assert.Equal(t, 0, len(keys))
 
 		// return a random field from the hash value
-		keys, err = db.HRandfield(hashKey, nil)
+		keys, err = db.HRandfield(hashKey, 1)
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(keys))
 		assert.Contains(t, [][]byte{field1, field2, field3, field4, field5}, keys[0])
