@@ -3,8 +3,9 @@ package main
 import (
 	"strings"
 
-	"github.com/flower-corp/rosedb"
 	"github.com/tidwall/redcon"
+
+	"github.com/flower-corp/rosedb"
 )
 
 type cmdHandler func(cli *Client, args [][]byte) (interface{}, error)
@@ -28,17 +29,18 @@ var supportedCommands = map[string]cmdHandler{
 	"strlen":   strLen,
 
 	// list
-	"lpush":  lPush,
-	"lpushx": lPushX,
-	"rpush":  rPush,
-	"rpushx": rPushX,
-	"lpop":   lPop,
-	"rpop":   rPop,
-	"lmove":  lMove,
-	"llen":   lLen,
-	"lindex": lIndex,
-	"lset":   lSet,
-	"lrange": lRange,
+	"lpush":     lPush,
+	"lpushx":    lPushX,
+	"rpush":     rPush,
+	"rpushx":    rPushX,
+	"lpop":      lPop,
+	"rpop":      rPop,
+	"lmove":     lMove,
+	"llen":      lLen,
+	"lindex":    lIndex,
+	"lset":      lSet,
+	"lrange":    lRange,
+	"rpoplpush": rPoplpush,
 
 	// hash commands
 	"hset":    hSet,

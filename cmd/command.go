@@ -3,13 +3,15 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/flower-corp/rosedb"
-	"github.com/flower-corp/rosedb/util"
-	"github.com/tidwall/redcon"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tidwall/redcon"
+
+	"github.com/flower-corp/rosedb"
+	"github.com/flower-corp/rosedb/util"
 )
 
 const (
@@ -461,6 +463,19 @@ func lRange(cli *Client, args [][]byte) (interface{}, error) {
 	}
 
 	return cli.db.LRange(key, s, e)
+}
+
+func rPoplpush(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("rpoplpush")
+	}
+
+	source, destination := args[0], args[1]
+	res, err := cli.db.RPoplpush(source, destination)
+	if err != nil {
+		return nil, err
+	}
+	return res, err
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+

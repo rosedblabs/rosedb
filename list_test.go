@@ -732,3 +732,59 @@ func testRoseDBLRange(t *testing.T, ioType IOType, mode DataIndexMode) {
 		})
 	}
 }
+
+func TestRoseDB_rpoplpush(t *testing.T) {
+
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBRPopLpush(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBRPopLpush(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBRPopLpush(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	type args struct {
+		source      []byte
+		destination []byte
+	}
+
+	sourceKey := []byte("source_list")
+	destionationKey := []byte("destionation_list")
+	// prepare List
+	err = db.RPush(sourceKey, []byte("zero"))
+	assert.Nil(t, err)
+	err = db.RPush(sourceKey, []byte("negative one"))
+	assert.Nil(t, err)
+	val, err := db.RPoplpush(sourceKey, destionationKey)
+	assert.Nil(t, err)
+	assert.Equal(t, val, []byte("negative one"))
+
+	listKey := []byte("list")
+	err = db.RPush(listKey, []byte("one"))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, []byte("two"))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, []byte("three"))
+	assert.Nil(t, err)
+
+	val, err = db.RPoplpush(listKey, []byte("list2"))
+	assert.Nil(t, err)
+	assert.Equal(t, val, []byte("three"))
+
+	lRange, err := db.LRange(listKey, 0, -1)
+	assert.Nil(t, err)
+	assert.Equal(t, lRange, [][]byte{[]byte("one"), []byte("two")})
+
+	lRange, err = db.LRange([]byte("list2"), 0, -1)
+	assert.Equal(t, lRange, [][]byte{[]byte("three")})
+}

@@ -401,3 +401,25 @@ func (db *RoseDB) listSequence(headSeq, tailSeq uint32, index int) (uint32, erro
 	}
 	return seq, nil
 }
+
+// rPoplpush is used to remove the last element of a list and add that element to another list and return it.
+func (db *RoseDB) RPoplpush(source, destination []byte) ([]byte, error) {
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	if db.listIndex.trees[string(source)] == nil {
+		return []byte{}, nil
+	}
+	if db.listIndex.trees[string(destination)] == nil {
+		db.listIndex.trees[string(destination)] = art.NewART()
+	}
+	if val, err := db.popInternal(source, false); err != nil {
+		return []byte{}, err
+	} else {
+		if err := db.pushInternal(destination, val, true); err != nil {
+			return []byte{}, err
+		} else {
+			return val, err
+		}
+	}
+}
