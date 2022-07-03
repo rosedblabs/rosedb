@@ -468,3 +468,32 @@ func (db *RoseDB) Persist(key []byte) error {
 
 	return db.Set(key, val)
 }
+
+// GetStrsKeys get all stored keys of type String.
+func (db *RoseDB) GetStrsKeys() ([][]byte, error) {
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+
+	if db.strIndex.idxTree == nil {
+		return nil, nil
+	}
+
+	var keys [][]byte
+	iter := db.strIndex.idxTree.Iterator()
+	ts := time.Now().Unix()
+	for iter.HasNext() {
+		node, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		indexNode, _ := node.Value().(*indexNode)
+		if indexNode == nil {
+			continue
+		}
+		if indexNode.expiredAt != 0 && indexNode.expiredAt <= ts {
+			continue
+		}
+		keys = append(keys, node.Key())
+	}
+	return keys, nil
+}
