@@ -385,11 +385,11 @@ func (db *RoseDB) HIncrBy(key, field []byte, incr int64) (int64, error) {
 	return valInt64, nil
 }
 
-// HRandfield return a random field from the hash value stored at key, when called with just
+// HRandField returns a random field from the hash value stored at key, when called with just
 // the key argument. If the provided count argument is positive, return an array of distinct
 // fields. If called with a negative count, the behavior changes and the command is allowed
 // to return the same field multiple times.
-func (db *RoseDB) HRandfield(key []byte, count int) ([][]byte, error) {
+func (db *RoseDB) HRandField(key []byte, count int) ([][]byte, error) {
 	if count == 0 {
 		return [][]byte{}, nil
 	}
