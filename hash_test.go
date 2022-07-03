@@ -754,7 +754,7 @@ func TestRoseDB_HIncrBy(t *testing.T) {
 	}
 }
 
-func TestRoseDB_HRandfield(t *testing.T) {
+func TestRoseDB_HRandField(t *testing.T) {
 	cases := []struct {
 		IOType
 		DataIndexMode
@@ -802,31 +802,31 @@ func TestRoseDB_HRandfield(t *testing.T) {
 		db.HSet(hashKey, field1, GetValue16B(), field2, GetValue16B(), field3, GetValue16B(), field4, GetValue16B(), field5, GetValue16B())
 
 		// empty
-		keys, err := db.HRandfield(hashKey, 0)
+		keys, err := db.HRandField(hashKey, 0)
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(keys))
 
 		// key not found
-		keys, err = db.HRandfield([]byte("key-not-found"), 1)
+		keys, err = db.HRandField([]byte("key-not-found"), 1)
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(keys))
 
 		// return a random field from the hash value
-		keys, err = db.HRandfield(hashKey, 1)
+		keys, err = db.HRandField(hashKey, 1)
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(keys))
 		assert.Contains(t, [][]byte{field1, field2, field3, field4, field5}, keys[0])
 
 		// return random fields from the hash value by count i
 		for i := 1; i <= 10; i++ {
-			keys, err = db.HRandfield(hashKey, i)
+			keys, err = db.HRandField(hashKey, i)
 			assert.Nil(t, err)
 			distinctFunc(keys, i)
 		}
 
 		// return the same field multiple times by count -i
 		for i := 1; i <= 10; i++ {
-			keys, err = db.HRandfield(hashKey, -i)
+			keys, err = db.HRandField(hashKey, -i)
 			assert.Nil(t, err)
 			duplicationFunc(keys, i)
 		}
