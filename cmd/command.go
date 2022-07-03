@@ -594,7 +594,7 @@ func hIncrBy(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.HIncrBy(key, field, incrInt64Val)
 }
 
-func hRandfield(cli *Client, args [][]byte) (interface{}, error) {
+func hRandField(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 && len(args) != 2 {
 		return nil, newWrongNumOfArgsError("hrandfield")
 	}
