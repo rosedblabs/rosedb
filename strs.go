@@ -409,8 +409,7 @@ func (db *RoseDB) Scan(prefix []byte, pattern string, count int) ([][]byte, erro
 		}
 	}
 
-	values := make([][]byte, 2*len(keys))
-	var index int
+	var results [][]byte
 	for _, key := range keys {
 		if reg != nil && !reg.Match(key) {
 			continue
@@ -419,10 +418,11 @@ func (db *RoseDB) Scan(prefix []byte, pattern string, count int) ([][]byte, erro
 		if err != nil && err != ErrKeyNotFound {
 			return nil, err
 		}
-		values[index], values[index+1] = key, val
-		index += 2
+		if err != ErrKeyNotFound {
+			results = append(results, key, val)
+		}
 	}
-	return values, nil
+	return results, nil
 }
 
 // Expire set the expiration time for the given key.
