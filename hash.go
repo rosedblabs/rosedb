@@ -389,40 +389,49 @@ func (db *RoseDB) HIncrBy(key, field []byte, incr int64) (int64, error) {
 // the key argument. If the provided count argument is positive, return an array of distinct
 // fields. If called with a negative count, the behavior changes and the command is allowed
 // to return the same field multiple times.
-func (db *RoseDB) HRandField(key []byte, count int) ([][]byte, error) {
+func (db *RoseDB) HRandField(key []byte, count int, withValues bool) ([][]byte, error) {
 	if count == 0 {
 		return [][]byte{}, nil
 	}
-	keys, err := db.HKeys(key)
+	var values [][]byte
+	var err error
+	var pairLength = 1
+	if !withValues {
+		values, err = db.HKeys(key)
+	} else {
+		pairLength = 2
+		values, err = db.HGetAll(key)
+	}
 	if err != nil {
 		return [][]byte{}, err
 	}
-	if len(keys) == 0 {
+	if len(values) == 0 {
 		return [][]byte{}, nil
 	}
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	pairCount := len(values) / pairLength
 
 	// return an array of distinct fields
 	if count > 0 {
 		// return all fields
-		if count >= len(keys) {
-			return keys, nil
+		if count >= pairCount {
+			return values, nil
 		}
 		// reduce diff count to avoid creating duplicates
-		diff := len(keys) - count
+		diff := pairCount - count
 		for i := 0; i < diff; i++ {
-			rndIdx := rnd.Intn(len(keys))
-			keys = append(keys[:rndIdx], keys[rndIdx+1:]...)
+			rndIdx := rnd.Intn(len(values)/pairLength) * pairLength
+			values = append(values[:rndIdx], values[rndIdx+pairLength:]...)
 		}
-		return keys, nil
+		return values, nil
 	}
 	// return the same field multiple times
 	count = -count
-	dupKeys := make([][]byte, count)
+	var dupValues [][]byte
 	for i := 0; i < count; i++ {
-		rndIdx := rnd.Intn(len(keys))
-		dupKeys[i] = keys[rndIdx]
+		rndIdx := rnd.Intn(pairCount) * pairLength
+		dupValues = append(dupValues, values[rndIdx:rndIdx+pairLength]...)
 	}
-	return dupKeys, nil
+	return dupValues, nil
 }
