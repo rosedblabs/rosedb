@@ -463,6 +463,19 @@ func lRange(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.LRange(key, s, e)
 }
 
+func lRem(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("lrem")
+	}
+	key, element := args[0], args[2]
+	count, err := strconv.Atoi(string(args[1]))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	rem, err := cli.db.LRem(key, count, element)
+	return redcon.SimpleInt(rem), err
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |--------------------------- Hash commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+

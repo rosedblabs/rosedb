@@ -2,10 +2,10 @@ package rosedb
 
 import (
 	"encoding/binary"
-
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
+	"math"
 )
 
 // LPush insert all the specified values at the head of the list stored at key.
@@ -400,4 +400,128 @@ func (db *RoseDB) listSequence(headSeq, tailSeq uint32, index int) (uint32, erro
 		seq = tailSeq - uint32(-index)
 	}
 	return seq, nil
+}
+
+// LRem removes the first count occurrences of elements equal to element from the list stored at key.
+// The count argument influences the operation in the following ways:
+// count > 0: Remove elements equal to element moving from head to tail.
+// count < 0: Remove elements equal to element moving from tail to head.
+// count = 0: Remove all elements equal to element.
+// Note that key does not exist, the command will always return 0.
+func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	if count == 0 {
+		count = math.MaxInt
+	}
+	var discardCount int
+	idxTree := db.listIndex.trees[string(key)]
+	if idxTree == nil {
+		return discardCount, nil
+	}
+	// get List DataType meta info
+	headSeq, tailSeq, err := db.listMeta(idxTree, key)
+	if err != nil {
+		return discardCount, err
+	}
+
+	reserveSeq, discardSeq, reserveValueSeq := make([]uint32, 0), make([]uint32, 0), make([][]byte, 0)
+	if count > 0 {
+		// record discard data and reserve data
+		for seq := headSeq + 1; seq < tailSeq; seq++ {
+			encKey := db.encodeListKey(key, seq)
+			val, err := db.getVal(idxTree, encKey, List)
+			if err != nil {
+				return discardCount, err
+			}
+			if db.isValueEqual(value, val) {
+				discardSeq = append(discardSeq, seq)
+				discardCount++
+			} else {
+				reserveSeq = append(reserveSeq, seq)
+				temp := make([]byte, len(val))
+				copy(temp, val)
+				reserveValueSeq = append(reserveValueSeq, temp)
+			}
+			if discardCount == count {
+				break
+			}
+		}
+
+		discardSeqLen := len(discardSeq)
+		if discardSeqLen > 0 {
+			// delete discard data
+			for seq := headSeq + 1; seq <= discardSeq[discardSeqLen-1]; seq++ {
+				if _, err := db.popInternal(key, true); err != nil {
+					return discardCount, err
+				}
+			}
+			// add reserve data
+			for i := len(reserveSeq) - 1; i >= 0; i-- {
+				if reserveSeq[i] < discardSeq[discardSeqLen-1] {
+					if err := db.pushInternal(key, reserveValueSeq[i], true); err != nil {
+						return discardCount, err
+					}
+				}
+			}
+		}
+	} else {
+		count = -count
+		// record discard data and reserve data
+		for seq := tailSeq - 1; seq > headSeq; seq-- {
+			encKey := db.encodeListKey(key, seq)
+			val, err := db.getVal(idxTree, encKey, List)
+			if err != nil {
+				return discardCount, err
+			}
+			if db.isValueEqual(value, val) {
+				discardSeq = append(discardSeq, seq)
+				discardCount++
+			} else {
+				reserveSeq = append(reserveSeq, seq)
+				temp := make([]byte, len(val))
+				copy(temp, val)
+				reserveValueSeq = append(reserveValueSeq, temp)
+			}
+			if discardCount == count {
+				break
+			}
+		}
+
+		discardSeqLen := len(discardSeq)
+		if discardSeqLen > 0 {
+			// delete discard data
+			for seq := tailSeq - 1; seq >= discardSeq[discardSeqLen-1]; seq-- {
+				if _, err := db.popInternal(key, false); err != nil {
+					return discardCount, err
+				}
+			}
+			// add reserve data
+			for i := len(reserveSeq) - 1; i >= 0; i-- {
+				if reserveSeq[i] > discardSeq[discardSeqLen-1] {
+					if err := db.pushInternal(key, reserveValueSeq[i], false); err != nil {
+						return discardCount, err
+					}
+				}
+			}
+		}
+	}
+	return discardCount, nil
+}
+
+func (db *RoseDB) isValueEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	if (a == nil) != (b == nil) {
+		return false
+	}
+	b = b[:len(a)]
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
 }
