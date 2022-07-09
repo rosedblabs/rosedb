@@ -386,6 +386,9 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 	default:
 		logger.Warn("send to discard chan fail")
 	}
+	if tailSeq-headSeq-1 == 0 {
+		delete(db.listIndex.trees, string(key))
+	}
 	return val, nil
 }
 
