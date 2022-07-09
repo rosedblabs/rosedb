@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -1741,4 +1742,51 @@ func testRoseDBPersist(t *testing.T, ioType IOType, mode DataIndexMode) {
 	val, err := db.Get(GetKey(900))
 	assert.Nil(t, err)
 	assert.NotNil(t, val)
+}
+
+func TestRoseDB_GetStrsKeys(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBGetStrsKeys(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBGetStrsKeys(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBGetStrsKeys(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	keys1, err := db.GetStrsKeys()
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(keys1))
+
+	var keys [][]byte
+	for i := 0; i < 100; i++ {
+		keys = append(keys, GetKey(i))
+		err := db.Set(GetKey(i), GetValue16B())
+		assert.Nil(t, err)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return bytes.Compare(keys[i], keys[j]) < 0
+	})
+
+	keys2, err := db.GetStrsKeys()
+	assert.Nil(t, err)
+	assert.Equal(t, keys2, keys)
+
+	db.Expire(GetKey(19), time.Millisecond*200)
+	db.Expire(GetKey(33), time.Millisecond*400)
+	db.Expire(GetKey(99), time.Millisecond*500)
+	time.Sleep(time.Second)
+
+	keys3, err := db.GetStrsKeys()
+	assert.Nil(t, err)
+	assert.Equal(t, 97, len(keys3))
 }
