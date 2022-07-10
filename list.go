@@ -411,7 +411,7 @@ func (db *RoseDB) listSequence(headSeq, tailSeq uint32, index int) (uint32, erro
 // count > 0: Remove elements equal to element moving from head to tail.
 // count < 0: Remove elements equal to element moving from tail to head.
 // count = 0: Remove all elements equal to element.
-// Note that key does not exist, the command will always return 0.
+// Note that this method will rewrite the values, so it maybe very slow.
 func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 	db.listIndex.mu.Lock()
 	defer db.listIndex.mu.Unlock()
@@ -431,22 +431,39 @@ func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 	}
 
 	reserveSeq, discardSeq, reserveValueSeq := make([]uint32, 0), make([]uint32, 0), make([][]byte, 0)
+	classifyData := func(key []byte, seq uint32) error {
+		encKey := db.encodeListKey(key, seq)
+		val, err := db.getVal(idxTree, encKey, List)
+		if err != nil {
+			return err
+		}
+		if bytes.Compare(value, val) == 0 {
+			discardSeq = append(discardSeq, seq)
+			discardCount++
+		} else {
+			reserveSeq = append(reserveSeq, seq)
+			temp := make([]byte, len(val))
+			copy(temp, val)
+			reserveValueSeq = append(reserveValueSeq, temp)
+		}
+		return nil
+	}
+
+	addReserveData := func(key []byte, value []byte, isLeft bool) error {
+		if db.listIndex.trees[string(key)] == nil {
+			db.listIndex.trees[string(key)] = art.NewART()
+		}
+		if err := db.pushInternal(key, value, isLeft); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	if count > 0 {
 		// record discard data and reserve data
 		for seq := headSeq + 1; seq < tailSeq; seq++ {
-			encKey := db.encodeListKey(key, seq)
-			val, err := db.getVal(idxTree, encKey, List)
-			if err != nil {
+			if err := classifyData(key, seq); err != nil {
 				return discardCount, err
-			}
-			if bytes.Compare(value, val) == 0 {
-				discardSeq = append(discardSeq, seq)
-				discardCount++
-			} else {
-				reserveSeq = append(reserveSeq, seq)
-				temp := make([]byte, len(val))
-				copy(temp, val)
-				reserveValueSeq = append(reserveValueSeq, temp)
 			}
 			if discardCount == count {
 				break
@@ -464,10 +481,7 @@ func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 			// add reserve data
 			for i := len(reserveSeq) - 1; i >= 0; i-- {
 				if reserveSeq[i] < discardSeq[discardSeqLen-1] {
-					if db.listIndex.trees[string(key)] == nil {
-						db.listIndex.trees[string(key)] = art.NewART()
-					}
-					if err := db.pushInternal(key, reserveValueSeq[i], true); err != nil {
+					if err := addReserveData(key, reserveValueSeq[i], true); err != nil {
 						return discardCount, err
 					}
 				}
@@ -477,19 +491,8 @@ func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 		count = -count
 		// record discard data and reserve data
 		for seq := tailSeq - 1; seq > headSeq; seq-- {
-			encKey := db.encodeListKey(key, seq)
-			val, err := db.getVal(idxTree, encKey, List)
-			if err != nil {
+			if err := classifyData(key, seq); err != nil {
 				return discardCount, err
-			}
-			if bytes.Compare(value, val) == 0 {
-				discardSeq = append(discardSeq, seq)
-				discardCount++
-			} else {
-				reserveSeq = append(reserveSeq, seq)
-				temp := make([]byte, len(val))
-				copy(temp, val)
-				reserveValueSeq = append(reserveValueSeq, temp)
 			}
 			if discardCount == count {
 				break
@@ -507,10 +510,7 @@ func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 			// add reserve data
 			for i := len(reserveSeq) - 1; i >= 0; i-- {
 				if reserveSeq[i] > discardSeq[discardSeqLen-1] {
-					if db.listIndex.trees[string(key)] == nil {
-						db.listIndex.trees[string(key)] = art.NewART()
-					}
-					if err := db.pushInternal(key, reserveValueSeq[i], false); err != nil {
+					if err := addReserveData(key, reserveValueSeq[i], false); err != nil {
 						return discardCount, err
 					}
 				}
