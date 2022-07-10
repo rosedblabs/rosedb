@@ -409,8 +409,7 @@ func (db *RoseDB) Scan(prefix []byte, pattern string, count int) ([][]byte, erro
 		}
 	}
 
-	values := make([][]byte, 2*len(keys))
-	var index int
+	var results [][]byte
 	for _, key := range keys {
 		if reg != nil && !reg.Match(key) {
 			continue
@@ -419,10 +418,11 @@ func (db *RoseDB) Scan(prefix []byte, pattern string, count int) ([][]byte, erro
 		if err != nil && err != ErrKeyNotFound {
 			return nil, err
 		}
-		values[index], values[index+1] = key, val
-		index += 2
+		if err != ErrKeyNotFound {
+			results = append(results, key, val)
+		}
 	}
-	return values, nil
+	return results, nil
 }
 
 // Expire set the expiration time for the given key.
@@ -467,4 +467,33 @@ func (db *RoseDB) Persist(key []byte) error {
 	db.strIndex.mu.Unlock()
 
 	return db.Set(key, val)
+}
+
+// GetStrsKeys get all stored keys of type String.
+func (db *RoseDB) GetStrsKeys() ([][]byte, error) {
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+
+	if db.strIndex.idxTree == nil {
+		return nil, nil
+	}
+
+	var keys [][]byte
+	iter := db.strIndex.idxTree.Iterator()
+	ts := time.Now().Unix()
+	for iter.HasNext() {
+		node, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		indexNode, _ := node.Value().(*indexNode)
+		if indexNode == nil {
+			continue
+		}
+		if indexNode.expiredAt != 0 && indexNode.expiredAt <= ts {
+			continue
+		}
+		keys = append(keys, node.Key())
+	}
+	return keys, nil
 }

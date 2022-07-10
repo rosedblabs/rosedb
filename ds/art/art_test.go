@@ -1,8 +1,10 @@
 package art
 
 import (
+	"bytes"
 	"github.com/stretchr/testify/assert"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -142,4 +144,27 @@ func TestAdaptiveRadixTree_Delete(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAdaptiveRadixTree_Iterator(t *testing.T) {
+	art := NewART()
+	iter1 := art.Iterator()
+	assert.False(t, iter1.HasNext())
+
+	var keys = [][]byte{[]byte("acse"), []byte("cced"), []byte("acde"), []byte("bbfe")}
+	for i, key := range keys {
+		art.Put(key, i)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		return bytes.Compare(keys[i], keys[j]) < 0
+	})
+	var targes [][]byte
+	iter2 := art.Iterator()
+	for iter2.HasNext() {
+		node, err := iter2.Next()
+		assert.Nil(t, err)
+		targes = append(targes, node.Key())
+	}
+	assert.Equal(t, keys, targes)
 }
