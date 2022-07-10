@@ -1,6 +1,7 @@
 package rosedb
 
 import (
+	"bytes"
 	"encoding/binary"
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
@@ -416,7 +417,7 @@ func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 	defer db.listIndex.mu.Unlock()
 
 	if count == 0 {
-		count = math.MaxInt
+		count = math.MaxUint32
 	}
 	var discardCount int
 	idxTree := db.listIndex.trees[string(key)]
@@ -438,7 +439,7 @@ func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 			if err != nil {
 				return discardCount, err
 			}
-			if db.isValueEqual(value, val) {
+			if bytes.Compare(value, val) == 0 {
 				discardSeq = append(discardSeq, seq)
 				discardCount++
 			} else {
@@ -463,6 +464,9 @@ func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 			// add reserve data
 			for i := len(reserveSeq) - 1; i >= 0; i-- {
 				if reserveSeq[i] < discardSeq[discardSeqLen-1] {
+					if db.listIndex.trees[string(key)] == nil {
+						db.listIndex.trees[string(key)] = art.NewART()
+					}
 					if err := db.pushInternal(key, reserveValueSeq[i], true); err != nil {
 						return discardCount, err
 					}
@@ -478,7 +482,7 @@ func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 			if err != nil {
 				return discardCount, err
 			}
-			if db.isValueEqual(value, val) {
+			if bytes.Compare(value, val) == 0 {
 				discardSeq = append(discardSeq, seq)
 				discardCount++
 			} else {
@@ -503,6 +507,9 @@ func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 			// add reserve data
 			for i := len(reserveSeq) - 1; i >= 0; i-- {
 				if reserveSeq[i] > discardSeq[discardSeqLen-1] {
+					if db.listIndex.trees[string(key)] == nil {
+						db.listIndex.trees[string(key)] = art.NewART()
+					}
 					if err := db.pushInternal(key, reserveValueSeq[i], false); err != nil {
 						return discardCount, err
 					}
@@ -511,20 +518,4 @@ func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 		}
 	}
 	return discardCount, nil
-}
-
-func (db *RoseDB) isValueEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	if (a == nil) != (b == nil) {
-		return false
-	}
-	b = b[:len(a)]
-	for i, v := range a {
-		if v != b[i] {
-			return false
-		}
-	}
-	return true
 }
