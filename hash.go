@@ -419,12 +419,13 @@ func (db *RoseDB) HRandField(key []byte, count int, withValues bool) ([][]byte, 
 			return values, nil
 		}
 		// reduce diff count to avoid creating duplicates
+		var noDupValues = values
 		diff := pairCount - count
 		for i := 0; i < diff; i++ {
-			rndIdx := rnd.Intn(len(values)/pairLength) * pairLength
-			values = append(values[:rndIdx], values[rndIdx+pairLength:]...)
+			rndIdx := rnd.Intn(len(noDupValues)/pairLength) * pairLength
+			noDupValues = append(noDupValues[:rndIdx], noDupValues[rndIdx+pairLength:]...)
 		}
-		return values, nil
+		return noDupValues, nil
 	}
 	// return the same field multiple times
 	count = -count
