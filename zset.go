@@ -1,6 +1,8 @@
 package rosedb
 
 import (
+	"time"
+
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
@@ -122,6 +124,36 @@ func (db *RoseDB) ZRank(key []byte, member []byte) (ok bool, rank int) {
 // The rank (or index) is 0-based, which means that the member with the highest score has rank 0.
 func (db *RoseDB) ZRevRank(key []byte, member []byte) (ok bool, rank int) {
 	return db.zRankInternal(key, member, true)
+}
+
+// GetZSetKeys get all stored keys of type ZSet.
+func (db *RoseDB) GetZSetKeys() (keys [][]byte, err error) {
+	db.zsetIndex.mu.RLock()
+	defer db.zsetIndex.mu.RUnlock()
+
+	for key, idxTree := range db.zsetIndex.trees {
+		values := db.zsetIndex.indexes.ZRange(string(key), 0, -1)
+		for _, val := range values {
+			v, _ := val.(string)
+
+			rawValue := idxTree.Get([]byte(v))
+			if rawValue == nil {
+				continue
+			}
+			idxNode, _ := rawValue.(*indexNode)
+			if idxNode == nil {
+				continue
+			}
+
+			ts := time.Now().Unix()
+			if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
+				continue
+			}
+			keys = append(keys, []byte(key))
+			break
+		}
+	}
+	return
 }
 
 func (db *RoseDB) zRangeInternal(key []byte, start, stop int, rev bool) ([][]byte, error) {

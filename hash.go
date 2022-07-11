@@ -3,13 +3,15 @@ package rosedb
 import (
 	"bytes"
 	"errors"
+	"math"
+	"regexp"
+	"strconv"
+	"time"
+
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
-	"math"
-	"regexp"
-	"strconv"
 )
 
 // HSet sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
@@ -381,4 +383,31 @@ func (db *RoseDB) HIncrBy(key, field []byte, incr int64) (int64, error) {
 		return 0, err
 	}
 	return valInt64, nil
+}
+
+// GetHashKeys get all stored keys of type Hash.
+func (db *RoseDB) GetHashKeys() (keys [][]byte, err error) {
+
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	for key, idxTree := range db.hashIndex.trees {
+
+		rowValue := idxTree.Get([]byte(key))
+		if rowValue == nil {
+			continue
+		}
+
+		idxNode, _ := rowValue.(*indexNode)
+		if idxNode == nil {
+			continue
+		}
+
+		ts := time.Now().Unix()
+		if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
+			continue
+		}
+		keys = append(keys, []byte(key))
+	}
+	return
 }
