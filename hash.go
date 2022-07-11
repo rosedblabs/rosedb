@@ -387,7 +387,6 @@ func (db *RoseDB) HIncrBy(key, field []byte, incr int64) (int64, error) {
 
 // GetHashKeys get all stored keys of type Hash.
 func (db *RoseDB) GetHashKeys() (keys [][]byte, err error) {
-
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
 
