@@ -389,7 +389,8 @@ func (db *RoseDB) HIncrBy(key, field []byte, incr int64) (int64, error) {
 func (db *RoseDB) GetHashKeys() (keys [][]byte, err error) {
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
-
+	
+	ts := time.Now().Unix()
 	for key, idxTree := range db.hashIndex.trees {
 
 		rowValue := idxTree.Get([]byte(key))
@@ -402,7 +403,6 @@ func (db *RoseDB) GetHashKeys() (keys [][]byte, err error) {
 			continue
 		}
 
-		ts := time.Now().Unix()
 		if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
 			continue
 		}

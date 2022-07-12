@@ -267,6 +267,7 @@ func (db *RoseDB) GetListKeys() (keys [][]byte, err error) {
 	db.listIndex.mu.RLock()
 	defer db.listIndex.mu.RUnlock()
 
+	ts := time.Now().Unix()
 	for key, idxTree := range db.listIndex.trees {
 		rowValue := idxTree.Get([]byte(key))
 		if rowValue == nil {
@@ -277,7 +278,6 @@ func (db *RoseDB) GetListKeys() (keys [][]byte, err error) {
 			continue
 		}
 
-		ts := time.Now().Unix()
 		if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
 			continue
 		}
