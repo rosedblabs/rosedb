@@ -647,19 +647,15 @@ func sPop(cli *Client, args [][]byte) (interface{}, error) {
 }
 
 func sIsMember(cli *Client, args [][]byte) (interface{}, error) {
-	if len(args) < 2 {
+	if len(args) != 2 {
 		return nil, newWrongNumOfArgsError("sismember")
 	}
-	res := make([]redcon.SimpleInt, len(args[1:]))
-	key := args[0]
-	for _, mem := range args[1:] {
-		if ok := cli.db.SIsMember(key, mem); ok {
-			res = append(res, redcon.SimpleInt(1))
-		} else {
-			res = append(res, redcon.SimpleInt(0))
-		}
+	key, mem := args[0], args[1]
+	if ok := cli.db.SIsMember(key, mem); ok {
+		return redcon.SimpleInt(1), nil
+	} else {
+		return redcon.SimpleInt(0), nil
 	}
-	return res, nil
 }
 
 func sMembers(cli *Client, args [][]byte) (interface{}, error) {
