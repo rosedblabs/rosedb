@@ -131,6 +131,7 @@ func (db *RoseDB) GetZSetKeys() (keys [][]byte, err error) {
 	db.zsetIndex.mu.RLock()
 	defer db.zsetIndex.mu.RUnlock()
 
+	ts := time.Now().Unix()
 	for key, idxTree := range db.zsetIndex.trees {
 		values := db.zsetIndex.indexes.ZRange(string(key), 0, -1)
 		for _, val := range values {
@@ -145,7 +146,6 @@ func (db *RoseDB) GetZSetKeys() (keys [][]byte, err error) {
 				continue
 			}
 
-			ts := time.Now().Unix()
 			if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
 				continue
 			}
