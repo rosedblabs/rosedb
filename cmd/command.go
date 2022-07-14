@@ -596,7 +596,7 @@ func hIncrBy(cli *Client, args [][]byte) (interface{}, error) {
 }
 
 func hRandField(cli *Client, args [][]byte) (interface{}, error) {
-	if len(args) != 1 || len(args) != 2 || len(args) != 3 {
+	if len(args) != 1 && len(args) != 2 && len(args) != 3 {
 		return nil, newWrongNumOfArgsError("hrandfield")
 	}
 	if len(args) == 1 {
@@ -615,7 +615,7 @@ func hRandField(cli *Client, args [][]byte) (interface{}, error) {
 	}
 	withValues := false
 	if len(args) == 3 {
-		if strings.ToUpper(string(args[2])) != argsWithValues {
+		if !strings.EqualFold(string(args[2]), argsWithValues) {
 			return nil, errSyntax
 		}
 		withValues = true
