@@ -39,6 +39,7 @@ var supportedCommands = map[string]cmdHandler{
 	"lindex": lIndex,
 	"lset":   lSet,
 	"lrange": lRange,
+	"lrem":   lRem,
 
 	// hash commands
 	"hset":       hSet,
