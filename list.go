@@ -269,7 +269,14 @@ func (db *RoseDB) GetListKeys() (keys [][]byte, err error) {
 
 	ts := time.Now().Unix()
 	for key, idxTree := range db.listIndex.trees {
-		rowValue := idxTree.Get([]byte(key))
+
+		// get List DataType meta info
+		headSeq, _, err := db.listMeta(idxTree, []byte(key))
+		if err != nil {
+			continue
+		}
+		encKey := db.encodeListKey([]byte(key), headSeq)
+		rowValue := idxTree.Get(encKey)
 		if rowValue == nil {
 			continue
 		}

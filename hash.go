@@ -389,24 +389,31 @@ func (db *RoseDB) HIncrBy(key, field []byte, incr int64) (int64, error) {
 func (db *RoseDB) GetHashKeys() (keys [][]byte, err error) {
 	db.hashIndex.mu.RLock()
 	defer db.hashIndex.mu.RUnlock()
-	
+
 	ts := time.Now().Unix()
 	for key, idxTree := range db.hashIndex.trees {
 
-		rowValue := idxTree.Get([]byte(key))
-		if rowValue == nil {
-			continue
-		}
+		iter := idxTree.Iterator()
+		for iter.HasNext() {
+			node, err := iter.Next()
+			if err != nil {
+				break
+			}
 
-		idxNode, _ := rowValue.(*indexNode)
-		if idxNode == nil {
-			continue
+			rawValue := idxTree.Get(node.Key())
+			if rawValue == nil {
+				continue
+			}
+			idxNode, _ := rawValue.(*indexNode)
+			if idxNode == nil {
+				continue
+			}
+			if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
+				continue
+			}
+			keys = append(keys, []byte(key))
+			break
 		}
-
-		if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
-			continue
-		}
-		keys = append(keys, []byte(key))
 	}
 	return
 }
