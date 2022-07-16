@@ -343,14 +343,7 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	size := tailSeq - headSeq - 1
-	if size <= 0 {
-		// reset meta
-		if headSeq != initialListSeq || tailSeq != initialListSeq+1 {
-			headSeq = initialListSeq
-			tailSeq = initialListSeq + 1
-			_ = db.saveListMeta(idxTree, key, headSeq, tailSeq)
-		}
+	if tailSeq-headSeq-1 <= 0 {
 		return nil, nil
 	}
 
@@ -388,6 +381,12 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 		logger.Warn("send to discard chan fail")
 	}
 	if tailSeq-headSeq-1 == 0 {
+		// reset meta
+		if headSeq != initialListSeq || tailSeq != initialListSeq+1 {
+			headSeq = initialListSeq
+			tailSeq = initialListSeq + 1
+			_ = db.saveListMeta(idxTree, key, headSeq, tailSeq)
+		}
 		delete(db.listIndex.trees, string(key))
 	}
 	return val, nil
