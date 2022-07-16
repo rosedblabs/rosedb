@@ -859,3 +859,206 @@ func testRoseDBLRem(t *testing.T, ioType IOType, mode DataIndexMode) {
 	assert.Equal(t, expected, values)
 	assert.Nil(t, err)
 }
+
+func TestRoseDB_LTrim(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBLTrim(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBLTrim(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBLTrim(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	type args struct {
+		key   []byte
+		start int
+		end   int
+	}
+
+	listKey := []byte("my_list")
+	// prepare List
+	err = db.RPush(listKey, GetKey(1))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, GetKey(2))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, GetKey(3))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, GetKey(4))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, GetKey(5))
+	assert.Nil(t, err)
+	// prepare List
+	for i := 0; i < 10; i++ {
+		err = db.LPush(GetKey(i), []byte("zero"))
+		assert.Nil(t, err)
+		err = db.LPush(GetKey(i), []byte("negative one"))
+		assert.Nil(t, err)
+		err = db.RPush(GetKey(i), []byte("one"))
+		assert.Nil(t, err)
+		err = db.RPush(GetKey(i), []byte("two"))
+		assert.Nil(t, err)
+		err = db.RPush(GetKey(i), []byte("three"))
+		assert.Nil(t, err)
+	}
+
+	tests := []struct {
+		name       string
+		db         *RoseDB
+		args       args
+		wantValues [][]byte
+		wantErr    bool
+	}{
+		{
+			"nil-key", db, args{key: nil, start: 0, end: 3}, [][]byte(nil), true,
+		},
+		{
+			"start==end", db, args{key: GetKey(0), start: 1, end: 1}, [][]byte{[]byte("zero")}, false,
+		},
+		{
+			"start==end==tailSeq", db, args{key: GetKey(1), start: 4, end: 4}, [][]byte{[]byte("three")}, false,
+		},
+		{
+			"end reset to endSeq", db, args{key: GetKey(2), start: 0, end: 8},
+			[][]byte{[]byte("negative one"), []byte("zero"), []byte("one"), []byte("two"), []byte("three")}, false,
+		},
+		{
+			"start and end reset", db, args{key: GetKey(3), start: -100, end: 100},
+			[][]byte{[]byte("negative one"), []byte("zero"), []byte("one"), []byte("two"), []byte("three")}, false,
+		},
+		{
+			"start negative end positive", db, args{key: GetKey(4), start: -4, end: 2},
+			[][]byte{[]byte("zero"), []byte("one")}, false,
+		},
+		{
+			"start out of range", db, args{key: GetKey(5), start: 5, end: 10}, [][]byte(nil), true,
+		},
+		{
+			"end out of range", db, args{key: GetKey(6), start: 1, end: -8}, [][]byte(nil), true,
+		},
+		{
+			"end larger than start", db, args{key: GetKey(7), start: -1, end: 1}, [][]byte(nil), true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.db.LTrim(tt.args.key, tt.args.start, tt.args.end)
+			assert.Nil(t, err)
+			actual, actualErr := tt.db.LRange(tt.args.key, 0, -1)
+			assert.Equal(t, tt.wantValues, actual, "actual is not the same with expected")
+			if (actualErr != nil) != tt.wantErr {
+				t.Errorf("LRange() error = %v, wantErr %v", actualErr, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRoseDB_LInsert(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBLInsert(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBLInsert(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBLInsert(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	type args struct {
+		key      []byte
+		isBefore bool
+		pivot    []byte
+		value    []byte
+	}
+
+	listKey := []byte("my_list")
+	// prepare List
+	err = db.RPush(listKey, GetKey(1))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, GetKey(2))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, GetKey(3))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, GetKey(4))
+	assert.Nil(t, err)
+	err = db.RPush(listKey, GetKey(5))
+	assert.Nil(t, err)
+	// prepare List
+	for i := 0; i < 10; i++ {
+		err = db.LPush(GetKey(i), []byte("zero"))
+		assert.Nil(t, err)
+		err = db.LPush(GetKey(i), []byte("negative one"))
+		assert.Nil(t, err)
+		err = db.RPush(GetKey(i), []byte("one"))
+		assert.Nil(t, err)
+		err = db.RPush(GetKey(i), []byte("two"))
+		assert.Nil(t, err)
+		err = db.RPush(GetKey(i), []byte("three"))
+		assert.Nil(t, err)
+	}
+
+	tests := []struct {
+		name       string
+		db         *RoseDB
+		args       args
+		nums       int
+		wantValues [][]byte
+		wantErr    bool
+	}{
+		{
+			"nil-key", db, args{key: nil, isBefore: true, pivot: []byte("zero"), value: []byte("insert element")}, 0,
+			[][]byte(nil), true,
+		},
+		{
+			"pivot-not-exist", db, args{key: GetKey(1), isBefore: true, pivot: []byte("pivot isn't exist"), value: []byte("insert element")}, -1,
+			[][]byte{[]byte("negative one"), []byte("zero"), []byte("one"), []byte("two"), []byte("three")}, false,
+		},
+		{
+			"middle-before", db, args{key: GetKey(2), isBefore: true, pivot: []byte("zero"), value: []byte("insert element")}, 6,
+			[][]byte{[]byte("negative one"), []byte("insert element"), []byte("zero"), []byte("one"), []byte("two"), []byte("three")}, false,
+		},
+		{
+			"middle-after", db, args{key: GetKey(3), isBefore: false, pivot: []byte("zero"), value: []byte("insert element")}, 6,
+			[][]byte{[]byte("negative one"), []byte("zero"), []byte("insert element"), []byte("one"), []byte("two"), []byte("three")}, false,
+		},
+		{
+			"first-before", db, args{key: GetKey(4), isBefore: true, pivot: []byte("negative one"), value: []byte("insert element")}, 6,
+			[][]byte{[]byte("insert element"), []byte("negative one"), []byte("zero"), []byte("one"), []byte("two"), []byte("three")}, false,
+		},
+		{
+			"last-after", db, args{key: GetKey(5), isBefore: false, pivot: []byte("three"), value: []byte("insert element")}, 6,
+			[][]byte{[]byte("negative one"), []byte("zero"), []byte("one"), []byte("two"), []byte("three"), []byte("insert element")}, false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nums, err := tt.db.LInsert(tt.args.key, tt.args.pivot, tt.args.value, tt.args.isBefore)
+			assert.Nil(t, err)
+			assert.Equal(t, tt.nums, nums)
+			actual, actualErr := tt.db.LRange(tt.args.key, 0, -1)
+			assert.Equal(t, tt.wantValues, actual, "actual is not the same with expected")
+			if (actualErr != nil) != tt.wantErr {
+				t.Errorf("LRange() error = %v, wantErr %v", actualErr, tt.wantErr)
+			}
+		})
+	}
+}

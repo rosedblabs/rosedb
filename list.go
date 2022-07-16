@@ -518,3 +518,154 @@ func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 	}
 	return discardCount, nil
 }
+
+// LTrim will trim an existing list so that it will contain only the specified range of elements specified.
+// Both start and stop are zero-based indexes, where 0 is the first element of the list (the head),
+// 1 the next element and so on.
+func (db *RoseDB) LTrim(key []byte, start, end int) error {
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	if db.listIndex.trees[string(key)] == nil {
+		return nil
+	}
+
+	idxTree := db.listIndex.trees[string(key)]
+	// get List DataType meta info
+	headSeq, tailSeq, err := db.listMeta(idxTree, key)
+	if err != nil {
+		return err
+	}
+
+	var startSeq, endSeq uint32
+
+	// logical address to physical address
+	startSeq, err = db.listSequence(headSeq, tailSeq, start)
+	if err != nil {
+		return err
+	}
+	endSeq, err = db.listSequence(headSeq, tailSeq, end)
+	if err != nil {
+		return err
+	}
+	// normalize startSeq
+	if startSeq <= headSeq {
+		startSeq = headSeq + 1
+	}
+
+	// normalize endSeq
+	if endSeq >= tailSeq {
+		endSeq = tailSeq - 1
+	}
+
+	isClearAll := false
+	if startSeq >= tailSeq || endSeq <= headSeq || startSeq > endSeq {
+		isClearAll = true
+	}
+
+	if isClearAll {
+		for seq := headSeq + 1; seq < tailSeq; seq++ {
+			if _, err := db.popInternal(key, true); err != nil {
+				return err
+			}
+		}
+	} else {
+		for seq := headSeq + 1; seq < startSeq; seq++ {
+			if _, err := db.popInternal(key, true); err != nil {
+				return err
+			}
+		}
+
+		for seq := tailSeq - 1; seq > endSeq; seq-- {
+			if _, err := db.popInternal(key, false); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// LInsert will insert element in the list stored at key either before or after the reference value pivot.
+// Note that when key does not found, it will treat with no error and return 0.
+// Note that when pivot does not found, it will treat with no error and return -1.
+func (db *RoseDB) LInsert(key, pivot, element []byte, isBefore bool) (int, error) {
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	// when key does not found, it will treat with no error and return 0.
+	if db.listIndex.trees[string(key)] == nil {
+		return 0, nil
+	}
+	// when pivot does not found, it will treat with no error and return -1.
+	pivotSeq, err := db.LSearchElemSeq(key, pivot)
+	if err != nil || pivotSeq == -1 {
+		return -1, nil
+	}
+
+	var reserveValue [][]byte
+	idxTree := db.listIndex.trees[string(key)]
+	// get List DataType meta info
+	headSeq, _, err := db.listMeta(idxTree, key)
+	if err != nil {
+		return -1, err
+	}
+	for seq := headSeq + 1; seq < uint32(pivotSeq); seq++ {
+		val, err := db.popInternal(key, true)
+		if err != nil {
+			return -1, err
+		}
+		reserveValue = append(reserveValue, val)
+	}
+
+	val, err := db.popInternal(key, true)
+	if err != nil {
+		return -1, err
+	}
+	if isBefore {
+		reserveValue = append(reserveValue, element, val)
+	} else {
+		reserveValue = append(reserveValue, val, element)
+	}
+
+	if db.listIndex.trees[string(key)] == nil {
+		db.listIndex.trees[string(key)] = art.NewART()
+	}
+	for i := len(reserveValue) - 1; i >= 0; i-- {
+		if err := db.pushInternal(key, reserveValue[i], true); err != nil {
+			return -1, err
+		}
+	}
+
+	idxTree = db.listIndex.trees[string(key)]
+	headSeq, tailSeq, err := db.listMeta(idxTree, key)
+	if err != nil {
+		return -1, err
+	}
+	return int(tailSeq - headSeq - 1), nil
+}
+
+func (db *RoseDB) LSearchElemSeq(key, element []byte) (int64, error) {
+
+	if db.listIndex.trees[string(key)] == nil {
+		return -1, ErrKeyNotFound
+	}
+
+	idxTree := db.listIndex.trees[string(key)]
+	// get List DataType meta info
+	headSeq, tailSeq, err := db.listMeta(idxTree, key)
+	if err != nil {
+		return -1, err
+	}
+
+	for seq := headSeq + 1; seq < tailSeq; seq++ {
+		encKey := db.encodeListKey(key, seq)
+		val, err := db.getVal(idxTree, encKey, List)
+		if err != nil {
+			return -1, err
+		}
+		if bytes.Compare(val, element) == 0 {
+			return int64(seq), nil
+		}
+	}
+	return -1, nil
+}

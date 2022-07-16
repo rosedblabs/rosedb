@@ -477,6 +477,43 @@ func lRem(cli *Client, args [][]byte) (interface{}, error) {
 	return redcon.SimpleInt(rem), err
 }
 
+func lTrim(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("ltrim")
+	}
+
+	key, start, end := args[0], args[1], args[2]
+	s, err := strconv.Atoi(string(start))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+
+	e, err := strconv.Atoi(string(end))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	err = cli.db.LTrim(key, s, e)
+	return redcon.SimpleString(resultOK), err
+}
+
+func lInsert(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 4 {
+		return nil, newWrongNumOfArgsError("linsert")
+	}
+	var isBefore bool
+	key, pivot, element := args[0], args[2], args[3]
+	location := strings.ToLower(string(args[1]))
+	if location == "before" {
+		isBefore = true
+	} else if location == "after" {
+		isBefore = false
+	} else {
+		return nil, errSyntax
+	}
+	count, err := cli.db.LInsert(key, pivot, element, isBefore)
+	return redcon.SimpleInt(count), err
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |--------------------------- Hash commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
