@@ -148,6 +148,11 @@ func testRoseDBLPop(t *testing.T, ioType IOType, mode DataIndexMode) {
 	}
 	expected := [][]byte{GetKey(2), GetKey(1), GetKey(0)}
 	assert.Equal(t, expected, values)
+
+	// lRange
+	values, err = db.LRange(listKey, 0, -1)
+	assert.Equal(t, ErrKeyNotFound, err)
+	assert.Nil(t, values)
 }
 
 func testRoseDBRPop(t *testing.T, ioType IOType, mode DataIndexMode) {
@@ -191,6 +196,11 @@ func testRoseDBRPop(t *testing.T, ioType IOType, mode DataIndexMode) {
 	}
 	expected := [][]byte{GetKey(2), GetKey(1), GetKey(0)}
 	assert.Equal(t, expected, values)
+
+	// lRange
+	values, err = db.LRange(listKey, 0, -1)
+	assert.Equal(t, ErrKeyNotFound, err)
+	assert.Nil(t, values)
 }
 
 func TestRoseDB_LMove(t *testing.T) {
@@ -734,6 +744,7 @@ func testRoseDBLRange(t *testing.T, ioType IOType, mode DataIndexMode) {
 		})
 	}
 }
+
 
 func TestRoseDB_GetListKeys(t *testing.T) {
 	t.Run("fileio", func(t *testing.T) {

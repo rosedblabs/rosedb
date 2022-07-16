@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	resultOK   = "OK"
-	resultPong = "PONG"
+	resultOK       = "OK"
+	resultPong     = "PONG"
+	argsWithValues = "WITHVALUES"
 )
 
 var (
@@ -463,6 +464,19 @@ func lRange(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.LRange(key, s, e)
 }
 
+func lRem(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 3 {
+		return nil, newWrongNumOfArgsError("lrem")
+	}
+	key, element := args[0], args[2]
+	count, err := strconv.Atoi(string(args[1]))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	rem, err := cli.db.LRem(key, count, element)
+	return redcon.SimpleInt(rem), err
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |--------------------------- Hash commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
@@ -594,6 +608,34 @@ func hIncrBy(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.HIncrBy(key, field, incrInt64Val)
 }
 
+func hRandField(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 && len(args) != 2 && len(args) != 3 {
+		return nil, newWrongNumOfArgsError("hrandfield")
+	}
+	if len(args) == 1 {
+		keys, err := cli.db.HRandField(args[0], 1, false)
+		if err != nil {
+			return nil, err
+		}
+		if len(keys) == 1 {
+			return keys[0], nil
+		}
+		return keys, nil
+	}
+	count, err := strconv.Atoi(string(args[1]))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	withValues := false
+	if len(args) == 3 {
+		if !strings.EqualFold(string(args[2]), argsWithValues) {
+			return nil, errSyntax
+		}
+		withValues = true
+	}
+	return cli.db.HRandField(args[0], count, withValues)
+}
+
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
@@ -647,19 +689,15 @@ func sPop(cli *Client, args [][]byte) (interface{}, error) {
 }
 
 func sIsMember(cli *Client, args [][]byte) (interface{}, error) {
-	if len(args) < 2 {
+	if len(args) != 2 {
 		return nil, newWrongNumOfArgsError("sismember")
 	}
-	res := make([]redcon.SimpleInt, len(args[1:]))
-	key := args[0]
-	for _, mem := range args[1:] {
-		if ok := cli.db.SIsMember(key, mem); ok {
-			res = append(res, redcon.SimpleInt(1))
-		} else {
-			res = append(res, redcon.SimpleInt(0))
-		}
+	key, mem := args[0], args[1]
+	if ok := cli.db.SIsMember(key, mem); ok {
+		return redcon.SimpleInt(1), nil
+	} else {
+		return redcon.SimpleInt(0), nil
 	}
-	return res, nil
 }
 
 func sMembers(cli *Client, args [][]byte) (interface{}, error) {

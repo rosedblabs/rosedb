@@ -1,12 +1,14 @@
 package rosedb
 
 import (
+	"bytes"
 	"encoding/binary"
 	"time"
 
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
+	"math"
 )
 
 // LPush insert all the specified values at the head of the list stored at key.
@@ -374,14 +376,7 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	size := tailSeq - headSeq - 1
-	if size <= 0 {
-		// reset meta
-		if headSeq != initialListSeq || tailSeq != initialListSeq+1 {
-			headSeq = initialListSeq
-			tailSeq = initialListSeq + 1
-			_ = db.saveListMeta(idxTree, key, headSeq, tailSeq)
-		}
+	if tailSeq-headSeq-1 <= 0 {
 		return nil, nil
 	}
 
@@ -418,6 +413,15 @@ func (db *RoseDB) popInternal(key []byte, isLeft bool) ([]byte, error) {
 	default:
 		logger.Warn("send to discard chan fail")
 	}
+	if tailSeq-headSeq-1 == 0 {
+		// reset meta
+		if headSeq != initialListSeq || tailSeq != initialListSeq+1 {
+			headSeq = initialListSeq
+			tailSeq = initialListSeq + 1
+			_ = db.saveListMeta(idxTree, key, headSeq, tailSeq)
+		}
+		delete(db.listIndex.trees, string(key))
+	}
 	return val, nil
 }
 
@@ -432,4 +436,118 @@ func (db *RoseDB) listSequence(headSeq, tailSeq uint32, index int) (uint32, erro
 		seq = tailSeq - uint32(-index)
 	}
 	return seq, nil
+}
+
+// LRem removes the first count occurrences of elements equal to element from the list stored at key.
+// The count argument influences the operation in the following ways:
+// count > 0: Remove elements equal to element moving from head to tail.
+// count < 0: Remove elements equal to element moving from tail to head.
+// count = 0: Remove all elements equal to element.
+// Note that this method will rewrite the values, so it maybe very slow.
+func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
+	db.listIndex.mu.Lock()
+	defer db.listIndex.mu.Unlock()
+
+	if count == 0 {
+		count = math.MaxUint32
+	}
+	var discardCount int
+	idxTree := db.listIndex.trees[string(key)]
+	if idxTree == nil {
+		return discardCount, nil
+	}
+	// get List DataType meta info
+	headSeq, tailSeq, err := db.listMeta(idxTree, key)
+	if err != nil {
+		return discardCount, err
+	}
+
+	reserveSeq, discardSeq, reserveValueSeq := make([]uint32, 0), make([]uint32, 0), make([][]byte, 0)
+	classifyData := func(key []byte, seq uint32) error {
+		encKey := db.encodeListKey(key, seq)
+		val, err := db.getVal(idxTree, encKey, List)
+		if err != nil {
+			return err
+		}
+		if bytes.Compare(value, val) == 0 {
+			discardSeq = append(discardSeq, seq)
+			discardCount++
+		} else {
+			reserveSeq = append(reserveSeq, seq)
+			temp := make([]byte, len(val))
+			copy(temp, val)
+			reserveValueSeq = append(reserveValueSeq, temp)
+		}
+		return nil
+	}
+
+	addReserveData := func(key []byte, value []byte, isLeft bool) error {
+		if db.listIndex.trees[string(key)] == nil {
+			db.listIndex.trees[string(key)] = art.NewART()
+		}
+		if err := db.pushInternal(key, value, isLeft); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if count > 0 {
+		// record discard data and reserve data
+		for seq := headSeq + 1; seq < tailSeq; seq++ {
+			if err := classifyData(key, seq); err != nil {
+				return discardCount, err
+			}
+			if discardCount == count {
+				break
+			}
+		}
+
+		discardSeqLen := len(discardSeq)
+		if discardSeqLen > 0 {
+			// delete discard data
+			for seq := headSeq + 1; seq <= discardSeq[discardSeqLen-1]; seq++ {
+				if _, err := db.popInternal(key, true); err != nil {
+					return discardCount, err
+				}
+			}
+			// add reserve data
+			for i := len(reserveSeq) - 1; i >= 0; i-- {
+				if reserveSeq[i] < discardSeq[discardSeqLen-1] {
+					if err := addReserveData(key, reserveValueSeq[i], true); err != nil {
+						return discardCount, err
+					}
+				}
+			}
+		}
+	} else {
+		count = -count
+		// record discard data and reserve data
+		for seq := tailSeq - 1; seq > headSeq; seq-- {
+			if err := classifyData(key, seq); err != nil {
+				return discardCount, err
+			}
+			if discardCount == count {
+				break
+			}
+		}
+
+		discardSeqLen := len(discardSeq)
+		if discardSeqLen > 0 {
+			// delete discard data
+			for seq := tailSeq - 1; seq >= discardSeq[discardSeqLen-1]; seq-- {
+				if _, err := db.popInternal(key, false); err != nil {
+					return discardCount, err
+				}
+			}
+			// add reserve data
+			for i := len(reserveSeq) - 1; i >= 0; i-- {
+				if reserveSeq[i] > discardSeq[discardSeqLen-1] {
+					if err := addReserveData(key, reserveValueSeq[i], false); err != nil {
+						return discardCount, err
+					}
+				}
+			}
+		}
+	}
+	return discardCount, nil
 }
