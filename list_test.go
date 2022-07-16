@@ -1,7 +1,9 @@
 package rosedb
 
 import (
+	"bytes"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -743,16 +745,18 @@ func testRoseDBLRange(t *testing.T, ioType IOType, mode DataIndexMode) {
 	}
 }
 
-func TestRoseDB_LRem(t *testing.T) {
+
+func TestRoseDB_GetListKeys(t *testing.T) {
 	t.Run("fileio", func(t *testing.T) {
-		testRoseDBLRem(t, FileIO, KeyOnlyMemMode)
+		testRoseDBGetListKeys(t, FileIO, KeyOnlyMemMode)
 	})
+
 	t.Run("mmap", func(t *testing.T) {
-		testRoseDBLRem(t, MMap, KeyValueMemMode)
+		testRoseDBGetListKeys(t, MMap, KeyValueMemMode)
 	})
 }
 
-func testRoseDBLRem(t *testing.T, ioType IOType, mode DataIndexMode) {
+func testRoseDBGetListKeys(t *testing.T, ioType IOType, mode DataIndexMode) {
 	path := filepath.Join("/tmp", "rosedb")
 	opts := DefaultOptions(path)
 	opts.IoType = ioType
@@ -761,101 +765,24 @@ func testRoseDBLRem(t *testing.T, ioType IOType, mode DataIndexMode) {
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	listKey := []byte("my_list")
-	v, err := db.LRem(listKey, 1, GetKey(1))
-	assert.Equal(t, 0, v)
+	keys1, err := db.GetListKeys()
 	assert.Nil(t, err)
-	v, err = db.LRem(listKey, 0, GetKey(1))
-	assert.Equal(t, 0, v)
-	assert.Nil(t, err)
-	v, err = db.LRem(listKey, -1, GetKey(1))
-	assert.Equal(t, 0, v)
-	assert.Nil(t, err)
+	assert.Equal(t, 0, len(keys1))
 
-	err = db.RPush(listKey, GetKey(1), GetKey(2), GetKey(1), GetKey(3), GetKey(3), GetKey(4))
-	assert.Nil(t, err)
-	// list : 1 2 1 3 3 4
-	expected := [][]byte{GetKey(1), GetKey(2), GetKey(1), GetKey(3), GetKey(3), GetKey(4)}
-	v, err = db.LRem(listKey, 1, GetKey(5))
-	assert.Equal(t, 0, v)
-	assert.Nil(t, err)
-	values, err := db.LRange(listKey, 0, -1)
-	assert.Equal(t, expected, values)
-	assert.Nil(t, err)
+	var keys [][]byte
+	for i := 0; i < 100; i++ {
+		keys = append(keys, GetKey(i))
+		err := db.LPush(GetKey(i), GetValue16B())
+		assert.Nil(t, err)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return bytes.Compare(keys[i], keys[j]) < 0
+	})
 
-	// list : 1 2 1 3 3 4
-	expected = [][]byte{GetKey(1), GetKey(2), GetKey(1), GetKey(3), GetKey(3), GetKey(4)}
-	v, err = db.LRem(listKey, 0, GetKey(5))
-	assert.Equal(t, 0, v)
+	keys2, err := db.GetListKeys()
 	assert.Nil(t, err)
-	values, err = db.LRange(listKey, 0, -1)
-	assert.Equal(t, expected, values)
-	assert.Nil(t, err)
-
-	// list : 1 2 1 3 3 4
-	expected = [][]byte{GetKey(1), GetKey(2), GetKey(1), GetKey(3), GetKey(3), GetKey(4)}
-	v, err = db.LRem(listKey, -1, GetKey(5))
-	assert.Equal(t, 0, v)
-	assert.Nil(t, err)
-	values, err = db.LRange(listKey, 0, -1)
-	assert.Equal(t, expected, values)
-	assert.Nil(t, err)
-
-	// list : 1 2 1 3 3 4
-	expected = [][]byte{GetKey(2), GetKey(3), GetKey(3), GetKey(4)}
-	v, err = db.LRem(listKey, 3, GetKey(1))
-	assert.Equal(t, 2, v)
-	assert.Nil(t, err)
-	values, err = db.LRange(listKey, 0, -1)
-	assert.Equal(t, expected, values)
-	assert.Nil(t, err)
-
-	// list : 2 3 3 4
-	expected = [][]byte{GetKey(2), GetKey(4)}
-	v, err = db.LRem(listKey, -3, GetKey(3))
-	assert.Equal(t, 2, v)
-	assert.Nil(t, err)
-	values, err = db.LRange(listKey, 0, -1)
-	assert.Equal(t, expected, values)
-	assert.Nil(t, err)
-
-	// list : 2 4
-	expected = [][]byte{GetKey(4)}
-	v, err = db.LRem(listKey, 0, GetKey(2))
-	assert.Equal(t, 1, v)
-	assert.Nil(t, err)
-	values, err = db.LRange(listKey, 0, -1)
-	assert.Equal(t, expected, values)
-	assert.Nil(t, err)
-
-	// list : 4
-	err = db.RPush(listKey, GetKey(3), GetKey(2), GetKey(1))
-	assert.Nil(t, err)
-
-	// list : 4 3 2 1
-	expected = [][]byte{GetKey(3), GetKey(2), GetKey(1)}
-	v, err = db.LRem(listKey, 1, GetKey(4))
-	assert.Equal(t, 1, v)
-	assert.Nil(t, err)
-	values, err = db.LRange(listKey, 0, -1)
-	assert.Equal(t, expected, values)
-	assert.Nil(t, err)
-
-	// list : 3 2 1
-	expected = [][]byte{GetKey(3), GetKey(2)}
-	v, err = db.LRem(listKey, -1, GetKey(1))
-	assert.Equal(t, 1, v)
-	assert.Nil(t, err)
-	values, err = db.LRange(listKey, 0, -1)
-	assert.Equal(t, expected, values)
-	assert.Nil(t, err)
-
-	// list : 3 2
-	expected = [][]byte{GetKey(3)}
-	v, err = db.LRem(listKey, 0, GetKey(2))
-	assert.Equal(t, 1, v)
-	assert.Nil(t, err)
-	values, err = db.LRange(listKey, 0, -1)
-	assert.Equal(t, expected, values)
-	assert.Nil(t, err)
+	sort.Slice(keys2, func(i, j int) bool {
+		return bytes.Compare(keys2[i], keys2[j]) < 0
+	})
+	assert.Equal(t, keys2, keys)
 }

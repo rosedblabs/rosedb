@@ -1,11 +1,14 @@
 package rosedb
 
 import (
+	"bytes"
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"math"
 	"path/filepath"
+	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRoseDB_HSet(t *testing.T) {
@@ -754,144 +757,44 @@ func TestRoseDB_HIncrBy(t *testing.T) {
 	}
 }
 
-func TestRoseDB_HRandField(t *testing.T) {
-	cases := []struct {
-		IOType
-		DataIndexMode
-	}{
-		{FileIO, KeyValueMemMode},
-		{FileIO, KeyOnlyMemMode},
-		{MMap, KeyValueMemMode},
-		{MMap, KeyOnlyMemMode},
+
+func TestRoseDB_GetHashKeys(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBGetHashKeys(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBGetHashKeys(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBGetHashKeys(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	keys1, err := db.GetHashKeys()
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(keys1))
+
+	var keys [][]byte
+	for i := 0; i < 100; i++ {
+		keys = append(keys, GetKey(i))
+		err := db.HSet(GetKey(i), GetKey(i), GetValue16B())
+		assert.Nil(t, err)
 	}
+	sort.Slice(keys, func(i, j int) bool {
+		return bytes.Compare(keys[i], keys[j]) < 0
+	})
 
-	hashKey := []byte("my_hash")
-	field1, field2, field3, field4, field5 := []byte("field1"), []byte("field2"), []byte("field3"), []byte("field4"), []byte("field5")
-	value1, value2, value3, value4, value5 := []byte("value1"), []byte("value2"), []byte("value3"), []byte("value4"), []byte("value5")
-	fields := [][]byte{field1, field2, field3, field4, field5}
-	values := [][]byte{value1, value2, value3, value4, value5}
-
-	distinctFunc := func(pairs [][]byte, count int, withValues bool) {
-		if count > len(fields) {
-			count = len(fields)
-		}
-		var pairLength = 1
-		if withValues {
-			pairLength = 2
-		}
-		pairCount := len(pairs) / pairLength
-		assert.Equal(t, count, pairCount)
-		// only key of the pair should be able to be compared.
-		for i := 0; i < pairCount; i++ {
-			assert.Contains(t, fields, pairs[i*pairLength])
-			for j := 0; j < pairCount; j++ {
-				if i == j {
-					continue
-				}
-				assert.NotEqual(t, pairs[i*pairLength], pairs[j*pairLength])
-			}
-		}
-	}
-	duplicationFunc := func(pairs [][]byte, count int, withValues bool) {
-		var pairLength = 1
-		if withValues {
-			pairLength = 2
-		}
-		pairCount := len(pairs) / pairLength
-		assert.Equal(t, count, pairCount)
-		for i := 0; i < pairCount; i++ {
-			assert.Contains(t, fields, pairs[i*pairLength])
-			if withValues {
-				assert.Contains(t, values, pairs[i*pairLength+1])
-			}
-		}
-	}
-
-	run := func(t *testing.T, opts Options) {
-		db, err := Open(opts)
-		assert.Nil(t, err)
-		defer destroyDB(db)
-		const withValues = false
-
-		_ = db.HSet(hashKey, field1, value1, field2, value2, field3, value3, field4, value4, field5, value5)
-
-		// empty
-		keys, err := db.HRandField(hashKey, 0, withValues)
-		assert.Nil(t, err)
-		assert.Equal(t, 0, len(keys))
-
-		// key not found
-		keys, err = db.HRandField([]byte("key-not-found"), 1, withValues)
-		assert.Nil(t, err)
-		assert.Equal(t, 0, len(keys))
-
-		// return a random field from the hash value
-		keys, err = db.HRandField(hashKey, 1, withValues)
-		assert.Nil(t, err)
-		assert.Equal(t, 1, len(keys))
-		assert.Contains(t, fields, keys[0])
-
-		// return random fields from the hash value by count i
-		for i := 1; i <= 10; i++ {
-			keys, err = db.HRandField(hashKey, i, false)
-			assert.Nil(t, err)
-			distinctFunc(keys, i, withValues)
-		}
-
-		// return the same field multiple times by count -i
-		for i := 1; i <= 10; i++ {
-			keys, err = db.HRandField(hashKey, -i, withValues)
-			assert.Nil(t, err)
-			duplicationFunc(keys, i, withValues)
-		}
-	}
-
-	runWithValues := func(t *testing.T, opts Options) {
-		db, err := Open(opts)
-		assert.Nil(t, err)
-		defer destroyDB(db)
-		const withValues = true
-
-		_ = db.HSet(hashKey, field1, value1, field2, value2, field3, value3, field4, value4, field5, value5)
-
-		// empty
-		pairs, err := db.HRandField(hashKey, 0, withValues)
-		assert.Nil(t, err)
-		assert.Equal(t, 0, len(pairs))
-
-		// key not found
-		pairs, err = db.HRandField([]byte("key-not-found"), 1, withValues)
-		assert.Nil(t, err)
-		assert.Equal(t, 0, len(pairs))
-
-		// return a random field from the hash value
-		pairs, err = db.HRandField(hashKey, 1, withValues)
-		assert.Nil(t, err)
-		assert.Equal(t, 2, len(pairs))
-		assert.Contains(t, fields, pairs[0])
-		assert.Contains(t, values, pairs[1])
-
-		// return random pairs from the hash value by count i
-		for i := 1; i <= 10; i++ {
-			pairs, err = db.HRandField(hashKey, i, withValues)
-			assert.Nil(t, err)
-			distinctFunc(pairs, i, withValues)
-		}
-
-		// return the same pairs multiple times by count -i
-		for i := 1; i <= 10; i++ {
-			pairs, err = db.HRandField(hashKey, -i, withValues)
-			assert.Nil(t, err)
-			duplicationFunc(pairs, i, withValues)
-		}
-	}
-
-	for _, c := range cases {
-		path := filepath.Join("/tmp", "rosedb")
-		opts := DefaultOptions(path)
-		opts.IoType = c.IOType
-		opts.IndexMode = c.DataIndexMode
-		run(t, opts)
-		runWithValues(t, opts)
-	}
+	keys2, err := db.GetHashKeys()
+	assert.Nil(t, err)
+	sort.Slice(keys2, func(i, j int) bool {
+		return bytes.Compare(keys2[i], keys2[j]) < 0
+	})
+	assert.Equal(t, keys2, keys)
 }

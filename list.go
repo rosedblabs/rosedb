@@ -3,6 +3,8 @@ package rosedb
 import (
 	"bytes"
 	"encoding/binary"
+	"time"
+
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
@@ -260,6 +262,37 @@ func (db *RoseDB) LRange(key []byte, start, end int) (values [][]byte, err error
 		values = append(values, val)
 	}
 	return values, nil
+}
+
+// GetListKeys get all stored keys of type List.
+func (db *RoseDB) GetListKeys() (keys [][]byte, err error) {
+	db.listIndex.mu.RLock()
+	defer db.listIndex.mu.RUnlock()
+
+	ts := time.Now().Unix()
+	for key, idxTree := range db.listIndex.trees {
+
+		// get List DataType meta info
+		headSeq, _, err := db.listMeta(idxTree, []byte(key))
+		if err != nil {
+			continue
+		}
+		encKey := db.encodeListKey([]byte(key), headSeq)
+		rowValue := idxTree.Get(encKey)
+		if rowValue == nil {
+			continue
+		}
+		idxNode, _ := rowValue.(*indexNode)
+		if idxNode == nil {
+			continue
+		}
+
+		if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
+			continue
+		}
+		keys = append(keys, []byte(key))
+	}
+	return
 }
 
 func (db *RoseDB) encodeListKey(key []byte, seq uint32) []byte {

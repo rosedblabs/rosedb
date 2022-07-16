@@ -3,15 +3,15 @@ package rosedb
 import (
 	"bytes"
 	"errors"
+	"math"
+	"regexp"
+	"strconv"
+	"time"
+
 	"github.com/flower-corp/rosedb/ds/art"
 	"github.com/flower-corp/rosedb/logfile"
 	"github.com/flower-corp/rosedb/logger"
 	"github.com/flower-corp/rosedb/util"
-	"math"
-	"math/rand"
-	"regexp"
-	"strconv"
-	"time"
 )
 
 // HSet sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
@@ -385,54 +385,35 @@ func (db *RoseDB) HIncrBy(key, field []byte, incr int64) (int64, error) {
 	return valInt64, nil
 }
 
-// HRandField returns a random field from the hash value stored at key, when called with just
-// the key argument. If the provided count argument is positive, return an array of distinct
-// fields. If called with a negative count, the behavior changes and the command is allowed
-// to return the same field multiple times.
-func (db *RoseDB) HRandField(key []byte, count int, withValues bool) ([][]byte, error) {
-	if count == 0 {
-		return [][]byte{}, nil
-	}
-	var values [][]byte
-	var err error
-	var pairLength = 1
-	if !withValues {
-		values, err = db.HKeys(key)
-	} else {
-		pairLength = 2
-		values, err = db.HGetAll(key)
-	}
-	if err != nil {
-		return [][]byte{}, err
-	}
-	if len(values) == 0 {
-		return [][]byte{}, nil
-	}
+// GetHashKeys get all stored keys of type Hash.
+func (db *RoseDB) GetHashKeys() (keys [][]byte, err error) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
 
-	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	pairCount := len(values) / pairLength
+	ts := time.Now().Unix()
+	for key, idxTree := range db.hashIndex.trees {
 
-	// return an array of distinct fields
-	if count > 0 {
-		// return all fields
-		if count >= pairCount {
-			return values, nil
+		iter := idxTree.Iterator()
+		for iter.HasNext() {
+			node, err := iter.Next()
+			if err != nil {
+				break
+			}
+
+			rawValue := idxTree.Get(node.Key())
+			if rawValue == nil {
+				continue
+			}
+			idxNode, _ := rawValue.(*indexNode)
+			if idxNode == nil {
+				continue
+			}
+			if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
+				continue
+			}
+			keys = append(keys, []byte(key))
+			break
 		}
-		// reduce diff count to avoid creating duplicates
-		var noDupValues = values
-		diff := pairCount - count
-		for i := 0; i < diff; i++ {
-			rndIdx := rnd.Intn(len(noDupValues)/pairLength) * pairLength
-			noDupValues = append(noDupValues[:rndIdx], noDupValues[rndIdx+pairLength:]...)
-		}
-		return noDupValues, nil
 	}
-	// return the same field multiple times
-	count = -count
-	var dupValues [][]byte
-	for i := 0; i < count; i++ {
-		rndIdx := rnd.Intn(pairCount) * pairLength
-		dupValues = append(dupValues, values[rndIdx:rndIdx+pairLength]...)
-	}
-	return dupValues, nil
+	return
 }
