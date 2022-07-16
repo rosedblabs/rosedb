@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	resultOK   = "OK"
-	resultPong = "PONG"
+	resultOK       = "OK"
+	resultPong     = "PONG"
+	argsWithValues = "WITHVALUES"
 )
 
 var (
@@ -592,6 +593,34 @@ func hIncrBy(cli *Client, args [][]byte) (interface{}, error) {
 		return nil, errValueIsInvalid
 	}
 	return cli.db.HIncrBy(key, field, incrInt64Val)
+}
+
+func hRandField(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 1 && len(args) != 2 && len(args) != 3 {
+		return nil, newWrongNumOfArgsError("hrandfield")
+	}
+	if len(args) == 1 {
+		keys, err := cli.db.HRandField(args[0], 1, false)
+		if err != nil {
+			return nil, err
+		}
+		if len(keys) == 1 {
+			return keys[0], nil
+		}
+		return keys, nil
+	}
+	count, err := strconv.Atoi(string(args[1]))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	withValues := false
+	if len(args) == 3 {
+		if !strings.EqualFold(string(args[2]), argsWithValues) {
+			return nil, errSyntax
+		}
+		withValues = true
+	}
+	return cli.db.HRandField(args[0], count, withValues)
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+
