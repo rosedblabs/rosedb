@@ -436,3 +436,36 @@ func (db *RoseDB) HRandField(key []byte, count int, withValues bool) ([][]byte, 
 	}
 	return dupValues, nil
 }
+
+// GetHashKeys get all stored keys of type Hash.
+func (db *RoseDB) GetHashKeys() (keys [][]byte, err error) {
+	db.hashIndex.mu.RLock()
+	defer db.hashIndex.mu.RUnlock()
+
+	ts := time.Now().Unix()
+	for key, idxTree := range db.hashIndex.trees {
+
+		iter := idxTree.Iterator()
+		for iter.HasNext() {
+			node, err := iter.Next()
+			if err != nil {
+				break
+			}
+
+			rawValue := idxTree.Get(node.Key())
+			if rawValue == nil {
+				continue
+			}
+			idxNode, _ := rawValue.(*indexNode)
+			if idxNode == nil {
+				continue
+			}
+			if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
+				continue
+			}
+			keys = append(keys, []byte(key))
+			break
+		}
+	}
+	return
+}

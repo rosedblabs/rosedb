@@ -1,11 +1,14 @@
 package rosedb
 
 import (
+	"bytes"
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"math"
 	"path/filepath"
+	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRoseDB_HSet(t *testing.T) {
@@ -894,4 +897,45 @@ func TestRoseDB_HRandField(t *testing.T) {
 		run(t, opts)
 		runWithValues(t, opts)
 	}
+}
+
+func TestRoseDB_GetHashKeys(t *testing.T) {
+	t.Run("fileio", func(t *testing.T) {
+		testRoseDBGetHashKeys(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBGetHashKeys(t, MMap, KeyValueMemMode)
+	})
+}
+
+func testRoseDBGetHashKeys(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	keys1, err := db.GetHashKeys()
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(keys1))
+
+	var keys [][]byte
+	for i := 0; i < 100; i++ {
+		keys = append(keys, GetKey(i))
+		err := db.HSet(GetKey(i), GetKey(i), GetValue16B())
+		assert.Nil(t, err)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return bytes.Compare(keys[i], keys[j]) < 0
+	})
+
+	keys2, err := db.GetHashKeys()
+	assert.Nil(t, err)
+	sort.Slice(keys2, func(i, j int) bool {
+		return bytes.Compare(keys2[i], keys2[j]) < 0
+	})
+	assert.Equal(t, keys2, keys)
 }
