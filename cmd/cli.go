@@ -58,14 +58,16 @@ var supportedCommands = map[string]cmdHandler{
 	"hrandfield": hRandField,
 
 	// set commands
-	"sadd":      sAdd,
-	"spop":      sPop,
-	"srem":      sRem,
-	"sismember": sIsMember,
-	"smembers":  sMembers,
-	"scard":     sCard,
-	"sdiff":     sDiff,
-	"sunion":    sUnion,
+	"sadd":       sAdd,
+	"spop":       sPop,
+	"srem":       sRem,
+	"sismember":  sIsMember,
+	"smismember": sMisMember,
+	"smembers":   sMembers,
+	"scard":      sCard,
+	"sdiff":      sDiff,
+	"sdiffstore": sDiffStore,
+	"sunion":     sUnion,
 
 	// zset commands
 	"zadd":      zAdd,
