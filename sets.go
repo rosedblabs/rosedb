@@ -210,9 +210,9 @@ func (db *RoseDB) GetSetKeys() (keys [][]byte, err error) {
 	for key, idxTree := range db.setIndex.trees {
 		iterator := idxTree.Iterator()
 		for iterator.HasNext() {
-			node, _ := iterator.Next()
-			if node == nil {
-				continue
+			node, err := iterator.Next()
+			if err != nil {
+				break
 			}
 
 			rawValue := idxTree.Get(node.Key())
