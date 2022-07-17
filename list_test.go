@@ -634,10 +634,10 @@ func testListSequence(t *testing.T, ioType IOType, mode DataIndexMode) {
 			"negative-2", db, args{key: listKey, index: -4}, uint32(initialListSeq), false,
 		},
 		{
-			"postive-1", db, args{key: listKey, index: 1}, uint32(initialListSeq), false,
+			"positive-1", db, args{key: listKey, index: 1}, uint32(initialListSeq), false,
 		},
 		{
-			"postive-2", db, args{key: listKey, index: 3}, uint32(initialListSeq + 2), false,
+			"positive-2", db, args{key: listKey, index: 3}, uint32(initialListSeq + 2), false,
 		},
 	}
 
@@ -718,7 +718,7 @@ func testRoseDBLRange(t *testing.T, ioType IOType, mode DataIndexMode) {
 			[][]byte{[]byte("negative one"), []byte("zero"), []byte("one"), []byte("two"), []byte("three")}, false,
 		},
 		{
-			"start negative end postive", db, args{key: listKey, start: -4, end: 2},
+			"start negative end positive", db, args{key: listKey, start: -4, end: 2},
 			[][]byte{[]byte("zero"), []byte("one")}, false,
 		},
 		{
@@ -735,7 +735,7 @@ func testRoseDBLRange(t *testing.T, ioType IOType, mode DataIndexMode) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			actual, actualErr := tt.db.LRange(tt.args.key, tt.args.start, tt.args.end)
-			assert.Equal(t, tt.wantValues, actual, "acutal is not the same with expected")
+			assert.Equal(t, tt.wantValues, actual, "actual is not the same with expected")
 			if (actualErr != nil) != tt.wantErr {
 				t.Errorf("LRange() error = %v, wantErr %v", actualErr, tt.wantErr)
 			}
