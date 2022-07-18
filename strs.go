@@ -391,6 +391,14 @@ func (db *RoseDB) Scan(prefix []byte, pattern string, count int) ([][]byte, erro
 		return nil, nil
 	}
 
+	var reg *regexp.Regexp
+	if pattern != "" {
+		var err error
+		if reg, err = regexp.Compile(pattern); err != nil {
+			return nil, err
+		}
+	}
+
 	db.strIndex.mu.RLock()
 	defer db.strIndex.mu.RUnlock()
 	if db.strIndex.idxTree == nil {
@@ -399,14 +407,6 @@ func (db *RoseDB) Scan(prefix []byte, pattern string, count int) ([][]byte, erro
 	keys := db.strIndex.idxTree.PrefixScan(prefix, count)
 	if len(keys) == 0 {
 		return nil, nil
-	}
-
-	var reg *regexp.Regexp
-	if pattern != "" {
-		var err error
-		if reg, err = regexp.Compile(pattern); err != nil {
-			return nil, err
-		}
 	}
 
 	var results [][]byte
