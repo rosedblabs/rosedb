@@ -700,6 +700,22 @@ func sIsMember(cli *Client, args [][]byte) (interface{}, error) {
 	}
 }
 
+func sMisMember(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("smismember")
+	}
+	res := make([]redcon.SimpleInt, 0)
+	key := args[0]
+	for _, mem := range args[1:] {
+		if ok := cli.db.SIsMember(key, mem); ok {
+			res = append(res, redcon.SimpleInt(1))
+		} else {
+			res = append(res, redcon.SimpleInt(0))
+		}
+	}
+	return res, nil
+}
+
 func sMembers(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("smembers")
@@ -719,6 +735,13 @@ func sDiff(cli *Client, args [][]byte) (interface{}, error) {
 		return nil, newWrongNumOfArgsError("sdiff")
 	}
 	return cli.db.SDiff(args...)
+}
+
+func sDiffStore(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("sdiffstore")
+	}
+	return cli.db.SDiffStore(args...)
 }
 
 func sUnion(cli *Client, args [][]byte) (interface{}, error) {

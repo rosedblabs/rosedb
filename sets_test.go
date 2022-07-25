@@ -339,6 +339,66 @@ func TestRoseDB_SDiff(t *testing.T) {
 	}
 }
 
+func TestRoseDB_SDiffStore(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.SAdd([]byte("key-1"), []byte("value-1"), []byte("value-2"), []byte("value-3"))
+	_ = db.SAdd([]byte("key-2"), []byte("value-4"), []byte("value-5"), []byte("value-6"), []byte("value-7"))
+	_ = db.SAdd([]byte("key-3"), []byte("value-2"), []byte("value-5"), []byte("value-8"), []byte("value-9"))
+	_ = db.SAdd([]byte("key-4"), []byte("value-1"), []byte("value-2"), []byte("value-3"))
+	testCases := []struct {
+		name       string
+		db         *RoseDB
+		keys       [][]byte
+		expDiffSet [][]byte
+		expErr     error
+	}{
+		{
+			name:       "two key parameter",
+			db:         db,
+			keys:       [][]byte{[]byte("destination1"), []byte("key-2")},
+			expDiffSet: [][]byte{[]byte("value-5"), []byte("value-4"), []byte("value-6"), []byte("value-7")}, // todo check
+			expErr:     nil,
+		},
+		{
+			name:       "three key parameters",
+			db:         db,
+			keys:       [][]byte{[]byte("destination2"), []byte("key-1"), []byte("key-3")},
+			expDiffSet: [][]byte{[]byte("value-3"), []byte("value-1")},
+			expErr:     nil,
+		},
+		{
+			name:       "four key parameters",
+			db:         db,
+			keys:       [][]byte{[]byte("destination3"), []byte("key-1"), []byte("key-2"), []byte("key-3")},
+			expDiffSet: [][]byte{[]byte("value-3"), []byte("value-1")},
+			expErr:     nil,
+		},
+		{
+			name:       "no diff",
+			db:         db,
+			keys:       [][]byte{[]byte("destination4"), []byte("key-1"), []byte("key-4")},
+			expDiffSet: nil,
+			expErr:     nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			count, err := db.SDiffStore(tc.keys...)
+			assert.Nil(t, err)
+			actual, err := db.sMembers(tc.keys[0])
+			assert.Equal(t, tc.expErr, err)
+			assert.Equal(t, tc.expDiffSet, actual)
+			assert.Equal(t, len(actual), count)
+		})
+	}
+}
+
 func TestRoseDB_SUnion(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb")
 	opts := DefaultOptions(path)

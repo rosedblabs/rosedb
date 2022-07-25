@@ -169,6 +169,25 @@ func (db *RoseDB) SDiff(keys ...[]byte) ([][]byte, error) {
 	return res, nil
 }
 
+// SDiffStore is equal to SDiff, but instead of returning the resulting set, it is stored in first param.
+func (db *RoseDB) SDiffStore(keys ...[]byte) (int, error) {
+	destination := keys[0]
+	diff, err := db.SDiff(keys[1:]...)
+	if err != nil {
+		return -1, err
+	}
+	for _, val := range diff {
+		isMember := db.SIsMember(destination, val)
+		if !isMember {
+			err := db.SAdd(destination, val)
+			if err != nil {
+				return -1, err
+			}
+		}
+	}
+	return db.SCard(destination), nil
+}
+
 // SUnion returns the members of the set resulting from the union of all the given sets.
 func (db *RoseDB) SUnion(keys ...[]byte) ([][]byte, error) {
 	db.setIndex.mu.RLock()
