@@ -1,10 +1,11 @@
 package zset
 
 import (
-	"github.com/flower-corp/rosedb/logfile"
-	"github.com/flower-corp/rosedb/util"
 	"math"
 	"math/rand"
+
+	"github.com/flower-corp/rosedb/logfile"
+	"github.com/flower-corp/rosedb/util"
 )
 
 // zset is the implementation of sorted set
@@ -448,15 +449,13 @@ func newSkipList() *skipList {
 
 func randomLevel() int16 {
 	var level int16 = 1
-	for float32(rand.Int31()&0xFFFF) < (probability * 0xFFFF) {
+	for level < maxLevel {
+		if rand.Float64() >= probability {
+			break
+		}
 		level++
 	}
-
-	if level < maxLevel {
-		return level
-	}
-
-	return maxLevel
+	return level
 }
 
 func (skl *skipList) sklInsert(score float64, member string) *sklNode {
