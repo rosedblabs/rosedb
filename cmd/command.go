@@ -750,6 +750,12 @@ func sUnion(cli *Client, args [][]byte) (interface{}, error) {
 	}
 	return cli.db.SUnion(args...)
 }
+func sInter(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) == 0 {
+		return nil, newWrongNumOfArgsError("sinter")
+	}
+	return cli.db.SInter(args...)
+}
 
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |------------------------- Sorted Set commands ------------------------|

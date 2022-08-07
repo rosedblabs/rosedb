@@ -464,3 +464,80 @@ func TestRoseDB_SUnion(t *testing.T) {
 		})
 	}
 }
+func TestRoseDB_SInter(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.SAdd([]byte("key-1"), []byte("value-1"), []byte("value-2"), []byte("value-3"))
+	_ = db.SAdd([]byte("key-2"), []byte("value-1"), []byte("value-2"), []byte("value-3"), []byte("value-4"))
+	_ = db.SAdd([]byte("key-3"), []byte("value-4"), []byte("value-5"), []byte("value-6"), []byte("value-7"))
+	_ = db.SAdd([]byte("key-4"), []byte("value-4"), []byte("value-5"))
+	testCases := []struct {
+		name        string
+		db          *RoseDB
+		keys        [][]byte
+		expInterSet [][]byte
+		expErr      error
+	}{
+		{
+			name:        "empty key parameters",
+			db:          db,
+			keys:        [][]byte{},
+			expInterSet: nil,
+			expErr:      ErrWrongNumberOfArgs,
+		},
+		{
+			name:        "one key parameter",
+			db:          db,
+			keys:        [][]byte{[]byte("key-1")},
+			expInterSet: [][]byte{[]byte("value-3"), []byte("value-2"), []byte("value-1")},
+			expErr:      nil,
+		},
+		{
+			name:        "two key parameters key-1 key-2",
+			db:          db,
+			keys:        [][]byte{[]byte("key-1"), []byte("key-2")},
+			expInterSet: [][]byte{[]byte("value-3"), []byte("value-2"), []byte("value-1")},
+			expErr:      nil,
+		},
+		{
+			name:        "two key parameters key-1 key-3",
+			db:          db,
+			keys:        [][]byte{[]byte("key-1"), []byte("key-3")},
+			expInterSet: [][]byte{},
+			expErr:      nil,
+		},
+		{
+			name:        "multiple key parameters key-1 key-2 key-3",
+			db:          db,
+			keys:        [][]byte{[]byte("key-1"), []byte("key-2"), []byte("key-3")},
+			expInterSet: [][]byte{},
+			expErr:      nil,
+		},
+		{
+			name:        "multiple key parameters  key-2 key-3 key-4",
+			db:          db,
+			keys:        [][]byte{[]byte("key-4"), []byte("key-2"), []byte("key-3")},
+			expInterSet: [][]byte{[]byte("value-4")},
+			expErr:      nil,
+		},
+		{
+			name:        "no Inter",
+			db:          db,
+			keys:        [][]byte{[]byte("key-10"), []byte("key-20")},
+			expInterSet: [][]byte{},
+			expErr:      nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			unionSet, err := db.SInter(tc.keys...)
+			assert.Equal(t, tc.expErr, err)
+			assert.Equal(t, tc.expInterSet, unionSet)
+		})
+	}
+}

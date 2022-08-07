@@ -270,3 +270,32 @@ func (db *RoseDB) sMembers(key []byte) ([][]byte, error) {
 	}
 	return values, nil
 }
+
+func (db *RoseDB) SInter(keys ...[]byte) ([][]byte, error) {
+	db.setIndex.mu.RLock()
+	defer db.setIndex.mu.RUnlock()
+
+	if len(keys) == 0 {
+		return nil, ErrWrongNumberOfArgs
+	}
+	if len(keys) == 1 {
+		return db.sMembers(keys[0])
+	}
+	num := len(keys)
+	set := make(map[uint64]int)
+	interSet := make([][]byte, 0)
+	for _, key := range keys {
+		values, err := db.sMembers(key)
+		if err != nil {
+			return nil, err
+		}
+		for _, val := range values {
+			h := util.MemHash(val)
+			set[h]++
+			if set[h] == num {
+				interSet = append(interSet, val)
+			}
+		}
+	}
+	return interSet, nil
+}

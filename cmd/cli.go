@@ -68,6 +68,7 @@ var supportedCommands = map[string]cmdHandler{
 	"sdiff":      sDiff,
 	"sdiffstore": sDiffStore,
 	"sunion":     sUnion,
+	"sinter":     sInter,
 
 	// zset commands
 	"zadd":      zAdd,
