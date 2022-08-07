@@ -176,14 +176,8 @@ func (db *RoseDB) SDiffStore(keys ...[]byte) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	for _, val := range diff {
-		isMember := db.SIsMember(destination, val)
-		if !isMember {
-			err := db.SAdd(destination, val)
-			if err != nil {
-				return -1, err
-			}
-		}
+	if err := db.sStore(destination, diff); err != nil {
+		return -1, err
 	}
 	return db.SCard(destination), nil
 }
@@ -216,6 +210,19 @@ func (db *RoseDB) SUnion(keys ...[]byte) ([][]byte, error) {
 		}
 	}
 	return unionSet, nil
+}
+
+//SUnionStore Store the union result in first param
+func (db *RoseDB) SUnionStore(keys ...[]byte) (int, error) {
+	destination := keys[0]
+	union, err := db.SUnion(keys[1:]...)
+	if err != nil {
+		return -1, err
+	}
+	if err := db.sStore(destination, union); err != nil {
+		return -1, err
+	}
+	return db.SCard(destination), nil
 }
 
 func (db *RoseDB) sremInternal(key []byte, member []byte) error {
@@ -271,6 +278,7 @@ func (db *RoseDB) sMembers(key []byte) ([][]byte, error) {
 	return values, nil
 }
 
+// SInter returns the members of the set resulting from the inter of all the given sets.
 func (db *RoseDB) SInter(keys ...[]byte) ([][]byte, error) {
 	db.setIndex.mu.RLock()
 	defer db.setIndex.mu.RUnlock()
@@ -298,4 +306,32 @@ func (db *RoseDB) SInter(keys ...[]byte) ([][]byte, error) {
 		}
 	}
 	return interSet, nil
+}
+
+//SInterStore Store the inter result in first param
+func (db *RoseDB) SInterStore(keys ...[]byte) (int, error) {
+	destination := keys[0]
+	inter, err := db.SInter(keys[1:]...)
+	if err != nil {
+		return -1, err
+	}
+	if err := db.sStore(destination, inter); err != nil {
+		return -1, err
+	}
+	return db.SCard(destination), nil
+}
+
+//sStore store vals in the set the destination points to
+//sStore is called in SInterStore SUnionStore SDiffStore
+func (db *RoseDB) sStore(destination []byte, vals [][]byte) error {
+	for _, val := range vals {
+		isMember := db.SIsMember(destination, val)
+		if !isMember {
+			err := db.SAdd(destination, val)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

@@ -750,11 +750,23 @@ func sUnion(cli *Client, args [][]byte) (interface{}, error) {
 	}
 	return cli.db.SUnion(args...)
 }
+func sUnionStore(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("sunionstore")
+	}
+	return cli.db.SUnionStore(args...)
+}
 func sInter(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) == 0 {
 		return nil, newWrongNumOfArgsError("sinter")
 	}
 	return cli.db.SInter(args...)
+}
+func sInterStore(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) < 2 {
+		return nil, newWrongNumOfArgsError("sinterstore")
+	}
+	return cli.db.SInterStore(args...)
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+

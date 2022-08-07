@@ -1,8 +1,10 @@
 package rosedb
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"path/filepath"
+	"sort"
 	"testing"
 )
 
@@ -464,6 +466,79 @@ func TestRoseDB_SUnion(t *testing.T) {
 		})
 	}
 }
+
+func TestRoseDB_SUnionStore(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.SAdd([]byte("key-1"), []byte("value-1"), []byte("value-2"), []byte("value-3"))
+	_ = db.SAdd([]byte("key-2"), []byte("value-4"), []byte("value-5"), []byte("value-6"), []byte("value-7"))
+	_ = db.SAdd([]byte("key-3"), []byte("value-2"), []byte("value-5"), []byte("value-8"), []byte("value-9"))
+	_ = db.SAdd([]byte("key-4"), []byte("value-1"), []byte("value-2"), []byte("value-3"))
+	testCases := []struct {
+		name        string
+		db          *RoseDB
+		keys        [][]byte
+		expUnionSet [][]byte
+		expErr      error
+	}{
+		{
+			name:        "two key parameter",
+			db:          db,
+			keys:        [][]byte{[]byte("destination1"), []byte("key-2")},
+			expUnionSet: [][]byte{[]byte("value-5"), []byte("value-4"), []byte("value-6"), []byte("value-7")}, // todo check
+			expErr:      nil,
+		},
+		{
+			name:        "three key parameters",
+			db:          db,
+			keys:        [][]byte{[]byte("destination2"), []byte("key-1"), []byte("key-3")},
+			expUnionSet: [][]byte{[]byte("value-3"), []byte("value-1"), []byte("value-2"), []byte("value-5"), []byte("value-8"), []byte("value-9")},
+			expErr:      nil,
+		},
+		{
+			name:        "four key parameters",
+			db:          db,
+			keys:        [][]byte{[]byte("destination3"), []byte("key-1"), []byte("key-2"), []byte("key-3")},
+			expUnionSet: [][]byte{[]byte("value-1"), []byte("value-2"), []byte("value-3"), []byte("value-5"), []byte("value-4"), []byte("value-6"), []byte("value-7"), []byte("value-8"), []byte("value-9")},
+			expErr:      nil,
+		},
+		{
+			name:        "no union",
+			db:          db,
+			keys:        [][]byte{[]byte("destination4"), []byte("key-10"), []byte("key-40")},
+			expUnionSet: nil,
+			expErr:      nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			count, err := db.SUnionStore(tc.keys...)
+			assert.Nil(t, err)
+
+			actual, err := db.sMembers(tc.keys[0])
+			var expectString []string
+			var actualString []string
+			for exp := range tc.expUnionSet {
+				expectString = append(expectString, fmt.Sprintf("%x", exp))
+			}
+			for act := range actual {
+				actualString = append(actualString, fmt.Sprintf("%x", act))
+			}
+
+			sort.Strings(expectString)
+			sort.Strings(actualString)
+			assert.Equal(t, tc.expErr, err)
+			assert.Equal(t, expectString, actualString)
+			assert.Equal(t, len(actual), count)
+		})
+	}
+}
+
 func TestRoseDB_SInter(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb")
 	opts := DefaultOptions(path)
@@ -538,6 +613,78 @@ func TestRoseDB_SInter(t *testing.T) {
 			unionSet, err := db.SInter(tc.keys...)
 			assert.Equal(t, tc.expErr, err)
 			assert.Equal(t, tc.expInterSet, unionSet)
+		})
+	}
+}
+
+func TestRoseDB_SInterStore(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	_ = db.SAdd([]byte("key-1"), []byte("value-1"), []byte("value-2"), []byte("value-3"))
+	_ = db.SAdd([]byte("key-2"), []byte("value-4"), []byte("value-5"), []byte("value-6"), []byte("value-7"))
+	_ = db.SAdd([]byte("key-3"), []byte("value-2"), []byte("value-5"), []byte("value-8"), []byte("value-9"))
+	_ = db.SAdd([]byte("key-4"), []byte("value-1"), []byte("value-2"), []byte("value-3"))
+	testCases := []struct {
+		name        string
+		db          *RoseDB
+		keys        [][]byte
+		expInterSet [][]byte
+		expErr      error
+	}{
+		{
+			name:        "two key parameter",
+			db:          db,
+			keys:        [][]byte{[]byte("destination1"), []byte("key-2")},
+			expInterSet: [][]byte{[]byte("value-5"), []byte("value-4"), []byte("value-6"), []byte("value-7")}, // todo check
+			expErr:      nil,
+		},
+		{
+			name:        "three key parameters",
+			db:          db,
+			keys:        [][]byte{[]byte("destination2"), []byte("key-1"), []byte("key-3")},
+			expInterSet: [][]byte{[]byte("value-2")},
+			expErr:      nil,
+		},
+		{
+			name:        "four key parameters",
+			db:          db,
+			keys:        [][]byte{[]byte("destination3"), []byte("key-1"), []byte("key-3"), []byte("key-4")},
+			expInterSet: [][]byte{[]byte("value-2")},
+			expErr:      nil,
+		},
+		{
+			name:        "no inter",
+			db:          db,
+			keys:        [][]byte{[]byte("destination4"), []byte("key-1"), []byte("key-2")},
+			expInterSet: nil,
+			expErr:      nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			count, err := db.SInterStore(tc.keys...)
+			assert.Nil(t, err)
+
+			actual, err := db.sMembers(tc.keys[0])
+			var expectString []string
+			var actualString []string
+			for exp := range tc.expInterSet {
+				expectString = append(expectString, fmt.Sprintf("%x", exp))
+			}
+			for act := range actual {
+				actualString = append(actualString, fmt.Sprintf("%x", act))
+			}
+
+			sort.Strings(expectString)
+			sort.Strings(actualString)
+			assert.Equal(t, tc.expErr, err)
+			assert.Equal(t, expectString, actualString)
+			assert.Equal(t, len(actual), count)
 		})
 	}
 }
