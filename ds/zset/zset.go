@@ -450,7 +450,7 @@ func newSkipList() *skipList {
 func randomLevel() int16 {
 	var level int16 = 1
 	for level < maxLevel {
-		if rand.Float64() >= probability {
+		if rand.Float64() < probability {
 			break
 		}
 		level++
