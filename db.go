@@ -511,6 +511,7 @@ func (db *RoseDB) handleLogFileGC() {
 	}
 }
 
+//感觉这个里面好多重复代码 可以优化一下
 func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) error {
 	atomic.AddInt32(&db.gcState, 1)
 	defer atomic.AddInt32(&db.gcState, -1)

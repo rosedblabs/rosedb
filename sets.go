@@ -325,10 +325,8 @@ func (db *RoseDB) SInterStore(keys ...[]byte) (int, error) {
 //sStore is called in SInterStore SUnionStore SDiffStore
 func (db *RoseDB) sStore(destination []byte, vals [][]byte) error {
 	for _, val := range vals {
-		isMember := db.SIsMember(destination, val)
-		if !isMember {
-			err := db.SAdd(destination, val)
-			if err != nil {
+		if isMember := db.SIsMember(destination, val); !isMember {
+			if err := db.SAdd(destination, val); err != nil {
 				return err
 			}
 		}
