@@ -1,5 +1,4 @@
 
-// +build !windows,!plan9
 
 package flock
 
