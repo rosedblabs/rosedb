@@ -63,6 +63,10 @@ func (db *RoseDB) HSetNX(key, field, value []byte) (bool, error) {
 	}
 	idxTree := db.hashIndex.trees[string(key)]
 	val, err := db.getVal(idxTree, field, Hash)
+	if err != nil {
+		return false, err
+	}
+
 	// field exists in db
 	if val != nil {
 		return false, nil

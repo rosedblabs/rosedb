@@ -436,7 +436,7 @@ func (db *RoseDB) LRem(key []byte, count int, value []byte) (int, error) {
 		if err != nil {
 			return err
 		}
-		if bytes.Compare(value, val) == 0 {
+		if bytes.Equal(value, val) {
 			discardSeq = append(discardSeq, seq)
 			discardCount++
 		} else {
