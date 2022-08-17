@@ -3,7 +3,6 @@ package rosedb
 import (
 	"bytes"
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"math"
 	"math/rand"
 	"path/filepath"
@@ -12,6 +11,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRoseDB_Set(t *testing.T) {
@@ -552,6 +553,7 @@ func testRoseDBSetEx(t *testing.T, mode DataIndexMode) {
 	assert.Equal(t, ErrKeyNotFound, err)
 
 	err = db.SetEX(GetKey(2), GetValue16B(), time.Second*200)
+	assert.Nil(t, err)
 	time.Sleep(time.Millisecond * 200)
 	v1, err := db.Get(GetKey(2))
 	assert.NotNil(t, v1)
@@ -562,6 +564,7 @@ func testRoseDBSetEx(t *testing.T, mode DataIndexMode) {
 	assert.Nil(t, err)
 
 	err = db.SetEX(GetKey(3), GetValue16B(), time.Millisecond*200)
+	assert.Nil(t, err)
 	time.Sleep(time.Millisecond * 205)
 	v2, err := db.Get(GetKey(3))
 	assert.Equal(t, 0, len(v2))

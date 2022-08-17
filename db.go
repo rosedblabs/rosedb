@@ -652,7 +652,7 @@ func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) 
 			return nil
 		}
 		node, _ := indexVal.(*indexNode)
-		if node != nil && node.fid == fid && node.offset == node.offset {
+		if node != nil && node.fid == fid && node.offset == offset {
 			valuePos, err := db.writeLogEntry(ent, ZSet)
 			if err != nil {
 				return err

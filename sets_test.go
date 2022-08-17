@@ -173,6 +173,7 @@ func testRoseDBSMembers(t *testing.T, ioType IOType, mode DataIndexMode) {
 	err = db.SAdd(setKey, GetKey(0), GetKey(1), GetKey(2))
 	assert.Nil(t, err)
 	mems2, err := db.SMembers(setKey)
+	assert.Nil(t, err)
 	assert.Equal(t, 3, len(mems2))
 
 	err = db.SRem(setKey, GetKey(2))
