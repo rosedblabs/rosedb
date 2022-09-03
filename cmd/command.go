@@ -221,6 +221,18 @@ func incrBy(cli *Client, args [][]byte) (interface{}, error) {
 	return cli.db.IncrBy(key, incrInt64Val)
 }
 
+func incrByFloat(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("incrbyfloat")
+	}
+	key, incrVal := args[0], args[1]
+	incrFloat64Val, err := util.StrToFloat64(string(incrVal))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	return cli.db.IncrByFloat64(key, incrFloat64Val)
+}
+
 func strLen(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) != 1 {
 		return nil, newWrongNumOfArgsError("strlen")

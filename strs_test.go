@@ -1368,6 +1368,126 @@ func testRoseDBIncrBy(t *testing.T, ioType IOType, mode DataIndexMode) {
 	}
 }
 
+func TestRoseDB_IncrByFloat(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBIncrByFloat(t, FileIO, KeyOnlyMemMode)
+	})
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBIncrByFloat(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBIncrByFloat(t, FileIO, KeyValueMemMode)
+	})
+}
+
+func testRoseDBIncrByFloat(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+	_ = db.MSet([]byte("nil-value"), nil,
+		[]byte("ten"), []byte("10"),
+		[]byte("min"), []byte(strconv.Itoa(math.MinInt64)),
+		[]byte("max"), []byte(strconv.Itoa(math.MaxInt64)),
+		[]byte("str-key"), []byte("str-val"),
+		[]byte("neg"), []byte("11"))
+	tests := []struct {
+		name    string
+		db      *RoseDB
+		key     []byte
+		incr    float64
+		expVal  float64
+		expByte []byte
+		expErr  error
+		wantErr bool
+	}{
+		{
+			name:    "nil value",
+			db:      db,
+			key:     []byte("nil-value"),
+			incr:    10,
+			expVal:  10,
+			expByte: []byte("10"),
+			wantErr: false,
+		},
+		{
+			name:    "exist key",
+			db:      db,
+			key:     []byte("ten"),
+			incr:    25,
+			expVal:  35,
+			expByte: []byte("35"),
+			wantErr: false,
+		},
+		{
+			name:    "non-exist key",
+			db:      db,
+			key:     []byte("zero"),
+			incr:    3,
+			expVal:  3,
+			expByte: []byte("3"),
+			wantErr: false,
+		},
+		{
+			name:    "overflow value-min",
+			db:      db,
+			key:     []byte("min"),
+			incr:    -3,
+			expVal:  0,
+			expByte: []byte(strconv.Itoa(math.MinInt64)),
+			expErr:  ErrIntegerOverflow,
+			wantErr: true,
+		},
+		{
+			name:    "overflow value-max",
+			db:      db,
+			key:     []byte("max"),
+			incr:    10,
+			expVal:  0,
+			expByte: []byte(strconv.Itoa(math.MaxInt64)),
+			expErr:  ErrIntegerOverflow,
+			wantErr: true,
+		},
+		{
+			name:    "wrong type",
+			db:      db,
+			key:     []byte("str-key"),
+			incr:    5,
+			expVal:  0,
+			expErr:  ErrWrongValueType,
+			wantErr: true,
+		},
+		{
+			name:    "negative incr",
+			db:      db,
+			key:     []byte("neg"),
+			incr:    -4,
+			expVal:  7,
+			expByte: []byte("7"),
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			newVal, err := tt.db.IncrByFloat64(tt.key, tt.incr)
+			if (err != nil) != tt.wantErr || err != tt.expErr {
+				t.Errorf("IncrByFloat64() error = %v, wantErr = %v", err, tt.expErr)
+			}
+			if newVal != tt.expVal {
+				t.Errorf("IncrByFloat64() expected value = %v, actual value = %v", tt.expVal, newVal)
+			}
+			val, _ := tt.db.Get(tt.key)
+			if tt.expByte != nil && !bytes.Equal(val, tt.expByte) {
+				t.Errorf("IncrByFloat64() expected value = %v, actual = %v", tt.expByte, val)
+			}
+		})
+	}
+}
+
 func TestRoseDB_StrLen(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		testRoseDBStrLen(t, FileIO, KeyOnlyMemMode)

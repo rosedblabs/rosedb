@@ -325,6 +325,12 @@ func (db *RoseDB) IncrBy(key []byte, incr int64) (int64, error) {
 	return db.incrDecrBy(key, incr)
 }
 
+func (db *RoseDB) IncrByFloat64(key []byte, incr float64) (float64, error) {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+	return db.incrDecrByFloat64(key, incr)
+}
+
 // incrDecrBy is a helper method for Incr, IncrBy, Decr, and DecrBy methods. It updates the key by incr.
 func (db *RoseDB) incrDecrBy(key []byte, incr int64) (int64, error) {
 	val, err := db.getVal(db.strIndex.idxTree, key, String)
@@ -356,6 +362,38 @@ func (db *RoseDB) incrDecrBy(key []byte, incr int64) (int64, error) {
 		return 0, err
 	}
 	return valInt64, nil
+}
+
+func (db *RoseDB) incrDecrByFloat64(key []byte, incr float64) (float64, error) {
+	val, err := db.getVal(db.strIndex.idxTree, key, String)
+	if err != nil && !errors.Is(err, ErrKeyNotFound) {
+		return 0, err
+	}
+	if bytes.Equal(val, nil) {
+		val = []byte("0")
+	}
+	valFloat64, err := strconv.ParseFloat(string(val), 64)
+	if err != nil {
+		return 0, ErrWrongValueType
+	}
+
+	if (incr < 0 && valFloat64 < 0 && incr < (math.MinInt64-valFloat64)) ||
+		(incr > 0 && valFloat64 > 0 && incr > (math.MaxInt64-valFloat64)) {
+		return 0, ErrIntegerOverflow
+	}
+
+	valFloat64 += incr
+	val = []byte(strconv.FormatFloat(valFloat64, 'f', 0, 64))
+	entry := &logfile.LogEntry{Key: key, Value: val}
+	valuePos, err := db.writeLogEntry(entry, String)
+	if err != nil {
+		return 0, err
+	}
+	err = db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
+	if err != nil {
+		return 0, err
+	}
+	return valFloat64, nil
 }
 
 // StrLen returns the length of the string value stored at key. If the key
