@@ -383,7 +383,7 @@ func (db *RoseDB) incrDecrByFloat64(key []byte, incr float64) (float64, error) {
 	}
 
 	valFloat64 += incr
-	val = []byte(strconv.FormatFloat(valFloat64, 'f', 0, 64))
+	val = []byte(strconv.FormatFloat(valFloat64, 'f', 10, 64))
 	entry := &logfile.LogEntry{Key: key, Value: val}
 	valuePos, err := db.writeLogEntry(entry, String)
 	if err != nil {
