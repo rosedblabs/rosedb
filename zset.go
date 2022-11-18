@@ -75,14 +75,14 @@ func (db *RoseDB) ZRem(key, member []byte) error {
 	}
 	idxTree := db.zsetIndex.trees[string(key)]
 
-	oldVal, deleted := idxTree.Delete(sum)
-	db.sendDiscard(oldVal, deleted, ZSet)
 	entry := &logfile.LogEntry{Key: key, Value: sum, Type: logfile.TypeDelete}
 	pos, err := db.writeLogEntry(entry, ZSet)
 	if err != nil {
 		return err
 	}
 
+	oldVal, deleted := idxTree.Delete(sum)
+	db.sendDiscard(oldVal, deleted, ZSet)
 	// The deleted entry itself is also invalid.
 	_, size := logfile.EncodeEntry(entry)
 	node := &indexNode{fid: pos.fid, entrySize: size}
