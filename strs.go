@@ -3,13 +3,14 @@ package rosedb
 import (
 	"bytes"
 	"errors"
-	"github.com/flower-corp/rosedb/logfile"
-	"github.com/flower-corp/rosedb/logger"
-	"github.com/flower-corp/rosedb/util"
 	"math"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/flower-corp/rosedb/logfile"
+	"github.com/flower-corp/rosedb/logger"
+	"github.com/flower-corp/rosedb/util"
 )
 
 // Set set key to hold the string value. If key already holds a value, it is overwritten.
@@ -496,4 +497,31 @@ func (db *RoseDB) GetStrsKeys() ([][]byte, error) {
 		keys = append(keys, node.Key())
 	}
 	return keys, nil
+}
+
+// Cas Compare And Set. If current value of the key is the same as oldValue, set newValue.
+// The whole process is concurrency safe.
+func (db *RoseDB) Cas(key, oldValue, newValue []byte) (bool, error) {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	curValue, err := db.getVal(db.strIndex.idxTree, key, String)
+	if err != nil {
+		return false, err
+	}
+
+	if !bytes.Equal(oldValue, curValue) {
+		return false, nil
+	}
+
+	// write entry to log file.
+	entry := &logfile.LogEntry{Key: key, Value: newValue}
+	valuePos, err := db.writeLogEntry(entry, String)
+	if err != nil {
+		return false, err
+	}
+
+	// set String index info, stored at adaptive radix tree.
+	err = db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
+	return true, err
 }
