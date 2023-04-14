@@ -1793,3 +1793,72 @@ func testRoseDBGetStrsKeys(t *testing.T, ioType IOType, mode DataIndexMode) {
 	assert.Nil(t, err)
 	assert.Equal(t, 97, len(keys3))
 }
+
+func TestRoseDB_Cas(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBCas(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBCas(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBCas(t, FileIO, KeyValueMemMode)
+	})
+}
+
+func testRoseDBCas(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	key := []byte("key")
+	val := []byte("v0")
+
+	// set default value
+	err = db.Set(key, val)
+	assert.Equal(t, nil, err)
+
+	type args struct {
+		oldv []byte
+		newv []byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want []byte
+	}{
+		{
+			"cas(key, v0, v1)", args{oldv: []byte("v0"), newv: []byte("v1")}, []byte("v1"),
+		},
+		{
+			"cas(key, v1, v2)", args{oldv: []byte("v1"), newv: []byte("v2")}, []byte("v2"),
+		},
+		{
+			"cas(key, v2, v3)", args{oldv: []byte("v2"), newv: []byte("v3")}, []byte("v3"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// cas
+			ok, err := db.Cas(key, tt.args.oldv, tt.args.newv)
+			assert.Equal(t, nil, err)
+			assert.Equal(t, true, ok)
+
+			// double check
+			val, err := db.Get(key)
+			assert.Equal(t, nil, err)
+			assert.Equal(t, tt.want, val)
+
+			// test fake
+			ok, err = db.Cas(key, []byte("fake-val"), tt.args.newv)
+			assert.Equal(t, nil, err)
+			assert.Equal(t, false, ok) // failed to cas
+		})
+	}
+}

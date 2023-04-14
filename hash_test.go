@@ -2,10 +2,11 @@ package rosedb
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"math"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRoseDB_HSet(t *testing.T) {
@@ -124,7 +125,7 @@ func testRoseDBHSetNX(t *testing.T, ioType IOType, mode DataIndexMode) {
 			expErr: nil,
 		},
 		{
-			name:   "Exist key",
+			name:   "Exist key, Non-Exist field",
 			db:     db,
 			key:    []byte("key-1"),
 			field:  []byte("field-3"),
@@ -133,12 +134,21 @@ func testRoseDBHSetNX(t *testing.T, ioType IOType, mode DataIndexMode) {
 			expErr: nil,
 		},
 		{
-			name:   "Non-exist field",
+			name:   "Exist key, Non-Exist field",
 			db:     db,
 			key:    []byte("key-1"),
 			field:  []byte("field-4"),
 			value:  []byte("value-4"),
 			expRes: true,
+			expErr: nil,
+		},
+		{
+			name:   "Exist field",
+			db:     db,
+			key:    []byte("key-1"),
+			field:  []byte("field-1"),
+			value:  []byte("value-3"),
+			expRes: false,
 			expErr: nil,
 		},
 		{
