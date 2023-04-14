@@ -3,15 +3,16 @@ package rosedb
 import (
 	"bytes"
 	"errors"
-	"github.com/flower-corp/rosedb/ds/art"
-	"github.com/flower-corp/rosedb/logfile"
-	"github.com/flower-corp/rosedb/logger"
-	"github.com/flower-corp/rosedb/util"
 	"math"
 	"math/rand"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/flower-corp/rosedb/ds/art"
+	"github.com/flower-corp/rosedb/logfile"
+	"github.com/flower-corp/rosedb/logger"
+	"github.com/flower-corp/rosedb/util"
 )
 
 // HSet sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created.
@@ -148,6 +149,13 @@ func (db *RoseDB) HDel(key []byte, fields ...[]byte) (int, error) {
 
 	var count int
 	for _, field := range fields {
+		// delete field from index.
+		val, updated := idxTree.Delete(field)
+		if !updated {
+			continue
+		}
+
+		// write entry of delete type to log file.
 		hashKey := db.encodeKey(key, field)
 		entry := &logfile.LogEntry{Key: hashKey, Type: logfile.TypeDelete}
 		valuePos, err := db.writeLogEntry(entry, Hash)
@@ -155,10 +163,7 @@ func (db *RoseDB) HDel(key []byte, fields ...[]byte) (int, error) {
 			return 0, err
 		}
 
-		val, updated := idxTree.Delete(field)
-		if updated {
-			count++
-		}
+		count++
 		db.sendDiscard(val, updated, Hash)
 		// The deleted entry itself is also invalid.
 		_, size := logfile.EncodeEntry(entry)
