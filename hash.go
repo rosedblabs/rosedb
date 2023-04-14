@@ -64,7 +64,7 @@ func (db *RoseDB) HSetNX(key, field, value []byte) (bool, error) {
 	}
 	idxTree := db.hashIndex.trees[string(key)]
 	val, err := db.getVal(idxTree, field, Hash)
-	if err != nil {
+	if err != nil && err != ErrKeyNotFound {
 		return false, err
 	}
 
@@ -72,6 +72,8 @@ func (db *RoseDB) HSetNX(key, field, value []byte) (bool, error) {
 	if val != nil {
 		return false, nil
 	}
+
+	// field doesn't exist in db
 	hashKey := db.encodeKey(key, field)
 	ent := &logfile.LogEntry{Key: hashKey, Value: value}
 	valuePos, err := db.writeLogEntry(ent, Hash)
