@@ -24,11 +24,13 @@ Key features:
 
 ## Quick Start
 
-**1. embedded usage:** see [examples](https://github.com/flower-corp/rosedb/tree/main/examples)
+### Embedded usage:
 
-**2. command line usage:**
+rosedb provides code example for each structure, please see [example](https://github.com/flower-corp/rosedb/tree/main/examples).
 
-start rosedb server
+### Command line usage:
+
+1. start rosedb server.
 
 ```shell
 cd rosedb
@@ -36,13 +38,10 @@ make
 ./rosedb-server [-option value]
 ```
 
-access data via `cli`(a copy of `redis-cli`)
-
-> Only mac now, download redis-cli according to your os.
+2. use redis client to access data, such as `redis-cli`.
 
 ```shell
-cd rosedb/tools
-./cli-mac -p 5200
+./redis-cli -p 5200
 
 127.0.0.1:5200> 
 127.0.0.1:5200> set my_key RoseDB
@@ -50,7 +49,6 @@ OK
 127.0.0.1:5200> get my_key
 "RoseDB"
 127.0.0.1:5200> 
-
 ```
 
 ## Documentation

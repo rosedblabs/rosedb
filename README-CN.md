@@ -22,11 +22,13 @@ rosedb 类似于 `Redis`，但是可以选择将 value 存储到磁盘中。
 
 ## 快速开始
 
-**1. 内嵌使用，请参考：**[examples](https://github.com/flower-corp/rosedb/tree/main/examples)
+### 内嵌使用，请参考：
 
-**2. 做为 Server 使用**
+rosedb 为每个数据结构都提供了完整的使用样例，请点击查看 [examples](https://github.com/flower-corp/rosedb/tree/main/examples)
 
-启动 rosedb server：
+### 做为 Server 使用
+
+1. 启动 rosedb server.
 
 ```shell
 cd rosedb
@@ -34,13 +36,10 @@ make
 ./rosedb-server [-option value]
 ```
 
-通过 cli 工具访问数据(这里的 cli 工具实际上就是 `redis-cli`)
-
-> 目前 cli 工具只有 mac 系统的，可根据你的系统下载对应的 redis-cli 工具
+2. 使用 redis 客户端访问数据，比如 `redis-cli`.
 
 ```shell
-cd rosedb/tools
-./cli-mac -p 5200
+./redis-cli -p 5200
 
 127.0.0.1:5200> 
 127.0.0.1:5200> set my_key RoseDB
@@ -48,7 +47,6 @@ OK
 127.0.0.1:5200> get my_key
 "RoseDB"
 127.0.0.1:5200> 
-
 ```
 
 ## 文档
