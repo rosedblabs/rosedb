@@ -22,11 +22,11 @@ rosedb 类似于 `Redis`，但是可以选择将 value 存储到磁盘中。
 
 ## 快速开始
 
-### 内嵌使用，请参考：
+### 内嵌使用：
 
 rosedb 为每个数据结构都提供了完整的使用样例，请点击查看 [examples](https://github.com/flower-corp/rosedb/tree/main/examples)
 
-### 做为 Server 使用
+### 作为 server 使用:
 
 1. 启动 rosedb server.
 
