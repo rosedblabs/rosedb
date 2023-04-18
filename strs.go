@@ -170,19 +170,19 @@ func (db *RoseDB) Delete(key []byte) error {
 }
 
 func (db *RoseDB) deleteByIndexNode(key []byte, idxNode *indexNode) error {
-	// consider the case of concurrent write operations，so check if indexNode has changed
-	curIdxNode, err := db.getIndexNode(db.strIndex.idxTree, key)
+	// consider the case of concurrent write the same as key，so check if indexNode has changed
+	currentIdxNode, err := db.getIndexNode(db.strIndex.idxTree, key)
 	if err != nil {
 		return err
 	}
 
 	// the key is already deleted
-	if curIdxNode == nil {
+	if currentIdxNode == nil {
 		return nil
 	}
 
 	// changed
-	if curIdxNode.fid != idxNode.fid || curIdxNode.offset != curIdxNode.offset {
+	if currentIdxNode.fid != idxNode.fid || currentIdxNode.offset != currentIdxNode.offset {
 		return nil
 	}
 
