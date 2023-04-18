@@ -1,15 +1,16 @@
 package rosedb
 
 import (
-	"github.com/flower-corp/rosedb/ds/art"
-	"github.com/flower-corp/rosedb/logfile"
-	"github.com/flower-corp/rosedb/logger"
-	"github.com/flower-corp/rosedb/util"
 	"io"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/flower-corp/rosedb/ds/art"
+	"github.com/flower-corp/rosedb/logfile"
+	"github.com/flower-corp/rosedb/logger"
+	"github.com/flower-corp/rosedb/util"
 )
 
 // DataType Define the data structure type.
@@ -255,23 +256,12 @@ func (db *RoseDB) getIndexNode(idxTree *art.AdaptiveRadixTree, key []byte) (*ind
 	return idxNode, nil
 }
 
-func (db *RoseDB) getVal(idxTree *art.AdaptiveRadixTree,
-	key []byte, dataType DataType) ([]byte, error) {
-
-	// Get index info from an adaptive radix tree in memory.
-	rawValue := idxTree.Get(key)
-	if rawValue == nil {
-		return nil, ErrKeyNotFound
-	}
-	idxNode, _ := rawValue.(*indexNode)
-	if idxNode == nil {
-		return nil, ErrKeyNotFound
-	}
-
+func (db *RoseDB) getValByIdxNode(key []byte, dataType DataType, idxNode *indexNode) ([]byte, error) {
 	ts := time.Now().Unix()
-	if idxNode.expiredAt != 0 && idxNode.expiredAt <= ts {
+	if idxNode.expiredAt != 0 && idxNode.expiredAt < ts {
 		return nil, ErrKeyNotFound
 	}
+
 	// In KeyValueMemMode, the value will be stored in memory.
 	// So get the value from the index info.
 	if db.opts.IndexMode == KeyValueMemMode && len(idxNode.value) != 0 {
@@ -296,4 +286,20 @@ func (db *RoseDB) getVal(idxTree *art.AdaptiveRadixTree,
 		return nil, ErrKeyNotFound
 	}
 	return ent.Value, nil
+}
+
+func (db *RoseDB) getVal(idxTree *art.AdaptiveRadixTree,
+	key []byte, dataType DataType) ([]byte, error) {
+
+	// Get index info from an adaptive radix tree in memory.
+	rawValue := idxTree.Get(key)
+	if rawValue == nil {
+		return nil, ErrKeyNotFound
+	}
+	idxNode, _ := rawValue.(*indexNode)
+	if idxNode == nil {
+		return nil, ErrKeyNotFound
+	}
+
+	return db.getValByIdxNode(key, dataType, idxNode)
 }

@@ -34,8 +34,26 @@ func (db *RoseDB) Set(key, value []byte) error {
 // If the key does not exist the error ErrKeyNotFound is returned.
 func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	db.strIndex.mu.RLock()
+	idxNode, err := db.getIndexNode(db.strIndex.idxTree, key)
+	if err != nil {
+		return nil, err
+	}
+
+	ts := time.Now().Unix()
+	// if the key is expired, delete the entry.
+	if idxNode.expiredAt != 0 && idxNode.expiredAt < ts {
+		db.strIndex.mu.RUnlock()
+
+		// add write lock
+		db.strIndex.mu.Lock()
+		defer db.strIndex.mu.Unlock()
+
+		db.deleteByIndexNode(key, idxNode)
+		return nil, ErrKeyNotFound
+	}
+
 	defer db.strIndex.mu.RUnlock()
-	return db.getVal(db.strIndex.idxTree, key, String)
+	return db.getValByIdxNode(key, String, idxNode)
 }
 
 // MGet get the values of all specified keys.
@@ -148,6 +166,40 @@ func (db *RoseDB) Delete(key []byte) error {
 	default:
 		logger.Warn("send to discard chan fail")
 	}
+	return nil
+}
+
+func (db *RoseDB) deleteByIndexNode(key []byte, idxNode *indexNode) error {
+	// consider the case of concurrent write operations，so check if indexNode has changed
+	curIdxNode, err := db.getIndexNode(db.strIndex.idxTree, key)
+	if err != nil {
+		return err
+	}
+
+	// the key is already deleted
+	if curIdxNode == nil {
+		return nil
+	}
+
+	// changed
+	if curIdxNode.fid != idxNode.fid || curIdxNode.offset != curIdxNode.offset {
+		return nil
+	}
+
+	// not changed
+	entry := &logfile.LogEntry{Key: key, Type: logfile.TypeDelete}
+	pos, err := db.writeLogEntry(entry, String)
+	if err != nil {
+		return err
+	}
+
+	val, updated := db.strIndex.idxTree.Delete(key)
+	db.sendDiscard(val, updated, String)
+
+	// The deleted entry itself is also invalid.
+	_, size := logfile.EncodeEntry(entry)
+	node := &indexNode{fid: pos.fid, entrySize: size}
+	db.sendDiscard(node, true, String)
 	return nil
 }
 

@@ -527,6 +527,71 @@ func testRoseDBDelete(t *testing.T, ioType IOType, mode DataIndexMode) {
 	}
 }
 
+func TestRoseDB_GetPassiveExpire(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRosedbGetPassiveExpire(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRosedbGetPassiveExpire(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRosedbGetPassiveExpire(t, FileIO, KeyValueMemMode)
+	})
+}
+
+func testRosedbGetPassiveExpire(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	type args struct {
+		key      []byte
+		value    []byte
+		expire   float64
+		dataType DataType
+	}
+
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			"expire k1", args{key: []byte("k1"), value: []byte("v1"), expire: 1, dataType: String},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// set kv with ttl
+			dur := time.Duration(tt.args.expire * float64(time.Second))
+			err := db.SetEX(tt.args.key, tt.args.value, dur)
+			assert.Equal(t, nil, err)
+
+			// check if get val successfully
+			val, err := db.Get(tt.args.key)
+			assert.Equal(t, nil, err)
+			assert.EqualValues(t, string(val), string(tt.args.value))
+
+			// wait for data to expire
+			dur = time.Duration((tt.args.expire + 1) * float64(time.Second))
+			time.Sleep(dur)
+
+			// the kv is expired，err returned is `KeyNotFound`
+			_, err = db.Get(tt.args.key)
+			assert.Equal(t, ErrKeyNotFound, err)
+
+			// double check, check if the kv exists in the string idxTree directly.
+			_, err = db.getIndexNode(db.strIndex.idxTree, tt.args.key)
+			assert.Equal(t, ErrKeyNotFound, err)
+		})
+	}
+}
+
 func TestRoseDB_SetEx(t *testing.T) {
 	t.Run("key-only", func(t *testing.T) {
 		testRoseDBSetEx(t, KeyOnlyMemMode)
