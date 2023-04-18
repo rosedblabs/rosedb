@@ -1862,3 +1862,76 @@ func testRoseDBCas(t *testing.T, ioType IOType, mode DataIndexMode) {
 		})
 	}
 }
+
+func TestRoseDB_Cad(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		testRoseDBCad(t, FileIO, KeyOnlyMemMode)
+	})
+
+	t.Run("mmap", func(t *testing.T) {
+		testRoseDBCad(t, MMap, KeyOnlyMemMode)
+	})
+
+	t.Run("key-val-mem-mode", func(t *testing.T) {
+		testRoseDBCad(t, FileIO, KeyValueMemMode)
+	})
+}
+
+func testRoseDBCad(t *testing.T, ioType IOType, mode DataIndexMode) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	opts.IoType = ioType
+	opts.IndexMode = mode
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	type args struct {
+		setValue []byte
+		delValue []byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			"cad(key, v0)", args{setValue: []byte("v0"), delValue: []byte("v0")}, true,
+		},
+		{
+			"cad(key, v1)", args{setValue: []byte("v1"), delValue: []byte("v1")}, true,
+		},
+		{
+			"cad(key, v2)", args{setValue: []byte("v2"), delValue: []byte("fake-value")}, false,
+		},
+		{
+			"cad(key, v3)", args{setValue: []byte("v3"), delValue: []byte("fake-value")}, false,
+		},
+	}
+	key := []byte("key")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// first set value
+			err := db.Set(key, tt.args.setValue)
+			assert.Equal(t, nil, err)
+
+			// cad value
+			ok, err := db.Cad(key, tt.args.delValue)
+			assert.Equal(t, nil, err)
+			assert.Equal(t, tt.want, ok)
+
+			// if delete the kv successfully, double check.
+			if tt.want {
+				bs, err := db.Get(key)
+				assert.Error(t, err, ErrKeyNotFound)
+				assert.Nil(t, bs)
+				return
+			}
+
+			// failed to delete the kv by cad，double check.
+			bs, err := db.Get(key)
+			assert.Equal(t, nil, err)
+			assert.EqualValues(t, bs, tt.args.setValue)
+		})
+	}
+}

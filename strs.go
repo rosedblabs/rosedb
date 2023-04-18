@@ -525,3 +525,38 @@ func (db *RoseDB) Cas(key, oldValue, newValue []byte) (bool, error) {
 	err = db.updateIndexTree(db.strIndex.idxTree, entry, valuePos, true, String)
 	return true, err
 }
+
+// Cad Compare And Delete. If current value of the key is the same as delValue, delete the kv.
+// The whole process is concurrency safe.
+func (db *RoseDB) Cad(key, delValue []byte) (bool, error) {
+	db.strIndex.mu.Lock()
+	defer db.strIndex.mu.Unlock()
+
+	curValue, err := db.getVal(db.strIndex.idxTree, key, String)
+	if err != nil {
+		return false, err
+	}
+
+	if !bytes.Equal(curValue, delValue) {
+		return false, nil
+	}
+
+	entry := &logfile.LogEntry{Key: key, Type: logfile.TypeDelete}
+	pos, err := db.writeLogEntry(entry, String)
+	if err != nil {
+		return false, err
+	}
+
+	val, updated := db.strIndex.idxTree.Delete(key)
+	db.sendDiscard(val, updated, String)
+
+	// The deleted entry itself is also invalid.
+	_, size := logfile.EncodeEntry(entry)
+	node := &indexNode{fid: pos.fid, entrySize: size}
+	select {
+	case db.discards[String].valChan <- node:
+	default:
+		logger.Warn("send to discard chan fail")
+	}
+	return true, nil
+}
