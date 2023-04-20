@@ -36,6 +36,7 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	db.strIndex.mu.RLock()
 	idxNode, err := db.getIndexNode(db.strIndex.idxTree, key)
 	if err != nil {
+		db.strIndex.mu.RUnlock()
 		return nil, err
 	}
 
