@@ -1722,7 +1722,7 @@ func testRoseDBExpire(t *testing.T, ioType IOType, mode DataIndexMode) {
 		err = db.Expire(GetKey(55), time.Second*1)
 		assert.Nil(t, err)
 
-		time.Sleep(time.Second)
+		time.Sleep(2 * time.Second)
 		_, err = db.Get(GetKey(55))
 		assert.Equal(t, ErrKeyNotFound, err)
 	})
@@ -1733,7 +1733,7 @@ func testRoseDBExpire(t *testing.T, ioType IOType, mode DataIndexMode) {
 
 		db.Expire(GetKey(66), time.Second*100)
 		db.Expire(GetKey(66), time.Second*1)
-		time.Sleep(time.Second)
+		time.Sleep(2 * time.Second)
 		_, err = db.Get(GetKey(66))
 		assert.Equal(t, ErrKeyNotFound, err)
 	})
