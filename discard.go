@@ -82,7 +82,7 @@ func (d *discard) close() error {
 	return d.file.Close()
 }
 
-// CCL means compaction cnadidate list.
+// CCL means compaction candidate list.
 // iterate and find the file with most discarded data,
 // there are 682 records at most, no need to worry about the performance.
 func (d *discard) getCCL(activeFid uint32, ratio float64) ([]uint32, error) {
@@ -177,11 +177,13 @@ func (d *discard) incrDiscard(fid uint32, delta int) {
 	}
 }
 
-// format of discard file` record:
-// +-------+--------------+----------------+  +-------+--------------+----------------+
-// |  fid  |  total size  | discarded size |  |  fid  |  total size  | discarded size |
-// +-------+--------------+----------------+  +-------+--------------+----------------+
-// 0-------4--------------8---------------12  12------16------------20----------------24
+/*
+format of discard file record:
+	+-------+--------------+----------------+  +-------+--------------+----------------+
+	|  fid  |  total size  | discarded size |  |  fid  |  total size  | discarded size |
+	+-------+--------------+----------------+  +-------+--------------+----------------+
+	0-------4--------------8---------------12  12------16------------20----------------24
+*/
 func (d *discard) incr(fid uint32, delta int) {
 	d.Lock()
 	defer d.Unlock()

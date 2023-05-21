@@ -5,9 +5,11 @@ import (
 	"hash/crc32"
 )
 
-// MaxHeaderSize max entry header size.
-// crc32	typ    kSize	vSize	expiredAt
-//  4    +   1   +   5   +   5    +    10      = 25 (refer to binary.MaxVarintLen32 and binary.MaxVarintLen64)
+/*
+MaxHeaderSize max entry header size.
+	crc32	typ    kSize	vSize	expiredAt
+	4    +   1   +   5   +   5    +    10      = 25 (refer to binary.MaxVarintLen32 and binary.MaxVarintLen64)
+*/
 const MaxHeaderSize = 25
 
 // EntryType type of Entry.
@@ -36,13 +38,15 @@ type entryHeader struct {
 	expiredAt int64 // time.Unix
 }
 
-// EncodeEntry will encode entry into a byte slice.
-// The encoded Entry looks like:
-// +-------+--------+----------+------------+-----------+-------+---------+
-// |  crc  |  type  | key size | value size | expiresAt |  key  |  value  |
-// +-------+--------+----------+------------+-----------+-------+---------+
-// |------------------------HEADER----------------------|
-//         |--------------------------crc check---------------------------|
+/*
+EncodeEntry will encode entry into a byte slice.
+The encoded Entry looks like:
+	+-------+--------+----------+------------+-----------+-------+---------+
+	|  crc  |  type  | key size | value size | expiresAt |  key  |  value  |
+	+-------+--------+----------+------------+-----------+-------+---------+
+	|------------------------HEADER----------------------|
+			|--------------------------crc check---------------------------|
+*/
 func EncodeEntry(e *LogEntry) ([]byte, int) {
 	if e == nil {
 		return nil, 0
