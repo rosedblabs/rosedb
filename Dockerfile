@@ -10,7 +10,7 @@ COPY . .
 RUN go build -o rosedb-server ./cmd/
 
 
-FROM ubuntu:focal
+FROM alpine:latest
 
 WORKDIR /rosedb
 COPY --from=builder /rosedb/rosedb-server /bin/rosedb-server
