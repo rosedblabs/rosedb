@@ -4,9 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/flower-corp/rosedb"
-	"github.com/flower-corp/rosedb/logger"
-	"github.com/tidwall/redcon"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -14,6 +11,10 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/flower-corp/rosedb"
+	"github.com/flower-corp/rosedb/logger"
+	"github.com/tidwall/redcon"
 )
 
 var (
@@ -88,6 +89,7 @@ func main() {
 	)
 	svr.ser = redServer
 	go svr.listen()
+	tcpPort = serverOpts.port
 	<-svr.signal
 	svr.stop()
 }

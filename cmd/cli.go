@@ -13,6 +13,7 @@ var supportedCommands = map[string]cmdHandler{
 	// string commands
 	"set":      set,
 	"get":      get,
+	"getbit":   getBit,
 	"mget":     mGet,
 	"getrange": getRange,
 	"getdel":   getDel,

@@ -58,6 +58,46 @@ func TestRoseDB_Get(t *testing.T) {
 	})
 }
 
+func TestRoseDB_GetBit(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	v1 := []byte("vwwwwvwwvv")
+	v2 := []byte("长江路")
+	db.Set([]byte("k-1"), v1)
+	db.Set([]byte("k-2"), v2)
+	checkAll := func(k, v []byte) {
+		for i, idx := range v {
+			var tmpByte byte
+			for j := 0; j < 8; j++ {
+				bitV, err := db.GetBit(k, i*8+j)
+				assert.Nil(t, err)
+				tmpByte |= byte(bitV) << (7 - j)
+			}
+			assert.Equal(t, idx, tmpByte)
+		}
+	}
+	// normal
+	checkAll([]byte("k-1"), v1)
+	// non-ascii string
+	checkAll([]byte("k-2"), v2)
+	// non-exist key
+	for j := 0; j < 8; j++ {
+		bitV, err := db.GetBit([]byte("k-dada"), j)
+		assert.Nil(t, err)
+		assert.Equal(t, bitV, 0)
+	}
+	// offset out of range
+	for j := 999; j < 1011; j++ {
+		bitV, err := db.GetBit([]byte("k-2"), j)
+		assert.Nil(t, err)
+		assert.Equal(t, bitV, 0)
+	}
+}
+
 func TestRoseDB_Get_LogFileThreshold(t *testing.T) {
 	path := filepath.Join("/tmp", "rosedb")
 	opts := DefaultOptions(path)

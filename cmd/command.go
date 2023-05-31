@@ -3,13 +3,14 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/flower-corp/rosedb"
-	"github.com/flower-corp/rosedb/util"
-	"github.com/tidwall/redcon"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/flower-corp/rosedb"
+	"github.com/flower-corp/rosedb/util"
+	"github.com/tidwall/redcon"
 )
 
 const (
@@ -22,6 +23,7 @@ var (
 	errSyntax            = errors.New("ERR syntax error ")
 	errValueIsInvalid    = errors.New("ERR value is not an integer or out of range")
 	errDBIndexOutOfRange = errors.New("ERR DB index is out of range")
+	errWrongOffset       = errors.New("bit offset is not an integer or out of range")
 )
 
 func newWrongNumOfArgsError(cmd string) error {
@@ -31,14 +33,16 @@ func newWrongNumOfArgsError(cmd string) error {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------- server management commands --------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
+
 func info(cli *Client, args [][]byte) (interface{}, error) {
 	// todo
-	return "info", nil
+	return getInfoString(), nil
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |-------------------- connection management commands ------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
+
 func selectDB(cli *Client, args [][]byte) (interface{}, error) {
 	cli.svr.mu.Lock()
 	defer cli.svr.mu.Unlock()
@@ -84,6 +88,7 @@ func ping(cli *Client, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |-------------------------- generic commands --------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
+
 func del(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 1 {
 		return nil, newWrongNumOfArgsError("del")
@@ -105,6 +110,7 @@ func keyType(cli *Client, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |-------------------------- String commands --------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
+
 func set(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("set")
@@ -239,6 +245,25 @@ func get(cli *Client, args [][]byte) (interface{}, error) {
 	return value, nil
 }
 
+func getBit(cli *Client, args [][]byte) (interface{}, error) {
+	if len(args) != 2 {
+		return nil, newWrongNumOfArgsError("getBit")
+	}
+	key := args[0]
+	offset, err := strconv.Atoi(string(args[1]))
+	if err != nil {
+		return nil, errValueIsInvalid
+	}
+	if offset < 0 {
+		return 0, errWrongOffset
+	}
+	value, err := cli.db.GetBit(key, offset)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
 func mGet(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 1 {
 		return nil, newWrongNumOfArgsError("mget")
@@ -291,6 +316,7 @@ func getDel(cli *Client, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- List commands ---------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
+
 func lPush(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("lpush")
@@ -480,6 +506,7 @@ func lRem(cli *Client, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |--------------------------- Hash commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
+
 func hSet(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 || len(args)%2 == 0 {
 		return nil, newWrongNumOfArgsError("hset")
@@ -639,6 +666,7 @@ func hRandField(cli *Client, args [][]byte) (interface{}, error) {
 // +-------+--------+----------+------------+-----------+-------+---------+
 // |---------------------------- Set commands ----------------------------|
 // +-------+--------+----------+------------+-----------+-------+---------+
+
 func sAdd(cli *Client, args [][]byte) (interface{}, error) {
 	if len(args) < 2 {
 		return nil, newWrongNumOfArgsError("sadd")

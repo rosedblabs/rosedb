@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/flower-corp/rosedb"
 	"path/filepath"
 	"time"
+
+	"github.com/flower-corp/rosedb"
 )
 
 func main() {
@@ -75,6 +76,35 @@ func main() {
 	fmt.Printf("key-11: %v\n", string(val))
 	fmt.Printf("A example of missing value: %v\n", err)
 
+	// getBit
+	key := []byte("长江路")
+	err = db.Set([]byte("skey1"), key)
+	if err != nil {
+		fmt.Printf("set error: %v\n", err)
+	}
+	idxs := make([]int, 8) // check the second byte
+	for i := 0; i < 8; i++ {
+		idxs[i] = i + 8
+	}
+	char := uint8(key[1])
+	var res uint8
+	for i, idx := range idxs {
+		val, err := db.GetBit([]byte("skey1"), idx)
+		if err != nil {
+			fmt.Printf("getbit error: %v\n", err)
+		}
+		var exp int
+		if (char & (1 << (7 - i))) != 0 {
+			exp = 1
+		}
+		if exp != val {
+			fmt.Printf("getbit wrong result, idx=%d, expect %d, got %d\n", idx, exp, val)
+			break
+		}
+		res |= uint8(val) << (7 - i)
+	}
+	fmt.Printf("the second byte of '长江路' is %8b\n", res)
+	db.Delete([]byte("skey1"))
 	// mget
 	keys := [][]byte{
 		[]byte("key-1"),

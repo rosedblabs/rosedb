@@ -38,6 +38,35 @@ func (db *RoseDB) Get(key []byte) ([]byte, error) {
 	return db.getVal(db.strIndex.idxTree, key, String)
 }
 
+// GetBit returns the bit value at offset in the string value stored at key.
+//
+// When offset is beyond the string length,
+// the string is assumed to be a contiguous space with 0 bits.
+// When key does not exist it is assumed to be an empty string,
+// so offset is always out of range and the value is also assumed
+// to be a contiguous space with 0 bits.
+func (db *RoseDB) GetBit(key []byte, offset int) (int, error) {
+	db.strIndex.mu.RLock()
+	defer db.strIndex.mu.RUnlock()
+	value, err := db.getVal(db.strIndex.idxTree, key, String)
+	if err != nil {
+		if err == ErrKeyNotFound {
+			return 0, nil
+		}
+		return 0, err
+	}
+	q := offset >> 3       // offset q bytes
+	r := (q << 3) ^ offset // residual r bits offset with q_th byte
+	if q > len(value) {    // offset out of range
+		return 0, nil
+	}
+	if uint8(value[q])&(1<<(7-r)) != 0 {
+		return 1, nil
+	} else {
+		return 0, nil
+	}
+}
+
 // MGet get the values of all specified keys.
 // If the key that does not hold a string value or does not exist, nil is returned.
 func (db *RoseDB) MGet(keys [][]byte) ([][]byte, error) {
