@@ -261,7 +261,7 @@ func getBit(cli *Client, args [][]byte) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return value, nil
+	return redcon.SimpleInt(value), nil
 }
 
 func mGet(cli *Client, args [][]byte) (interface{}, error) {
