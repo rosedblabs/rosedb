@@ -90,6 +90,7 @@ func main() {
 	svr.ser = redServer
 	go svr.listen()
 	tcpPort = serverOpts.port
+	startTime = time.Now()
 	<-svr.signal
 	svr.stop()
 }
