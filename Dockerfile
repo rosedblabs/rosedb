@@ -1,6 +1,6 @@
 FROM golang:1.16-alpine as builder
 
-workdir /rosedb
+WORKDIR /rosedb
 
 # If you encounter some issues when pulling modules, \
 # you can try to use GOPROXY, especially in China.
