@@ -1,2 +1,3 @@
 #!/bin/bash
-redis-cli -h 127.0.0.1 -p 5200
+make
+redis-cli -h 0.0.0.0 -p 5200
