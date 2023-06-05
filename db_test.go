@@ -3,14 +3,15 @@ package rosedb
 import (
 	"bytes"
 	"fmt"
-	"github.com/flower-corp/rosedb/logger"
-	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/flower-corp/rosedb/logger"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestOpen(t *testing.T) {
@@ -93,6 +94,66 @@ func TestRoseDB_Backup(t *testing.T) {
 	val, err := db2.Get(GetKey(4))
 	assert.Nil(t, err)
 	assert.NotNil(t, val)
+}
+
+func TestKeyType(t *testing.T) {
+	path := filepath.Join("/tmp", "rosedb")
+	opts := DefaultOptions(path)
+	db, err := Open(opts)
+	defer destroyDB(db)
+	if err != nil {
+		t.Error("open db err ", err)
+	}
+
+	strKey := []byte("str-key1")
+	listKey := []byte("list-key1")
+	setKey := []byte("set-key1")
+	hasKey := []byte("hash-key1")
+	zsetKey := []byte("zset-key1")
+	notExistKey := []byte("nil-key")
+	db.Set(strKey, []byte("v-1"))
+	db.LPush(listKey, []byte("v-2"), []byte("v-3"))
+	db.SAdd(setKey, []byte("v-4"), []byte("v-5"))
+	db.HSet(hasKey, []byte("field-1"), []byte("v-6"))
+	db.ZAdd(zsetKey, 6.0, []byte("v-7"))
+	tests := []struct {
+		name    string
+		db      *RoseDB
+		key     []byte
+		want    string
+		wantErr error
+	}{
+		{
+			"str-key", db, strKey, "string", nil,
+		},
+		{
+			"list-key", db, listKey, "list", nil,
+		},
+		{
+			"set-key", db, setKey, "set", nil,
+		},
+		{
+			"hash-key", db, hasKey, "hash", nil,
+		},
+		{
+			"zset-key", db, zsetKey, "zset", nil,
+		},
+		{
+			"not-exist-key", db, notExistKey, "", ErrKeyNotFound,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.db.KeyType(tt.key)
+			if (err != nil) != (tt.wantErr != nil) {
+				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Get() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func destroyDB(db *RoseDB) {

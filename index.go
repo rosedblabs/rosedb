@@ -1,15 +1,16 @@
 package rosedb
 
 import (
-	"github.com/flower-corp/rosedb/ds/art"
-	"github.com/flower-corp/rosedb/logfile"
-	"github.com/flower-corp/rosedb/logger"
-	"github.com/flower-corp/rosedb/util"
 	"io"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/flower-corp/rosedb/ds/art"
+	"github.com/flower-corp/rosedb/logfile"
+	"github.com/flower-corp/rosedb/logger"
+	"github.com/flower-corp/rosedb/util"
 )
 
 // DataType Define the data structure type.
@@ -22,6 +23,7 @@ const (
 	Hash
 	Set
 	ZSet
+	TotalTypes
 )
 
 func (db *RoseDB) buildIndex(dataType DataType, ent *logfile.LogEntry, pos *valuePos) {

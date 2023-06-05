@@ -103,8 +103,17 @@ func del(cli *Client, args [][]byte) (interface{}, error) {
 }
 
 func keyType(cli *Client, args [][]byte) (interface{}, error) {
-	// todo
-	return "string", nil
+	if len(args) != 1 {
+		return nil, newWrongNumOfArgsError("type")
+	}
+	t, err := cli.db.KeyType(args[0])
+	if err != nil {
+		if err == rosedb.ErrKeyNotFound {
+			return t, nil
+		}
+		return t, err
+	}
+	return t, err
 }
 
 // +-------+--------+----------+------------+-----------+-------+---------+

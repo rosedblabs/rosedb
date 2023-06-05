@@ -197,6 +197,41 @@ func Open(opts Options) (*RoseDB, error) {
 	return db, nil
 }
 
+func (db *RoseDB) KeyType(key []byte) (string, error) {
+	// string
+	db.strIndex.mu.RLock()
+	idx := db.strIndex
+	if idx.idxTree.Get(key) != nil {
+		return "string", nil
+	}
+	db.strIndex.mu.RUnlock()
+	// List
+	db.listIndex.mu.RLock()
+	if _, ok := db.listIndex.trees[string(key)]; ok {
+		return "list", nil
+	}
+	db.listIndex.mu.RUnlock()
+	// Set
+	db.setIndex.mu.RLock()
+	if _, ok := db.setIndex.trees[string(key)]; ok {
+		return "set", nil
+	}
+	db.setIndex.mu.RUnlock()
+	// Hash
+	db.hashIndex.mu.RLock()
+	if _, ok := db.hashIndex.trees[string(key)]; ok {
+		return "hash", nil
+	}
+	db.hashIndex.mu.RUnlock()
+	// ZSet
+	db.zsetIndex.mu.RLock()
+	if _, ok := db.zsetIndex.trees[string(key)]; ok {
+		return "zset", nil
+	}
+	db.zsetIndex.mu.RUnlock()
+	return "none", ErrKeyNotFound
+}
+
 // Close db and save relative configs.
 func (db *RoseDB) Close() error {
 	db.mu.Lock()
