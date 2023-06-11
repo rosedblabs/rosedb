@@ -1,140 +1,76 @@
 package rosedb
 
 import (
-	"bytes"
-	"fmt"
-	"github.com/flower-corp/rosedb/logger"
+	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
-	"os"
-	"path/filepath"
-	"runtime"
 	"testing"
-	"time"
 )
 
-func TestOpen(t *testing.T) {
-	path := filepath.Join("/tmp", "rosedb")
-	t.Run("default", func(t *testing.T) {
-		opts := DefaultOptions(path)
-		db, err := Open(opts)
-		defer destroyDB(db)
-		assert.Nil(t, err)
-		assert.NotNil(t, db)
-	})
-
-	t.Run("mmap", func(t *testing.T) {
-		opts := DefaultOptions(path)
-		opts.IoType = MMap
-		db, err := Open(opts)
-		defer destroyDB(db)
-		assert.Nil(t, err)
-		assert.NotNil(t, db)
-	})
-}
-
-func TestLogFileGC(t *testing.T) {
-	path := filepath.Join("/tmp", "rosedb")
-	opts := DefaultOptions(path)
-	opts.LogFileGCInterval = time.Second * 7
-	opts.LogFileGCRatio = 0.00001
-	db, err := Open(opts)
+func TestDB_Put_Normal(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
 	defer destroyDB(db)
-	if err != nil {
-		t.Error("open db err ", err)
-	}
 
-	writeCount := 800000
-	for i := 0; i < writeCount; i++ {
-		err := db.Set(GetKey(i), GetValue16B())
+	for i := 0; i < 100; i++ {
+		err := db.Put(utils.GetTestKey(rand.Int()), utils.RandomValue(128))
+		assert.Nil(t, err)
+		err = db.Put(utils.GetTestKey(rand.Int()), utils.RandomValue(KB))
+		assert.Nil(t, err)
+		err = db.Put(utils.GetTestKey(rand.Int()), utils.RandomValue(5*KB))
 		assert.Nil(t, err)
 	}
 
-	var deleted [][]byte
-	rand.Seed(time.Now().Unix())
-	for i := 0; i < 100000; i++ {
-		k := rand.Intn(writeCount)
-		key := GetKey(k)
-		err := db.Delete(key)
-		assert.Nil(t, err)
-		deleted = append(deleted, key)
-	}
-
-	time.Sleep(time.Second * 12)
-	for _, key := range deleted {
-		_, err := db.Get(key)
-		assert.Equal(t, err, ErrKeyNotFound)
-	}
+	// reopen
+	err = db.Close()
+	assert.Nil(t, err)
+	db2, err := Open(options)
+	assert.Nil(t, err)
+	defer func() {
+		_ = db2.Close()
+	}()
+	stat := db2.Stat()
+	assert.Equal(t, 300, stat.KeysNum)
 }
 
-func TestRoseDB_Backup(t *testing.T) {
-	path := filepath.Join("/tmp", "rosedb")
-	opts := DefaultOptions(path)
-	db, err := Open(opts)
+func TestDB_Get_Normal(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
 	defer destroyDB(db)
-	if err != nil {
-		t.Error("open db err ", err)
-	}
 
-	for i := 0; i < 10; i++ {
-		err := db.Set(GetKey(i), GetValue128B())
+	// not exist
+	val1, err := db.Get([]byte("not-exist"))
+	assert.Nil(t, val1)
+	assert.Equal(t, ErrKeyNotFound, err)
+
+	generateData(t, db, 1, 100, 128)
+	for i := 1; i < 100; i++ {
+		val, err := db.Get(utils.GetTestKey(i))
 		assert.Nil(t, err)
+		assert.Equal(t, len(val), len(utils.RandomValue(128)))
 	}
-
-	backupPath := filepath.Join("/tmp", "rosedb-backup")
-	err = db.Backup(backupPath)
-	assert.Nil(t, err)
-
-	// open the backup database
-	opts2 := DefaultOptions(backupPath)
-	db2, err := Open(opts2)
-	assert.Nil(t, err)
-	defer destroyDB(db2)
-	val, err := db2.Get(GetKey(4))
-	assert.Nil(t, err)
-	assert.NotNil(t, val)
-}
-
-func destroyDB(db *RoseDB) {
-	if db != nil {
-		_ = db.Close()
-		if runtime.GOOS == "windows" {
-			time.Sleep(time.Millisecond * 100)
-		}
-		err := os.RemoveAll(db.opts.DBPath)
-		if err != nil {
-			logger.Errorf("destroy db err: %v", err)
-		}
+	generateData(t, db, 200, 300, KB)
+	for i := 200; i < 300; i++ {
+		val, err := db.Get(utils.GetTestKey(i))
+		assert.Nil(t, err)
+		assert.Equal(t, len(val), len(utils.RandomValue(KB)))
+	}
+	generateData(t, db, 400, 500, 4*KB)
+	for i := 400; i < 500; i++ {
+		val, err := db.Get(utils.GetTestKey(i))
+		assert.Nil(t, err)
+		assert.Equal(t, len(val), len(utils.RandomValue(4*KB)))
 	}
 }
 
-const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+func TestDB_Close_Sync(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
 
-func init() {
-	rand.Seed(time.Now().Unix())
-}
-
-// GetKey length: 32 Bytes
-func GetKey(n int) []byte {
-	return []byte("kvstore-bench-key------" + fmt.Sprintf("%09d", n))
-}
-
-func GetValue16B() []byte {
-	return GetValue(16)
-}
-
-func GetValue128B() []byte {
-	return GetValue(128)
-}
-
-func GetValue4K() []byte {
-	return GetValue(4096)
-}
-
-func GetValue(n int) []byte {
-	var str bytes.Buffer
-	for i := 0; i < n; i++ {
-		str.WriteByte(alphabet[rand.Int()%36])
-	}
-	return str.Bytes()
+	err = db.Sync()
+	assert.Nil(t, err)
 }

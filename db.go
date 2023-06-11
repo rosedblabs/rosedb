@@ -1,736 +1,271 @@
 package rosedb
 
 import (
-	"encoding/binary"
 	"errors"
-	"github.com/flower-corp/rosedb/ds/art"
-	"github.com/flower-corp/rosedb/ds/zset"
-	"github.com/flower-corp/rosedb/flock"
-	"github.com/flower-corp/rosedb/logfile"
-	"github.com/flower-corp/rosedb/logger"
-	"github.com/flower-corp/rosedb/util"
+	"fmt"
 	"io"
-	"io/ioutil"
-	"math"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"sort"
-	"strconv"
-	"strings"
 	"sync"
-	"sync/atomic"
-	"syscall"
-	"time"
-)
 
-var (
-	// ErrKeyNotFound key not found
-	ErrKeyNotFound = errors.New("key not found")
-
-	// ErrLogFileNotFound log file not found
-	ErrLogFileNotFound = errors.New("log file not found")
-
-	// ErrWrongNumberOfArgs doesn't match key-value pair numbers
-	ErrWrongNumberOfArgs = errors.New("wrong number of arguments")
-
-	// ErrIntegerOverflow overflows int64 limitations
-	ErrIntegerOverflow = errors.New("increment or decrement overflow")
-
-	// ErrWrongValueType value is not a number
-	ErrWrongValueType = errors.New("value is not an integer")
-
-	// ErrWrongIndex index is out of range
-	ErrWrongIndex = errors.New("index is out of range")
-
-	// ErrGCRunning log file gc is running
-	ErrGCRunning = errors.New("log file gc is running, retry later")
+	"github.com/bwmarrin/snowflake"
+	"github.com/gofrs/flock"
+	"github.com/rosedblabs/rosedb/v2/index"
+	"github.com/rosedblabs/rosedb/v2/utils"
+	"github.com/rosedblabs/wal"
 )
 
 const (
-	logFileTypeNum   = 5
-	encodeHeaderSize = 10
-	initialListSeq   = math.MaxUint32 / 2
-	discardFilePath  = "DISCARD"
-	lockFileName     = "FLOCK"
+	fileLockName = "FLOCK"
 )
 
-type (
-	// RoseDB a db instance.
-	RoseDB struct {
-		activeLogFiles   map[DataType]*logfile.LogFile
-		archivedLogFiles map[DataType]archivedFiles
-		fidMap           map[DataType][]uint32 // only used at startup, never update even though log files changed.
-		discards         map[DataType]*discard
-		opts             Options
-		strIndex         *strIndex  // String indexes(adaptive-radix-tree).
-		listIndex        *listIndex // List indexes.
-		hashIndex        *hashIndex // Hash indexes.
-		setIndex         *setIndex  // Set indexes.
-		zsetIndex        *zsetIndex // Sorted set indexes.
-		mu               sync.RWMutex
-		fileLock         *flock.FileLockGuard
-		closed           uint32
-		gcState          int32
-	}
-
-	archivedFiles map[uint32]*logfile.LogFile
-
-	valuePos struct {
-		fid       uint32
-		offset    int64
-		entrySize int
-	}
-
-	strIndex struct {
-		mu      *sync.RWMutex
-		idxTree *art.AdaptiveRadixTree
-	}
-
-	indexNode struct {
-		value     []byte
-		fid       uint32
-		offset    int64
-		entrySize int
-		expiredAt int64
-	}
-
-	listIndex struct {
-		mu    *sync.RWMutex
-		trees map[string]*art.AdaptiveRadixTree
-	}
-
-	hashIndex struct {
-		mu    *sync.RWMutex
-		trees map[string]*art.AdaptiveRadixTree
-	}
-
-	setIndex struct {
-		mu      *sync.RWMutex
-		murhash *util.Murmur128
-		trees   map[string]*art.AdaptiveRadixTree
-	}
-
-	zsetIndex struct {
-		mu      *sync.RWMutex
-		indexes *zset.SortedSet
-		murhash *util.Murmur128
-		trees   map[string]*art.AdaptiveRadixTree
-	}
-)
-
-func newStrsIndex() *strIndex {
-	return &strIndex{idxTree: art.NewART(), mu: new(sync.RWMutex)}
+// DB represents a ROSEDB database instance.
+// It is built on the bitcask model, which is a log-structured storage.
+// It uses WAL to write data, and uses an in-memory index to store the key
+// and the position of the data in the WAL,
+// the index will be rebuilt when the database is opened.
+//
+// The main advantage of ROSEDB is that it is very fast to write, read, and delete data.
+// Because it only needs one disk IO to complete a single operation.
+//
+// But since we should store all keys and their positions(index) in memory,
+// our total data size is limited by the memory size.
+//
+// So if your memory can almost hold all the keys, ROSEDB is the perfect stroage engine for you.
+type DB struct {
+	dataFiles *wal.WAL // data files are a sets of segment files in WAL.
+	index     index.Indexer
+	options   Options
+	fileLock  *flock.Flock
+	mu        sync.RWMutex
+	closed    bool
 }
 
-func newListIdx() *listIndex {
-	return &listIndex{trees: make(map[string]*art.AdaptiveRadixTree), mu: new(sync.RWMutex)}
+// Stat represents the statistics of the database.
+type Stat struct {
+	// Total number of keys
+	KeysNum int
+	// Total disk size of database directory
+	DiskSize int64
 }
 
-func newHashIdx() *hashIndex {
-	return &hashIndex{trees: make(map[string]*art.AdaptiveRadixTree), mu: new(sync.RWMutex)}
-}
-
-func newSetIdx() *setIndex {
-	return &setIndex{
-		murhash: util.NewMurmur128(),
-		trees:   make(map[string]*art.AdaptiveRadixTree),
-		mu:      new(sync.RWMutex),
+// Open a database with the specified options.
+// If the database directory does not exist, it will be created automatically.
+//
+// Multiple processes can not use the same database directory at the same time,
+// otherwise it will retrun ErrDatabaseIsUsing.
+//
+// It will open the wal files in the database directory and load the index from them.
+// Return the DB instance, or an error if any.
+func Open(options Options) (*DB, error) {
+	// check options
+	if err := checkOptions(options); err != nil {
+		return nil, err
 	}
-}
 
-func newZSetIdx() *zsetIndex {
-	return &zsetIndex{
-		indexes: zset.New(),
-		murhash: util.NewMurmur128(),
-		trees:   make(map[string]*art.AdaptiveRadixTree),
-		mu:      new(sync.RWMutex),
-	}
-}
-
-// Open a rosedb instance. You must call Close after using it.
-func Open(opts Options) (*RoseDB, error) {
-	// create the dir path if not exists.
-	if !util.PathExist(opts.DBPath) {
-		if err := os.MkdirAll(opts.DBPath, os.ModePerm); err != nil {
+	// create data directory if not exist
+	if _, err := os.Stat(options.DirPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(options.DirPath, os.ModePerm); err != nil {
 			return nil, err
 		}
 	}
 
-	// acquire file lock to prevent multiple processes from accessing the same directory.
-	lockPath := filepath.Join(opts.DBPath, lockFileName)
-	lockGuard, err := flock.AcquireFileLock(lockPath, false)
+	// create file lock, prevent multiple processes from using the same database directory
+	fileLock := flock.New(filepath.Join(options.DirPath, fileLockName))
+	hold, err := fileLock.TryLock()
+	if err != nil {
+		return nil, err
+	}
+	if !hold {
+		return nil, ErrDatabaseIsUsing
+	}
+
+	// open data files from WAL
+	walFiles, err := wal.Open(wal.Options{
+		DirPath:      options.DirPath,
+		SegmentSize:  options.SegmentSize,
+		BlockCache:   options.BlockCache,
+		Sync:         options.Sync,
+		BytesPerSync: options.BytesPerSync,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	db := &RoseDB{
-		activeLogFiles:   make(map[DataType]*logfile.LogFile),
-		archivedLogFiles: make(map[DataType]archivedFiles),
-		opts:             opts,
-		fileLock:         lockGuard,
-		strIndex:         newStrsIndex(),
-		listIndex:        newListIdx(),
-		hashIndex:        newHashIdx(),
-		setIndex:         newSetIdx(),
-		zsetIndex:        newZSetIdx(),
+	// init DB instance
+	db := &DB{
+		dataFiles: walFiles,
+		index:     index.NewIndexer(),
+		options:   options,
+		fileLock:  fileLock,
 	}
 
-	// init discard file.
-	if err := db.initDiscard(); err != nil {
+	// load index from data files
+	if err = db.loadIndexFromWAL(); err != nil {
 		return nil, err
 	}
 
-	// load the log files from disk.
-	if err := db.loadLogFiles(); err != nil {
-		return nil, err
-	}
-
-	// load indexes from log files.
-	if err := db.loadIndexFromLogFiles(); err != nil {
-		return nil, err
-	}
-
-	// handle log files garbage collection.
-	go db.handleLogFileGC()
 	return db, nil
 }
 
-// Close db and save relative configs.
-func (db *RoseDB) Close() error {
+// Close the database, close all data files and release file lock.
+// Set the closed flag to true.
+// The DB instance cannot be used after closing.
+func (db *DB) Close() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	if db.fileLock != nil {
-		_ = db.fileLock.Release()
-	}
-	// close and sync the active file.
-	for _, activeFile := range db.activeLogFiles {
-		_ = activeFile.Close()
-	}
-	// close the archived files.
-	for _, archived := range db.archivedLogFiles {
-		for _, file := range archived {
-			_ = file.Sync()
-			_ = file.Close()
-		}
-	}
-	// close discard channel.
-	for _, dis := range db.discards {
-		dis.closeChan()
-	}
-	atomic.StoreUint32(&db.closed, 1)
-	db.strIndex = nil
-	db.hashIndex = nil
-	db.listIndex = nil
-	db.zsetIndex = nil
-	db.setIndex = nil
-	return nil
-}
-
-// Sync persist the db files to stable storage.
-func (db *RoseDB) Sync() error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-
-	// iterate and sync all the active files.
-	for _, activeFile := range db.activeLogFiles {
-		if err := activeFile.Sync(); err != nil {
-			return err
-		}
-	}
-	// sync discard file.
-	for _, dis := range db.discards {
-		if err := dis.sync(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Backup copies the db directory to the given path for backup.
-// It will create the path if it does not exist.
-func (db *RoseDB) Backup(path string) error {
-	// if log file gc is running, can not backuo the db.
-	if atomic.LoadInt32(&db.gcState) > 0 {
-		return ErrGCRunning
-	}
-
-	if err := db.Sync(); err != nil {
+	// close wal
+	if err := db.dataFiles.Close(); err != nil {
 		return err
 	}
-	if !util.PathExist(path) {
-		if err := os.MkdirAll(path, os.ModePerm); err != nil {
-			return err
-		}
+	// release file lock
+	if err := db.fileLock.Unlock(); err != nil {
+		return err
 	}
+
+	db.closed = true
+	return nil
+}
+
+// Sync all data files to the underlying storage.
+func (db *DB) Sync() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	return util.CopyDir(db.opts.DBPath, path)
+
+	return db.dataFiles.Sync()
 }
 
-// RunLogFileGC run log file garbage collection manually.
-func (db *RoseDB) RunLogFileGC(dataType DataType, fid int, gcRatio float64) error {
-	if atomic.LoadInt32(&db.gcState) > 0 {
-		return ErrGCRunning
-	}
-	return db.doRunGC(dataType, fid, gcRatio)
-}
-
-func (db *RoseDB) isClosed() bool {
-	return atomic.LoadUint32(&db.closed) == 1
-}
-
-func (db *RoseDB) getActiveLogFile(dataType DataType) *logfile.LogFile {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	return db.activeLogFiles[dataType]
-}
-
-func (db *RoseDB) getArchivedLogFile(dataType DataType, fid uint32) *logfile.LogFile {
-	var lf *logfile.LogFile
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	if db.archivedLogFiles[dataType] != nil {
-		lf = db.archivedLogFiles[dataType][fid]
-	}
-	return lf
-}
-
-// write entry to log file.
-func (db *RoseDB) writeLogEntry(ent *logfile.LogEntry, dataType DataType) (*valuePos, error) {
-	if err := db.initLogFile(dataType); err != nil {
-		return nil, err
-	}
-	activeLogFile := db.getActiveLogFile(dataType)
-	if activeLogFile == nil {
-		return nil, ErrLogFileNotFound
-	}
-
-	opts := db.opts
-	entBuf, esize := logfile.EncodeEntry(ent)
-	if activeLogFile.WriteAt+int64(esize) > opts.LogFileSizeThreshold {
-		if err := activeLogFile.Sync(); err != nil {
-			return nil, err
-		}
-
-		db.mu.Lock()
-		// save the old log file in archived files.
-		activeFileId := activeLogFile.Fid
-		if db.archivedLogFiles[dataType] == nil {
-			db.archivedLogFiles[dataType] = make(archivedFiles)
-		}
-		db.archivedLogFiles[dataType][activeFileId] = activeLogFile
-
-		// open a new log file.
-		ftype, iotype := logfile.FileType(dataType), logfile.IOType(opts.IoType)
-		lf, err := logfile.OpenLogFile(opts.DBPath, activeFileId+1, opts.LogFileSizeThreshold, ftype, iotype)
-		if err != nil {
-			db.mu.Unlock()
-			return nil, err
-		}
-		db.discards[dataType].setTotal(lf.Fid, uint32(opts.LogFileSizeThreshold))
-		db.activeLogFiles[dataType] = lf
-		activeLogFile = lf
-		db.mu.Unlock()
-	}
-
-	writeAt := atomic.LoadInt64(&activeLogFile.WriteAt)
-	// write entry and sync(if necessary)
-	if err := activeLogFile.Write(entBuf); err != nil {
-		return nil, err
-	}
-	if opts.Sync {
-		if err := activeLogFile.Sync(); err != nil {
-			return nil, err
-		}
-	}
-	return &valuePos{fid: activeLogFile.Fid, offset: writeAt}, nil
-}
-
-func (db *RoseDB) loadLogFiles() error {
+// Stat returns the statistics of the database.
+func (db *DB) Stat() *Stat {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	fileInfos, err := ioutil.ReadDir(db.opts.DBPath)
+
+	diskSize, err := utils.DirSize(db.options.DirPath)
 	if err != nil {
+		panic(fmt.Sprintf("rosedb: get database directory size error: %v", err))
+	}
+
+	return &Stat{
+		KeysNum:  db.index.Size(),
+		DiskSize: diskSize,
+	}
+}
+
+// Put a key-value pair into the database.
+// Actually, it will open a new batch and commit it.
+// You can think the batch has only one Put operation.
+func (db *DB) Put(key []byte, value []byte) error {
+	options := DefaultBatchOptions
+	// This is a single delete operation, we can set Sync to false.
+	// Because the data will be written to the WAL,
+	// and the WAL file will be synced to disk according to the DB options.
+	options.Sync = false
+	batch := db.NewBatch(options)
+	if err := batch.Put(key, value); err != nil {
 		return err
 	}
-
-	fidMap := make(map[DataType][]uint32)
-	for _, file := range fileInfos {
-		if strings.HasPrefix(file.Name(), logfile.FilePrefix) {
-			splitNames := strings.Split(file.Name(), ".")
-			fid, err := strconv.Atoi(splitNames[2])
-			if err != nil {
-				return err
-			}
-			typ := DataType(logfile.FileTypesMap[splitNames[1]])
-			fidMap[typ] = append(fidMap[typ], uint32(fid))
-		}
-	}
-	db.fidMap = fidMap
-
-	for dataType, fids := range fidMap {
-		if db.archivedLogFiles[dataType] == nil {
-			db.archivedLogFiles[dataType] = make(archivedFiles)
-		}
-		if len(fids) == 0 {
-			continue
-		}
-		// load log file in order.
-		sort.Slice(fids, func(i, j int) bool {
-			return fids[i] < fids[j]
-		})
-
-		opts := db.opts
-		for i, fid := range fids {
-			ftype, iotype := logfile.FileType(dataType), logfile.IOType(opts.IoType)
-			lf, err := logfile.OpenLogFile(opts.DBPath, fid, opts.LogFileSizeThreshold, ftype, iotype)
-			if err != nil {
-				return err
-			}
-			// latest one is active log file.
-			if i == len(fids)-1 {
-				db.activeLogFiles[dataType] = lf
-			} else {
-				db.archivedLogFiles[dataType][fid] = lf
-			}
-		}
-	}
-	return nil
+	return batch.Commit()
 }
 
-func (db *RoseDB) initLogFile(dataType DataType) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
+// Get the value of the specified key from the database.
+// Actually, it will open a new batch and commit it.
+// You can think the batch has only one Get operation.
+func (db *DB) Get(key []byte) ([]byte, error) {
+	options := DefaultBatchOptions
+	// Read-only operation
+	options.ReadOnly = true
+	batch := db.NewBatch(options)
+	defer func() {
+		_ = batch.Commit()
+	}()
+	return batch.Get(key)
+}
 
-	if db.activeLogFiles[dataType] != nil {
-		return nil
-	}
-	opts := db.opts
-	ftype, iotype := logfile.FileType(dataType), logfile.IOType(opts.IoType)
-	lf, err := logfile.OpenLogFile(opts.DBPath, logfile.InitialLogFileId, opts.LogFileSizeThreshold, ftype, iotype)
-	if err != nil {
+// Delete the specified key from the database.
+// Actually, it will open a new batch and commit it.
+// You can think the batch has only one Delete operation.
+func (db *DB) Delete(key []byte) error {
+	options := DefaultBatchOptions
+	// This is a single delete operation, we can set Sync to false.
+	// Because the data will be written to the WAL,
+	// and the WAL file will be synced to disk according to the DB options.
+	options.Sync = false
+	batch := db.NewBatch(options)
+	if err := batch.Delete(key); err != nil {
 		return err
 	}
+	return batch.Commit()
+}
 
-	db.discards[dataType].setTotal(lf.Fid, uint32(opts.LogFileSizeThreshold))
-	db.activeLogFiles[dataType] = lf
+// Exist checks if the specified key exists in the database.
+// Actually, it will open a new batch and commit it.
+// You can think the batch has only one Exist operation.
+func (db *DB) Exist(key []byte) (bool, error) {
+	options := DefaultBatchOptions
+	// Read-only operation
+	options.ReadOnly = true
+	batch := db.NewBatch(options)
+	defer func() {
+		_ = batch.Commit()
+	}()
+	return batch.Exist(key)
+}
+
+func checkOptions(options Options) error {
+	if options.DirPath == "" {
+		return errors.New("database dir path is empty")
+	}
+	if options.SegmentSize <= 0 {
+		return errors.New("database data file size must be greater than 0")
+	}
 	return nil
 }
 
-func (db *RoseDB) initDiscard() error {
-	discardPath := filepath.Join(db.opts.DBPath, discardFilePath)
-	if !util.PathExist(discardPath) {
-		if err := os.MkdirAll(discardPath, os.ModePerm); err != nil {
-			return err
-		}
-	}
-
-	discards := make(map[DataType]*discard)
-	for i := String; i < logFileTypeNum; i++ {
-		name := logfile.FileNamesMap[logfile.FileType(i)] + discardFileName
-		dis, err := newDiscard(discardPath, name, db.opts.DiscardBufferSize)
-		if err != nil {
-			return err
-		}
-		discards[i] = dis
-	}
-	db.discards = discards
-	return nil
-}
-
-func (db *RoseDB) encodeKey(key, subKey []byte) []byte {
-	header := make([]byte, encodeHeaderSize)
-	var index int
-	index += binary.PutVarint(header[index:], int64(len(key)))
-	index += binary.PutVarint(header[index:], int64(len(subKey)))
-	length := len(key) + len(subKey)
-	if length > 0 {
-		buf := make([]byte, length+index)
-		copy(buf[:index], header[:index])
-		copy(buf[index:index+len(key)], key)
-		copy(buf[index+len(key):], subKey)
-		return buf
-	}
-	return header[:index]
-}
-
-func (db *RoseDB) decodeKey(key []byte) ([]byte, []byte) {
-	var index int
-	keySize, i := binary.Varint(key[index:])
-	index += i
-	_, i = binary.Varint(key[index:])
-	index += i
-	sep := index + int(keySize)
-	return key[index:sep], key[sep:]
-}
-
-func (db *RoseDB) sendDiscard(oldVal interface{}, updated bool, dataType DataType) {
-	if !updated || oldVal == nil {
-		return
-	}
-	node, _ := oldVal.(*indexNode)
-	if node == nil || node.entrySize <= 0 {
-		return
-	}
-	select {
-	case db.discards[dataType].valChan <- node:
-	default:
-		logger.Warn("send to discard chan fail")
-	}
-}
-
-func (db *RoseDB) handleLogFileGC() {
-	if db.opts.LogFileGCInterval <= 0 {
-		return
-	}
-
-	quitSig := make(chan os.Signal, 1)
-	signal.Notify(quitSig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	ticker := time.NewTicker(db.opts.LogFileGCInterval)
-	defer ticker.Stop()
+// loadIndexFromWAL loads index from WAL.
+// It will iterate over all the WAL files and read data
+// from them to rebuild the index.
+func (db *DB) loadIndexFromWAL() error {
+	indexRecords := make(map[uint64][]*IndexRecord)
+	// get a reader for WAL
+	reader := db.dataFiles.NewReader()
 	for {
-		select {
-		case <-ticker.C:
-			if atomic.LoadInt32(&db.gcState) > 0 {
-				logger.Warn("log file gc is running, skip it")
+		chunk, position, err := reader.Next()
+		if err != nil {
+			if err == io.EOF {
 				break
 			}
-			for dType := String; dType < logFileTypeNum; dType++ {
-				go func(dataType DataType) {
-					err := db.doRunGC(dataType, -1, db.opts.LogFileGCRatio)
-					if err != nil {
-						logger.Errorf("log file gc err, dataType: [%v], err: [%v]", dataType, err)
-					}
-				}(dType)
-			}
-		case <-quitSig:
-			return
+			return err
 		}
-	}
-}
+		// decode and get log record
+		record := decodeLogRecord(chunk)
 
-func (db *RoseDB) doRunGC(dataType DataType, specifiedFid int, gcRatio float64) error {
-	atomic.AddInt32(&db.gcState, 1)
-	defer atomic.AddInt32(&db.gcState, -1)
-
-	maybeRewriteStrs := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
-		db.strIndex.mu.Lock()
-		defer db.strIndex.mu.Unlock()
-		indexVal := db.strIndex.idxTree.Get(ent.Key)
-		if indexVal == nil {
-			return nil
-		}
-
-		node, _ := indexVal.(*indexNode)
-		if node != nil && node.fid == fid && node.offset == offset {
-			// rewrite entry
-			valuePos, err := db.writeLogEntry(ent, String)
+		// if we get the end of a batch,
+		// all records in this batch are ready to be indexed.
+		if record.Type == LogRecordBatchFinished {
+			batchId, err := snowflake.ParseBytes(record.Key)
 			if err != nil {
 				return err
 			}
-			// update index
-			if err = db.updateIndexTree(db.strIndex.idxTree, ent, valuePos, false, String); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	maybeRewriteList := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
-		db.listIndex.mu.Lock()
-		defer db.listIndex.mu.Unlock()
-		var listKey = ent.Key
-		if ent.Type != logfile.TypeListMeta {
-			listKey, _ = db.decodeListKey(ent.Key)
-		}
-		if db.listIndex.trees[string(listKey)] == nil {
-			return nil
-		}
-		idxTree := db.listIndex.trees[string(listKey)]
-		indexVal := idxTree.Get(ent.Key)
-		if indexVal == nil {
-			return nil
-		}
-
-		node, _ := indexVal.(*indexNode)
-		if node != nil && node.fid == fid && node.offset == offset {
-			valuePos, err := db.writeLogEntry(ent, List)
-			if err != nil {
-				return err
-			}
-			if err = db.updateIndexTree(idxTree, ent, valuePos, false, List); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	maybeRewriteHash := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
-		db.hashIndex.mu.Lock()
-		defer db.hashIndex.mu.Unlock()
-		key, field := db.decodeKey(ent.Key)
-		if db.hashIndex.trees[string(key)] == nil {
-			return nil
-		}
-		idxTree := db.hashIndex.trees[string(key)]
-		indexVal := idxTree.Get(field)
-		if indexVal == nil {
-			return nil
-		}
-
-		node, _ := indexVal.(*indexNode)
-		if node != nil && node.fid == fid && node.offset == offset {
-			// rewrite entry
-			valuePos, err := db.writeLogEntry(ent, Hash)
-			if err != nil {
-				return err
-			}
-			// update index
-			entry := &logfile.LogEntry{Key: field, Value: ent.Value}
-			_, size := logfile.EncodeEntry(ent)
-			valuePos.entrySize = size
-			if err = db.updateIndexTree(idxTree, entry, valuePos, false, Hash); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	maybeRewriteSets := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
-		db.setIndex.mu.Lock()
-		defer db.setIndex.mu.Unlock()
-		if db.setIndex.trees[string(ent.Key)] == nil {
-			return nil
-		}
-		idxTree := db.setIndex.trees[string(ent.Key)]
-		if err := db.setIndex.murhash.Write(ent.Value); err != nil {
-			logger.Fatalf("fail to write murmur hash: %v", err)
-		}
-		sum := db.setIndex.murhash.EncodeSum128()
-		db.setIndex.murhash.Reset()
-
-		indexVal := idxTree.Get(sum)
-		if indexVal == nil {
-			return nil
-		}
-		node, _ := indexVal.(*indexNode)
-		if node != nil && node.fid == fid && node.offset == offset {
-			// rewrite entry
-			valuePos, err := db.writeLogEntry(ent, Set)
-			if err != nil {
-				return err
-			}
-			// update index
-			entry := &logfile.LogEntry{Key: sum, Value: ent.Value}
-			_, size := logfile.EncodeEntry(ent)
-			valuePos.entrySize = size
-			if err = db.updateIndexTree(idxTree, entry, valuePos, false, Set); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	maybeRewriteZSet := func(fid uint32, offset int64, ent *logfile.LogEntry) error {
-		db.zsetIndex.mu.Lock()
-		defer db.zsetIndex.mu.Unlock()
-		key, _ := db.decodeKey(ent.Key)
-		if db.zsetIndex.trees[string(key)] == nil {
-			return nil
-		}
-		idxTree := db.zsetIndex.trees[string(key)]
-		if err := db.zsetIndex.murhash.Write(ent.Value); err != nil {
-			logger.Fatalf("fail to write murmur hash: %v", err)
-		}
-		sum := db.zsetIndex.murhash.EncodeSum128()
-		db.zsetIndex.murhash.Reset()
-
-		indexVal := idxTree.Get(sum)
-		if indexVal == nil {
-			return nil
-		}
-		node, _ := indexVal.(*indexNode)
-		if node != nil && node.fid == fid && node.offset == offset {
-			valuePos, err := db.writeLogEntry(ent, ZSet)
-			if err != nil {
-				return err
-			}
-			entry := &logfile.LogEntry{Key: sum, Value: ent.Value}
-			_, size := logfile.EncodeEntry(ent)
-			valuePos.entrySize = size
-			if err = db.updateIndexTree(idxTree, entry, valuePos, false, ZSet); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	activeLogFile := db.getActiveLogFile(dataType)
-	if activeLogFile == nil {
-		return nil
-	}
-	if err := db.discards[dataType].sync(); err != nil {
-		return err
-	}
-	ccl, err := db.discards[dataType].getCCL(activeLogFile.Fid, gcRatio)
-	if err != nil {
-		return err
-	}
-
-	for _, fid := range ccl {
-		if specifiedFid >= 0 && uint32(specifiedFid) != fid {
-			continue
-		}
-		archivedFile := db.getArchivedLogFile(dataType, fid)
-		if archivedFile == nil {
-			continue
-		}
-
-		var offset int64
-		for {
-			ent, size, err := archivedFile.ReadLogEntry(offset)
-			if err != nil {
-				if err == io.EOF || err == logfile.ErrEndOfEntry {
-					break
+			for _, idxRecord := range indexRecords[uint64(batchId)] {
+				if idxRecord.recordType == LogRecordNormal {
+					db.index.Put(idxRecord.key, idxRecord.position)
 				}
-				return err
+				if idxRecord.recordType == LogRecordDeleted {
+					db.index.Delete(idxRecord.key)
+				}
 			}
-			var off = offset
-			offset += size
-			if ent.Type == logfile.TypeDelete {
-				continue
-			}
-			ts := time.Now().Unix()
-			if ent.ExpiredAt != 0 && ent.ExpiredAt <= ts {
-				continue
-			}
-			var rewriteErr error
-			switch dataType {
-			case String:
-				rewriteErr = maybeRewriteStrs(archivedFile.Fid, off, ent)
-			case List:
-				rewriteErr = maybeRewriteList(archivedFile.Fid, off, ent)
-			case Hash:
-				rewriteErr = maybeRewriteHash(archivedFile.Fid, off, ent)
-			case Set:
-				rewriteErr = maybeRewriteSets(archivedFile.Fid, off, ent)
-			case ZSet:
-				rewriteErr = maybeRewriteZSet(archivedFile.Fid, off, ent)
-			}
-			if rewriteErr != nil {
-				return rewriteErr
-			}
+			// delete indexRecords according to batchId after indexing
+			delete(indexRecords, uint64(batchId))
+		} else {
+			// put the record into the temporary indexRecords
+			indexRecords[record.BatchId] = append(indexRecords[record.BatchId],
+				&IndexRecord{
+					key:        record.Key,
+					recordType: record.Type,
+					position:   position,
+				})
 		}
-
-		// delete older log file.
-		db.mu.Lock()
-		delete(db.archivedLogFiles[dataType], fid)
-		_ = archivedFile.Delete()
-		db.mu.Unlock()
-		// clear discard state.
-		db.discards[dataType].clear(fid)
 	}
 	return nil
 }

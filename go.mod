@@ -1,12 +1,23 @@
-module github.com/flower-corp/rosedb
+module github.com/rosedblabs/rosedb/v2
 
-go 1.16
+go 1.19
+
+require (
+	github.com/hashicorp/go-immutable-radix/v2 v2.0.0
+	github.com/rosedblabs/wal v0.0.0-20230609110305-5178372aa6c3
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/plar/go-adaptive-radix-tree v1.0.4
-	github.com/spaolacci/murmur3 v1.1.0
-	github.com/stretchr/testify v1.7.2
-	github.com/tidwall/redcon v1.4.5
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
+
+require (
+	github.com/bwmarrin/snowflake v0.3.0
+	github.com/gofrs/flock v0.8.1
+	github.com/hashicorp/golang-lru/v2 v2.0.3 // indirect
+	github.com/stretchr/testify v1.8.4
 )

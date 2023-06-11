@@ -1,84 +1,63 @@
 package rosedb
 
-import "time"
+import "os"
 
-// DataIndexMode the data index mode.
-type DataIndexMode int
-
-const (
-	// KeyValueMemMode key and value are both in memory, read operation will be very fast in this mode.
-	// Because there is no disk seek, just get value from the corresponding data structures in memory.
-	// This mode is suitable for scenarios where the value are relatively small.
-	KeyValueMemMode DataIndexMode = iota
-
-	// KeyOnlyMemMode only key in memory, there is a disk seek while getting a value.
-	// Because values are in log file on disk.
-	KeyOnlyMemMode
-)
-
-// IOType represents different types of file io: FileIO(standard file io) and MMap(Memory Map).
-type IOType int8
-
-const (
-	// FileIO standard file io.
-	FileIO IOType = iota
-	// MMap Memory Map.
-	MMap
-)
-
-// Options for opening a db.
+// Options specifies the options for opening a database.
 type Options struct {
-	// DBPath db path, will be created automatically if not exist.
-	DBPath string
+	// DirPath specifies the directory path where the WAL segment files will be stored.
+	DirPath string
 
-	// IndexMode mode of index, support KeyValueMemMode and KeyOnlyMemMode now.
-	// Note that this mode is only for kv pairs, not List, Hash, Set, and ZSet.
-	// Default value is KeyOnlyMemMode.
-	IndexMode DataIndexMode
+	// SegmentSize specifies the maximum size of each segment file in bytes.
+	SegmentSize int64
 
-	// IoType file r/w io type, support FileIO and MMap now.
-	// Default value is FileIO.
-	IoType IOType
+	// BlockCache specifies the size of the block cache in number of bytes.
+	// A block cache is used to store recently accessed data blocks, improving read performance.
+	// If BlockCache is set to 0, no block cache will be used.
+	BlockCache uint32
 
-	// Sync is whether to sync writes from the OS buffer cache through to actual disk.
+	// Sync is whether to synchronize writes through os buffer cache and down onto the actual disk.
+	// Setting sync is required for durability of a single write operation, but also results in slower writes.
+	//
 	// If false, and the machine crashes, then some recent writes may be lost.
-	// Note that if it is just the process that crashes (and the machine does not) then no writes will be lost.
-	// Default value is false.
+	// Note that if it is just the process that crashes (machine does not) then no writes will be lost.
+	//
+	// In other words, Sync being false has the same semantics as a write
+	// system call. Sync being true means write followed by fsync.
 	Sync bool
 
-	// LogFileGCInterval a background goroutine will execute log file garbage collection periodically according to the interval.
-	// It will pick the log file that meet the conditions for GC, then rewrite the valid data one by one.
-	// Default value is 8 hours.
-	LogFileGCInterval time.Duration
-
-	// LogFileGCRatio if discarded data in log file exceeds this ratio, it can be picked up for compaction(garbage collection)
-	// And if there are many files reached the ratio, we will pick the highest one by one.
-	// The recommended ratio is 0.5, half of the file can be compacted.
-	// Default value is 0.5.
-	LogFileGCRatio float64
-
-	// LogFileSizeThreshold threshold size of each log file, active log file will be closed if reach the threshold.
-	// Important!!! This option must be set to the same value as the first startup.
-	// Default value is 512MB.
-	LogFileSizeThreshold int64
-
-	// DiscardBufferSize a channel will be created to send the older entry size when a key updated or deleted.
-	// Entry size will be saved in the discard file, recording the invalid size in a log file, and be used when log file gc is running.
-	// This option represents the size of that channel.
-	// If you got errors like `send discard chan fail`, you can increase this option to avoid it.
-	DiscardBufferSize int
+	// BytesPerSync specifies the number of bytes to write before calling fsync.
+	BytesPerSync uint32
 }
 
-// DefaultOptions default options for opening a RoseDB.
-func DefaultOptions(path string) Options {
-	return Options{
-		DBPath:               path,
-		IndexMode:            KeyOnlyMemMode,
-		IoType:               FileIO,
-		Sync:                 false,
-		LogFileGCInterval:    time.Hour * 8,
-		LogFileGCRatio:       0.5,
-		LogFileSizeThreshold: 512 << 20,
-		DiscardBufferSize:    8 << 20,
-	}
+// BatchOptions specifies the options for creating a batch.
+type BatchOptions struct {
+	// Sync has the same semantics as Options.Sync.
+	Sync bool
+	// ReadOnly specifies whether the batch is read only.
+	ReadOnly bool
+}
+
+const (
+	B  = 1
+	KB = 1024 * B
+	MB = 1024 * KB
+	GB = 1024 * MB
+)
+
+var DefaultOptions = Options{
+	DirPath:      tempDBDir(),
+	SegmentSize:  1 * GB,
+	BlockCache:   64 * MB,
+	Sync:         false,
+	BytesPerSync: 0,
+}
+
+var DefaultBatchOptions = BatchOptions{
+	Sync:     true,
+	ReadOnly: false,
+}
+
+func tempDBDir() string {
+	dir, _ := os.MkdirTemp("", "rosedb-temp")
+	return dir
 }

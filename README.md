@@ -1,74 +1,95 @@
-![rosedb_ico.png](https://i.loli.net/2021/04/28/gIL2FXZcOesPmyD.png)
+## What is ROSEDB
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/roseduan/rosedb)&nbsp;](https://goreportcard.com/report/github.com/roseduan/rosedb)![GitHub top language](https://img.shields.io/github/languages/top/roseduan/rosedb)&nbsp;[![GitHub stars](https://img.shields.io/github/stars/roseduan/rosedb)&nbsp;](https://github.com/roseduan/rosedb/stargazers)[![codecov](https://codecov.io/gh/flower-corp/rosedb/branch/main/graph/badge.svg)](https://codecov.io/gh/flower-corp/rosedb) [![CodeFactor](https://www.codefactor.io/repository/github/flower-corp/rosedb/badge)](https://www.codefactor.io/repository/github/flower-corp/rosedb) [![Go Reference](https://pkg.go.dev/badge/github.com/roseduan/rosedb.svg)](https://pkg.go.dev/github.com/roseduan/rosedb) [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go#database) [![LICENSE](https://img.shields.io/github/license/flower-corp/rosedb.svg?style=flat-square)](https://github.com/flower-corp/rosedb/blob/main/LICENSE)
+rosedb is a lightweight, fast and reliable key/value storage engine based on [Bitcask](https://riak.com/assets/bitcask-intro.pdf) storage model.
 
-# The project is being refactored and should not be used in a production, thanks for your support!
-# 项目正在重构中，暂时不要用于生产环境，谢谢支持！
-English| [简体中文](https://github.com/roseduan/rosedb/blob/main/README-CN.md)
+The design of Bitcask was inspired, in part, by log-structured filesystems and log file merging.
 
-rosedb is a fast, stable, and embedded NoSQL database based on `bitcask`, supports a variety of data structures such as `string`, `list`, `hash`, `set`, and `sorted set`.     
+## Key features
 
-It is similar to `Redis` but store values on disk.
+### Strengths
 
-Key features:
+<details>
+    <summary><b>Low latency per item read or written</b></summary>
+    This is due to the write-once, append-only nature of Bitcask database files.
+</details>
 
-* **Compatible with Redis protocol (not fully)**
-* **Many data structures: `string`, `list`, `hash`, `set`, and `sorted set`**
-* **Easy to embed into your own Go application**
-* **High performance, suitable for both read and write intensive workload**
-* **Values are not limited by RAM**
+<details>
+    <summary><b>High throughput, especially when writing an incoming stream of random items</b></summary>
+    Write operations to RoseDB generally saturate I/O and disk bandwidth, which is a good thing from a performance perspective. This saturation occurs for two reasons: because (1) data that is written to RoseDB doesn’t need to be ordered on disk, and (2) the log-structured design of Bitcask allows for minimal disk head movement during writes.
+</details>    
 
-## Design Overview
+<details>
+    <summary><b>Ability to handle datasets larger than RAM without degradation</b></summary>
+    Access to data in RoseDB involves direct lookup from an in-memory index data structure. This makes finding data very efficient, even when datasets are very large.
+</details>
 
-![](https://github.com/flower-corp/rosedb/blob/main/resource/img/design-overview-rosedb.png)
+<details>
+    <summary><b>Single seek to retrieve any value</b></summary>
+    RoseDB’s in-memory index data structure of keys points directly to locations on disk where the data lives. RoseDB never uses more than one disk seek to read a value and sometimes even that isn’t necessary due to filesystem caching done by the operating system.
+</details>
 
-## Quick Start
+<details>
+    <summary><b>Predictable lookup and insert performance</b></summary>
+    For the reasons listed above, read operations from RoseDB have fixed, predictable behavior. This is also true of writes to RoseDB because write operations require, at most, one seek to the end of the current open file followed by and append to that file.
+</details>
 
-### Embedded usage:
+<details>
+    <summary><b>Fast, bounded crash recovery</b></summary>
+    Crash recovery is easy and fast with RoseDB because RoseDB files are append only and write once. The only items that may be lost are partially written records at the tail of the last file that was opened for writes. Recovery operations need to review only the last record or two written and verify CRC data to ensure that the data is consistent.
+</details>
 
-rosedb provides code example for each structure, please see [example](https://github.com/flower-corp/rosedb/tree/main/examples).
+<details>
+    <summary><b>Easy Backup</b></summary>
+    In most systems, backup can be very complicated. RoseDB simplifies this process due to its append-only, write-once disk format. Any utility that archives or copies files in disk-block order will properly back up or copy a RoseDB database.
+</details>
 
-### Command line usage:
+### Weaknesses
 
-1. start rosedb server.
+<details>
+    <summary><b>Keys must fit in memory</b></summary>
+    RoseDB keeps all keys in memory at all times, which means that your system must have enough memory to contain your entire keyspace, plus additional space for other operational components and operating- system-resident filesystem buffer space.
+</details>
 
-```shell
-cd rosedb
-make
-./rosedb-server [-option value]
+## Gettings Started
+
+**Example code**
+
+```go
+package main
+
+import "github.com/rosedblabs/rosedb/v2"
+
+func main() {
+	// specify the options
+	options := rosedb.DefaultOptions
+	options.DirPath = "/tmp/rosedb_basic"
+
+	// open a database
+	db, err := rosedb.Open(options)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		_ = db.Close()
+	}()
+
+	// set a key
+	err = db.Put([]byte("name"), []byte("rosedb"))
+	if err != nil {
+		panic(err)
+	}
+
+	// get a key
+	val, err := db.Get([]byte("name"))
+	if err != nil {
+		panic(err)
+	}
+	println(string(val))
+
+	// delete a key
+	err = db.Delete([]byte("name"))
+	if err != nil {
+		panic(err)
+	}
+}
 ```
-
-2. use redis client to access data, such as `redis-cli`.
-
-```shell
-./redis-cli -p 5200
-
-127.0.0.1:5200> 
-127.0.0.1:5200> set my_key RoseDB
-OK
-127.0.0.1:5200> get my_key
-"RoseDB"
-127.0.0.1:5200> 
-```
-
-## Documentation
-
-See [wiki](https://github.com/flower-corp/rosedb/wiki)
-
-## Community
-
-Welcome to join the [Slack channel](https://join.slack.com/t/flowercorp-slack/shared_invite/zt-19oj8ecqb-V02ycMV0BH1~Tn6tfeTz6A) and [Discussions](https://github.com/flower-corp/rosedb/discussions) to connect with RoseDB team members and other users.
-
-If you are a Chinese user, you are also welcome to join our WeChat group, scan the QR code and you will be invited:
-
-| <img src="https://i.loli.net/2021/05/06/tGTH7SXg8w95slA.jpg" width="200px" align="left"/> |
-| ------------------------------------------------------------ |
-
-## Contributing
-
-If you are interested in contributing to rosedb, see [CONTRIBUTING](https://github.com/roseduan/rosedb/blob/main/CONTRIBUTING.md) and [how to contribute?](https://github.com/flower-corp/rosedb/issues/103)
-
-## License
-
-rosedb is licensed under the term of the [Apache 2.0 License](https://github.com/roseduan/rosedb/blob/main/LICENSE)
-
