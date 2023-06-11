@@ -4,6 +4,10 @@ rosedb is a lightweight, fast and reliable key/value storage engine based on [Bi
 
 The design of Bitcask was inspired, in part, by log-structured filesystems and log file merging.
 
+## Design overview
+
+![](https://github.com/rosedblabs/rosedb/blob/main/docs/imgs/design-overview-rosedb.png)
+
 ## Key features
 
 ### Strengths
