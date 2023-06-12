@@ -8,6 +8,8 @@ The design of Bitcask was inspired, in part, by log-structured filesystems and l
 
 ![](https://github.com/rosedblabs/rosedb/blob/main/docs/imgs/design-overview-rosedb.png)
 
+RoseDB log files are using the WAL as backend, which is an append-only file with block cache.
+
 ## Key features
 
 ### Strengths
@@ -39,12 +41,17 @@ The design of Bitcask was inspired, in part, by log-structured filesystems and l
 
 <details>
     <summary><b>Fast, bounded crash recovery</b></summary>
-    Crash recovery is easy and fast with RoseDB because RoseDB files are append only and write once. The only items that may be lost are partially written records at the tail of the last file that was opened for writes. Recovery operations need to review only the last record or two written and verify CRC data to ensure that the data is consistent.
+    Crash recovery is easy and fast with RoseDB because RoseDB files are append only and write once. The only items that may be lost are partially written records at the tail of the last file that was opened for writes. Recovery operations need to review the record and verify CRC data to ensure that the data is consistent.
 </details>
 
 <details>
     <summary><b>Easy Backup</b></summary>
     In most systems, backup can be very complicated. RoseDB simplifies this process due to its append-only, write-once disk format. Any utility that archives or copies files in disk-block order will properly back up or copy a RoseDB database.
+</details>
+
+<details>
+    <summary><b>Batch options which guarantee atomicity, consistency, and durability</b></summary>
+	RoseDB supports batch operations which are atomic, consistent, and durable. The new writes in batch are cached in memory before committing. If the batch is committed successfully, all the writes in the batch will be persisted to disk. If the batch fails, all the writes in the batch will be discarded.
 </details>
 
 ### Weaknesses
