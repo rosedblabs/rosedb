@@ -8,7 +8,9 @@ The design of Bitcask was inspired, in part, by log-structured filesystems and l
 
 ![](https://github.com/rosedblabs/rosedb/blob/main/docs/imgs/design-overview-rosedb.png)
 
-RoseDB log files are using the WAL as backend, which is an append-only file with block cache.
+RoseDB log files are using the WAL(Write Ahead Log) as backend, which are append-only files with block cache.
+
+> wal: https://github.com/rosedblabs/wal
 
 ## Key features
 
@@ -63,7 +65,7 @@ RoseDB log files are using the WAL as backend, which is an append-only file with
 
 ## Gettings Started
 
-**Example code**
+### Basic operations
 
 ```go
 package main
@@ -104,3 +106,26 @@ func main() {
 	}
 }
 ```
+
+### Batch operations
+
+```go
+	// create a batch
+	batch := db.NewBatch(rosedb.DefaultBatchOptions)
+
+	// set a key
+	_ = batch.Put([]byte("name"), []byte("rosedb"))
+
+	// get a key
+	val, _ := batch.Get([]byte("name"))
+	println(string(val))
+
+	// delete a key
+	_ = batch.Delete([]byte("name"))
+
+	// commit the batch
+	_ = batch.Commit()
+```
+
+see the [examples](https://github.com/rosedblabs/rosedb/tree/main/examples) for more details.
+
