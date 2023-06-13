@@ -1,3 +1,11 @@
+<div align="center">
+<strong>
+<samp>
+[English](README.md) · [简体中文](README-CN.md)
+</samp>
+</strong>
+</div>
+
 ## What is ROSEDB
 
 rosedb is a lightweight, fast and reliable key/value storage engine based on [Bitcask](https://riak.com/assets/bitcask-intro.pdf) storage model.
