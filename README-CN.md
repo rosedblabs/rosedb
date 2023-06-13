@@ -9,15 +9,15 @@
 </div>
 
 ## ROSEDB 是什么？
-RoseDB 是一个基于 [Bitcask](https://riak.com/assets/bitcask-intro.pdf) 存储模型的轻量、快速、可靠的 KV 存储引擎。
+RoseDB 是一个基于 [Bitcask](https://riak.com/assets/bitcask-intro.pdf) 存储模型，轻量、快速、可靠的 KV 存储引擎。
 
-Bitcask 存储模型的设计主要收到日志结构化的文件系统和日志文件合并的启发。
+Bitcask 存储模型的设计主要受到日志结构化的文件系统和日志文件合并的启发。
 
 ## 设计概述
 
 ![](https://github.com/rosedblabs/rosedb/blob/main/docs/imgs/design-overview-rosedb.png)
 
-RoseDB 日志文件使用预写日志（Write Ahead Log），这些日志文件是具有块缓存的追加写入文件。
+RoseDB 存储数据的文件使用预写日志（Write Ahead Log），这些日志文件是具有 block 缓存的只追加写入（append-only）文件。
 
 > wal: https://github.com/rosedblabs/wal
 
@@ -26,8 +26,9 @@ RoseDB 日志文件使用预写日志（Write Ahead Log），这些日志文件�
 
 <details>
     <summary><b>读写低延迟</b></summary>
-    这是由于 Bitcask 存储模型文件的只写、追加写入特性。
+    这是由于 Bitcask 存储模型文件的追加写入特性，充分利用顺序 IO 的优势。
 </details>
+
 
 <details>
     <summary><b>高吞吐量，即使数据完全无序</b></summary>
@@ -43,21 +44,21 @@ RoseDB 日志文件使用预写日志（Write Ahead Log），这些日志文件�
     <summary><b>一次磁盘 IO 可以获取任意键值对</b></summary>
     RoseDB 的内存索引数据结构直接指向数据所在的磁盘位置，不需要多次磁盘寻址来读取一个值，有时甚至不需要寻址，这归功于操作系统的文件系统缓存以及 WAL 的 block 缓存。
 </details>
-
 <details>
-    <summary><b>查找和插入性能极其稳定快速</b></summary>
-    RoseDB 写入操作最多需要进行一次对当前打开文件的尾部的寻址，然后进行追加写入，写入后会更新内存。这个流程不会受到数据库数据量大小的影响，因此性能稳定。
+    <summary><b>性能快速稳定</b></summary>
+    RoseDB 写入操作最多需要一次对当前打开文件的尾部的寻址，然后进行追加写入，写入后会更新内存。这个流程不会受到数据库数据量大小的影响，因此性能稳定。
 </details>
+
 
 <details>
     <summary><b>崩溃恢复快速</b></summary>
     使用 RoseDB 的崩溃恢复很容易也很快，因为 RoseDB 文件是只追加写入一次的。恢复操作需要检查记录并验证CRC数据，以确保数据一致。
 </details>
-
 <details>
-    <summary><b>简单的备份</b></summary>
+    <summary><b>备份简单</b></summary>
     在大多数系统中，备份可能非常复杂。RoseDB 通过其只追加写入一次的磁盘格式简化了此过程。任何按磁盘块顺序存档或复制文件的工具都将正确备份或复制 RoseDB数据库。
 </details>
+
 
 <details>
     <summary><b>批处理操作可以保证原子性、一致性和持久性</b></summary>
