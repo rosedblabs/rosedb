@@ -1,7 +1,7 @@
 <div align="center">
 <strong>
 <samp>
-[English](README.md) · [简体中文](README-CN.md)
+	[English](https://github.com/rosedblabs/rosedb/blob/main/README.md) · [简体中文](https://github.com/rosedblabs/rosedb/blob/main/README-CN.md)
 </samp>
 </strong>
 </div>
