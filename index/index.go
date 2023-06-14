@@ -18,6 +18,44 @@ type Indexer interface {
 
 	// Size represents the number of keys in the index.
 	Size() int
+
+	// Iterator returns an iterator for the index.
+	Iterator(options IteratorOptions) Iterator
+}
+
+// Iterator is an interface for iterating the index.
+type Iterator interface {
+	// Rewind seek the first key in the index iterator.
+	Rewind()
+
+	// Seek move the iterator to the key which is
+	// greater(less when reverse is true) than or equal to the specified key.
+	Seek(key []byte)
+
+	// Next moves the iterator to the next key.
+	Next()
+
+	// Key get the current key.
+	Key() []byte
+
+	// Value get the current value.
+	Value() *wal.ChunkPosition
+
+	// Valid returns whether the iterator is exhausted.
+	Valid() bool
+
+	// Close the iterator.
+	Close()
+}
+
+// IteratorOptions is the options for the iterator.
+type IteratorOptions struct {
+	// Prefix filters the keys by prefix.
+	Prefix []byte
+
+	// Reverse indicates whether the iterator is reversed.
+	// false is forward, true is backward.
+	Reverse bool
 }
 
 type IndexerType = byte
