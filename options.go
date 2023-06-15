@@ -37,6 +37,16 @@ type BatchOptions struct {
 	ReadOnly bool
 }
 
+// IteratorOptions is the options for the iterator.
+type IteratorOptions struct {
+	// Prefix filters the keys by prefix.
+	Prefix []byte
+
+	// Reverse indicates whether the iterator is reversed.
+	// false is forward, true is backward.
+	Reverse bool
+}
+
 const (
 	B  = 1
 	KB = 1024 * B
@@ -55,6 +65,11 @@ var DefaultOptions = Options{
 var DefaultBatchOptions = BatchOptions{
 	Sync:     true,
 	ReadOnly: false,
+}
+
+var DefaultIteratorOptions = IteratorOptions{
+	Prefix:  nil,
+	Reverse: false,
 }
 
 func tempDBDir() string {
