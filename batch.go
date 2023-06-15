@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/bwmarrin/snowflake"
+
 	"github.com/rosedblabs/wal"
 )
 
@@ -202,6 +203,7 @@ func (b *Batch) Commit() error {
 
 	batchId := b.batchId.Generate()
 	positions := make(map[string]*wal.ChunkPosition)
+
 	// write to wal
 	for _, record := range b.pendingWrites {
 		record.BatchId = uint64(batchId)
@@ -238,5 +240,6 @@ func (b *Batch) Commit() error {
 		}
 	}
 
+	b.committed = true
 	return nil
 }
