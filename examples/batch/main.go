@@ -1,6 +1,8 @@
 package main
 
-import "github.com/rosedblabs/rosedb/v2"
+import (
+	"github.com/rosedblabs/rosedb/v2"
+)
 
 // this file shows how to use the batch operations of rosedb
 
@@ -20,6 +22,7 @@ func main() {
 
 	// create a batch
 	batch := db.NewBatch(rosedb.DefaultBatchOptions)
+	defer batch.Discard()
 
 	// set a key
 	_ = batch.Put([]byte("name"), []byte("rosedb"))

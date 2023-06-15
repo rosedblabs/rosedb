@@ -26,6 +26,8 @@ type Batch struct {
 	options       BatchOptions
 	mu            sync.RWMutex
 	committed     bool
+	discarded     bool
+	locked        bool
 	batchId       *snowflake.Node
 }
 
@@ -35,6 +37,7 @@ func (db *DB) NewBatch(options BatchOptions) *Batch {
 		db:        db,
 		options:   options,
 		committed: false,
+		discarded: false,
 	}
 	if !options.ReadOnly {
 		batch.pendingWrites = make(map[string]*LogRecord)
@@ -49,19 +52,31 @@ func (db *DB) NewBatch(options BatchOptions) *Batch {
 }
 
 func (b *Batch) lock() {
+	if b.locked {
+		return
+	}
+
 	if b.options.ReadOnly {
 		b.db.mu.RLock()
 	} else {
 		b.db.mu.Lock()
 	}
+
+	b.locked = true
 }
 
 func (b *Batch) unlock() {
+	if !b.locked {
+		return
+	}
+
 	if b.options.ReadOnly {
 		b.db.mu.RUnlock()
 	} else {
 		b.db.mu.Unlock()
 	}
+
+	b.locked = false
 }
 
 // Put adds a key-value pair to the batch for writing.
@@ -196,9 +211,12 @@ func (b *Batch) Commit() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	// check if committed
+	// check if committed or discarded
 	if b.committed {
 		return ErrBatchCommitted
+	}
+	if b.discarded {
+		return ErrBatchDiscarded
 	}
 
 	batchId := b.batchId.Generate()
@@ -242,4 +260,31 @@ func (b *Batch) Commit() error {
 
 	b.committed = true
 	return nil
+}
+
+// Discard discards a uncommitted batch instance.
+// the discard operation will clear the buffered data and release the lock.
+func (b *Batch) Discard() {
+	b.unlock()
+
+	if b.db.closed {
+		return
+	}
+	if b.options.ReadOnly || len(b.pendingWrites) == 0 {
+		return
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.committed || b.discarded {
+		return
+	}
+
+	if !b.options.ReadOnly {
+		// reset
+		b.pendingWrites = make(map[string]*LogRecord)
+	}
+
+	b.discarded = true
 }
