@@ -66,6 +66,11 @@ RoseDB log files are using the WAL(Write Ahead Log) as backend, which are append
 	RoseDB supports batch operations which are atomic, consistent, and durable. The new writes in batch are cached in memory before committing. If the batch is committed successfully, all the writes in the batch will be persisted to disk. If the batch fails, all the writes in the batch will be discarded.
 </details>
 
+<details>
+    <summary><b>Support iterator for forward and backward</b></summary>
+	RoseDB supports iterator for forward and backward. The iterator is based on the in-memory index data structure of keys, which points directly to locations on disk where the data lives. The iterator is very efficient, even when datasets are very large.
+</details>
+
 ### Weaknesses
 
 <details>
@@ -138,4 +143,3 @@ func main() {
 ```
 
 see the [examples](https://github.com/rosedblabs/rosedb/tree/main/examples) for more details.
-

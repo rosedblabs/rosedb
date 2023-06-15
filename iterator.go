@@ -10,6 +10,17 @@ import (
 //
 // Since we have the index iterator, we can get the position of the data.
 // Then we can get the data from the WAL by the position.
+//
+// The common usage is as follows:
+//
+// iter := db.NewIterator(DefaultIteratorOptions)
+// defer iter.Close()
+//
+//	for ; iter.Valid(); iter.Next() {
+//	    key := iter.Key()
+//	    value, err := iter.Value()
+//	    // do something with key/value
+//	}
 type Iterator struct {
 	db        *DB
 	indexIter index.Iterator
@@ -49,6 +60,7 @@ func (it *Iterator) Key() []byte {
 
 // Value get the current value.
 func (it *Iterator) Value() ([]byte, error) {
+	// we can get the value from the WAL by the position.
 	position := it.indexIter.Value()
 	chunk, err := it.db.dataFiles.Read(position)
 	if err != nil {
