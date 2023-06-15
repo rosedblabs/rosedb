@@ -149,22 +149,125 @@ func TestIRadixTreeIterator_Prefix(t *testing.T) {
 		[]byte("kjuea"),
 		[]byte("rnhse"),
 		[]byte("mjiqe"),
+		[]byte("cjiqe"),
 	}
 	for _, key := range keys {
 		tree.Put(key, &wal.ChunkPosition{BlockNumber: 1, ChunkOffset: 100})
 	}
-	sort.Slice(keys, func(i, j int) bool {
-		return bytes.Compare(keys[i], keys[j]) < 0
-	})
 
-	iter := tree.tree.Root().Iterator()
-	iter.SeekPrefix([]byte("au"))
-	iter.SeekLowerBound([]byte("auj"))
-	key, _, ok := iter.Next()
-	t.Log(key, ok)
+	validate := func(reverse bool, prefix []byte, size int) {
+		options := IteratorOptions{Prefix: prefix, Reverse: reverse}
+		iter := tree.Iterator(options)
+		defer iter.Close()
 
-	//optiosn := IteratorOptions{Reverse: false, Prefix: []byte("mm")}
-	//tree.Iterator(optiosn)
+		var i = 0
+		for ; iter.Valid(); iter.Next() {
+			assert.True(t, bytes.HasPrefix(iter.Key(), prefix))
+			assert.NotNil(t, iter.Value())
+			i++
+		}
+		assert.Equal(t, i, size)
+	}
+
+	validate(false, []byte("kk"), 1)
+	validate(false, []byte("not exist"), 0)
+	validate(false, []byte("c"), 3)
+	validate(false, []byte("cc"), 2)
+	validate(false, []byte("kjuea"), 1)
+
+	validate(true, []byte("kk"), 1)
+	validate(true, []byte("not exist"), 0)
+	validate(true, []byte("c"), 3)
+	validate(true, []byte("cc"), 2)
+	validate(true, []byte("kjuea"), 1)
+}
+
+func TestIRadixTreeIterator_Seek(t *testing.T) {
+	tree := newRadixTree()
+	keys := [][]byte{
+		[]byte("ccade"),
+		[]byte("aaame"),
+		[]byte("aujea"),
+		[]byte("ccnea"),
+		[]byte("bbeda"),
+		[]byte("kkimq"),
+		[]byte("neusa"),
+		[]byte("mjiue"),
+		[]byte("kjuea"),
+		[]byte("rnhse"),
+		[]byte("mjiqe"),
+		[]byte("cjiqe"),
+	}
+	for _, key := range keys {
+		tree.Put(key, &wal.ChunkPosition{BlockNumber: 1, ChunkOffset: 100})
+	}
+
+	validate := func(reverse bool, prefix, seek, target []byte) {
+		options := IteratorOptions{Prefix: prefix, Reverse: reverse}
+		iter := tree.Iterator(options)
+		defer iter.Close()
+
+		iter.Seek(seek)
+		assert.Equal(t, iter.Key(), target)
+	}
+
+	validate(false, nil, nil, []byte("aaame"))
+	validate(false, nil, []byte("mjiue"), []byte("mjiue"))
+	validate(false, nil, []byte("zzz"), nil)
+	validate(false, nil, []byte("bbbb"), []byte("bbeda"))
+
+	validate(true, nil, []byte("ccdes"), []byte("ccade"))
+	validate(true, nil, []byte("z"), []byte("rnhse"))
+	validate(true, nil, nil, nil)
+
+	validate(false, []byte("c"), []byte("ccn"), []byte("ccnea"))
+	validate(false, []byte("cxxx"), []byte("ccn"), nil)
+
+	validate(true, []byte("m"), []byte("zzz"), []byte("mjiue"))
+	validate(true, []byte("c"), []byte("ccd"), []byte("ccade"))
+}
+
+func TestIRadixTreeIterator_Rewind(t *testing.T) {
+	tree := newRadixTree()
+	keys := [][]byte{
+		[]byte("ccade"),
+		[]byte("aaame"),
+		[]byte("aujea"),
+		[]byte("ccnea"),
+		[]byte("bbeda"),
+		[]byte("kkimq"),
+		[]byte("neusa"),
+		[]byte("mjiue"),
+		[]byte("kjuea"),
+		[]byte("rnhse"),
+		[]byte("mjiqe"),
+		[]byte("cjiqe"),
+	}
+	for _, key := range keys {
+		tree.Put(key, &wal.ChunkPosition{BlockNumber: 1, ChunkOffset: 100})
+	}
+
+	validate := func(reverse bool, prefix, seek, target []byte) {
+		options := IteratorOptions{Prefix: prefix, Reverse: reverse}
+		iter := tree.Iterator(options)
+		defer iter.Close()
+
+		if seek != nil {
+			iter.Seek(seek)
+		}
+
+		iter.Next()
+		iter.Next()
+		iter.Rewind()
+		assert.Equal(t, iter.Key(), target)
+	}
+
+	validate(false, nil, nil, []byte("aaame"))
+	validate(false, nil, []byte("bb"), []byte("aaame"))
+	validate(false, []byte("c"), []byte("bb"), []byte("ccade"))
+
+	validate(true, nil, nil, []byte("rnhse"))
+	validate(true, []byte("k"), nil, []byte("kkimq"))
 }
 
 func testIRadixTreeIterator(t *testing.T, options IteratorOptions, size int) {

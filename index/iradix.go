@@ -3,7 +3,7 @@ package index
 import (
 	"sync"
 
-	iradix "github.com/hashicorp/go-immutable-radix/v2"
+	iradix "github.com/rosedblabs/go-immutable-radix/v2"
 	"github.com/rosedblabs/wal"
 )
 
