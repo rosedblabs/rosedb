@@ -26,7 +26,7 @@ func (db *DB) NewIterator(options IteratorOptions) *Iterator {
 	}
 }
 
-// Rewind seek the first key in the index iterator.
+// Rewind seek the first key in the iterator.
 func (it *Iterator) Rewind() {
 	it.indexIter.Rewind()
 }
