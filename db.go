@@ -16,7 +16,10 @@ import (
 )
 
 const (
-	fileLockName = "FLOCK"
+	fileLockName       = "FLOCK"
+	dataFileNameSuffix = ".SEG"
+	hintFileNameSuffix = ".HINT"
+	mergeFinNameSuffix = ".MERGEFIN"
 )
 
 // DB represents a ROSEDB database instance.
@@ -33,12 +36,14 @@ const (
 //
 // So if your memory can almost hold all the keys, ROSEDB is the perfect stroage engine for you.
 type DB struct {
-	dataFiles *wal.WAL // data files are a sets of segment files in WAL.
-	index     index.Indexer
-	options   Options
-	fileLock  *flock.Flock
-	mu        sync.RWMutex
-	closed    bool
+	dataFiles    *wal.WAL // data files are a sets of segment files in WAL.
+	hintFile     *wal.WAL // hint file is used to store the key and the position for fast startup.
+	index        index.Indexer
+	options      Options
+	fileLock     *flock.Flock
+	mu           sync.RWMutex
+	closed       bool
+	mergeRunning uint32 // indicate if the database is merging
 }
 
 // Stat represents the statistics of the database.
@@ -82,11 +87,12 @@ func Open(options Options) (*DB, error) {
 
 	// open data files from WAL
 	walFiles, err := wal.Open(wal.Options{
-		DirPath:      options.DirPath,
-		SegmentSize:  options.SegmentSize,
-		BlockCache:   options.BlockCache,
-		Sync:         options.Sync,
-		BytesPerSync: options.BytesPerSync,
+		DirPath:       options.DirPath,
+		SegmentSize:   options.SegmentSize,
+		SementFileExt: dataFileNameSuffix,
+		BlockCache:    options.BlockCache,
+		Sync:          options.Sync,
+		BytesPerSync:  options.BytesPerSync,
 	})
 	if err != nil {
 		return nil, err
@@ -118,6 +124,12 @@ func (db *DB) Close() error {
 	// close wal
 	if err := db.dataFiles.Close(); err != nil {
 		return err
+	}
+	// close hint file if exists
+	if db.hintFile != nil {
+		if err := db.hintFile.Close(); err != nil {
+			return err
+		}
 	}
 	// release file lock
 	if err := db.fileLock.Unlock(); err != nil {
