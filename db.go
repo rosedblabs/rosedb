@@ -85,6 +85,11 @@ func Open(options Options) (*DB, error) {
 		return nil, ErrDatabaseIsUsing
 	}
 
+	// load merge files if exists
+	if err = loadMergeFiles(options.DirPath); err != nil {
+		return nil, err
+	}
+
 	// open data files from WAL
 	walFiles, err := wal.Open(wal.Options{
 		DirPath:       options.DirPath,
@@ -104,6 +109,11 @@ func Open(options Options) (*DB, error) {
 		index:     index.NewIndexer(),
 		options:   options,
 		fileLock:  fileLock,
+	}
+
+	// load index frm hint file
+	if err = db.loadIndexFromHintFile(); err != nil {
+		return nil, err
 	}
 
 	// load index from data files
@@ -238,10 +248,21 @@ func checkOptions(options Options) error {
 // It will iterate over all the WAL files and read data
 // from them to rebuild the index.
 func (db *DB) loadIndexFromWAL() error {
+	mergeFinSegmentId, err := getMergeFinSegmentId(db.options.DirPath)
+	if err != nil {
+		return err
+	}
 	indexRecords := make(map[uint64][]*IndexRecord)
 	// get a reader for WAL
 	reader := db.dataFiles.NewReader()
 	for {
+		// if the current segment id is less than the mergeFinSegmentId,
+		// we can skip this segment because it has been merged,
+		// and we can load index from the hint file directly.
+		if reader.CurrentSegmentId() <= mergeFinSegmentId {
+			reader.SkipCurrentSegment()
+		}
+
 		chunk, position, err := reader.Next()
 		if err != nil {
 			if err == io.EOF {
