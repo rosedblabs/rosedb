@@ -290,6 +290,11 @@ func (db *DB) loadIndexFromWAL() error {
 			}
 			// delete indexRecords according to batchId after indexing
 			delete(indexRecords, uint64(batchId))
+		} else if record.Type == LogRecordNormal && record.BatchId == mergeFinishedBatchID {
+			// if the record is a normal record and the batch id is 0,
+			// it means that the record is involved in the merge operation.
+			// so put the record into index directly.
+			db.index.Put(record.Key, position)
 		} else {
 			// put the record into the temporary indexRecords
 			indexRecords[record.BatchId] = append(indexRecords[record.BatchId],

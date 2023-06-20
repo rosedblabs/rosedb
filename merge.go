@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -13,7 +14,8 @@ import (
 )
 
 const (
-	mergeDirSuffixName = "-merge"
+	mergeDirSuffixName   = "-merge"
+	mergeFinishedBatchID = 0
 )
 
 // Merge merges all the data files in the database.
@@ -82,13 +84,15 @@ func (db *DB) Merge() error {
 		if record.Type == LogRecordNormal {
 			indexPos := db.index.Get(record.Key)
 			if indexPos != nil && positionEquals(indexPos, position) {
-				newPosition, err := mergeDB.dataFiles.Write(chunk)
+				// clear the batch id of the record,
+				// all data after merge will be valid data, so the batch id should be 0.
+				record.BatchId = mergeFinishedBatchID
+				// Since the mergeDB will never be used for any read or write operations,
+				// it is not necessary to update the index.
+				newPosition, err := mergeDB.dataFiles.Write(encodeLogRecord(record))
 				if err != nil {
 					return err
 				}
-				// Since the mergeDB will never be used for any read or write operations,
-				// it is not necessary to update the index.
-				//
 				// And now we should write the new posistion to the write-ahead log,
 				// which is so-called HINT FILE in bitcask paper.
 				// The HINT FILE will be used to rebuild the index fastly when the database is restarted.
@@ -248,6 +252,16 @@ func loadMergeFiles(dirPath string) error {
 
 	copyFile := func(suffix string, fileId uint32) {
 		srcFile := wal.SegmentFileName(mergeDirPath, suffix, fileId)
+		stat, err := os.Stat(srcFile)
+		if os.IsNotExist(err) {
+			return
+		}
+		if err != nil {
+			panic(fmt.Sprintf("loadMergeFiles: failed to get src file stat %v", err))
+		}
+		if stat.Size() == 0 {
+			return
+		}
 		destFile := wal.SegmentFileName(dirPath, suffix, fileId)
 		_ = os.Rename(srcFile, destFile)
 	}
