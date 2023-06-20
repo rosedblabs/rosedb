@@ -57,6 +57,7 @@ func (db *DB) Merge() error {
 	db.mu.Unlock()
 
 	// open a merge db to write the data to the new data file.
+	// delete the merge directory if it exists and create a new one.
 	mergeDB, err := db.openMergeDB()
 	if err != nil {
 		return err
@@ -90,7 +91,7 @@ func (db *DB) Merge() error {
 				//
 				// And now we should write the new posistion to the write-ahead log,
 				// which is so-called HINT FILE in bitcask paper.
-				// The HINT FILE will be used to rebuild the index when the database is restarted.
+				// The HINT FILE will be used to rebuild the index fastly when the database is restarted.
 				_, err = mergeDB.hintFile.Write(encodeHintRecord(record.Key, newPosition))
 				if err != nil {
 					return err
@@ -100,8 +101,8 @@ func (db *DB) Merge() error {
 	}
 
 	// After rewrite all the data, we should add a file to indicate that the merge operation is completed.
-	// So when we restart the database, we can know that the merge is completed,
-	// otherwise, we will delete the merge directory and redo the merge operation.
+	// So when we restart the database, we can know that the merge is completed if the file exists,
+	// otherwise, we will delete the merge directory and redo the merge operation again.
 	mergeFinFile, err := mergeDB.openMergeFinishedFile()
 	if err != nil {
 		return err
@@ -115,6 +116,7 @@ func (db *DB) Merge() error {
 		return err
 	}
 
+	// all done successfully, return nil
 	return nil
 }
 
@@ -138,7 +140,7 @@ func (db *DB) openMergeDB() (*DB, error) {
 	// open the hint files to write the new position of the data.
 	hintFile, err := wal.Open(wal.Options{
 		DirPath: options.DirPath,
-		// we don't need to rotate the hint file, just write all data to the same file.
+		// we don't need to rotate the hint file, just write all data to a single file.
 		SegmentSize:   math.MaxInt64,
 		SementFileExt: hintFileNameSuffix,
 		Sync:          false,
@@ -230,7 +232,7 @@ func encodeMergeFinRecord(segmentId wal.SegmentID) []byte {
 	return buf
 }
 
-// loadMergeFiles loads all the merge files, and copy the data to the original data files.
+// loadMergeFiles loads all the merge files, and copy the data to the original data directory.
 // If there is no merge files, or the merge operation is not completed, it will return nil.
 func loadMergeFiles(dirPath string) error {
 	// check if there is a merge directory
@@ -268,7 +270,9 @@ func loadMergeFiles(dirPath string) error {
 	}
 
 	// copy MERGEFINISHED and HINT files to the original data directory
-	copyFile(mergeFinNameSuffix, 1) // there is only one merge finished file, so the file id is always 1, the same as the hint file
+	// there is only one merge finished file, so the file id is always 1,
+	// the same as the hint file.
+	copyFile(mergeFinNameSuffix, 1)
 	copyFile(hintFileNameSuffix, 1)
 
 	return nil

@@ -1,41 +1,21 @@
 package rosedb
 
 import (
-	"os"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestDB_Merge(t *testing.T) {
-	options := DefaultOptions
-	options.DirPath = "/tmp/rosedb-test"
-	db, err := Open(options)
-	assert.Nil(t, err)
-	//defer destroyDB(db)
-	t.Log(db, err)
+	// 	数据库为空
 
-	// for i := 0; i < 10000; i++ {
-	// 	err := db.Put(utils.GetTestKey(rand.Int()), utils.RandomValue(128))
-	// 	assert.Nil(t, err)
-	// 	err = db.Put(utils.GetTestKey(rand.Int()), utils.RandomValue(KB))
-	// 	assert.Nil(t, err)
-	// 	err = db.Put(utils.GetTestKey(rand.Int()), utils.RandomValue(5*KB))
-	// 	assert.Nil(t, err)
-	// }
+	//	数据库的数据全部都是有效的
 
-	// err = db.Merge()
-	t.Log(err)
-}
+	// 数据库的数据全部都是无效的
 
-func TestDB_Merge2(t *testing.T) {
-	// f, err := os.Open("/tmp/rosedb-test/aa")
-	// t.Log(os.IsNotExist(err))
-	// t.Log(f, err)
+	// 前面 merge 过了，再次重新 merge
 
-	// err = os.RemoveAll("/tmp/rosedb-test/")
-	// t.Log(err)
+	// 既有有效数据，也有无效数据
 
-	err := os.Rename("/tmp/rosedb-test/aa", "/tmp/rosedb-test/aa")
-	t.Log(err)
+	// merge 的过程中产生了新的数据
+
+	//	！！！以上情况均需要重启验证！！！
 }
