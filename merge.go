@@ -241,7 +241,8 @@ func encodeMergeFinRecord(segmentId wal.SegmentID) []byte {
 func loadMergeFiles(dirPath string) error {
 	// check if there is a merge directory
 	mergeDirPath := mergeDirPath(dirPath)
-	if _, err := os.Stat(mergeDirPath); os.IsNotExist(err) {
+	if _, err := os.Stat(mergeDirPath); err != nil {
+		// does not exist, just return.
 		return nil
 	}
 
