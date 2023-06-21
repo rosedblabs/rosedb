@@ -18,13 +18,26 @@ jobs:
         with:
           go-version: 1.19
 
+      - name: Run Go Vet
+        run: |
+          go vet ./...
+
+      - name: Run Go Fmt
+        run: |
+          files=$(go fmt ./...)
+          if [ -n "$files" ]; then
+            echo "Please run gofmt on these files ..."
+            echo "$files"
+            exit 1
+          fi
+
       - name: Build
         run: go build -v
 
-      - name: Unit Test
+      - name: Run Unit Test
         run: go test -count 1 -v ./...
 
-      - name: Benchmark Test
+      - name: Run Benchmark Test
         working-directory: ./benchmark
         run: go test -count 1 -v -bench=. ./...
 
@@ -38,12 +51,25 @@ jobs:
         with:
           go-version: 1.19
 
+      - name: Run Go Vet
+        run: |
+          go vet ./...
+
+      - name: Run Go Fmt
+        run: |
+          files=$(go fmt ./...)
+          if [ -n "$files" ]; then
+            echo "Please run gofmt on these files ..."
+            echo "$files"
+            exit 1
+          fi
+
       - name: Build
         run: go build -v
 
-      - name: Unit Test
+      - name: Run Unit Test
         run: go test -count 1 -v ./...
 
-      - name: Benchmark Test
+      - name: Run Benchmark Test
         working-directory: ./benchmark
         run: go test -count 1 -v -bench=. ./...
