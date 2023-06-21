@@ -160,11 +160,8 @@ func (db *DB) openMergeDB() (*DB, error) {
 }
 
 func mergeDirPath(dirPath string) string {
-	fmt.Println("dirpath = ", dirPath)
-	dir := filepath.Dir(path.Clean(dirPath))
-	fmt.Println("dir = ", dir)
+	dir := filepath.Dir(filepath.Clean(dirPath))
 	base := filepath.Base(dirPath)
-	fmt.Println("base = ", base)
 	return filepath.Join(dir, base+mergeDirSuffixName)
 }
 
