@@ -298,11 +298,11 @@ func getMergeFinSegmentId(mergePath string) (wal.SegmentID, error) {
 	if err != nil {
 		// if the merge finished file does not exist, it means that the merge operation is not completed.
 		// so we should remove the merge directory and return nil.
-		if os.IsNotExist(err) {
-			return 0, nil
-		}
-		return 0, err
+		return 0, nil
 	}
+	defer func() {
+		_ = mergeFinFile.Close()
+	}()
 
 	// Only 4 bytes are needed to store the segment id.
 	// And the first 7 bytes are chunk header.
