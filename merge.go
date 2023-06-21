@@ -163,7 +163,7 @@ func mergeDirPath(dirPath string) string {
 	fmt.Println("dirpath = ", dirPath)
 	dir := filepath.Dir(path.Clean(dirPath))
 	fmt.Println("dir = ", dir)
-	base := path.Base(dirPath)
+	base := filepath.Base(dirPath)
 	fmt.Println("base = ", base)
 	return filepath.Join(dir, base+mergeDirSuffixName)
 }
