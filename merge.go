@@ -6,7 +6,6 @@ import (
 	"io"
 	"math"
 	"os"
-	"path"
 	"path/filepath"
 	"sync/atomic"
 
