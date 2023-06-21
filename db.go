@@ -70,7 +70,7 @@ func Open(options Options) (*DB, error) {
 
 	// create data directory if not exist
 	if _, err := os.Stat(options.DirPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(options.DirPath, 0755); err != nil {
+		if err := os.MkdirAll(options.DirPath, 0700); err != nil {
 			return nil, err
 		}
 	}
