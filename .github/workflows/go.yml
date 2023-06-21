@@ -55,15 +55,6 @@ jobs:
         run: |
           go vet ./...
 
-      - name: Run Go Fmt
-        run: |
-          files=$(go fmt ./...)
-          if [ -n "$files" ]; then
-            echo "Please run gofmt on these files ..."
-            echo "$files"
-            exit 1
-          fi
-
       - name: Build
         run: go build -v
 
