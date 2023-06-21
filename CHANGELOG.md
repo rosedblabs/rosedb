@@ -1,3 +1,11 @@
+# Release 2.2.0(2023-06-21)
+
+## 🚀 New Features
+* Support Merge operation, to reclaim disk space.
+  * `Merge` will rewrite all the valid data into new file, and delete the old files.
+  * It maybe a very time-consuming operation, so it is recommended to use it when the database is idle.
+* Add tests in windows, with worlflow.
+
 # Release 2.1.0(2023-06-15)
 
 ## 🚀 New Features
