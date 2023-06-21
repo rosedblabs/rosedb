@@ -16,7 +16,10 @@ import (
 )
 
 const (
-	fileLockName = "FLOCK"
+	fileLockName       = "FLOCK"
+	dataFileNameSuffix = ".SEG"
+	hintFileNameSuffix = ".HINT"
+	mergeFinNameSuffix = ".MERGEFIN"
 )
 
 // DB represents a ROSEDB database instance.
@@ -33,12 +36,14 @@ const (
 //
 // So if your memory can almost hold all the keys, ROSEDB is the perfect stroage engine for you.
 type DB struct {
-	dataFiles *wal.WAL // data files are a sets of segment files in WAL.
-	index     index.Indexer
-	options   Options
-	fileLock  *flock.Flock
-	mu        sync.RWMutex
-	closed    bool
+	dataFiles    *wal.WAL // data files are a sets of segment files in WAL.
+	hintFile     *wal.WAL // hint file is used to store the key and the position for fast startup.
+	index        index.Indexer
+	options      Options
+	fileLock     *flock.Flock
+	mu           sync.RWMutex
+	closed       bool
+	mergeRunning uint32 // indicate if the database is merging
 }
 
 // Stat represents the statistics of the database.
@@ -64,7 +69,7 @@ func Open(options Options) (*DB, error) {
 	}
 
 	// create data directory if not exist
-	if _, err := os.Stat(options.DirPath); os.IsNotExist(err) {
+	if _, err := os.Stat(options.DirPath); err != nil {
 		if err := os.MkdirAll(options.DirPath, os.ModePerm); err != nil {
 			return nil, err
 		}
@@ -80,13 +85,19 @@ func Open(options Options) (*DB, error) {
 		return nil, ErrDatabaseIsUsing
 	}
 
+	// load merge files if exists
+	if err = loadMergeFiles(options.DirPath); err != nil {
+		return nil, err
+	}
+
 	// open data files from WAL
 	walFiles, err := wal.Open(wal.Options{
-		DirPath:      options.DirPath,
-		SegmentSize:  options.SegmentSize,
-		BlockCache:   options.BlockCache,
-		Sync:         options.Sync,
-		BytesPerSync: options.BytesPerSync,
+		DirPath:       options.DirPath,
+		SegmentSize:   options.SegmentSize,
+		SementFileExt: dataFileNameSuffix,
+		BlockCache:    options.BlockCache,
+		Sync:          options.Sync,
+		BytesPerSync:  options.BytesPerSync,
 	})
 	if err != nil {
 		return nil, err
@@ -98,6 +109,11 @@ func Open(options Options) (*DB, error) {
 		index:     index.NewIndexer(),
 		options:   options,
 		fileLock:  fileLock,
+	}
+
+	// load index frm hint file
+	if err = db.loadIndexFromHintFile(); err != nil {
+		return nil, err
 	}
 
 	// load index from data files
@@ -118,6 +134,12 @@ func (db *DB) Close() error {
 	// close wal
 	if err := db.dataFiles.Close(); err != nil {
 		return err
+	}
+	// close hint file if exists
+	if db.hintFile != nil {
+		if err := db.hintFile.Close(); err != nil {
+			return err
+		}
 	}
 	// release file lock
 	if err := db.fileLock.Unlock(); err != nil {
@@ -226,10 +248,21 @@ func checkOptions(options Options) error {
 // It will iterate over all the WAL files and read data
 // from them to rebuild the index.
 func (db *DB) loadIndexFromWAL() error {
+	mergeFinSegmentId, err := getMergeFinSegmentId(db.options.DirPath)
+	if err != nil {
+		return err
+	}
 	indexRecords := make(map[uint64][]*IndexRecord)
 	// get a reader for WAL
 	reader := db.dataFiles.NewReader()
 	for {
+		// if the current segment id is less than the mergeFinSegmentId,
+		// we can skip this segment because it has been merged,
+		// and we can load index from the hint file directly.
+		if reader.CurrentSegmentId() <= mergeFinSegmentId {
+			reader.SkipCurrentSegment()
+		}
+
 		chunk, position, err := reader.Next()
 		if err != nil {
 			if err == io.EOF {
@@ -257,6 +290,11 @@ func (db *DB) loadIndexFromWAL() error {
 			}
 			// delete indexRecords according to batchId after indexing
 			delete(indexRecords, uint64(batchId))
+		} else if record.Type == LogRecordNormal && record.BatchId == mergeFinishedBatchID {
+			// if the record is a normal record and the batch id is 0,
+			// it means that the record is involved in the merge operation.
+			// so put the record into index directly.
+			db.index.Put(record.Key, position)
 		} else {
 			// put the record into the temporary indexRecords
 			indexRecords[record.BatchId] = append(indexRecords[record.BatchId],
