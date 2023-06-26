@@ -16,6 +16,7 @@ The design of Bitcask was inspired, in part, by log-structured filesystems and l
 
 ## Status
 rosedb is well tested and ready for production use. There are serveral projects using rosedb in production as a storage engine.
+
 **Didn`t find the feature you want? Feel free to open an issue or PR, we are in active development.**
 
 ## Design overview
@@ -149,4 +150,4 @@ func main() {
 see the [examples](https://github.com/rosedblabs/rosedb/tree/main/examples) for more details.
 
 ## Community
-Welcome to join the [Slack](https://join.slack.com/t/rosedblabs/shared_invite/zt-19oj8ecqb-V02ycMV0BH1~Tn6tfeTz6A) channel and [Discussions](https://github.com/orgs/rosedblabs/discussions) to connect with LotusDB team members and other users.
+Welcome to join the [Slack](https://join.slack.com/t/rosedblabs/shared_invite/zt-19oj8ecqb-V02ycMV0BH1~Tn6tfeTz6A) channel and [Discussions](https://github.com/orgs/rosedblabs/discussions) to connect with RoseDB team developers and other users.

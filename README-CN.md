@@ -15,6 +15,7 @@ Bitcask 存储模型的设计主要受到日志结构化的文件系统和日志
 
 ## 状态
 RoseDB 经过充分测试，可放心在生产环境使用。目前有一些用户已经在生产环境中使用 RoseDB 作为存储引擎。
+
 **没有找到您想要的功能？ 请提出 issue 或 PR，项目目前处于积极维护状态，将会以最快的速度响应你的需求**
 
 ## 设计概述
@@ -146,7 +147,7 @@ func main() {
 完整代码可查看 [examples 示例代码](https://github.com/rosedblabs/rosedb/tree/main/examples)。
 
 ## 社区
-欢迎加入 [Slack](https://join.slack.com/t/rosedblabs/shared_invite/zt-19oj8ecqb-V02ycMV0BH1~Tn6tfeTz6A) 频道和 [Discussions](https://github.com/orgs/rosedblabs/discussions) 获取更多关于 RoseDB 其他开发者和使用者的交流。
+欢迎加入 [Slack](https://join.slack.com/t/rosedblabs/shared_invite/zt-19oj8ecqb-V02ycMV0BH1~Tn6tfeTz6A) 频道和 [Discussions](https://github.com/orgs/rosedblabs/discussions) 和其他 RoseDB 开发者和使用者进行交流。
 
 **微信群：**
 
