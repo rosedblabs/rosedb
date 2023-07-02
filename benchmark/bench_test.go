@@ -2,6 +2,7 @@ package benchmark
 
 import (
 	"math/rand"
+	"os"
 	"testing"
 
 	"github.com/rosedblabs/rosedb/v2"
@@ -11,7 +12,7 @@ import (
 
 var db *rosedb.DB
 
-func init() {
+func openDB() func() {
 	options := rosedb.DefaultOptions
 	options.DirPath = "/tmp/rosedbv2"
 
@@ -20,9 +21,22 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+
+	return func() {
+		_ = db.Close()
+		_ = os.RemoveAll(options.DirPath)
+	}
 }
 
-func Benchmark_Put(b *testing.B) {
+func BenchmarkPutGet(b *testing.B) {
+	closer := openDB()
+	defer closer()
+
+	b.Run("put", benchmarkPut)
+	b.Run("get", bencharkGet)
+}
+
+func benchmarkPut(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
@@ -32,7 +46,7 @@ func Benchmark_Put(b *testing.B) {
 	}
 }
 
-func Benchmark_Get(b *testing.B) {
+func bencharkGet(b *testing.B) {
 	for i := 0; i < 10000; i++ {
 		err := db.Put(utils.GetTestKey(i), utils.RandomValue(1024))
 		assert.Nil(b, err)
