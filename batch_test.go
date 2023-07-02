@@ -176,3 +176,24 @@ func assertKeyExistOrNot(t *testing.T, db *DB, key []byte, exist bool) {
 		assert.Equal(t, ErrKeyNotFound, err)
 	}
 }
+
+func TestBatch_Rollback(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	key := []byte("rosedb")
+	value := []byte("val")
+
+	batcher := db.NewBatch(DefaultBatchOptions)
+	err = batcher.Put(key, value)
+	assert.Nil(t, err)
+
+	err = batcher.Rollback()
+	assert.Nil(t, err)
+
+	resp, err := db.Get(key)
+	assert.Equal(t, ErrKeyNotFound, err)
+	assert.Empty(t, resp)
+}

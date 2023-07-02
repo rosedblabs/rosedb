@@ -1,6 +1,8 @@
 package main
 
-import "github.com/rosedblabs/rosedb/v2"
+import (
+	"github.com/rosedblabs/rosedb/v2"
+)
 
 // this file shows how to use the batch operations of rosedb
 
@@ -33,6 +35,9 @@ func main() {
 
 	// commit the batch
 	_ = batch.Commit()
+
+	// if you want to cancel batch, you must call rollback().
+	// _= batch.Rollback()
 
 	// once a batch is committed, it can't be used again
 	// _ = batch.Put([]byte("name1"), []byte("rosedb1")) // don't do this!!!
