@@ -22,11 +22,11 @@ import (
 // You must call Commit method to commit the batch, otherwise the DB will be locked.
 type Batch struct {
 	db            *DB
-	pendingWrites map[string]*LogRecord
+	pendingWrites map[string]*LogRecord // save the data to be written
 	options       BatchOptions
 	mu            sync.RWMutex
-	committed     bool
-	rollbacked    bool
+	committed     bool // whether the batch has been committed
+	rollbacked    bool // whether the batch has been rollbacked
 	batchId       *snowflake.Node
 }
 
@@ -252,17 +252,11 @@ func (b *Batch) Commit() error {
 // Rollback discards a uncommitted batch instance.
 // the discard operation will clear the buffered data and release the lock.
 func (b *Batch) Rollback() error {
-	b.unlock()
+	defer b.unlock()
 
 	if b.db.closed {
 		return ErrDBClosed
 	}
-	if b.options.ReadOnly || len(b.pendingWrites) == 0 {
-		return ErrReadOnlyBatch
-	}
-
-	b.mu.Lock()
-	defer b.mu.Unlock()
 
 	if b.committed {
 		return ErrBatchCommitted
@@ -272,7 +266,7 @@ func (b *Batch) Rollback() error {
 	}
 
 	if !b.options.ReadOnly {
-		// reset
+		// clear pendingWrites
 		b.pendingWrites = nil
 	}
 
