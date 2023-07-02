@@ -213,7 +213,7 @@ func (b *Batch) Commit() error {
 		return ErrBatchCommitted
 	}
 	if b.rollbacked {
-		return ErrBatchDiscarded
+		return ErrBatchRollbacked
 	}
 
 	batchId := b.batchId.Generate()
@@ -261,21 +261,24 @@ func (b *Batch) Commit() error {
 
 // Rollback discards a uncommitted batch instance.
 // the discard operation will clear the buffered data and release the lock.
-func (b *Batch) Rollback() {
+func (b *Batch) Rollback() error {
 	b.unlock()
 
 	if b.db.closed {
-		return
+		return ErrDBClosed
 	}
 	if b.options.ReadOnly || len(b.pendingWrites) == 0 {
-		return
+		return ErrReadOnlyBatch
 	}
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if b.committed || b.rollbacked {
-		return
+	if b.committed {
+		return ErrBatchCommitted
+	}
+	if b.rollbacked {
+		return ErrBatchRollbacked
 	}
 
 	if !b.options.ReadOnly {
@@ -284,4 +287,5 @@ func (b *Batch) Rollback() {
 	}
 
 	b.rollbacked = true
+	return nil
 }
