@@ -200,7 +200,7 @@ func TestBatch_Multi_Commit(t *testing.T) {
 	assert.EqualValues(t, value, resp)
 }
 
-func TestBatch_Discard_Commit(t *testing.T) {
+func TestBatch_Discard_Rollback(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
 	assert.Nil(t, err)
@@ -213,10 +213,10 @@ func TestBatch_Discard_Commit(t *testing.T) {
 	err = batcher.Put(key, value)
 	assert.Nil(t, err)
 
-	batcher.Discard()
+	batcher.Rollback()
 
 	// invalid call
-	batcher.Discard()
+	batcher.Rollback()
 	batcher.Commit()
 	batcher.Commit()
 
@@ -224,7 +224,7 @@ func TestBatch_Discard_Commit(t *testing.T) {
 	assert.Equal(t, ErrKeyNotFound, err)
 }
 
-func TestBatch_Commit_Discard(t *testing.T) {
+func TestBatch_Commit_Rollback(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
 	assert.Nil(t, err)
@@ -240,7 +240,7 @@ func TestBatch_Commit_Discard(t *testing.T) {
 	batcher.Commit()
 
 	// invalid call
-	batcher.Discard()
+	batcher.Rollback()
 	batcher.Commit()
 
 	resp, err := db.Get(key)

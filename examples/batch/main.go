@@ -22,7 +22,7 @@ func main() {
 
 	// create a batch
 	batch := db.NewBatch(rosedb.DefaultBatchOptions)
-	defer batch.Discard()
+	defer batch.Rollback()
 
 	// set a key
 	_ = batch.Put([]byte("name"), []byte("rosedb"))
