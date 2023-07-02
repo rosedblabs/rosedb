@@ -27,7 +27,6 @@ type Batch struct {
 	mu            sync.RWMutex
 	committed     bool
 	rollbacked    bool
-	locked        bool
 	batchId       *snowflake.Node
 }
 
@@ -57,23 +56,14 @@ func (b *Batch) lock() {
 	} else {
 		b.db.mu.Lock()
 	}
-
-	b.locked = true
 }
 
 func (b *Batch) unlock() {
-	// if the lock has been released, return.
-	if !b.locked {
-		return
-	}
-
 	if b.options.ReadOnly {
 		b.db.mu.RUnlock()
 	} else {
 		b.db.mu.Unlock()
 	}
-
-	b.locked = false
 }
 
 // Put adds a key-value pair to the batch for writing.

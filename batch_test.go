@@ -177,7 +177,7 @@ func assertKeyExistOrNot(t *testing.T, db *DB, key []byte, exist bool) {
 	}
 }
 
-func TestBatch_Multi_Commit(t *testing.T) {
+func TestBatch_Rollback(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
 	assert.Nil(t, err)
@@ -190,60 +190,10 @@ func TestBatch_Multi_Commit(t *testing.T) {
 	err = batcher.Put(key, value)
 	assert.Nil(t, err)
 
-	batcher.Commit()
-
-	// invalid call
-	batcher.Commit()
+	err = batcher.Rollback()
+	assert.Nil(t, err)
 
 	resp, err := db.Get(key)
-	assert.Nil(t, err)
-	assert.EqualValues(t, value, resp)
-}
-
-func TestBatch_Discard_Rollback(t *testing.T) {
-	options := DefaultOptions
-	db, err := Open(options)
-	assert.Nil(t, err)
-	defer destroyDB(db)
-
-	key := []byte("rosedb")
-	value := []byte("val")
-
-	batcher := db.NewBatch(DefaultBatchOptions)
-	err = batcher.Put(key, value)
-	assert.Nil(t, err)
-
-	batcher.Rollback()
-
-	// invalid call
-	batcher.Rollback()
-	batcher.Commit()
-	batcher.Commit()
-
-	_, err = db.Get(key)
 	assert.Equal(t, ErrKeyNotFound, err)
-}
-
-func TestBatch_Commit_Rollback(t *testing.T) {
-	options := DefaultOptions
-	db, err := Open(options)
-	assert.Nil(t, err)
-	defer destroyDB(db)
-
-	key := []byte("rosedb")
-	value := []byte("val")
-
-	batcher := db.NewBatch(DefaultBatchOptions)
-	err = batcher.Put(key, value)
-	assert.Nil(t, err)
-
-	batcher.Commit()
-
-	// invalid call
-	batcher.Rollback()
-	batcher.Commit()
-
-	resp, err := db.Get(key)
-	assert.Equal(t, nil, err)
-	assert.EqualValues(t, resp, value)
+	assert.Empty(t, resp)
 }

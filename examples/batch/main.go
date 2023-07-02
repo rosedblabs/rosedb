@@ -22,7 +22,6 @@ func main() {
 
 	// create a batch
 	batch := db.NewBatch(rosedb.DefaultBatchOptions)
-	defer batch.Rollback()
 
 	// set a key
 	_ = batch.Put([]byte("name"), []byte("rosedb"))
@@ -36,6 +35,9 @@ func main() {
 
 	// commit the batch
 	_ = batch.Commit()
+
+	// if you want to cancel batch, you must call rollback().
+	// _= batch.Rollback()
 
 	// once a batch is committed, it can't be used again
 	// _ = batch.Put([]byte("name1"), []byte("rosedb1")) // don't do this!!!
