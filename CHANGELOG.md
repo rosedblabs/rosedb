@@ -1,3 +1,11 @@
+# Release 2.2.1(2023-07-03)
+
+## 🎠 Community
+* Thanks to @rfyiamcool for PR
+  * feature: Add rollback function to discard all buffered data and release the lock([#217](https://github.com/rosedblabs/rosedb/pull/217))
+  * fix: clear db after benchmark ([#224](https://github.com/rosedblabs/rosedb/pull/224))
+
+
 # Release 2.2.0(2023-06-21)
 
 ## 🚀 New Features
