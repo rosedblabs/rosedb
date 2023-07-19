@@ -261,6 +261,7 @@ func (db *DB) loadIndexFromWAL() error {
 		// and we can load index from the hint file directly.
 		if reader.CurrentSegmentId() <= mergeFinSegmentId {
 			reader.SkipCurrentSegment()
+			continue
 		}
 
 		chunk, position, err := reader.Next()
