@@ -143,11 +143,11 @@ func (db *DB) openMergeDB() (*DB, error) {
 	hintFile, err := wal.Open(wal.Options{
 		DirPath: options.DirPath,
 		// we don't need to rotate the hint file, just write all data to a single file.
-		SegmentSize:   math.MaxInt64,
-		SementFileExt: hintFileNameSuffix,
-		Sync:          false,
-		BytesPerSync:  0,
-		BlockCache:    0,
+		SegmentSize:    math.MaxInt64,
+		SegmentFileExt: hintFileNameSuffix,
+		Sync:           false,
+		BytesPerSync:   0,
+		BlockCache:     0,
 	})
 	if err != nil {
 		return nil, err
@@ -164,12 +164,12 @@ func mergeDirPath(dirPath string) string {
 
 func (db *DB) openMergeFinishedFile() (*wal.WAL, error) {
 	return wal.Open(wal.Options{
-		DirPath:       db.options.DirPath,
-		SegmentSize:   GB,
-		SementFileExt: mergeFinNameSuffix,
-		Sync:          false,
-		BytesPerSync:  0,
-		BlockCache:    0,
+		DirPath:        db.options.DirPath,
+		SegmentSize:    GB,
+		SegmentFileExt: mergeFinNameSuffix,
+		Sync:           false,
+		BytesPerSync:   0,
+		BlockCache:     0,
 	})
 }
 
@@ -316,9 +316,9 @@ func (db *DB) loadIndexFromHintFile() error {
 	hintFile, err := wal.Open(wal.Options{
 		DirPath: db.options.DirPath,
 		// we don't need to rotate the hint file, just write all data to the same file.
-		SegmentSize:   math.MaxInt64,
-		SementFileExt: hintFileNameSuffix,
-		BlockCache:    32 * KB * 10,
+		SegmentSize:    math.MaxInt64,
+		SegmentFileExt: hintFileNameSuffix,
+		BlockCache:     32 * KB * 10,
 	})
 	if err != nil {
 		return err
