@@ -79,14 +79,13 @@ func (b *Batch) Put(key []byte, value []byte) error {
 	}
 
 	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	// write to pendingWrites
 	b.pendingWrites[string(key)] = &LogRecord{
 		Key:   key,
 		Value: value,
 		Type:  LogRecordNormal,
 	}
+	b.mu.Unlock()
 
 	return nil
 }
@@ -122,7 +121,12 @@ func (b *Batch) Get(key []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	record := decodeLogRecord(chunk)
+	if record.Type == LogRecordDeleted {
+		b.db.index.Delete(record.Key)
+		return nil, ErrKeyNotFound
+	}
 
 	return record.Value, nil
 }
@@ -140,8 +144,6 @@ func (b *Batch) Delete(key []byte) error {
 	}
 
 	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	if position := b.db.index.Get(key); position != nil {
 		// write to pendingWrites if the key exists
 		b.pendingWrites[string(key)] = &LogRecord{
@@ -151,6 +153,7 @@ func (b *Batch) Delete(key []byte) error {
 	} else {
 		delete(b.pendingWrites, string(key))
 	}
+	b.mu.Unlock()
 
 	return nil
 }
