@@ -16,7 +16,7 @@ import (
 // If readonly is false, you can use Put and Delete method to write data to the batch.
 // The data will be written to the database when you call Commit method.
 //
-// Batch is not a transaction, it does not guarantee isolation.
+// Batch is not a transaction, it does not guarantee isolation(only guarantee read committed).
 // But it can guarantee atomicity, consistency and durability(if the Sync options is true).
 //
 // You must call Commit method to commit the batch, otherwise the DB will be locked.
