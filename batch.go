@@ -124,7 +124,7 @@ func (b *Batch) Get(key []byte) ([]byte, error) {
 
 	record := decodeLogRecord(chunk)
 	if record.Type == LogRecordDeleted {
-		return nil, ErrKeyNotFound
+		panic("Deleted data cannot exist in the index")
 	}
 	return record.Value, nil
 }
