@@ -84,16 +84,25 @@ func TestDB_Concurrent_Put(t *testing.T) {
 	defer destroyDB(db)
 
 	wg := sync.WaitGroup{}
+	m := sync.Map{}
 	wg.Add(10)
 	for i := 0; i < 10; i++ {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < 10000; i++ {
 				key := utils.GetTestKey(rand.Int())
+				m.Store(string(key), struct{}{})
 				e := db.Put(key, utils.RandomValue(128))
 				assert.Nil(t, e)
 			}
 		}()
 	}
 	wg.Wait()
+
+	var count int
+	m.Range(func(key, value any) bool {
+		count++
+		return true
+	})
+	assert.Equal(t, count, db.index.Size())
 }
