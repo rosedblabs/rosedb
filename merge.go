@@ -81,7 +81,9 @@ func (db *DB) Merge() error {
 		// Only handle the normal log record, LogRecordDeleted and LogRecordBatchFinished
 		// will be ignored, because they are not valid data.
 		if record.Type == LogRecordNormal {
+			db.mu.RLock()
 			indexPos := db.index.Get(record.Key)
+			db.mu.RUnlock()
 			if indexPos != nil && positionEquals(indexPos, position) {
 				// clear the batch id of the record,
 				// all data after merge will be valid data, so the batch id should be 0.

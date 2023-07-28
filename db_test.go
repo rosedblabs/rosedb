@@ -1,10 +1,12 @@
 package rosedb
 
 import (
+	"math/rand"
+	"sync"
+	"testing"
+
 	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/stretchr/testify/assert"
-	"math/rand"
-	"testing"
 )
 
 func TestDB_Put_Normal(t *testing.T) {
@@ -73,4 +75,25 @@ func TestDB_Close_Sync(t *testing.T) {
 
 	err = db.Sync()
 	assert.Nil(t, err)
+}
+
+func TestDB_Concurrent_Put(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	wg := sync.WaitGroup{}
+	wg.Add(10)
+	for i := 0; i < 10; i++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 10000; i++ {
+				key := utils.GetTestKey(rand.Int())
+				e := db.Put(key, utils.RandomValue(128))
+				assert.Nil(t, e)
+			}
+		}()
+	}
+	wg.Wait()
 }
