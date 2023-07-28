@@ -198,7 +198,7 @@ func (b *Batch) Commit() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	// check if committed or discarded
+	// check if committed or rollbacked
 	if b.committed {
 		return ErrBatchCommitted
 	}

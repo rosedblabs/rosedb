@@ -174,8 +174,8 @@ func TestDB_Merge_6_Appending(t *testing.T) {
 			for i := 0; i < 10000; i++ {
 				key := utils.GetTestKey(rand.Int())
 				m.Store(string(key), struct{}{})
-				err = db.Put(key, utils.RandomValue(128))
-				assert.Nil(t, err)
+				e := db.Put(key, utils.RandomValue(128))
+				assert.Nil(t, e)
 			}
 		}()
 	}
