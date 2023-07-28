@@ -35,7 +35,7 @@ jobs:
         run: go build -v
 
       - name: Run Unit Test
-        run: go test -count 1 -v ./...
+        run: go test -count 1 -race -v ./...
 
       - name: Run Benchmark Test
         working-directory: ./benchmark
@@ -59,7 +59,7 @@ jobs:
         run: go build -v
 
       - name: Run Unit Test
-        run: go test -count 1 -v ./...
+        run: go test -count 1 -race -v ./...
 
       - name: Run Benchmark Test
         working-directory: ./benchmark
