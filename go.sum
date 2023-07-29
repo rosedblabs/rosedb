@@ -16,8 +16,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rosedblabs/go-immutable-radix/v2 v2.0.1-0.20230614125820-f2a7bc058c90 h1:AeuxZLgpVnxCjR6mvRJiDQATgOeSme59HX/rWCBjjvw=
 github.com/rosedblabs/go-immutable-radix/v2 v2.0.1-0.20230614125820-f2a7bc058c90/go.mod h1:Hk7adp95/ngEfetvapVWdgneuZb15mi9nH/keSH/KqI=
-github.com/rosedblabs/wal v1.2.1-0.20230729070929-b03783455406 h1:WaamfEHdTkziRX5di/S2jF7biU+BCPD+bExtkWAjDeY=
-github.com/rosedblabs/wal v1.2.1-0.20230729070929-b03783455406/go.mod h1:tYh0WapCkDQrID7PNsNHpsZDlkTczJVAFaTySmwaD7U=
+github.com/rosedblabs/wal v1.2.1-0.20230729134732-14a4140bc0f6 h1:ukN4YyRk8//COKnTfMMuT3Gc9N11foycM2MpHGKmmUI=
+github.com/rosedblabs/wal v1.2.1-0.20230729134732-14a4140bc0f6/go.mod h1:tYh0WapCkDQrID7PNsNHpsZDlkTczJVAFaTySmwaD7U=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 golang.org/x/exp v0.0.0-20221215174704-0915cd710c24 h1:6w3iSY8IIkp5OQtbYj8NeuKG1jS9d+kYaubXqsoOiQ8=

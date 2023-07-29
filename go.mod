@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/rosedblabs/go-immutable-radix/v2 v2.0.1-0.20230614125820-f2a7bc058c90
-	github.com/rosedblabs/wal v1.2.1-0.20230729070929-b03783455406
+	github.com/rosedblabs/wal v1.2.1-0.20230729134732-14a4140bc0f6
 )
 
 require (
