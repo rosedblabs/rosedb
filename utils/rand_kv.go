@@ -13,12 +13,12 @@ var (
 	letters = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 )
 
-// GetTestKey 获取测试使用的 key
+// GetTestKey get formated key, for test only
 func GetTestKey(i int) []byte {
 	return []byte(fmt.Sprintf("rosedb-test-key-%09d", i))
 }
 
-// RandomValue 生成随机 value，用于测试
+// RandomValue generate random value, for test only
 func RandomValue(n int) []byte {
 	b := make([]byte, n)
 	for i := range b {
