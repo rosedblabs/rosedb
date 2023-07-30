@@ -31,23 +31,47 @@ type Batch struct {
 }
 
 // NewBatch creates a new Batch instance.
-func (db *DB) NewBatch(options BatchOptions) *Batch {
+func NewBatch() interface{} {
 	batch := &Batch{
-		db:         db,
-		options:    options,
-		committed:  false,
-		rollbacked: false,
+		committed: false,
 	}
-	if !options.ReadOnly {
-		batch.pendingWrites = make(map[string]*LogRecord)
+	return batch
+}
+
+func (b *Batch) WithDB(db *DB) *Batch {
+	b.db = db
+	b.lock()
+	return b
+}
+
+func (b *Batch) Init(ops ...Option) *Batch {
+	for _, do := range ops {
+		do(&b.options)
+	}
+	b.committed = false
+	if !b.options.ReadOnly {
+		b.pendingWrites = make(map[string]*LogRecord)
 		node, err := snowflake.NewNode(1)
 		if err != nil {
 			panic(fmt.Sprintf("snowflake.NewNode(1) failed: %v", err))
 		}
-		batch.batchId = node
+		b.batchId = node
 	}
-	batch.lock()
-	return batch
+	return b
+}
+
+type Option func(*BatchOptions)
+
+func WithSync(sync bool) Option {
+	return func(opt *BatchOptions) {
+		opt.Sync = sync
+	}
+}
+
+func WithReadOnly(readOnly bool) Option {
+	return func(opt *BatchOptions) {
+		opt.ReadOnly = readOnly
+	}
 }
 
 func (b *Batch) lock() {
@@ -110,6 +134,7 @@ func (b *Batch) Get(key []byte) ([]byte, error) {
 			b.mu.RUnlock()
 			return record.Value, nil
 		}
+		b.mu.RUnlock()
 	}
 
 	// get from data file
@@ -152,7 +177,6 @@ func (b *Batch) Delete(key []byte) error {
 		delete(b.pendingWrites, string(key))
 	}
 	b.mu.Unlock()
-
 	return nil
 }
 

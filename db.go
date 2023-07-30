@@ -36,8 +36,9 @@ const (
 //
 // So if your memory can almost hold all the keys, ROSEDB is the perfect stroage engine for you.
 type DB struct {
-	dataFiles    *wal.WAL // data files are a sets of segment files in WAL.
-	hintFile     *wal.WAL // hint file is used to store the key and the position for fast startup.
+	dataFiles    *wal.WAL  // data files are a sets of segment files in WAL.
+	hintFile     *wal.WAL  // hint file is used to store the key and the position for fast startup.
+	batchPool    sync.Pool // batchPool is a pool for storing batches
 	index        index.Indexer
 	options      Options
 	fileLock     *flock.Flock
@@ -106,6 +107,7 @@ func Open(options Options) (*DB, error) {
 	// init DB instance
 	db := &DB{
 		dataFiles: walFiles,
+		batchPool: sync.Pool{New: NewBatch},
 		index:     index.NewIndexer(),
 		options:   options,
 		fileLock:  fileLock,
@@ -178,12 +180,14 @@ func (db *DB) Stat() *Stat {
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Put operation.
 func (db *DB) Put(key []byte, value []byte) error {
-	options := DefaultBatchOptions
 	// This is a single delete operation, we can set Sync to false.
 	// Because the data will be written to the WAL,
 	// and the WAL file will be synced to disk according to the DB options.
-	options.Sync = false
-	batch := db.NewBatch(options)
+	batch := db.batchPool.Get().(*Batch)
+	batch.Init(WithSync(false),
+		WithReadOnly(false)).
+		WithDB(db)
+	defer db.batchPool.Put(batch)
 	if err := batch.Put(key, value); err != nil {
 		return err
 	}
@@ -194,10 +198,12 @@ func (db *DB) Put(key []byte, value []byte) error {
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Get operation.
 func (db *DB) Get(key []byte) ([]byte, error) {
-	options := DefaultBatchOptions
 	// Read-only operation
-	options.ReadOnly = true
-	batch := db.NewBatch(options)
+	batch := db.batchPool.Get().(*Batch)
+	batch.Init(WithSync(false),
+		WithReadOnly(true)).
+		WithDB(db)
+	defer db.batchPool.Put(batch)
 	defer func() {
 		_ = batch.Commit()
 	}()
@@ -208,12 +214,14 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Delete operation.
 func (db *DB) Delete(key []byte) error {
-	options := DefaultBatchOptions
 	// This is a single delete operation, we can set Sync to false.
 	// Because the data will be written to the WAL,
 	// and the WAL file will be synced to disk according to the DB options.
-	options.Sync = false
-	batch := db.NewBatch(options)
+	batch := db.batchPool.Get().(*Batch)
+	batch.Init(WithSync(false),
+		WithReadOnly(false)).
+		WithDB(db)
+	defer db.batchPool.Put(batch)
 	if err := batch.Delete(key); err != nil {
 		return err
 	}
@@ -224,10 +232,12 @@ func (db *DB) Delete(key []byte) error {
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Exist operation.
 func (db *DB) Exist(key []byte) (bool, error) {
-	options := DefaultBatchOptions
 	// Read-only operation
-	options.ReadOnly = true
-	batch := db.NewBatch(options)
+	batch := db.batchPool.Get().(*Batch)
+	batch.Init(WithSync(false),
+		WithReadOnly(true)).
+		WithDB(db)
+	defer db.batchPool.Put(batch)
 	defer func() {
 		_ = batch.Commit()
 	}()
