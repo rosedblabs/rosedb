@@ -32,7 +32,11 @@ func TestBatch_Get_Normal(t *testing.T) {
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	batch1 := db.NewBatch(DefaultBatchOptions)
+	batch1 := db.batchPool.Get().(*Batch)
+	batch1.Init(WithSync(true),
+		WithReadOnly(false)).
+		WithDB(db)
+	defer db.batchPool.Put(batch1)
 	err = batch1.Put(utils.GetTestKey(12), utils.RandomValue(128))
 	assert.Nil(t, err)
 	val1, err := batch1.Get(utils.GetTestKey(12))
@@ -42,7 +46,9 @@ func TestBatch_Get_Normal(t *testing.T) {
 
 	generateData(t, db, 400, 500, 4*KB)
 
-	batch2 := db.NewBatch(DefaultBatchOptions)
+	batch2 := batch1.Init(WithSync(false),
+		WithReadOnly(false)).
+		WithDB(db)
 	err = batch2.Delete(utils.GetTestKey(450))
 	assert.Nil(t, err)
 	val, err := batch2.Get(utils.GetTestKey(450))
@@ -78,7 +84,11 @@ func TestBatch_Delete_Normal(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, exist)
 
-	batch := db.NewBatch(DefaultBatchOptions)
+	batch := db.batchPool.Get().(*Batch)
+	batch.Init(WithSync(true),
+		WithReadOnly(false)).
+		WithDB(db)
+	defer db.batchPool.Put(batch)
 	err = batch.Put(utils.GetTestKey(200), utils.RandomValue(100))
 	assert.Nil(t, err)
 	err = batch.Delete(utils.GetTestKey(200))
@@ -105,7 +115,11 @@ func TestBatch_Exist_Normal(t *testing.T) {
 	defer destroyDB(db)
 
 	generateData(t, db, 1, 100, 128)
-	batch := db.NewBatch(DefaultBatchOptions)
+	batch := db.batchPool.Get().(*Batch)
+	batch.Init(WithSync(true),
+		WithReadOnly(false)).
+		WithDB(db)
+	defer db.batchPool.Put(batch)
 	ok1, err := batch.Exist(utils.GetTestKey(99))
 	assert.Nil(t, err)
 	assert.True(t, ok1)
@@ -137,7 +151,11 @@ func batchPutAndIterate(t *testing.T, segmentSize int64, size int, valueLen int)
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	batch := db.NewBatch(BatchOptions{})
+	batch := db.batchPool.Get().(*Batch)
+	batch.Init(WithSync(true),
+		WithReadOnly(false)).
+		WithDB(db)
+	defer db.batchPool.Put(batch)
 
 	for i := 0; i < size; i++ {
 		err := batch.Put(utils.GetTestKey(i), utils.RandomValue(valueLen))
@@ -186,7 +204,11 @@ func TestBatch_Rollback(t *testing.T) {
 	key := []byte("rosedb")
 	value := []byte("val")
 
-	batcher := db.NewBatch(DefaultBatchOptions)
+	batcher := db.batchPool.Get().(*Batch)
+	batcher.Init(WithSync(true),
+		WithReadOnly(false)).
+		WithDB(db)
+	defer db.batchPool.Put(batcher)
 	err = batcher.Put(key, value)
 	assert.Nil(t, err)
 
