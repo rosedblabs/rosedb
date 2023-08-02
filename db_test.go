@@ -106,3 +106,36 @@ func TestDB_Concurrent_Put(t *testing.T) {
 	})
 	assert.Equal(t, count, db.index.Size())
 }
+
+func TestDB_Multi_Open_Merge(t *testing.T) {
+	options := DefaultOptions
+	options.DirPath = "./tmp"
+	m := make(map[string][]byte)
+	for i := 0; i < 10; i++ {
+		db, err := Open(options)
+		assert.Nil(t, err)
+
+		for i := 0; i < 10000; i++ {
+			key := utils.GetTestKey(rand.Int())
+			value := utils.RandomValue(128)
+			m[string(key)] = value
+			err = db.Put(key, value)
+			assert.Nil(t, err)
+		}
+
+		err = db.Merge()
+		assert.Nil(t, err)
+		db.Close()
+	}
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	for key, value := range m {
+		v, err := db.Get([]byte(key))
+		assert.Nil(t, err)
+		assert.Equal(t, string(value), string(v))
+	}
+	assert.Equal(t, len(m), db.index.Size())
+
+}
