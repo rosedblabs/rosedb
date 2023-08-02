@@ -277,10 +277,8 @@ func loadMergeFiles(dirPath string) error {
 		destFile := wal.SegmentFileName(dirPath, dataFileNameSuffix, fileId)
 		// If Open and Merge multiple times, some segment file will be deleted earlier, just continue them.
 		if _, err = os.Stat(destFile); os.IsNotExist(err) {
-			err = nil
 			continue
-		}
-		if err != nil {
+		} else if err != nil {
 			return err
 		}
 		// remove the original data file
