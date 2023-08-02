@@ -109,7 +109,6 @@ func TestDB_Concurrent_Put(t *testing.T) {
 
 func TestDB_Multi_Open_Merge(t *testing.T) {
 	options := DefaultOptions
-	options.DirPath = "./tmp"
 	m := make(map[string][]byte)
 	for i := 0; i < 10; i++ {
 		db, err := Open(options)
