@@ -180,14 +180,14 @@ func (db *DB) Stat() *Stat {
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Put operation.
 func (db *DB) Put(key []byte, value []byte) error {
-	// This is a single delete operation, we can set Sync to false.
-	// Because the data will be written to the WAL,
-	// and the WAL file will be synced to disk according to the DB options.
 	batch := db.batchPool.Get().(*Batch)
 	defer func() {
 		batch.reset()
 		db.batchPool.Put(batch)
 	}()
+	// This is a single delete operation, we can set Sync to false.
+	// Because the data will be written to the WAL,
+	// and the WAL file will be synced to disk according to the DB options.
 	batch.init(false, false, db).withPendingWrites()
 	if err := batch.Put(key, value); err != nil {
 		return err
@@ -213,14 +213,14 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Delete operation.
 func (db *DB) Delete(key []byte) error {
-	// This is a single delete operation, we can set Sync to false.
-	// Because the data will be written to the WAL,
-	// and the WAL file will be synced to disk according to the DB options.
 	batch := db.batchPool.Get().(*Batch)
 	defer func() {
 		batch.reset()
 		db.batchPool.Put(batch)
 	}()
+	// This is a single delete operation, we can set Sync to false.
+	// Because the data will be written to the WAL,
+	// and the WAL file will be synced to disk according to the DB options.
 	batch.init(false, false, db).withPendingWrites()
 	if err := batch.Delete(key); err != nil {
 		_ = batch.Rollback()

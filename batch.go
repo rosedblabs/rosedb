@@ -61,8 +61,8 @@ func makeBatch() interface{} {
 	}
 }
 
-func (b *Batch) init(readOnly, sync bool, db *DB) *Batch {
-	b.options.ReadOnly = readOnly
+func (b *Batch) init(rdonly, sync bool, db *DB) *Batch {
+	b.options.ReadOnly = rdonly
 	b.options.Sync = sync
 	b.db = db
 	b.lock()
