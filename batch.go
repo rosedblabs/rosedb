@@ -50,6 +50,37 @@ func (db *DB) NewBatch(options BatchOptions) *Batch {
 	return batch
 }
 
+func makeBatch() interface{} {
+	node, err := snowflake.NewNode(1)
+	if err != nil {
+		panic(fmt.Sprintf("snowflake.NewNode(1) failed: %v", err))
+	}
+	return &Batch{
+		options: DefaultBatchOptions,
+		batchId: node,
+	}
+}
+
+func (b *Batch) init(readOnly, sync bool, db *DB) *Batch {
+	b.options.ReadOnly = readOnly
+	b.options.Sync = sync
+	b.db = db
+	b.lock()
+	return b
+}
+
+func (b *Batch) withPendingWrites() *Batch {
+	b.pendingWrites = make(map[string]*LogRecord)
+	return b
+}
+
+func (b *Batch) reset() {
+	b.db = nil
+	b.pendingWrites = nil
+	b.committed = false
+	b.rollbacked = false
+}
+
 func (b *Batch) lock() {
 	if b.options.ReadOnly {
 		b.db.mu.RLock()

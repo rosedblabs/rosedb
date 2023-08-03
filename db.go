@@ -44,6 +44,7 @@ type DB struct {
 	mu           sync.RWMutex
 	closed       bool
 	mergeRunning uint32 // indicate if the database is merging
+	batchPool    sync.Pool
 }
 
 // Stat represents the statistics of the database.
@@ -109,6 +110,7 @@ func Open(options Options) (*DB, error) {
 		index:     index.NewIndexer(),
 		options:   options,
 		fileLock:  fileLock,
+		batchPool: sync.Pool{New: makeBatch},
 	}
 
 	// load index frm hint file
@@ -178,12 +180,15 @@ func (db *DB) Stat() *Stat {
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Put operation.
 func (db *DB) Put(key []byte, value []byte) error {
-	options := DefaultBatchOptions
 	// This is a single delete operation, we can set Sync to false.
 	// Because the data will be written to the WAL,
 	// and the WAL file will be synced to disk according to the DB options.
-	options.Sync = false
-	batch := db.NewBatch(options)
+	batch := db.batchPool.Get().(*Batch)
+	defer func() {
+		batch.reset()
+		db.batchPool.Put(batch)
+	}()
+	batch.init(false, false, db).withPendingWrites()
 	if err := batch.Put(key, value); err != nil {
 		return err
 	}
@@ -194,12 +199,12 @@ func (db *DB) Put(key []byte, value []byte) error {
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Get operation.
 func (db *DB) Get(key []byte) ([]byte, error) {
-	options := DefaultBatchOptions
-	// Read-only operation
-	options.ReadOnly = true
-	batch := db.NewBatch(options)
+	batch := db.batchPool.Get().(*Batch)
+	batch.init(true, false, db)
 	defer func() {
 		_ = batch.Commit()
+		batch.reset()
+		db.batchPool.Put(batch)
 	}()
 	return batch.Get(key)
 }
@@ -208,13 +213,17 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Delete operation.
 func (db *DB) Delete(key []byte) error {
-	options := DefaultBatchOptions
 	// This is a single delete operation, we can set Sync to false.
 	// Because the data will be written to the WAL,
 	// and the WAL file will be synced to disk according to the DB options.
-	options.Sync = false
-	batch := db.NewBatch(options)
+	batch := db.batchPool.Get().(*Batch)
+	defer func() {
+		batch.reset()
+		db.batchPool.Put(batch)
+	}()
+	batch.init(false, false, db).withPendingWrites()
 	if err := batch.Delete(key); err != nil {
+		_ = batch.Rollback()
 		return err
 	}
 	return batch.Commit()
@@ -224,12 +233,12 @@ func (db *DB) Delete(key []byte) error {
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Exist operation.
 func (db *DB) Exist(key []byte) (bool, error) {
-	options := DefaultBatchOptions
-	// Read-only operation
-	options.ReadOnly = true
-	batch := db.NewBatch(options)
+	batch := db.batchPool.Get().(*Batch)
+	batch.init(true, false, db)
 	defer func() {
 		_ = batch.Commit()
+		batch.reset()
+		db.batchPool.Put(batch)
 	}()
 	return batch.Exist(key)
 }
