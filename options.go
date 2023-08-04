@@ -28,7 +28,10 @@ type Options struct {
 	// BytesPerSync specifies the number of bytes to write before calling fsync.
 	BytesPerSync uint32
 
+	// Watchable whether to enable event change notification.
 	Watchable bool
+	// WatchQueueSize the cache length of the watch queue, default 1000.
+	WatchQueueSize uint64
 }
 
 // BatchOptions specifies the options for creating a batch.

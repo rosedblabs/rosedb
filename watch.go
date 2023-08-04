@@ -10,6 +10,7 @@ const (
 	ActionDelete = "Delete"
 )
 
+// Event
 type Event struct {
 	Action  string
 	Key     []byte
@@ -17,6 +18,7 @@ type Event struct {
 	BatchId uint64
 }
 
+// NewEvent generate a key-value change event after batch submission.
 func NewEvent(action string, key, value []byte, batchId uint64) *Event {
 	return &Event{
 		Action:  action,
@@ -26,12 +28,20 @@ func NewEvent(action string, key, value []byte, batchId uint64) *Event {
 	}
 }
 
+// Watcher temporarily stores event information,
+// as it is generated until it is synchronized to DB's watch.
+//
+// If the event is overflow, It will remove the oldest data,
+// even if event hasn't been read yet.
 type Watcher struct {
 	queue eventQueue
 	mu    sync.RWMutex
 }
 
-func NewWatcher(capacity int) *Watcher {
+func NewWatcher(capacity uint64) *Watcher {
+	if capacity <= 0 {
+		capacity = 1000 // default capacity
+	}
 	return &Watcher{
 		queue: eventQueue{
 			Events:   make([]*Event, capacity),
@@ -59,6 +69,7 @@ func (w *Watcher) Scan() (e *Event, isEmpty bool) {
 	return
 }
 
+// Sync synchronize events to DB's watch
 func (w *Watcher) Sync(c chan *Event) {
 	for {
 		e, isEmpty := w.Scan()
@@ -72,15 +83,14 @@ func (w *Watcher) Sync(c chan *Event) {
 
 type eventQueue struct {
 	Events   []*Event
-	Capacity int
-	Front    int // read point
-	Back     int // write point
+	Capacity uint64
+	Front    uint64 // read point
+	Back     uint64 // write point
 }
 
 func (eq *eventQueue) push(e *Event) {
 	eq.Events[eq.Back] = e
 	eq.Back = (eq.Back + 1) % eq.Capacity
-	return
 }
 
 func (eq *eventQueue) pop() *Event {

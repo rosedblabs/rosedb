@@ -45,7 +45,7 @@ type DB struct {
 	closed       bool
 	mergeRunning uint32 // indicate if the database is merging
 	batchPool    sync.Pool
-	watch        chan *Event
+	watch        chan *Event // user consume channel for watch events
 	watcher      *Watcher
 }
 
@@ -115,9 +115,11 @@ func Open(options Options) (*DB, error) {
 		batchPool: sync.Pool{New: makeBatch},
 	}
 
+	// enable watch
 	if options.Watchable {
 		db.watch = make(chan *Event, 100)
-		db.watcher = NewWatcher(1000)
+		db.watcher = NewWatcher(options.WatchQueueSize)
+		// run a goroutine to synchronize event information
 		go db.watcher.Sync(db.watch)
 	}
 
