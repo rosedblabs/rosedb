@@ -27,6 +27,8 @@ type Options struct {
 
 	// BytesPerSync specifies the number of bytes to write before calling fsync.
 	BytesPerSync uint32
+
+	Watchable bool
 }
 
 // BatchOptions specifies the options for creating a batch.
@@ -60,6 +62,7 @@ var DefaultOptions = Options{
 	BlockCache:   0,
 	Sync:         false,
 	BytesPerSync: 0,
+	Watchable:    false,
 }
 
 var DefaultBatchOptions = BatchOptions{

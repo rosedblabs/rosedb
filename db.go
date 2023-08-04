@@ -45,6 +45,8 @@ type DB struct {
 	closed       bool
 	mergeRunning uint32 // indicate if the database is merging
 	batchPool    sync.Pool
+	watch        chan *Event
+	watcher      Watcher
 }
 
 // Stat represents the statistics of the database.
@@ -111,6 +113,12 @@ func Open(options Options) (*DB, error) {
 		options:   options,
 		fileLock:  fileLock,
 		batchPool: sync.Pool{New: makeBatch},
+	}
+
+	if options.Watchable {
+		db.watch = make(chan *Event, 100)
+		db.watcher = *NewWatcher(1000)
+		go db.watcher.Sync(db.watch)
 	}
 
 	// load index frm hint file
@@ -316,4 +324,8 @@ func (db *DB) loadIndexFromWAL() error {
 		}
 	}
 	return nil
+}
+
+func (db *DB) Watch() chan *Event {
+	return db.watch
 }

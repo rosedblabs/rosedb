@@ -272,8 +272,16 @@ func (b *Batch) Commit() error {
 	for key, record := range b.pendingWrites {
 		if record.Type == LogRecordDeleted {
 			b.db.index.Delete(record.Key)
+			if b.db.options.Watchable {
+				e := NewEvent(ActionDelete, record.Key, record.Value, record.BatchId)
+				b.db.watcher.Insert(e)
+			}
 		} else {
 			b.db.index.Put(record.Key, positions[key])
+			if b.db.options.Watchable {
+				e := NewEvent(ActionPut, record.Key, record.Value, record.BatchId)
+				b.db.watcher.Insert(e)
+			}
 		}
 	}
 
