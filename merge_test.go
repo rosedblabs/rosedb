@@ -227,7 +227,7 @@ func TestDB_Multi_Open_Merge(t *testing.T) {
 	for key, value := range kvs {
 		v, err := db.Get([]byte(key))
 		assert.Nil(t, err)
-		assert.Equal(t, string(value), string(v))
+		assert.Equal(t, value, v)
 	}
 	assert.Equal(t, len(kvs), db.index.Size())
 }

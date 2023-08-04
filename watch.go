@@ -32,12 +32,10 @@ type Watcher struct {
 }
 
 func NewWatcher(capacity int) *Watcher {
-	// Leave two spaces to determine whether the queue is full and overwrite the write.
-	size := capacity + 2
 	return &Watcher{
 		queue: eventQueue{
-			Events:   make([]*Event, size),
-			Capacity: size,
+			Events:   make([]*Event, capacity),
+			Capacity: capacity,
 		},
 	}
 }
@@ -66,6 +64,7 @@ func (w *Watcher) Sync(c chan *Event) {
 		e, isEmpty := w.Scan()
 		if isEmpty {
 			time.Sleep(100 * time.Millisecond)
+			continue
 		}
 		c <- e
 	}

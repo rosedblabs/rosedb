@@ -46,7 +46,7 @@ type DB struct {
 	mergeRunning uint32 // indicate if the database is merging
 	batchPool    sync.Pool
 	watch        chan *Event
-	watcher      Watcher
+	watcher      *Watcher
 }
 
 // Stat represents the statistics of the database.
@@ -117,7 +117,7 @@ func Open(options Options) (*DB, error) {
 
 	if options.Watchable {
 		db.watch = make(chan *Event, 100)
-		db.watcher = *NewWatcher(1000)
+		db.watcher = NewWatcher(1000)
 		go db.watcher.Sync(db.watch)
 	}
 
@@ -154,6 +154,11 @@ func (db *DB) Close() error {
 	// release file lock
 	if err := db.fileLock.Unlock(); err != nil {
 		return err
+	}
+
+	// close watch channel
+	if db.options.Watchable {
+		close(db.watch)
 	}
 
 	db.closed = true
@@ -326,6 +331,9 @@ func (db *DB) loadIndexFromWAL() error {
 	return nil
 }
 
-func (db *DB) Watch() chan *Event {
-	return db.watch
+func (db *DB) Watch() (chan *Event, error) {
+	if !db.options.Watchable {
+		return nil, ErrWatchUnopened
+	}
+	return db.watch, nil
 }
