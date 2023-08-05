@@ -1,3 +1,23 @@
+# Release 2.2.2(2023-08-05)
+## 🚀 New Features
+* Watch Key [feature support watch event by key #227](https://github.com/rosedblabs/rosedb/issues/227) @Jeremy-Run 
+
+## 🎄 Enhancements
+
+* Batch Optimiztion [use sync.Pool to optimize db.Put operation #235](https://github.com/rosedblabs/rosedb/issues/235)
+* Optimize memory usage [enhancement: high memory usage of rosedb #236](https://github.com/rosedblabs/rosedb/issues/236)
+
+## 🎠 Community
+* Thanks to @kebukeYi 
+    * Change Variable name in openMergeDB (https://github.com/rosedblabs/rosedb/pull/228)
+    * Avoid parsing wal files repeatedly. (https://github.com/rosedblabs/rosedb/pull/229)
+* Thanks to @Jeremy-Run 
+    * Deleted data cannot exist in the index (https://github.com/rosedblabs/rosedb/pull/232)
+    * fix: solve data race (https://github.com/rosedblabs/rosedb/pull/234)
+    * fix: destFile may be not exist (https://github.com/rosedblabs/rosedb/pull/243)
+* Thanks to @rfyiamcool 
+    * fix: format code comment for rand_kv (https://github.com/rosedblabs/rosedb/pull/240)
+
 # Release 2.2.1(2023-07-03)
 
 ## 🎠 Community

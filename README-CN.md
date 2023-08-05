@@ -75,6 +75,11 @@ RoseDB 存储数据的文件使用预写日志（Write Ahead Log），这些日�
     RoseDB 支持正向和反向迭代器，这些迭代器可以在数据库中的任何位置开始迭代。迭代器可以用于扫描数据库中的所有键值对，也可以用于扫描数据库中的某个范围的键值对，迭代器从索引中获取位置信息，然后直接从磁盘中读取数据，因此迭代器的性能非常高。
 </details>
 
+<details>
+    <summary><b>支持 Watch 功能</b></summary>
+    RoseDB 支持 Watch 功能，DB 中的 key 发生变化时你可以得到一个事件通知。
+</details>
+
 ### 缺点
 
 <details>
