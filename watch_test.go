@@ -17,14 +17,18 @@ func TestWatch_Insert_Scan(t *testing.T) {
 	for i := 0; i < size; i++ {
 		key := utils.GetTestKey(rand.Int())
 		value := utils.RandomValue(128)
-		e := NewEvent(ActionPut, key, value, 0)
 		q = append(q, [2][]byte{key, value})
-		w.Insert(e)
+		w.insertEvent(&Event{
+			Action:  WatchActionPut,
+			Key:     key,
+			Value:   value,
+			BatchId: 0,
+		})
 	}
 
 	for i := 0; i < size; i++ {
-		e, isEmpty := w.Scan()
-		assert.Equal(t, false, isEmpty)
+		e := w.getEvent()
+		assert.NotEmpty(t, e)
 		key := q[i][0]
 		assert.Equal(t, key, e.Key)
 		value := q[i][1]
@@ -39,16 +43,20 @@ func TestWatch_Rotate_Insert_Scan(t *testing.T) {
 	for i := 0; i < 2500; i++ {
 		key := utils.GetTestKey(rand.Int())
 		value := utils.RandomValue(128)
-		e := NewEvent(ActionPut, key, value, 0)
-		w.Insert(e)
+		w.insertEvent(&Event{
+			Action:  WatchActionPut,
+			Key:     key,
+			Value:   value,
+			BatchId: 0,
+		})
 		sub := i % capacity
 		q[sub] = [2][]byte{key, value}
 	}
 
 	sub := int(w.queue.Front)
 	for {
-		e, isEmpty := w.Scan()
-		if isEmpty {
+		e := w.getEvent()
+		if e == nil {
 			break
 		}
 		key := q[sub][0]
@@ -62,12 +70,12 @@ func TestWatch_Rotate_Insert_Scan(t *testing.T) {
 
 func TestWatch_Put_Watch(t *testing.T) {
 	options := DefaultOptions
-	options.Watchable = true
+	options.WatchQueueSize = 10
 	db, err := Open(options)
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	w, err := db.Watch()
+	w, err := db.WatchChan()
 	assert.Nil(t, err)
 	for i := 0; i < 50; i++ {
 		key := utils.GetTestKey(rand.Int())
@@ -75,7 +83,7 @@ func TestWatch_Put_Watch(t *testing.T) {
 		err = db.Put(key, value)
 		assert.Nil(t, err)
 		event := <-w
-		assert.Equal(t, ActionPut, event.Action)
+		assert.Equal(t, WatchActionPut, event.Action)
 		assert.Equal(t, key, event.Key)
 		assert.Equal(t, value, event.Value)
 	}
@@ -83,12 +91,12 @@ func TestWatch_Put_Watch(t *testing.T) {
 
 func TestWatch_Put_Delete_Watch(t *testing.T) {
 	options := DefaultOptions
-	options.Watchable = true
+	options.WatchQueueSize = 10
 	db, err := Open(options)
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	w, err := db.Watch()
+	w, err := db.WatchChan()
 	assert.Nil(t, err)
 
 	key := utils.GetTestKey(rand.Int())
@@ -99,9 +107,9 @@ func TestWatch_Put_Delete_Watch(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		event := <-w
 		assert.Equal(t, key, event.Key)
-		if event.Action == ActionPut {
+		if event.Action == WatchActionPut {
 			assert.Equal(t, value, event.Value)
-		} else if event.Action == ActionDelete {
+		} else if event.Action == WatchActionDelete {
 			assert.Equal(t, 0, len(event.Value))
 		}
 	}
@@ -109,12 +117,12 @@ func TestWatch_Put_Delete_Watch(t *testing.T) {
 
 func TestWatch_Batch_Put_Watch(t *testing.T) {
 	options := DefaultOptions
-	options.Watchable = true
+	options.WatchQueueSize = 1000
 	db, err := Open(options)
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	w, err := db.Watch()
+	w, err := db.WatchChan()
 	assert.Nil(t, err)
 
 	times := 100

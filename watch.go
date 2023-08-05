@@ -1,31 +1,38 @@
 package rosedb
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
 
+type WatchActionType = byte
+
 const (
-	ActionPut    = "Put"
-	ActionDelete = "Delete"
+	WatchActionPut WatchActionType = iota
+	WatchActionDelete
 )
 
 // Event
 type Event struct {
-	Action  string
+	Action  WatchActionType
 	Key     []byte
 	Value   []byte
 	BatchId uint64
 }
 
-// NewEvent generate a key-value change event after batch submission.
-func NewEvent(action string, key, value []byte, batchId uint64) *Event {
-	return &Event{
-		Action:  action,
-		Key:     key,
-		Value:   value,
-		BatchId: batchId,
-	}
+func (e *Event) String() string {
+	return fmt.Sprintf(`
+	Event{
+		Action: %d,
+		Key: %s,
+		Value: %s,
+		BatchId: %d
+	}`,
+		e.Action,
+		e.Key,
+		e.Value,
+		e.BatchId)
 }
 
 // Watcher temporarily stores event information,
@@ -39,9 +46,6 @@ type Watcher struct {
 }
 
 func NewWatcher(capacity uint64) *Watcher {
-	if capacity <= 0 {
-		capacity = 1000 // default capacity
-	}
 	return &Watcher{
 		queue: eventQueue{
 			Events:   make([]*Event, capacity),
@@ -50,7 +54,7 @@ func NewWatcher(capacity uint64) *Watcher {
 	}
 }
 
-func (w *Watcher) Insert(e *Event) {
+func (w *Watcher) insertEvent(e *Event) {
 	w.mu.Lock()
 	w.queue.push(e)
 	if w.queue.isFull() {
@@ -59,21 +63,22 @@ func (w *Watcher) Insert(e *Event) {
 	w.mu.Unlock()
 }
 
-func (w *Watcher) Scan() (e *Event, isEmpty bool) {
+// getEvent if queue is empty, it will return nil.
+func (w *Watcher) getEvent() *Event {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	if isEmpty = w.queue.isEmpty(); isEmpty {
-		return
+	if isEmpty := w.queue.isEmpty(); isEmpty {
+		return nil
 	}
-	e = w.queue.pop()
-	return
+	e := w.queue.pop()
+	return e
 }
 
-// Sync synchronize events to DB's watch
-func (w *Watcher) Sync(c chan *Event) {
+// sendEvent send events to DB's watch
+func (w *Watcher) sendEvent(c chan *Event) {
 	for {
-		e, isEmpty := w.Scan()
-		if isEmpty {
+		e := w.getEvent()
+		if e == nil {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}

@@ -273,16 +273,24 @@ func (b *Batch) Commit() error {
 		if record.Type == LogRecordDeleted {
 			b.db.index.Delete(record.Key)
 			// insert delete event
-			if b.db.options.Watchable {
-				e := NewEvent(ActionDelete, record.Key, record.Value, record.BatchId)
-				b.db.watcher.Insert(e)
+			if b.db.options.WatchQueueSize > 0 {
+				b.db.watcher.insertEvent(&Event{
+					Action:  WatchActionDelete,
+					Key:     record.Key,
+					Value:   record.Value,
+					BatchId: record.BatchId,
+				})
 			}
 		} else {
 			b.db.index.Put(record.Key, positions[key])
 			// insert put event
-			if b.db.options.Watchable {
-				e := NewEvent(ActionPut, record.Key, record.Value, record.BatchId)
-				b.db.watcher.Insert(e)
+			if b.db.options.WatchQueueSize > 0 {
+				b.db.watcher.insertEvent(&Event{
+					Action:  WatchActionPut,
+					Key:     record.Key,
+					Value:   record.Value,
+					BatchId: record.BatchId,
+				})
 			}
 		}
 	}

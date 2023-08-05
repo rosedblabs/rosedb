@@ -28,9 +28,8 @@ type Options struct {
 	// BytesPerSync specifies the number of bytes to write before calling fsync.
 	BytesPerSync uint32
 
-	// Watchable whether to enable event change notification.
-	Watchable bool
-	// WatchQueueSize the cache length of the watch queue, default 1000.
+	// WatchQueueSize the cache length of the watch queue.
+	// if the size greater than 0, which means enable the watch.
 	WatchQueueSize uint64
 }
 
@@ -60,12 +59,12 @@ const (
 )
 
 var DefaultOptions = Options{
-	DirPath:      tempDBDir(),
-	SegmentSize:  1 * GB,
-	BlockCache:   0,
-	Sync:         false,
-	BytesPerSync: 0,
-	Watchable:    false,
+	DirPath:        tempDBDir(),
+	SegmentSize:    1 * GB,
+	BlockCache:     0,
+	Sync:           false,
+	BytesPerSync:   0,
+	WatchQueueSize: 0,
 }
 
 var DefaultBatchOptions = BatchOptions{
