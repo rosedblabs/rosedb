@@ -11,4 +11,5 @@ var (
 	ErrBatchRollbacked = errors.New("the batch is rollbacked")
 	ErrDBClosed        = errors.New("the database is closed")
 	ErrMergeRunning    = errors.New("the merge operation is running")
+	ErrWatchUnopened   = errors.New("the watch is unopened")
 )

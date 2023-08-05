@@ -27,6 +27,10 @@ type Options struct {
 
 	// BytesPerSync specifies the number of bytes to write before calling fsync.
 	BytesPerSync uint32
+
+	// WatchQueueSize the cache length of the watch queue.
+	// if the size greater than 0, which means enable the watch.
+	WatchQueueSize uint64
 }
 
 // BatchOptions specifies the options for creating a batch.
@@ -55,11 +59,12 @@ const (
 )
 
 var DefaultOptions = Options{
-	DirPath:      tempDBDir(),
-	SegmentSize:  1 * GB,
-	BlockCache:   0,
-	Sync:         false,
-	BytesPerSync: 0,
+	DirPath:        tempDBDir(),
+	SegmentSize:    1 * GB,
+	BlockCache:     0,
+	Sync:           false,
+	BytesPerSync:   0,
+	WatchQueueSize: 0,
 }
 
 var DefaultBatchOptions = BatchOptions{

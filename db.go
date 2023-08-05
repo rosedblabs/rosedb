@@ -45,6 +45,8 @@ type DB struct {
 	closed       bool
 	mergeRunning uint32 // indicate if the database is merging
 	batchPool    sync.Pool
+	watchCh      chan *Event // user consume channel for watch events
+	watcher      *Watcher
 }
 
 // Stat represents the statistics of the database.
@@ -113,6 +115,14 @@ func Open(options Options) (*DB, error) {
 		batchPool: sync.Pool{New: makeBatch},
 	}
 
+	// enable watch
+	if options.WatchQueueSize > 0 {
+		db.watchCh = make(chan *Event, 100)
+		db.watcher = NewWatcher(options.WatchQueueSize)
+		// run a goroutine to synchronize event information
+		go db.watcher.sendEvent(db.watchCh)
+	}
+
 	// load index frm hint file
 	if err = db.loadIndexFromHintFile(); err != nil {
 		return nil, err
@@ -146,6 +156,11 @@ func (db *DB) Close() error {
 	// release file lock
 	if err := db.fileLock.Unlock(); err != nil {
 		return err
+	}
+
+	// close watch channel
+	if db.options.WatchQueueSize > 0 {
+		close(db.watchCh)
 	}
 
 	db.closed = true
@@ -316,4 +331,11 @@ func (db *DB) loadIndexFromWAL() error {
 		}
 	}
 	return nil
+}
+
+func (db *DB) WatchChan() (chan *Event, error) {
+	if db.options.WatchQueueSize <= 0 {
+		return nil, ErrWatchUnopened
+	}
+	return db.watchCh, nil
 }
