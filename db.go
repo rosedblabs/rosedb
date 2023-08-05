@@ -258,6 +258,13 @@ func (db *DB) Exist(key []byte) (bool, error) {
 	return batch.Exist(key)
 }
 
+func (db *DB) Watch() (chan *Event, error) {
+	if db.options.WatchQueueSize <= 0 {
+		return nil, ErrWatchDisabled
+	}
+	return db.watchCh, nil
+}
+
 func checkOptions(options Options) error {
 	if options.DirPath == "" {
 		return errors.New("database dir path is empty")
@@ -331,11 +338,4 @@ func (db *DB) loadIndexFromWAL() error {
 		}
 	}
 	return nil
-}
-
-func (db *DB) WatchChan() (chan *Event, error) {
-	if db.options.WatchQueueSize <= 0 {
-		return nil, ErrWatchUnopened
-	}
-	return db.watchCh, nil
 }

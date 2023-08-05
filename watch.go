@@ -1,7 +1,6 @@
 package rosedb
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
@@ -13,26 +12,13 @@ const (
 	WatchActionDelete
 )
 
-// Event
+// Event is the event that occurs when the database is modified.
+// It is used to synchronize the watch of the database.
 type Event struct {
 	Action  WatchActionType
 	Key     []byte
 	Value   []byte
 	BatchId uint64
-}
-
-func (e *Event) String() string {
-	return fmt.Sprintf(`
-	Event{
-		Action: %d,
-		Key: %s,
-		Value: %s,
-		BatchId: %d
-	}`,
-		e.Action,
-		e.Key,
-		e.Value,
-		e.BatchId)
 }
 
 // Watcher temporarily stores event information,
@@ -54,7 +40,7 @@ func NewWatcher(capacity uint64) *Watcher {
 	}
 }
 
-func (w *Watcher) insertEvent(e *Event) {
+func (w *Watcher) putEvent(e *Event) {
 	w.mu.Lock()
 	w.queue.push(e)
 	if w.queue.isFull() {
@@ -67,22 +53,21 @@ func (w *Watcher) insertEvent(e *Event) {
 func (w *Watcher) getEvent() *Event {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	if isEmpty := w.queue.isEmpty(); isEmpty {
+	if w.queue.isEmpty() {
 		return nil
 	}
-	e := w.queue.pop()
-	return e
+	return w.queue.pop()
 }
 
 // sendEvent send events to DB's watch
 func (w *Watcher) sendEvent(c chan *Event) {
 	for {
-		e := w.getEvent()
-		if e == nil {
+		event := w.getEvent()
+		if event == nil {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
-		c <- e
+		c <- event
 	}
 }
 

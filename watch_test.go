@@ -18,7 +18,7 @@ func TestWatch_Insert_Scan(t *testing.T) {
 		key := utils.GetTestKey(rand.Int())
 		value := utils.RandomValue(128)
 		q = append(q, [2][]byte{key, value})
-		w.insertEvent(&Event{
+		w.putEvent(&Event{
 			Action:  WatchActionPut,
 			Key:     key,
 			Value:   value,
@@ -43,7 +43,7 @@ func TestWatch_Rotate_Insert_Scan(t *testing.T) {
 	for i := 0; i < 2500; i++ {
 		key := utils.GetTestKey(rand.Int())
 		value := utils.RandomValue(128)
-		w.insertEvent(&Event{
+		w.putEvent(&Event{
 			Action:  WatchActionPut,
 			Key:     key,
 			Value:   value,
@@ -75,7 +75,7 @@ func TestWatch_Put_Watch(t *testing.T) {
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	w, err := db.WatchChan()
+	w, err := db.Watch()
 	assert.Nil(t, err)
 	for i := 0; i < 50; i++ {
 		key := utils.GetTestKey(rand.Int())
@@ -96,13 +96,15 @@ func TestWatch_Put_Delete_Watch(t *testing.T) {
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	w, err := db.WatchChan()
+	w, err := db.Watch()
 	assert.Nil(t, err)
 
 	key := utils.GetTestKey(rand.Int())
 	value := utils.RandomValue(128)
-	db.Put(key, value)
-	db.Delete(key)
+	err = db.Put(key, value)
+	assert.Nil(t, err)
+	err = db.Delete(key)
+	assert.Nil(t, err)
 
 	for i := 0; i < 2; i++ {
 		event := <-w
@@ -122,7 +124,7 @@ func TestWatch_Batch_Put_Watch(t *testing.T) {
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	w, err := db.WatchChan()
+	w, err := db.Watch()
 	assert.Nil(t, err)
 
 	times := 100
@@ -131,7 +133,8 @@ func TestWatch_Batch_Put_Watch(t *testing.T) {
 		err = batch.Put(utils.GetTestKey(rand.Int()), utils.RandomValue(128))
 		assert.Nil(t, err)
 	}
-	batch.Commit()
+	err = batch.Commit()
+	assert.Nil(t, err)
 
 	var batchId uint64
 	for i := 0; i < times; i++ {

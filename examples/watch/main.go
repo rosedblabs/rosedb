@@ -13,7 +13,7 @@ import (
 func main() {
 	// specify the options
 	options := rosedb.DefaultOptions
-	options.DirPath = "/tmp/rosedb_merge"
+	options.DirPath = "/tmp/rosedb_watch"
 	options.WatchQueueSize = 1000
 
 	// open a database
@@ -27,29 +27,29 @@ func main() {
 
 	// run a new goroutine to handle db event.
 	go func() {
-		wc, err := db.WatchChan()
+		eventCh, err := db.Watch()
 		if err != nil {
 			return
 		}
 		for {
-			event := <-wc
+			event := <-eventCh
 			// when db closed, the event will receive nil.
 			if event == nil {
 				fmt.Println("The db is closed, so the watch channel is closed.")
 				return
 			}
 			// events can be captured here for processing
-			fmt.Printf("==== Get a new event ==== %s \n", event.String())
+			fmt.Printf("Get a new event: key%s \n", event.Key)
 		}
 	}()
 
 	// write some data
 	for i := 0; i < 10; i++ {
-		_ = db.Put([]byte(utils.GetTestKey(i)), utils.RandomValue(64))
+		_ = db.Put(utils.GetTestKey(i), utils.RandomValue(64))
 	}
 	// delete some data
 	for i := 0; i < 10/2; i++ {
-		_ = db.Delete([]byte(utils.GetTestKey(i)))
+		_ = db.Delete(utils.GetTestKey(i))
 	}
 
 	// wait for watch goroutine to finish.
