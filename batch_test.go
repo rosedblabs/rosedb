@@ -11,6 +11,7 @@ import (
 func destroyDB(db *DB) {
 	_ = db.Close()
 	_ = os.RemoveAll(db.options.DirPath)
+	_ = os.RemoveAll(mergeDirPath(db.options.DirPath))
 }
 
 func TestBatch_Put_Normal(t *testing.T) {
