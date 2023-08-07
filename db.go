@@ -48,8 +48,7 @@ type DB struct {
 	closed           bool
 	mergeRunning     uint32 // indicate if the database is merging
 	batchPool        sync.Pool
-	watchCh          chan *Event // user consume channel for watch events
-	watcher          *Watcher
+	watcher          *watcher
 	expiredCursorKey []byte // the location to which DeleteExpiredKeys executes.
 }
 
@@ -117,10 +116,7 @@ func Open(options Options) (*DB, error) {
 
 	// enable watch
 	if options.WatchQueueSize > 0 {
-		db.watchCh = make(chan *Event, 100)
-		db.watcher = NewWatcher(options.WatchQueueSize)
-		// run a goroutine to synchronize event information
-		go db.watcher.sendEvent(db.watchCh)
+		db.watcher = newWatcher(options.WatchQueueSize)
 	}
 
 	return db, nil
@@ -168,11 +164,6 @@ func (db *DB) Close() error {
 	// release file lock
 	if err := db.fileLock.Unlock(); err != nil {
 		return err
-	}
-
-	// close watch channel
-	if db.options.WatchQueueSize > 0 {
-		close(db.watchCh)
 	}
 
 	db.closed = true
@@ -336,11 +327,11 @@ func (db *DB) TTL(key []byte) (time.Duration, error) {
 	return batch.TTL(key)
 }
 
-func (db *DB) Watch() (chan *Event, error) {
+func (db *DB) Watcher() (Watcher, error) {
 	if db.options.WatchQueueSize <= 0 {
 		return nil, ErrWatchDisabled
 	}
-	return db.watchCh, nil
+	return db.watcher, nil
 }
 
 // Ascend calls handleFn for each key/value pair in the db in ascending order.

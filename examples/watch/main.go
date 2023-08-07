@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/rosedblabs/rosedb/v2"
@@ -16,6 +17,9 @@ func main() {
 	options.DirPath = "/tmp/rosedb_watch"
 	options.WatchQueueSize = 1000
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	// open a database
 	db, err := rosedb.Open(options)
 	if err != nil {
@@ -25,21 +29,25 @@ func main() {
 		_ = db.Close()
 	}()
 
+	watcher, err := db.Watcher()
+	if err != nil {
+		return
+	}
+
 	// run a new goroutine to handle db event.
 	go func() {
-		eventCh, err := db.Watch()
-		if err != nil {
-			return
-		}
+		defer wg.Done()
+
+		eventCh := watcher.Watch()
 		for {
-			event := <-eventCh
-			// when db closed, the event will receive nil.
-			if event == nil {
-				fmt.Println("The db is closed, so the watch channel is closed.")
-				return
+			select {
+			case event, ok := <-eventCh:
+				if !ok {
+					return
+				}
+				// events can be captured here for processing
+				fmt.Printf("Get a new event: key%s \n", event.Key)
 			}
-			// events can be captured here for processing
-			fmt.Printf("Get a new event: key%s \n", event.Key)
 		}
 	}()
 
@@ -52,6 +60,11 @@ func main() {
 		_ = db.Delete(utils.GetTestKey(i))
 	}
 
-	// wait for watch goroutine to finish.
+	// do some work
 	time.Sleep(1 * time.Second)
+
+	watcher.Close()
+
+	// wait for watch goroutine to finish.
+	wg.Wait()
 }

@@ -13,7 +13,7 @@ func TestWatch_Insert_Scan(t *testing.T) {
 	// There are two spaces to determine whether the queue is full and overwrite the write.
 	size := capacity - 2
 	q := make([][2][]byte, 0, size)
-	w := NewWatcher(uint64(capacity))
+	w := newWatcher(uint64(capacity), true)
 	for i := 0; i < size; i++ {
 		key := utils.GetTestKey(rand.Int())
 		value := utils.RandomValue(128)
@@ -39,7 +39,7 @@ func TestWatch_Insert_Scan(t *testing.T) {
 func TestWatch_Rotate_Insert_Scan(t *testing.T) {
 	capacity := 1000
 	q := make([][2][]byte, capacity)
-	w := NewWatcher(uint64(capacity))
+	w := newWatcher(uint64(capacity), true)
 	for i := 0; i < 2500; i++ {
 		key := utils.GetTestKey(rand.Int())
 		value := utils.RandomValue(128)
@@ -75,14 +75,15 @@ func TestWatch_Put_Watch(t *testing.T) {
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	w, err := db.Watch()
+	w, err := db.Watcher()
+	// w, err := db.Watch()
 	assert.Nil(t, err)
 	for i := 0; i < 50; i++ {
 		key := utils.GetTestKey(rand.Int())
 		value := utils.RandomValue(128)
 		err = db.Put(key, value)
 		assert.Nil(t, err)
-		event := <-w
+		event := <-w.Watch()
 		assert.Equal(t, WatchActionPut, event.Action)
 		assert.Equal(t, key, event.Key)
 		assert.Equal(t, value, event.Value)
@@ -96,7 +97,7 @@ func TestWatch_Put_Delete_Watch(t *testing.T) {
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	w, err := db.Watch()
+	w, err := db.Watcher()
 	assert.Nil(t, err)
 
 	key := utils.GetTestKey(rand.Int())
@@ -107,7 +108,7 @@ func TestWatch_Put_Delete_Watch(t *testing.T) {
 	assert.Nil(t, err)
 
 	for i := 0; i < 2; i++ {
-		event := <-w
+		event := <-w.Watch()
 		assert.Equal(t, key, event.Key)
 		if event.Action == WatchActionPut {
 			assert.Equal(t, value, event.Value)
@@ -124,7 +125,7 @@ func TestWatch_Batch_Put_Watch(t *testing.T) {
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	w, err := db.Watch()
+	w, err := db.Watcher()
 	assert.Nil(t, err)
 
 	times := 100
@@ -138,7 +139,7 @@ func TestWatch_Batch_Put_Watch(t *testing.T) {
 
 	var batchId uint64
 	for i := 0; i < times; i++ {
-		event := <-w
+		event := <-w.Watch()
 		if i == 0 {
 			batchId = event.BatchId
 		}

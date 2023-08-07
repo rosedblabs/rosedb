@@ -2,7 +2,6 @@ package rosedb
 
 import (
 	"sync"
-	"time"
 )
 
 type WatchActionType = byte
@@ -21,36 +20,60 @@ type Event struct {
 	BatchId uint64
 }
 
-// Watcher temporarily stores event information,
+type WatchChan <-chan *Event
+
+type Watcher interface {
+	Watch() WatchChan
+	Close() error
+}
+
+// watcher temporarily stores event information,
 // as it is generated until it is synchronized to DB's watch.
 //
 // If the event is overflow, It will remove the oldest data,
 // even if event hasn't been read yet.
-type Watcher struct {
-	queue eventQueue
-	mu    sync.RWMutex
+type watcher struct {
+	queue      eventQueue
+	mu         sync.RWMutex
+	watchCh    chan *Event
+	flagCh     chan struct{}
+	cancelFunc func()
 }
 
-func NewWatcher(capacity uint64) *Watcher {
-	return &Watcher{
+func newWatcher(capacity uint64, test ...bool) *watcher { // test is only for UT
+	w := &watcher{
 		queue: eventQueue{
 			Events:   make([]*Event, capacity),
 			Capacity: capacity,
 		},
+		watchCh: make(chan *Event, 100),
+		flagCh:  make(chan struct{}, capacity),
 	}
+	w.cancelFunc = func() {
+		close(w.flagCh)
+		close(w.watchCh)
+	}
+	if len(test) == 0 || !test[0] {
+		go w.sendEvent()
+	}
+	return w
 }
 
-func (w *Watcher) putEvent(e *Event) {
+func (w *watcher) putEvent(e *Event) {
 	w.mu.Lock()
 	w.queue.push(e)
 	if w.queue.isFull() {
 		w.queue.frontTakeAStep()
 	}
+	select {
+	case w.flagCh <- struct{}{}:
+	default:
+	}
 	w.mu.Unlock()
 }
 
 // getEvent if queue is empty, it will return nil.
-func (w *Watcher) getEvent() *Event {
+func (w *watcher) getEvent() *Event {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	if w.queue.isEmpty() {
@@ -59,15 +82,29 @@ func (w *Watcher) getEvent() *Event {
 	return w.queue.pop()
 }
 
+func (w *watcher) Watch() WatchChan {
+	return w.watchCh
+}
+
+func (w *watcher) Close() error {
+	w.cancelFunc()
+	return nil
+}
+
 // sendEvent send events to DB's watch
-func (w *Watcher) sendEvent(c chan *Event) {
+func (w *watcher) sendEvent() {
 	for {
-		event := w.getEvent()
-		if event == nil {
-			time.Sleep(100 * time.Millisecond)
-			continue
+		select {
+		case _, ok := <-w.flagCh:
+			if !ok {
+				return
+			}
+			event := w.getEvent()
+			if event == nil {
+				break
+			}
+			w.watchCh <- event
 		}
-		c <- event
 	}
 }
 
