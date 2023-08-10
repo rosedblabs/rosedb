@@ -215,7 +215,7 @@ func TestDB_Multi_Open_Merge(t *testing.T) {
 			assert.Nil(t, err)
 		}
 
-		err = db.Merge(true)
+		err = db.Merge(false)
 		assert.Nil(t, err)
 		err = db.Close()
 		assert.Nil(t, err)
