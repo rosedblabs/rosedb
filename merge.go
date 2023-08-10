@@ -24,10 +24,8 @@ const (
 //
 // Merge operation maybe a very time-consuming operation when the database is large.
 // So it is recommended to perform this operation when the database is idle.
-//
-// @param: reopenAfterDone
-// 	If true, the original file will be replaced by the merge file,
-// 	and db's index will be rebuilt after the merge is complete.
+// If reopenAfterDone is true, the original file will be replaced by the merge file,
+// and db's index will be rebuilt after the merge is complete.
 func (db *DB) Merge(reopenAfterDone bool) error {
 	db.mu.Lock()
 	// check if the database is closed
