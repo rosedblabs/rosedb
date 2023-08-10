@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"math/rand"
+	"os"
 	"sync"
 	"testing"
 
@@ -223,6 +224,34 @@ func TestDB_Multi_Open_Merge(t *testing.T) {
 	db, err := Open(options)
 	assert.Nil(t, err)
 	defer destroyDB(db)
+
+	for key, value := range kvs {
+		v, err := db.Get([]byte(key))
+		assert.Nil(t, err)
+		assert.Equal(t, value, v)
+	}
+	assert.Equal(t, len(kvs), db.index.Size())
+}
+
+func TestDB_Merge_ReopenAfterDone(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	kvs := make(map[string][]byte)
+	for i := 0; i < 10000; i++ {
+		key := utils.GetTestKey(i)
+		value := utils.RandomValue(128)
+		kvs[string(key)] = value
+		err := db.Put(key, value)
+		assert.Nil(t, err)
+	}
+
+	err = db.Merge(true)
+	assert.Nil(t, err)
+	_, err = os.Stat(mergeDirPath(options.DirPath))
+	assert.Equal(t, true, os.IsNotExist(err))
 
 	for key, value := range kvs {
 		v, err := db.Get([]byte(key))

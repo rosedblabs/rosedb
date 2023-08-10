@@ -27,6 +27,51 @@ const (
 // If reopenAfterDone is true, the original file will be replaced by the merge file,
 // and db's index will be rebuilt after the merge is complete.
 func (db *DB) Merge(reopenAfterDone bool) error {
+	if err := db.merge(); err != nil {
+		return err
+	}
+
+	if reopenAfterDone {
+		db.mu.Lock()
+		defer db.mu.Unlock()
+
+		// close current files
+		db.dataFiles.Close()
+
+		// replace original file
+		if err := loadMergeFiles(db.options.DirPath); err != nil {
+			return err
+		}
+
+		// open data files from WAL
+		walFiles, err := wal.Open(wal.Options{
+			DirPath:        db.options.DirPath,
+			SegmentSize:    db.options.SegmentSize,
+			SegmentFileExt: dataFileNameSuffix,
+			BlockCache:     db.options.BlockCache,
+			Sync:           db.options.Sync,
+			BytesPerSync:   db.options.BytesPerSync,
+		})
+		if err != nil {
+			return err
+		}
+		db.dataFiles = walFiles
+
+		// rebuild index
+		db.index = index.NewIndexer()
+		if err := db.loadIndexFromHintFile(); err != nil {
+			return err
+		}
+		if err := db.loadIndexFromWAL(); err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+func (db *DB) merge() error {
 	db.mu.Lock()
 	// check if the database is closed
 	if db.closed {
@@ -122,25 +167,6 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 	// close the merge finished file
 	if err := mergeFinFile.Close(); err != nil {
 		return err
-	}
-
-	if reopenAfterDone {
-		db.mu.Lock()
-		defer db.mu.Unlock()
-
-		// replace original file
-		if err = loadMergeFiles(db.options.DirPath); err != nil {
-			return err
-		}
-
-		// rebuild index
-		db.index = index.NewIndexer()
-		if err = db.loadIndexFromHintFile(); err != nil {
-			return err
-		}
-		if err = db.loadIndexFromWAL(); err != nil {
-			return err
-		}
 	}
 
 	// all done successfully, return nil
