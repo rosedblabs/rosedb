@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
+	"github.com/rosedblabs/rosedb/v2/index"
 	"github.com/rosedblabs/wal"
 )
 
@@ -23,7 +24,11 @@ const (
 //
 // Merge operation maybe a very time-consuming operation when the database is large.
 // So it is recommended to perform this operation when the database is idle.
-func (db *DB) Merge() error {
+//
+// @param: reopenAfterDone
+// 	If true, the original file will be replaced by the merge file,
+// 	and db's index will be rebuilt after the merge is complete.
+func (db *DB) Merge(reopenAfterDone bool) error {
 	db.mu.Lock()
 	// check if the database is closed
 	if db.closed {
@@ -119,6 +124,25 @@ func (db *DB) Merge() error {
 	// close the merge finished file
 	if err := mergeFinFile.Close(); err != nil {
 		return err
+	}
+
+	if reopenAfterDone {
+		db.mu.Lock()
+		defer db.mu.Unlock()
+
+		// replace original file
+		if err = loadMergeFiles(db.options.DirPath); err != nil {
+			return err
+		}
+
+		// rebuild index
+		db.index = index.NewIndexer()
+		if err = db.loadIndexFromHintFile(); err != nil {
+			return err
+		}
+		if err = db.loadIndexFromWAL(); err != nil {
+			return err
+		}
 	}
 
 	// all done successfully, return nil

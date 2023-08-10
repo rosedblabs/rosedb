@@ -15,7 +15,7 @@ func TestDB_Merge_1_Empty(t *testing.T) {
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
 }
 
@@ -34,7 +34,7 @@ func TestDB_Merge_2_All_Invalid(t *testing.T) {
 		assert.Nil(t, err)
 	}
 
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
 
 	_ = db.Close()
@@ -59,7 +59,7 @@ func TestDB_Merge_3_All_Valid(t *testing.T) {
 		assert.Nil(t, err)
 	}
 
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
 
 	_ = db.Close()
@@ -87,9 +87,9 @@ func TestDB_Merge_4_Twice(t *testing.T) {
 		assert.Nil(t, err)
 	}
 
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
 
 	_ = db.Close()
@@ -129,7 +129,7 @@ func TestDB_Merge_5_Mixed(t *testing.T) {
 		assert.Nil(t, err)
 	}
 
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
 
 	_ = db.Close()
@@ -180,7 +180,7 @@ func TestDB_Merge_6_Appending(t *testing.T) {
 		}()
 	}
 
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
 
 	wg.Wait()
@@ -215,7 +215,7 @@ func TestDB_Multi_Open_Merge(t *testing.T) {
 			assert.Nil(t, err)
 		}
 
-		err = db.Merge()
+		err = db.Merge(true)
 		assert.Nil(t, err)
 		err = db.Close()
 		assert.Nil(t, err)
