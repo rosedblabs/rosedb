@@ -17,7 +17,7 @@ The design of Bitcask was inspired, in part, by log-structured filesystems and l
 ## Status
 rosedb is well tested and ready for production use. There are serveral projects using rosedb in production as a storage engine.
 
-**Didn`t find the feature you want? Feel free to open an issue or PR, we are in active development.**
+**Didn't find the feature you want? Feel free to open an issue or PR, we are in active development.**
 
 ## Design overview
 
@@ -38,7 +38,7 @@ RoseDB log files are using the WAL(Write Ahead Log) as backend, which are append
 
 <details>
     <summary><b>High throughput, especially when writing an incoming stream of random items</b></summary>
-    Write operations to RoseDB generally saturate I/O and disk bandwidth, which is a good thing from a performance perspective. This saturation occurs for two reasons: because (1) data that is written to RoseDB doesn’t need to be ordered on disk, and (2) the log-structured design of Bitcask allows for minimal disk head movement during writes.
+    Write operations to RoseDB generally saturate I/O and disk bandwidth, which is a good thing from a performance perspective. This saturation occurs for two reasons: because (1) data that is written to RoseDB doesn't need to be ordered on disk, and (2) the log-structured design of Bitcask allows for minimal disk head movement during writes.
 </details>    
 
 <details>
@@ -48,7 +48,7 @@ RoseDB log files are using the WAL(Write Ahead Log) as backend, which are append
 
 <details>
     <summary><b>Single seek to retrieve any value</b></summary>
-    RoseDB’s in-memory index data structure of keys points directly to locations on disk where the data lives. RoseDB never uses more than one disk seek to read a value and sometimes even that isn’t necessary due to filesystem caching done by the operating system.
+    RoseDB's in-memory index data structure of keys points directly to locations on disk where the data lives. RoseDB never uses more than one disk seek to read a value and sometimes even that isn't necessary due to filesystem caching done by the operating system.
 </details>
 
 <details>
