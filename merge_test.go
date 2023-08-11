@@ -260,3 +260,46 @@ func TestDB_Merge_ReopenAfterDone(t *testing.T) {
 	}
 	assert.Equal(t, len(kvs), db.index.Size())
 }
+
+func TestDB_Merge_Concurrent_Put(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	wg := sync.WaitGroup{}
+	m := sync.Map{}
+	wg.Add(11)
+	for i := 0; i < 10; i++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 10000; i++ {
+				key := utils.GetTestKey(rand.Int())
+				value := utils.RandomValue(128)
+				m.Store(string(key), value)
+				e := db.Put(key, value)
+				assert.Nil(t, e)
+			}
+		}()
+	}
+	go func() {
+		defer wg.Done()
+		err = db.Merge(true)
+		assert.Nil(t, err)
+	}()
+	wg.Wait()
+
+	_, err = os.Stat(mergeDirPath(options.DirPath))
+	assert.Equal(t, true, os.IsNotExist(err))
+
+	var count int
+	m.Range(func(key, value any) bool {
+		v, err := db.Get([]byte(key.(string)))
+		assert.Nil(t, err)
+		assert.Equal(t, value, v)
+		count++
+		return true
+	})
+	assert.Equal(t, count, db.index.Size())
+
+}

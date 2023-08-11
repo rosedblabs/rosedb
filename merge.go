@@ -31,41 +31,42 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 		return err
 	}
 
-	if reopenAfterDone {
-		db.mu.Lock()
-		defer db.mu.Unlock()
+	if !reopenAfterDone {
+		return nil
+	}
 
-		// close current files
-		db.dataFiles.Close()
+	db.mu.Lock()
+	defer db.mu.Unlock()
 
-		// replace original file
-		if err := loadMergeFiles(db.options.DirPath); err != nil {
-			return err
-		}
+	// close current files
+	db.dataFiles.Close()
 
-		// open data files from WAL
-		walFiles, err := wal.Open(wal.Options{
-			DirPath:        db.options.DirPath,
-			SegmentSize:    db.options.SegmentSize,
-			SegmentFileExt: dataFileNameSuffix,
-			BlockCache:     db.options.BlockCache,
-			Sync:           db.options.Sync,
-			BytesPerSync:   db.options.BytesPerSync,
-		})
-		if err != nil {
-			return err
-		}
-		db.dataFiles = walFiles
+	// replace original file
+	if err := loadMergeFiles(db.options.DirPath); err != nil {
+		return err
+	}
 
-		// rebuild index
-		db.index = index.NewIndexer()
-		if err := db.loadIndexFromHintFile(); err != nil {
-			return err
-		}
-		if err := db.loadIndexFromWAL(); err != nil {
-			return err
-		}
+	// open data files from WAL
+	walFiles, err := wal.Open(wal.Options{
+		DirPath:        db.options.DirPath,
+		SegmentSize:    db.options.SegmentSize,
+		SegmentFileExt: dataFileNameSuffix,
+		BlockCache:     db.options.BlockCache,
+		Sync:           db.options.Sync,
+		BytesPerSync:   db.options.BytesPerSync,
+	})
+	if err != nil {
+		return err
+	}
+	db.dataFiles = walFiles
 
+	// rebuild index
+	db.index = index.NewIndexer()
+	if err := db.loadIndexFromHintFile(); err != nil {
+		return err
+	}
+	if err := db.loadIndexFromWAL(); err != nil {
+		return err
 	}
 
 	return nil
