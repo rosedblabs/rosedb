@@ -64,3 +64,23 @@ func (mt *MemoryBTree) Delete(key []byte) (*wal.ChunkPosition, bool) {
 func (mt *MemoryBTree) Size() int {
 	return mt.tree.Len()
 }
+
+// Ascend calls f for each item in the tree in ascending order. If f returns false, iteration stops.
+func (mt *MemoryBTree) Ascend(f func(k []byte, v *wal.ChunkPosition) bool) {
+	mt.lock.RLock()
+	defer mt.lock.RUnlock()
+
+	mt.tree.Ascend(func(i btree.Item) bool {
+		return f(i.(*item).key, i.(*item).pos)
+	})
+}
+
+// Descend calls f for each item in the tree in descending order. If f returns false, iteration stops.
+func (mt *MemoryBTree) Descend(f func(k []byte, v *wal.ChunkPosition) bool) {
+	mt.lock.RLock()
+	defer mt.lock.RUnlock()
+
+	mt.tree.Descend(func(i btree.Item) bool {
+		return f(i.(*item).key, i.(*item).pos)
+	})
+}
