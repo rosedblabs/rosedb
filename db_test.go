@@ -106,3 +106,101 @@ func TestDB_Concurrent_Put(t *testing.T) {
 	})
 	assert.Equal(t, count, db.index.Size())
 }
+
+func TestDB_Ascend(t *testing.T) {
+	// Create a test database instance
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+
+	// Insert some test data
+	data := []struct {
+		key   []byte
+		value []byte
+	}{
+		{[]byte("key1"), []byte("value1")},
+		{[]byte("key2"), []byte("value2")},
+		{[]byte("key3"), []byte("value3")},
+	}
+
+	for _, d := range data {
+		if err := db.Put(d.key, d.value); err != nil {
+			t.Fatalf("Failed to put data: %v", err)
+		}
+	}
+
+	// Test Ascend function
+	var result []string
+	err = db.Ascend(func(k []byte, v []byte) bool {
+		result = append(result, string(k))
+		return true
+	})
+
+	if err != nil {
+		t.Errorf("Ascend returned an error: %v", err)
+	}
+
+	expected := []string{"key1", "key2", "key3"}
+	if len(result) != len(expected) {
+		t.Errorf("Unexpected number of results. Expected: %v, Got: %v", expected, result)
+	} else {
+		for i, val := range expected {
+			if result[i] != val {
+				t.Errorf("Unexpected result at index %d. Expected: %v, Got: %v", i, val, result[i])
+			}
+		}
+	}
+}
+
+func TestDB_Descend(t *testing.T) {
+	// Create a test database instance
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+
+	// Insert some test data
+	data := []struct {
+		key   []byte
+		value []byte
+	}{
+		{[]byte("key1"), []byte("value1")},
+		{[]byte("key2"), []byte("value2")},
+		{[]byte("key3"), []byte("value3")},
+	}
+
+	for _, d := range data {
+		if err := db.Put(d.key, d.value); err != nil {
+			t.Fatalf("Failed to put data: %v", err)
+		}
+	}
+
+	// Test Descend function
+	var result []string
+	err = db.Descend(func(k []byte, v []byte) bool {
+		result = append(result, string(k))
+		return true
+	})
+
+	if err != nil {
+		t.Errorf("Descend returned an error: %v", err)
+	}
+
+	expected := []string{"key3", "key2", "key1"}
+	if len(result) != len(expected) {
+		t.Errorf("Unexpected number of results. Expected: %v, Got: %v", expected, result)
+	} else {
+		for i, val := range expected {
+			if result[i] != val {
+				t.Errorf("Unexpected result at index %d. Expected: %v, Got: %v", i, val, result[i])
+			}
+		}
+	}
+}

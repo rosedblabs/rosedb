@@ -18,6 +18,14 @@ type Indexer interface {
 
 	// Size represents the number of keys in the index.
 	Size() int
+
+	// Ascend iterates over items in ascending order and invokes the handler function for each item.
+	// If the handler function returns false, iteration stops.
+	Ascend(handleFn func(key []byte, position *wal.ChunkPosition) bool)
+
+	// Descend iterates over items in descending order and invokes the handler function for each item.
+	// If the handler function returns false, iteration stops.
+	Descend(handleFn func(key []byte, position *wal.ChunkPosition) bool)
 }
 
 type IndexerType = byte
