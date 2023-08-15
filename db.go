@@ -265,6 +265,34 @@ func (db *DB) Watch() (chan *Event, error) {
 	return db.watchCh, nil
 }
 
+// Ascend calls handleFn for each key/value pair in the db in ascending order.
+func (db *DB) Ascend(handleFn func(k []byte, v []byte) (bool, error)) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	db.index.Ascend(func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		val, err := db.dataFiles.Read(pos)
+		if err != nil {
+			return false, nil
+		}
+		return handleFn(key, val)
+	})
+}
+
+// Descend calls handleFn for each key/value pair in the db in descending order.
+func (db *DB) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	db.index.Descend(func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		val, err := db.dataFiles.Read(pos)
+		if err != nil {
+			return false, nil
+		}
+		return handleFn(key, val)
+	})
+}
+
 func checkOptions(options Options) error {
 	if options.DirPath == "" {
 		return errors.New("database dir path is empty")
