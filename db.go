@@ -265,28 +265,32 @@ func (db *DB) Watch() (chan *Event, error) {
 	return db.watchCh, nil
 }
 
-// Ascend calls handleFn for each item in the tree in ascending order.
-func (db *DB) Ascend(handleFn func(k []byte, v []byte) bool) error {
-	db.index.Ascend(func(key []byte, pos *wal.ChunkPosition) bool {
+// Ascend calls handleFn for each key/value pair in the db in ascending order.
+func (db *DB) Ascend(handleFn func(k []byte, v []byte) (bool, error)) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	db.index.Ascend(func(key []byte, pos *wal.ChunkPosition) (bool, error) {
 		val, err := db.dataFiles.Read(pos)
 		if err != nil {
-			return false
+			return false, nil
 		}
 		return handleFn(key, val)
 	})
-	return nil
 }
 
-// Descend calls handleFn for each item in the tree in descending order.
-func (db *DB) Descend(handleFn func(k []byte, v []byte) bool) error {
-	db.index.Descend(func(key []byte, pos *wal.ChunkPosition) bool {
+// Descend calls handleFn for each key/value pair in the tree in descending order.
+func (db *DB) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	db.index.Descend(func(key []byte, pos *wal.ChunkPosition) (bool, error) {
 		val, err := db.dataFiles.Read(pos)
 		if err != nil {
-			return false
+			return false, nil
 		}
 		return handleFn(key, val)
 	})
-	return nil
 }
 
 func checkOptions(options Options) error {

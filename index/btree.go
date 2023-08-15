@@ -65,20 +65,28 @@ func (mt *MemoryBTree) Size() int {
 	return mt.tree.Len()
 }
 
-func (mt *MemoryBTree) Ascend(handleFn func(key []byte, position *wal.ChunkPosition) bool) {
+func (mt *MemoryBTree) Ascend(handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
 	mt.lock.RLock()
 	defer mt.lock.RUnlock()
 
 	mt.tree.Ascend(func(i btree.Item) bool {
-		return handleFn(i.(*item).key, i.(*item).pos)
+		cont, err := handleFn(i.(*item).key, i.(*item).pos)
+		if err != nil {
+			return false
+		}
+		return cont
 	})
 }
 
-func (mt *MemoryBTree) Descend(handleFn func(key []byte, position *wal.ChunkPosition) bool) {
+func (mt *MemoryBTree) Descend(handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
 	mt.lock.RLock()
 	defer mt.lock.RUnlock()
 
 	mt.tree.Descend(func(i btree.Item) bool {
-		return handleFn(i.(*item).key, i.(*item).pos)
+		cont, err := handleFn(i.(*item).key, i.(*item).pos)
+		if err != nil {
+			return false
+		}
+		return cont
 	})
 }

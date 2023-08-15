@@ -2,6 +2,7 @@ package index
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/rosedblabs/wal"
@@ -89,29 +90,36 @@ func TestMemoryBTree_Ascend_Descend(t *testing.T) {
 
 	// Test Ascend
 	prevKey := ""
-	mt.Ascend(func(key []byte, pos *wal.ChunkPosition) bool {
+
+	// Define the Ascend handler function
+	ascendHandler := func(key []byte, pos *wal.ChunkPosition) (bool, error) {
 		if prevKey != "" && bytes.Compare([]byte(prevKey), key) >= 0 {
-			t.Fatalf("items are not in ascending order")
+			return false, fmt.Errorf("items are not in ascending order")
 		}
 		expectedPos := positionMap[string(key)]
 		if expectedPos.ChunkOffset != pos.ChunkOffset {
-			t.Fatalf("expected position %+v, got %+v", expectedPos, pos)
+			return false, fmt.Errorf("expected position %+v, got %+v", expectedPos, pos)
 		}
 		prevKey = string(key)
-		return true
-	})
+		return true, nil
+	}
+
+	mt.Ascend(ascendHandler)
+
+	// Define the Descend handler function
+	descendHandler := func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		if bytes.Compare([]byte(prevKey), key) <= 0 {
+			return false, fmt.Errorf("items are not in descending order")
+		}
+		expectedPos := positionMap[string(key)]
+		if expectedPos.ChunkOffset != pos.ChunkOffset {
+			return false, fmt.Errorf("expected position %+v, got %+v", expectedPos, pos)
+		}
+		prevKey = string(key)
+		return true, nil
+	}
 
 	// Test Descend
 	prevKey = "zzzzzz"
-	mt.Descend(func(key []byte, pos *wal.ChunkPosition) bool {
-		if bytes.Compare([]byte(prevKey), key) <= 0 {
-			t.Fatalf("items are not in descending order")
-		}
-		expectedPos := positionMap[string(key)]
-		if expectedPos.ChunkOffset != pos.ChunkOffset {
-			t.Fatalf("expected position %+v, got %+v", expectedPos, pos)
-		}
-		prevKey = string(key)
-		return true
-	})
+	mt.Descend(descendHandler)
 }

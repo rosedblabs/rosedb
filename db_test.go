@@ -135,9 +135,9 @@ func TestDB_Ascend(t *testing.T) {
 
 	// Test Ascend function
 	var result []string
-	err = db.Ascend(func(k []byte, v []byte) bool {
+	db.Ascend(func(k []byte, v []byte) (bool, error) {
 		result = append(result, string(k))
-		return true
+		return true, nil // No error here
 	})
 
 	if err != nil {
@@ -184,9 +184,9 @@ func TestDB_Descend(t *testing.T) {
 
 	// Test Descend function
 	var result []string
-	err = db.Descend(func(k []byte, v []byte) bool {
+	db.Descend(func(k []byte, v []byte) (bool, error) {
 		result = append(result, string(k))
-		return true
+		return true, nil
 	})
 
 	if err != nil {

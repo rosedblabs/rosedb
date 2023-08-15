@@ -21,11 +21,11 @@ type Indexer interface {
 
 	// Ascend iterates over items in ascending order and invokes the handler function for each item.
 	// If the handler function returns false, iteration stops.
-	Ascend(handleFn func(key []byte, position *wal.ChunkPosition) bool)
+	Ascend(handleFn func(key []byte, position *wal.ChunkPosition) (bool, error))
 
 	// Descend iterates over items in descending order and invokes the handler function for each item.
 	// If the handler function returns false, iteration stops.
-	Descend(handleFn func(key []byte, position *wal.ChunkPosition) bool)
+	Descend(handleFn func(key []byte, pos *wal.ChunkPosition) (bool, error))
 }
 
 type IndexerType = byte
