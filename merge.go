@@ -27,7 +27,7 @@ const (
 // If reopenAfterDone is true, the original file will be replaced by the merge file,
 // and db's index will be rebuilt after the merge is complete.
 func (db *DB) Merge(reopenAfterDone bool) error {
-	if err := db.merge(); err != nil {
+	if err := db.doMerge(); err != nil {
 		return err
 	}
 
@@ -72,7 +72,7 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 	return nil
 }
 
-func (db *DB) merge() error {
+func (db *DB) doMerge() error {
 	db.mu.Lock()
 	// check if the database is closed
 	if db.closed {
