@@ -279,7 +279,7 @@ func (db *DB) Ascend(handleFn func(k []byte, v []byte) (bool, error)) {
 	})
 }
 
-// Descend calls handleFn for each key/value pair in the tree in descending order.
+// Descend calls handleFn for each key/value pair in the db in descending order.
 func (db *DB) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
