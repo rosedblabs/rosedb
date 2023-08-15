@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"github.com/rosedblabs/rosedb/v2/index"
 	"github.com/rosedblabs/wal"
 )
 
@@ -39,33 +38,22 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 	defer db.mu.Unlock()
 
 	// close current files
-	db.dataFiles.Close()
+	db.closeFiles()
 
 	// replace original file
 	if err := loadMergeFiles(db.options.DirPath); err != nil {
 		return err
 	}
 
-	// open data files from WAL
-	walFiles, err := wal.Open(wal.Options{
-		DirPath:        db.options.DirPath,
-		SegmentSize:    db.options.SegmentSize,
-		SegmentFileExt: dataFileNameSuffix,
-		BlockCache:     db.options.BlockCache,
-		Sync:           db.options.Sync,
-		BytesPerSync:   db.options.BytesPerSync,
-	})
-	if err != nil {
+	// open data files
+	if walFiles, err := db.openWalFiles(); err != nil {
 		return err
+	} else {
+		db.dataFiles = walFiles
 	}
-	db.dataFiles = walFiles
 
 	// rebuild index
-	db.index = index.NewIndexer()
-	if err := db.loadIndexFromHintFile(); err != nil {
-		return err
-	}
-	if err := db.loadIndexFromWAL(); err != nil {
+	if err := db.loadIndex(); err != nil {
 		return err
 	}
 

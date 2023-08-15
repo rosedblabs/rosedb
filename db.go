@@ -93,26 +93,24 @@ func Open(options Options) (*DB, error) {
 		return nil, err
 	}
 
-	// open data files from WAL
-	walFiles, err := wal.Open(wal.Options{
-		DirPath:        options.DirPath,
-		SegmentSize:    options.SegmentSize,
-		SegmentFileExt: dataFileNameSuffix,
-		BlockCache:     options.BlockCache,
-		Sync:           options.Sync,
-		BytesPerSync:   options.BytesPerSync,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	// init DB instance
 	db := &DB{
-		dataFiles: walFiles,
 		index:     index.NewIndexer(),
 		options:   options,
 		fileLock:  fileLock,
 		batchPool: sync.Pool{New: makeBatch},
+	}
+
+	// open data files
+	if walFiles, err := db.openWalFiles(); err != nil {
+		return nil, err
+	} else {
+		db.dataFiles = walFiles
+	}
+
+	// load index
+	if err = db.loadIndex(); err != nil {
+		return nil, err
 	}
 
 	// enable watch
@@ -123,17 +121,35 @@ func Open(options Options) (*DB, error) {
 		go db.watcher.sendEvent(db.watchCh)
 	}
 
-	// load index frm hint file
-	if err = db.loadIndexFromHintFile(); err != nil {
-		return nil, err
-	}
-
-	// load index from data files
-	if err = db.loadIndexFromWAL(); err != nil {
-		return nil, err
-	}
-
 	return db, nil
+}
+
+func (db *DB) openWalFiles() (*wal.WAL, error) {
+	// open data files from WAL
+	walFiles, err := wal.Open(wal.Options{
+		DirPath:        db.options.DirPath,
+		SegmentSize:    db.options.SegmentSize,
+		SegmentFileExt: dataFileNameSuffix,
+		BlockCache:     db.options.BlockCache,
+		Sync:           db.options.Sync,
+		BytesPerSync:   db.options.BytesPerSync,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return walFiles, nil
+}
+
+func (db *DB) loadIndex() error {
+	// load index frm hint file
+	if err := db.loadIndexFromHintFile(); err != nil {
+		return err
+	}
+	// load index from data files
+	if err := db.loadIndexFromWAL(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Close the database, close all data files and release file lock.
@@ -143,16 +159,10 @@ func (db *DB) Close() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	// close wal
-	if err := db.dataFiles.Close(); err != nil {
+	if err := db.closeFiles(); err != nil {
 		return err
 	}
-	// close hint file if exists
-	if db.hintFile != nil {
-		if err := db.hintFile.Close(); err != nil {
-			return err
-		}
-	}
+
 	// release file lock
 	if err := db.fileLock.Unlock(); err != nil {
 		return err
@@ -164,6 +174,21 @@ func (db *DB) Close() error {
 	}
 
 	db.closed = true
+	return nil
+}
+
+// closeFiles close all data files and hint file
+func (db *DB) closeFiles() error {
+	// close wal
+	if err := db.dataFiles.Close(); err != nil {
+		return err
+	}
+	// close hint file if exists
+	if db.hintFile != nil {
+		if err := db.hintFile.Close(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
