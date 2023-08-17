@@ -23,7 +23,43 @@ const (
 //
 // Merge operation maybe a very time-consuming operation when the database is large.
 // So it is recommended to perform this operation when the database is idle.
-func (db *DB) Merge() error {
+// If reopenAfterDone is true, the original file will be replaced by the merge file,
+// and db's index will be rebuilt after the merge is complete.
+func (db *DB) Merge(reopenAfterDone bool) error {
+	if err := db.doMerge(); err != nil {
+		return err
+	}
+
+	if !reopenAfterDone {
+		return nil
+	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	// close current files
+	db.closeFiles()
+
+	// replace original file
+	err := loadMergeFiles(db.options.DirPath)
+	if err != nil {
+		return err
+	}
+
+	// open data files
+	if db.dataFiles, err = db.openWalFiles(); err != nil {
+		return err
+	}
+
+	// rebuild index
+	if err = db.loadIndex(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) doMerge() error {
 	db.mu.Lock()
 	// check if the database is closed
 	if db.closed {
