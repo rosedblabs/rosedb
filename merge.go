@@ -286,7 +286,7 @@ func loadMergeFiles(dirPath string) error {
 		_ = os.RemoveAll(mergeDirPath)
 	}()
 
-	copyFile := func(suffix string, fileId uint32) {
+	copyFile := func(suffix string, fileId uint32, force bool) {
 		srcFile := wal.SegmentFileName(mergeDirPath, suffix, fileId)
 		stat, err := os.Stat(srcFile)
 		if os.IsNotExist(err) {
@@ -295,7 +295,7 @@ func loadMergeFiles(dirPath string) error {
 		if err != nil {
 			panic(fmt.Sprintf("loadMergeFiles: failed to get src file stat %v", err))
 		}
-		if stat.Size() == 0 {
+		if !force && stat.Size() == 0 {
 			return
 		}
 		destFile := wal.SegmentFileName(dirPath, suffix, fileId)
@@ -322,14 +322,14 @@ func loadMergeFiles(dirPath string) error {
 			return err
 		}
 		// move the merge data file to the original data directory
-		copyFile(dataFileNameSuffix, fileId)
+		copyFile(dataFileNameSuffix, fileId, false)
 	}
 
 	// copy MERGEFINISHED and HINT files to the original data directory
 	// there is only one merge finished file, so the file id is always 1,
 	// the same as the hint file.
-	copyFile(mergeFinNameSuffix, 1)
-	copyFile(hintFileNameSuffix, 1)
+	copyFile(mergeFinNameSuffix, 1, true)
+	copyFile(hintFileNameSuffix, 1, true)
 
 	return nil
 }
