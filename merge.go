@@ -41,19 +41,18 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 	db.closeFiles()
 
 	// replace original file
-	if err := loadMergeFiles(db.options.DirPath); err != nil {
+	err := loadMergeFiles(db.options.DirPath)
+	if err != nil {
 		return err
 	}
 
 	// open data files
-	if walFiles, err := db.openWalFiles(); err != nil {
+	if db.dataFiles, err = db.openWalFiles(); err != nil {
 		return err
-	} else {
-		db.dataFiles = walFiles
 	}
 
 	// rebuild index
-	if err := db.loadIndex(); err != nil {
+	if err = db.loadIndex(); err != nil {
 		return err
 	}
 

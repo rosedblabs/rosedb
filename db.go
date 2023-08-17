@@ -102,10 +102,8 @@ func Open(options Options) (*DB, error) {
 	}
 
 	// open data files
-	if walFiles, err := db.openWalFiles(); err != nil {
+	if db.dataFiles, err = db.openWalFiles(); err != nil {
 		return nil, err
-	} else {
-		db.dataFiles = walFiles
 	}
 
 	// load index

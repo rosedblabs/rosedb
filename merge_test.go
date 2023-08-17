@@ -240,7 +240,7 @@ func TestDB_Merge_ReopenAfterDone(t *testing.T) {
 	defer destroyDB(db)
 
 	kvs := make(map[string][]byte)
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 200000; i++ {
 		key := utils.GetTestKey(i)
 		value := utils.RandomValue(128)
 		kvs[string(key)] = value
