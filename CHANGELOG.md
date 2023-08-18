@@ -1,3 +1,17 @@
+# Release 2.3.0(2023-08-18)
+## 🚀 New Features
+* use BTree as the default memory data structure.
+  * the old Radix will be removed, and the iterator too.
+
+## 🎠 Community
+* Thanks to @Jeremy-Run 
+    * remove merge file after tests (https://github.com/rosedblabs/rosedb/pull/250)
+    * replace original file and rebuilt index after merge (https://github.com/rosedblabs/rosedb/pull/255)
+* Thanks to @SYaoJun 
+    * fix: single quote error in README (https://github.com/rosedblabs/rosedb/pull/256)
+* Thanks to @weijiew 
+    * add btree Ascend、Descend method and unitest. (https://github.com/rosedblabs/rosedb/pull/257)
+
 # Release 2.2.2(2023-08-05)
 ## 🚀 New Features
 * Watch Key [feature support watch event by key #227](https://github.com/rosedblabs/rosedb/issues/227) @Jeremy-Run 
