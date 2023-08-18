@@ -311,15 +311,20 @@ func loadMergeFiles(dirPath string) error {
 	// should be moved to the original data directory, and the original data files should be deleted.
 	for fileId := uint32(1); fileId <= mergeFinSegmentId; fileId++ {
 		destFile := wal.SegmentFileName(dirPath, dataFileNameSuffix, fileId)
+		// will have bug here if continue, check it later.todo
+
 		// If we call Merge multiple times, some segment files will be deleted earlier, so just skip them.
-		if _, err = os.Stat(destFile); os.IsNotExist(err) {
-			continue
-		} else if err != nil {
-			return err
-		}
+		// if _, err = os.Stat(destFile); os.IsNotExist(err) {
+		// 	continue
+		// } else if err != nil {
+		// 	return err
+		// }
+
 		// remove the original data file
-		if err = os.Remove(destFile); err != nil {
-			return err
+		if _, err = os.Stat(destFile); err == nil {
+			if err = os.Remove(destFile); err != nil {
+				return err
+			}
 		}
 		// move the merge data file to the original data directory
 		copyFile(dataFileNameSuffix, fileId, false)
