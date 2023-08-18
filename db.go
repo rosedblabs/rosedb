@@ -302,12 +302,68 @@ func (db *DB) Ascend(handleFn func(k []byte, v []byte) (bool, error)) {
 	})
 }
 
+// AscendRange calls handleFn for each key/value pair in the db within the range [startKey, endKey] in ascending order.
+func (db *DB) AscendRange(startKey, endKey []byte, handleFn func(k []byte, v []byte) (bool, error)) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	db.index.AscendRange(startKey, endKey, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		val, err := db.dataFiles.Read(pos)
+		if err != nil {
+			return false, nil
+		}
+		return handleFn(key, val)
+	})
+}
+
+// AscendGreaterOrEqual calls handleFn for each key/value pair in the db with keys greater than or equal to the given key.
+func (db *DB) AscendGreaterOrEqual(key []byte, handleFn func(k []byte, v []byte) (bool, error)) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	db.index.AscendGreaterOrEqual(key, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		val, err := db.dataFiles.Read(pos)
+		if err != nil {
+			return false, nil
+		}
+		return handleFn(key, val)
+	})
+}
+
 // Descend calls handleFn for each key/value pair in the db in descending order.
 func (db *DB) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
 	db.index.Descend(func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		val, err := db.dataFiles.Read(pos)
+		if err != nil {
+			return false, nil
+		}
+		return handleFn(key, val)
+	})
+}
+
+// DescendRange calls handleFn for each key/value pair in the db within the range [startKey, endKey] in descending order.
+func (db *DB) DescendRange(startKey, endKey []byte, handleFn func(k []byte, v []byte) (bool, error)) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	db.index.DescendRange(startKey, endKey, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		val, err := db.dataFiles.Read(pos)
+		if err != nil {
+			return false, nil
+		}
+		return handleFn(key, val)
+	})
+}
+
+// DescendLessOrEqual calls handleFn for each key/value pair in the db with keys less than or equal to the given key.
+func (db *DB) DescendLessOrEqual(key []byte, handleFn func(k []byte, v []byte) (bool, error)) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	db.index.DescendLessOrEqual(key, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
 		val, err := db.dataFiles.Read(pos)
 		if err != nil {
 			return false, nil
