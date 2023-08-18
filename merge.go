@@ -23,7 +23,43 @@ const (
 //
 // Merge operation maybe a very time-consuming operation when the database is large.
 // So it is recommended to perform this operation when the database is idle.
-func (db *DB) Merge() error {
+//
+// If reopenAfterDone is true, the original file will be replaced by the merge file,
+// and db's index will be rebuilt after the merge completes.
+func (db *DB) Merge(reopenAfterDone bool) error {
+	if err := db.doMerge(); err != nil {
+		return err
+	}
+	if !reopenAfterDone {
+		return nil
+	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	// close current files
+	_ = db.closeFiles()
+
+	// replace original file
+	err := loadMergeFiles(db.options.DirPath)
+	if err != nil {
+		return err
+	}
+
+	// open data files
+	if db.dataFiles, err = db.openWalFiles(); err != nil {
+		return err
+	}
+
+	// rebuild index
+	if err = db.loadIndex(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) doMerge() error {
 	db.mu.Lock()
 	// check if the database is closed
 	if db.closed {
@@ -250,7 +286,7 @@ func loadMergeFiles(dirPath string) error {
 		_ = os.RemoveAll(mergeDirPath)
 	}()
 
-	copyFile := func(suffix string, fileId uint32) {
+	copyFile := func(suffix string, fileId uint32, force bool) {
 		srcFile := wal.SegmentFileName(mergeDirPath, suffix, fileId)
 		stat, err := os.Stat(srcFile)
 		if os.IsNotExist(err) {
@@ -259,7 +295,7 @@ func loadMergeFiles(dirPath string) error {
 		if err != nil {
 			panic(fmt.Sprintf("loadMergeFiles: failed to get src file stat %v", err))
 		}
-		if stat.Size() == 0 {
+		if !force && stat.Size() == 0 {
 			return
 		}
 		destFile := wal.SegmentFileName(dirPath, suffix, fileId)
@@ -275,25 +311,30 @@ func loadMergeFiles(dirPath string) error {
 	// should be moved to the original data directory, and the original data files should be deleted.
 	for fileId := uint32(1); fileId <= mergeFinSegmentId; fileId++ {
 		destFile := wal.SegmentFileName(dirPath, dataFileNameSuffix, fileId)
+		// will have bug here if continue, check it later.todo
+
 		// If we call Merge multiple times, some segment files will be deleted earlier, so just skip them.
-		if _, err = os.Stat(destFile); os.IsNotExist(err) {
-			continue
-		} else if err != nil {
-			return err
-		}
+		// if _, err = os.Stat(destFile); os.IsNotExist(err) {
+		// 	continue
+		// } else if err != nil {
+		// 	return err
+		// }
+
 		// remove the original data file
-		if err = os.Remove(destFile); err != nil {
-			return err
+		if _, err = os.Stat(destFile); err == nil {
+			if err = os.Remove(destFile); err != nil {
+				return err
+			}
 		}
 		// move the merge data file to the original data directory
-		copyFile(dataFileNameSuffix, fileId)
+		copyFile(dataFileNameSuffix, fileId, false)
 	}
 
 	// copy MERGEFINISHED and HINT files to the original data directory
 	// there is only one merge finished file, so the file id is always 1,
 	// the same as the hint file.
-	copyFile(mergeFinNameSuffix, 1)
-	copyFile(hintFileNameSuffix, 1)
+	copyFile(mergeFinNameSuffix, 1, true)
+	copyFile(hintFileNameSuffix, 1, true)
 
 	return nil
 }

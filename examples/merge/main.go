@@ -34,5 +34,5 @@ func main() {
 
 	// then merge the data files
 	// all the invalid data will be removed, and the valid data will be merged into the new data files.
-	_ = db.Merge()
+	_ = db.Merge(true)
 }

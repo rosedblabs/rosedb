@@ -72,11 +72,6 @@ var DefaultBatchOptions = BatchOptions{
 	ReadOnly: false,
 }
 
-var DefaultIteratorOptions = IteratorOptions{
-	Prefix:  nil,
-	Reverse: false,
-}
-
 func tempDBDir() string {
 	dir, _ := os.MkdirTemp("", "rosedb-temp")
 	return dir

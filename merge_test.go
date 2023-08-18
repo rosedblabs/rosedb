@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"math/rand"
+	"os"
 	"sync"
 	"testing"
 
@@ -15,7 +16,7 @@ func TestDB_Merge_1_Empty(t *testing.T) {
 	assert.Nil(t, err)
 	defer destroyDB(db)
 
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
 }
 
@@ -34,7 +35,7 @@ func TestDB_Merge_2_All_Invalid(t *testing.T) {
 		assert.Nil(t, err)
 	}
 
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
 
 	_ = db.Close()
@@ -59,7 +60,7 @@ func TestDB_Merge_3_All_Valid(t *testing.T) {
 		assert.Nil(t, err)
 	}
 
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
 
 	_ = db.Close()
@@ -87,9 +88,9 @@ func TestDB_Merge_4_Twice(t *testing.T) {
 		assert.Nil(t, err)
 	}
 
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
 
 	_ = db.Close()
@@ -129,7 +130,7 @@ func TestDB_Merge_5_Mixed(t *testing.T) {
 		assert.Nil(t, err)
 	}
 
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
 
 	_ = db.Close()
@@ -180,7 +181,7 @@ func TestDB_Merge_6_Appending(t *testing.T) {
 		}()
 	}
 
-	err = db.Merge()
+	err = db.Merge(false)
 	assert.Nil(t, err)
 
 	wg.Wait()
@@ -215,7 +216,7 @@ func TestDB_Multi_Open_Merge(t *testing.T) {
 			assert.Nil(t, err)
 		}
 
-		err = db.Merge()
+		err = db.Merge(false)
 		assert.Nil(t, err)
 		err = db.Close()
 		assert.Nil(t, err)
@@ -230,4 +231,75 @@ func TestDB_Multi_Open_Merge(t *testing.T) {
 		assert.Equal(t, value, v)
 	}
 	assert.Equal(t, len(kvs), db.index.Size())
+}
+
+func TestDB_Merge_ReopenAfterDone(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	kvs := make(map[string][]byte)
+	for i := 0; i < 200000; i++ {
+		key := utils.GetTestKey(i)
+		value := utils.RandomValue(128)
+		kvs[string(key)] = value
+		err := db.Put(key, value)
+		assert.Nil(t, err)
+	}
+
+	err = db.Merge(true)
+	assert.Nil(t, err)
+	_, err = os.Stat(mergeDirPath(options.DirPath))
+	assert.Equal(t, true, os.IsNotExist(err))
+
+	for key, value := range kvs {
+		v, err := db.Get([]byte(key))
+		assert.Nil(t, err)
+		assert.Equal(t, value, v)
+	}
+	assert.Equal(t, len(kvs), db.index.Size())
+}
+
+func TestDB_Merge_Concurrent_Put(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	wg := sync.WaitGroup{}
+	m := sync.Map{}
+	wg.Add(11)
+	for i := 0; i < 10; i++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 10000; i++ {
+				key := utils.GetTestKey(rand.Int())
+				value := utils.RandomValue(128)
+				m.Store(string(key), value)
+				e := db.Put(key, value)
+				assert.Nil(t, e)
+			}
+		}()
+	}
+	go func() {
+		defer wg.Done()
+		err = db.Merge(true)
+		assert.Nil(t, err)
+	}()
+	wg.Wait()
+
+	_, err = os.Stat(mergeDirPath(options.DirPath))
+	assert.Equal(t, true, os.IsNotExist(err))
+
+	var count int
+	m.Range(func(key, value any) bool {
+		v, err := db.Get([]byte(key.(string)))
+		assert.Nil(t, err)
+		assert.Equal(t, value, v)
+		count++
+		return true
+	})
+	assert.Equal(t, count, db.index.Size())
+
 }
