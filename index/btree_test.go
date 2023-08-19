@@ -123,3 +123,73 @@ func TestMemoryBTree_Ascend_Descend(t *testing.T) {
 	prevKey = "zzzzzz"
 	mt.Descend(descendHandler)
 }
+
+func TestMemoryBTree_AscendRange_DescendRange(t *testing.T) {
+	mt := newBTree()
+	w, _ := wal.Open(wal.DefaultOptions)
+
+	data := map[string][]byte{
+		"apple":  []byte("some data 1"),
+		"banana": []byte("some data 2"),
+		"cherry": []byte("some data 3"),
+		"date":   []byte("some data 4"),
+		"grape":  []byte("some data 5"),
+	}
+
+	positionMap := make(map[string]*wal.ChunkPosition)
+
+	for k, v := range data {
+		chunkPosition, _ := w.Write(v)
+		positionMap[k] = chunkPosition
+		mt.Put([]byte(k), chunkPosition)
+	}
+
+	// Test AscendRange
+	fmt.Println("Testing AscendRange:")
+	mt.AscendRange([]byte("banana"), []byte("grape"), func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		fmt.Printf("Key: %s, Position: %+v\n", key, pos)
+		return true, nil
+	})
+
+	// Test DescendRange
+	fmt.Println("Testing DescendRange:")
+	mt.DescendRange([]byte("cherry"), []byte("date"), func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		fmt.Printf("Key: %s, Position: %+v\n", key, pos)
+		return true, nil
+	})
+}
+
+func TestMemoryBTree_AscendGreaterOrEqual_DescendLessOrEqual(t *testing.T) {
+	mt := newBTree()
+	w, _ := wal.Open(wal.DefaultOptions)
+
+	data := map[string][]byte{
+		"apple":  []byte("some data 1"),
+		"banana": []byte("some data 2"),
+		"cherry": []byte("some data 3"),
+		"date":   []byte("some data 4"),
+		"grape":  []byte("some data 5"),
+	}
+
+	positionMap := make(map[string]*wal.ChunkPosition)
+
+	for k, v := range data {
+		chunkPosition, _ := w.Write(v)
+		positionMap[k] = chunkPosition
+		mt.Put([]byte(k), chunkPosition)
+	}
+
+	// Test AscendGreaterOrEqual
+	fmt.Println("Testing AscendGreaterOrEqual:")
+	mt.AscendGreaterOrEqual([]byte("cherry"), func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		fmt.Printf("Key: %s, Position: %+v\n", key, pos)
+		return true, nil
+	})
+
+	// Test DescendLessOrEqual
+	fmt.Println("Testing DescendLessOrEqual:")
+	mt.DescendLessOrEqual([]byte("date"), func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		fmt.Printf("Key: %s, Position: %+v\n", key, pos)
+		return true, nil
+	})
+}

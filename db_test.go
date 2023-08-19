@@ -204,3 +204,155 @@ func TestDB_Descend(t *testing.T) {
 		}
 	}
 }
+
+func TestDB_AscendRange(t *testing.T) {
+	// Create a test database instance
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+
+	// Insert some test data
+	data := []struct {
+		key   []byte
+		value []byte
+	}{
+		{[]byte("apple"), []byte("value1")},
+		{[]byte("banana"), []byte("value2")},
+		{[]byte("cherry"), []byte("value3")},
+		{[]byte("date"), []byte("value4")},
+		{[]byte("grape"), []byte("value5")},
+		{[]byte("kiwi"), []byte("value6")},
+	}
+
+	for _, d := range data {
+		if err := db.Put(d.key, d.value); err != nil {
+			t.Fatalf("Failed to put data: %v", err)
+		}
+	}
+
+	// Test AscendRange
+	var resultAscendRange []string
+	db.AscendRange([]byte("banana"), []byte("grape"), func(k []byte, v []byte) (bool, error) {
+		resultAscendRange = append(resultAscendRange, string(k))
+		return true, nil
+	})
+	assert.Equal(t, []string{"banana", "cherry", "date"}, resultAscendRange)
+}
+
+func TestDB_DescendRange(t *testing.T) {
+	// Create a test database instance
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+
+	// Insert some test data
+	data := []struct {
+		key   []byte
+		value []byte
+	}{
+		{[]byte("apple"), []byte("value1")},
+		{[]byte("banana"), []byte("value2")},
+		{[]byte("cherry"), []byte("value3")},
+		{[]byte("date"), []byte("value4")},
+		{[]byte("grape"), []byte("value5")},
+		{[]byte("kiwi"), []byte("value6")},
+	}
+
+	for _, d := range data {
+		if err := db.Put(d.key, d.value); err != nil {
+			t.Fatalf("Failed to put data: %v", err)
+		}
+	}
+
+	// Test DescendRange
+	var resultDescendRange []string
+	db.DescendRange([]byte("grape"), []byte("cherry"), func(k []byte, v []byte) (bool, error) {
+		resultDescendRange = append(resultDescendRange, string(k))
+		return true, nil
+	})
+	assert.Equal(t, []string{"grape", "date"}, resultDescendRange)
+}
+
+func TestDB_AscendGreaterOrEqual(t *testing.T) {
+	// Create a test database instance
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+
+	// Insert some test data
+	data := []struct {
+		key   []byte
+		value []byte
+	}{
+		{[]byte("apple"), []byte("value1")},
+		{[]byte("banana"), []byte("value2")},
+		{[]byte("cherry"), []byte("value3")},
+		{[]byte("date"), []byte("value4")},
+		{[]byte("grape"), []byte("value5")},
+		{[]byte("kiwi"), []byte("value6")},
+	}
+
+	for _, d := range data {
+		if err := db.Put(d.key, d.value); err != nil {
+			t.Fatalf("Failed to put data: %v", err)
+		}
+	}
+
+	// Test AscendGreaterOrEqual
+	var resultAscendGreaterOrEqual []string
+	db.AscendGreaterOrEqual([]byte("date"), func(k []byte, v []byte) (bool, error) {
+		resultAscendGreaterOrEqual = append(resultAscendGreaterOrEqual, string(k))
+		return true, nil
+	})
+	assert.Equal(t, []string{"date", "grape", "kiwi"}, resultAscendGreaterOrEqual)
+}
+
+func TestDB_DescendLessOrEqual(t *testing.T) {
+	// Create a test database instance
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+	if err != nil {
+		t.Fatalf("Failed to open database: %v", err)
+	}
+
+	// Insert some test data
+	data := []struct {
+		key   []byte
+		value []byte
+	}{
+		{[]byte("apple"), []byte("value1")},
+		{[]byte("banana"), []byte("value2")},
+		{[]byte("cherry"), []byte("value3")},
+		{[]byte("date"), []byte("value4")},
+		{[]byte("grape"), []byte("value5")},
+		{[]byte("kiwi"), []byte("value6")},
+	}
+
+	for _, d := range data {
+		if err := db.Put(d.key, d.value); err != nil {
+			t.Fatalf("Failed to put data: %v", err)
+		}
+	}
+
+	// Test DescendLessOrEqual
+	var resultDescendLessOrEqual []string
+	db.DescendLessOrEqual([]byte("grape"), func(k []byte, v []byte) (bool, error) {
+		resultDescendLessOrEqual = append(resultDescendLessOrEqual, string(k))
+		return true, nil
+	})
+	assert.Equal(t, []string{"grape", "date", "cherry", "banana", "apple"}, resultDescendLessOrEqual)
+}

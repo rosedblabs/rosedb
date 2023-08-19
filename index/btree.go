@@ -90,3 +90,55 @@ func (mt *MemoryBTree) Descend(handleFn func(key []byte, position *wal.ChunkPosi
 		return cont
 	})
 }
+
+func (mt *MemoryBTree) AscendRange(startKey, endKey []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
+	mt.lock.RLock()
+	defer mt.lock.RUnlock()
+
+	mt.tree.AscendRange(&item{key: startKey}, &item{key: endKey}, func(i btree.Item) bool {
+		cont, err := handleFn(i.(*item).key, i.(*item).pos)
+		if err != nil {
+			return false
+		}
+		return cont
+	})
+}
+
+func (mt *MemoryBTree) DescendRange(startKey, endKey []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
+	mt.lock.RLock()
+	defer mt.lock.RUnlock()
+
+	mt.tree.DescendRange(&item{key: startKey}, &item{key: endKey}, func(i btree.Item) bool {
+		cont, err := handleFn(i.(*item).key, i.(*item).pos)
+		if err != nil {
+			return false
+		}
+		return cont
+	})
+}
+
+func (mt *MemoryBTree) AscendGreaterOrEqual(key []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
+	mt.lock.RLock()
+	defer mt.lock.RUnlock()
+
+	mt.tree.AscendGreaterOrEqual(&item{key: key}, func(i btree.Item) bool {
+		cont, err := handleFn(i.(*item).key, i.(*item).pos)
+		if err != nil {
+			return false
+		}
+		return cont
+	})
+}
+
+func (mt *MemoryBTree) DescendLessOrEqual(key []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
+	mt.lock.RLock()
+	defer mt.lock.RUnlock()
+
+	mt.tree.DescendLessOrEqual(&item{key: key}, func(i btree.Item) bool {
+		cont, err := handleFn(i.(*item).key, i.(*item).pos)
+		if err != nil {
+			return false
+		}
+		return cont
+	})
+}
