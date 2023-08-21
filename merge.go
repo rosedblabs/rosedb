@@ -3,6 +3,7 @@ package rosedb
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/rosedblabs/rosedb/v2/index"
 	"github.com/rosedblabs/wal"
 	"io"
 	"math"
@@ -51,6 +52,8 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 		return err
 	}
 
+	// discard the old index first.
+	db.index = index.NewIndexer()
 	// rebuild index
 	if err = db.loadIndex(); err != nil {
 		return err
@@ -223,40 +226,40 @@ func encodeHintRecord(key []byte, pos *wal.ChunkPosition) []byte {
 	//    5          5           10          5      =    25
 	// see binary.MaxVarintLen64 and binary.MaxVarintLen32
 	buf := make([]byte, 25)
-	var index = 0
+	var idx = 0
 
 	// SegmentId
-	index += binary.PutUvarint(buf[index:], uint64(pos.SegmentId))
+	idx += binary.PutUvarint(buf[idx:], uint64(pos.SegmentId))
 	// BlockNumber
-	index += binary.PutUvarint(buf[index:], uint64(pos.BlockNumber))
+	idx += binary.PutUvarint(buf[idx:], uint64(pos.BlockNumber))
 	// ChunkOffset
-	index += binary.PutUvarint(buf[index:], uint64(pos.ChunkOffset))
+	idx += binary.PutUvarint(buf[idx:], uint64(pos.ChunkOffset))
 	// ChunkSize
-	index += binary.PutUvarint(buf[index:], uint64(pos.ChunkSize))
+	idx += binary.PutUvarint(buf[idx:], uint64(pos.ChunkSize))
 
 	// key
-	result := make([]byte, index+len(key))
-	copy(result, buf[:index])
-	copy(result[index:], key)
+	result := make([]byte, idx+len(key))
+	copy(result, buf[:idx])
+	copy(result[idx:], key)
 	return result
 }
 
 func decodeHintRecord(buf []byte) ([]byte, *wal.ChunkPosition) {
-	var index = 0
+	var idx = 0
 	// SegmentId
-	segmentId, n := binary.Uvarint(buf[index:])
-	index += n
+	segmentId, n := binary.Uvarint(buf[idx:])
+	idx += n
 	// BlockNumber
-	blockNumber, n := binary.Uvarint(buf[index:])
-	index += n
+	blockNumber, n := binary.Uvarint(buf[idx:])
+	idx += n
 	// ChunkOffset
-	chunkOffset, n := binary.Uvarint(buf[index:])
-	index += n
+	chunkOffset, n := binary.Uvarint(buf[idx:])
+	idx += n
 	// ChunkSize
-	chunkSize, n := binary.Uvarint(buf[index:])
-	index += n
+	chunkSize, n := binary.Uvarint(buf[idx:])
+	idx += n
 	// Key
-	key := buf[index:]
+	key := buf[idx:]
 
 	return key, &wal.ChunkPosition{
 		SegmentId:   wal.SegmentID(segmentId),

@@ -291,7 +291,7 @@ func (b *Batch) Commit() error {
 	// write to wal
 	for _, record := range b.pendingWrites {
 		// skip the expired record
-		if record.Expire != 0 && record.Expire <= now {
+		if record.Expire > 0 && record.Expire <= now {
 			continue
 		}
 

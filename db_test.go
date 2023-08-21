@@ -409,20 +409,23 @@ func TestDB_PutWithTTL_Merge(t *testing.T) {
 		err = db.PutWithTTL(utils.GetTestKey(i), utils.RandomValue(10), time.Second*2)
 		assert.Nil(t, err)
 	}
-	for i := 100; i < 200; i++ {
+	for i := 100; i < 150; i++ {
 		err = db.PutWithTTL(utils.GetTestKey(i), utils.RandomValue(10), time.Second*20)
 		assert.Nil(t, err)
 	}
-	//time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 3)
 
 	err = db.Merge(true)
-	//assert.Nil(t, err)
-	t.Log(db.Stat().KeysNum)
+	assert.Nil(t, err)
 
-	val, err := db.Get(utils.GetTestKey(1))
-	t.Log(val, err)
+	for i := 0; i < 100; i++ {
+		val, err := db.Get(utils.GetTestKey(i))
+		assert.Nil(t, val)
+		assert.Equal(t, err, ErrKeyNotFound)
+	}
+	for i := 100; i < 150; i++ {
+		val, err := db.Get(utils.GetTestKey(i))
+		assert.Nil(t, err)
+		assert.NotNil(t, val)
+	}
 }
-
-// 设置 ttl，先读，过期后在读，重启验证
-// 设置 ttl，先读，过期之前重新 put，重启验证
-// 设置 ttl，先读，过期之后重新 put，重启验证
