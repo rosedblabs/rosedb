@@ -311,11 +311,15 @@ func (db *DB) Ascend(handleFn func(k []byte, v []byte) (bool, error)) {
 	defer db.mu.RUnlock()
 
 	db.index.Ascend(func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		val, err := db.dataFiles.Read(pos)
+		chunk, err := db.dataFiles.Read(pos)
 		if err != nil {
-			return false, nil
+			return false, err
 		}
-		return handleFn(key, val)
+		value, err := db.checkValue(chunk)
+		if err != nil {
+			return false, err
+		}
+		return handleFn(key, value)
 	})
 }
 
@@ -325,11 +329,15 @@ func (db *DB) AscendRange(startKey, endKey []byte, handleFn func(k []byte, v []b
 	defer db.mu.RUnlock()
 
 	db.index.AscendRange(startKey, endKey, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		val, err := db.dataFiles.Read(pos)
+		chunk, err := db.dataFiles.Read(pos)
 		if err != nil {
 			return false, nil
 		}
-		return handleFn(key, val)
+		value, err := db.checkValue(chunk)
+		if err != nil {
+			return false, err
+		}
+		return handleFn(key, value)
 	})
 }
 
@@ -339,11 +347,15 @@ func (db *DB) AscendGreaterOrEqual(key []byte, handleFn func(k []byte, v []byte)
 	defer db.mu.RUnlock()
 
 	db.index.AscendGreaterOrEqual(key, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		val, err := db.dataFiles.Read(pos)
+		chunk, err := db.dataFiles.Read(pos)
 		if err != nil {
 			return false, nil
 		}
-		return handleFn(key, val)
+		value, err := db.checkValue(chunk)
+		if err != nil {
+			return false, err
+		}
+		return handleFn(key, value)
 	})
 }
 
@@ -353,11 +365,15 @@ func (db *DB) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
 	defer db.mu.RUnlock()
 
 	db.index.Descend(func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		val, err := db.dataFiles.Read(pos)
+		chunk, err := db.dataFiles.Read(pos)
 		if err != nil {
 			return false, nil
 		}
-		return handleFn(key, val)
+		value, err := db.checkValue(chunk)
+		if err != nil {
+			return false, err
+		}
+		return handleFn(key, value)
 	})
 }
 
@@ -367,11 +383,15 @@ func (db *DB) DescendRange(startKey, endKey []byte, handleFn func(k []byte, v []
 	defer db.mu.RUnlock()
 
 	db.index.DescendRange(startKey, endKey, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		val, err := db.dataFiles.Read(pos)
+		chunk, err := db.dataFiles.Read(pos)
 		if err != nil {
 			return false, nil
 		}
-		return handleFn(key, val)
+		value, err := db.checkValue(chunk)
+		if err != nil {
+			return false, err
+		}
+		return handleFn(key, value)
 	})
 }
 
@@ -381,12 +401,25 @@ func (db *DB) DescendLessOrEqual(key []byte, handleFn func(k []byte, v []byte) (
 	defer db.mu.RUnlock()
 
 	db.index.DescendLessOrEqual(key, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		val, err := db.dataFiles.Read(pos)
+		chunk, err := db.dataFiles.Read(pos)
 		if err != nil {
 			return false, nil
 		}
-		return handleFn(key, val)
+		value, err := db.checkValue(chunk)
+		if err != nil {
+			return false, err
+		}
+		return handleFn(key, value)
 	})
+}
+
+func (db *DB) checkValue(chunk []byte) ([]byte, error) {
+	record := decodeLogRecord(chunk)
+	now := time.Now().UnixNano()
+	if record.Type == LogRecordDeleted || (record.Expire > 0 && record.Expire <= now) {
+		return nil, ErrKeyNotFound
+	}
+	return record.Value, nil
 }
 
 func checkOptions(options Options) error {
