@@ -234,6 +234,9 @@ func (db *DB) Put(key []byte, value []byte) error {
 	return batch.Commit()
 }
 
+// PutWithTTL a key-value pair into the database, with a ttl.
+// Actually, it will open a new batch and commit it.
+// You can think the batch has only one PutWithTTL operation.
 func (db *DB) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
 	batch := db.batchPool.Get().(*Batch)
 	defer func() {
@@ -486,6 +489,7 @@ func (db *DB) loadIndexFromWAL() error {
 			// so put the record into index directly.
 			db.index.Put(record.Key, position)
 		} else {
+			// expired records should not be indexed
 			if record.Expire > 0 && record.Expire <= now {
 				continue
 			}

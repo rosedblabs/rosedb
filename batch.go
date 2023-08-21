@@ -122,6 +122,7 @@ func (b *Batch) Put(key []byte, value []byte) error {
 	return nil
 }
 
+// PutWithTTL adds a key-value pair with ttl to the batch for writing.
 func (b *Batch) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
 	if len(key) == 0 {
 		return ErrKeyIsEmpty
@@ -180,6 +181,7 @@ func (b *Batch) Get(key []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	// check if the record is deleted or expired
 	record := decodeLogRecord(chunk)
 	if record.Type == LogRecordDeleted {
 		panic("Deleted data cannot exist in the index")
@@ -238,10 +240,16 @@ func (b *Batch) Exist(key []byte) (bool, error) {
 
 	// check if the key exists in index
 	position := b.db.index.Get(key)
+	if position == nil {
+		return false, nil
+	}
+
+	// check if the record is deleted or expired
 	chunk, err := b.db.dataFiles.Read(position)
 	if err != nil {
 		return false, err
 	}
+
 	now := time.Now().UnixNano()
 	record := decodeLogRecord(chunk)
 	if record.Type == LogRecordDeleted || (record.Expire > 0 && record.Expire <= now) {
@@ -335,7 +343,7 @@ func (b *Batch) Commit() error {
 	return nil
 }
 
-// Rollback discards a uncommitted batch instance.
+// Rollback discards an uncommitted batch instance.
 // the discard operation will clear the buffered data and release the lock.
 func (b *Batch) Rollback() error {
 	defer b.unlock()
