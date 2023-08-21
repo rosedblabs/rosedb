@@ -1,3 +1,12 @@
+# Release 2.3.1(2023-08-21)
+## 🚀 New Features
+* Support key expire
+  * You can call `PutWithTTL` to set the expire time for a key.
+
+## 🎠 Community
+* Thanks to @weijiew 
+    * Add more BTree functions #264
+
 # Release 2.3.0(2023-08-18)
 ## 🚀 New Features
 * use BTree as the default memory data structure.
