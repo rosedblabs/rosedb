@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/stretchr/testify/assert"
@@ -355,4 +356,76 @@ func TestDB_DescendLessOrEqual(t *testing.T) {
 		return true, nil
 	})
 	assert.Equal(t, []string{"grape", "date", "cherry", "banana", "apple"}, resultDescendLessOrEqual)
+}
+
+func TestDB_PutWithTTL(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	err = db.PutWithTTL(utils.GetTestKey(1), utils.RandomValue(128), time.Millisecond*100)
+	assert.Nil(t, err)
+	val1, err := db.Get(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.NotNil(t, val1)
+	time.Sleep(time.Millisecond * 200)
+	val2, err := db.Get(utils.GetTestKey(1))
+	assert.Equal(t, err, ErrKeyNotFound)
+	assert.Nil(t, val2)
+
+	err = db.PutWithTTL(utils.GetTestKey(2), utils.RandomValue(128), time.Millisecond*200)
+	// rewrite
+	err = db.Put(utils.GetTestKey(2), utils.RandomValue(128))
+	assert.Nil(t, err)
+	time.Sleep(time.Millisecond * 200)
+	val3, err := db.Get(utils.GetTestKey(2))
+	assert.Nil(t, err)
+	assert.NotNil(t, val3)
+
+	err = db.Close()
+	assert.Nil(t, err)
+
+	db2, err := Open(options)
+	assert.Nil(t, err)
+
+	val4, err := db2.Get(utils.GetTestKey(1))
+	assert.Equal(t, err, ErrKeyNotFound)
+	assert.Nil(t, val4)
+
+	val5, err := db2.Get(utils.GetTestKey(2))
+	assert.Nil(t, err)
+	assert.NotNil(t, val5)
+
+	_ = db2.Close()
+}
+
+func TestDB_PutWithTTL_Merge(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+	for i := 0; i < 100; i++ {
+		err = db.PutWithTTL(utils.GetTestKey(i), utils.RandomValue(10), time.Second*2)
+		assert.Nil(t, err)
+	}
+	for i := 100; i < 150; i++ {
+		err = db.PutWithTTL(utils.GetTestKey(i), utils.RandomValue(10), time.Second*20)
+		assert.Nil(t, err)
+	}
+	time.Sleep(time.Second * 3)
+
+	err = db.Merge(true)
+	assert.Nil(t, err)
+
+	for i := 0; i < 100; i++ {
+		val, err := db.Get(utils.GetTestKey(i))
+		assert.Nil(t, val)
+		assert.Equal(t, err, ErrKeyNotFound)
+	}
+	for i := 100; i < 150; i++ {
+		val, err := db.Get(utils.GetTestKey(i))
+		assert.Nil(t, err)
+		assert.NotNil(t, val)
+	}
 }

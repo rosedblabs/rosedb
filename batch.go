@@ -3,9 +3,9 @@ package rosedb
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/bwmarrin/snowflake"
-
 	"github.com/rosedblabs/wal"
 )
 
@@ -112,9 +112,35 @@ func (b *Batch) Put(key []byte, value []byte) error {
 	b.mu.Lock()
 	// write to pendingWrites
 	b.pendingWrites[string(key)] = &LogRecord{
-		Key:   key,
-		Value: value,
-		Type:  LogRecordNormal,
+		Key:    key,
+		Value:  value,
+		Type:   LogRecordNormal,
+		Expire: 0,
+	}
+	b.mu.Unlock()
+
+	return nil
+}
+
+// PutWithTTL adds a key-value pair with ttl to the batch for writing.
+func (b *Batch) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
+	if len(key) == 0 {
+		return ErrKeyIsEmpty
+	}
+	if b.db.closed {
+		return ErrDBClosed
+	}
+	if b.options.ReadOnly {
+		return ErrReadOnlyBatch
+	}
+
+	b.mu.Lock()
+	// write to pendingWrites
+	b.pendingWrites[string(key)] = &LogRecord{
+		Key:    key,
+		Value:  value,
+		Type:   LogRecordNormal,
+		Expire: time.Now().Add(ttl).UnixNano(),
 	}
 	b.mu.Unlock()
 
@@ -130,11 +156,12 @@ func (b *Batch) Get(key []byte) ([]byte, error) {
 		return nil, ErrDBClosed
 	}
 
+	now := time.Now().UnixNano()
 	// get from pendingWrites
 	if b.pendingWrites != nil {
 		b.mu.RLock()
 		if record := b.pendingWrites[string(key)]; record != nil {
-			if record.Type == LogRecordDeleted {
+			if record.Type == LogRecordDeleted || (record.Expire > 0 && record.Expire <= now) {
 				b.mu.RUnlock()
 				return nil, ErrKeyNotFound
 			}
@@ -154,9 +181,13 @@ func (b *Batch) Get(key []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	// check if the record is deleted or expired
 	record := decodeLogRecord(chunk)
 	if record.Type == LogRecordDeleted {
 		panic("Deleted data cannot exist in the index")
+	}
+	if record.Expire > 0 && record.Expire <= now {
+		return nil, ErrKeyNotFound
 	}
 	return record.Value, nil
 }
@@ -207,9 +238,24 @@ func (b *Batch) Exist(key []byte) (bool, error) {
 		b.mu.RUnlock()
 	}
 
-	// check if the key exists in data file
+	// check if the key exists in index
 	position := b.db.index.Get(key)
-	return position != nil, nil
+	if position == nil {
+		return false, nil
+	}
+
+	// check if the record is deleted or expired
+	chunk, err := b.db.dataFiles.Read(position)
+	if err != nil {
+		return false, err
+	}
+
+	now := time.Now().UnixNano()
+	record := decodeLogRecord(chunk)
+	if record.Type == LogRecordDeleted || (record.Expire > 0 && record.Expire <= now) {
+		return false, nil
+	}
+	return true, nil
 }
 
 // Commit commits the batch, if the batch is readonly or empty, it will return directly.
@@ -241,8 +287,14 @@ func (b *Batch) Commit() error {
 	batchId := b.batchId.Generate()
 	positions := make(map[string]*wal.ChunkPosition)
 
+	now := time.Now().UnixNano()
 	// write to wal
 	for _, record := range b.pendingWrites {
+		// skip the expired record
+		if record.Expire > 0 && record.Expire <= now {
+			continue
+		}
+
 		record.BatchId = uint64(batchId)
 		encRecord := encodeLogRecord(record)
 		pos, err := b.db.dataFiles.Write(encRecord)
@@ -291,7 +343,7 @@ func (b *Batch) Commit() error {
 	return nil
 }
 
-// Rollback discards a uncommitted batch instance.
+// Rollback discards an uncommitted batch instance.
 // the discard operation will clear the buffered data and release the lock.
 func (b *Batch) Rollback() error {
 	defer b.unlock()

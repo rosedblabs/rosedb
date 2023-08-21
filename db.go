@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/gofrs/flock"
@@ -233,6 +234,25 @@ func (db *DB) Put(key []byte, value []byte) error {
 	return batch.Commit()
 }
 
+// PutWithTTL a key-value pair into the database, with a ttl.
+// Actually, it will open a new batch and commit it.
+// You can think the batch has only one PutWithTTL operation.
+func (db *DB) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
+	batch := db.batchPool.Get().(*Batch)
+	defer func() {
+		batch.reset()
+		db.batchPool.Put(batch)
+	}()
+	// This is a single delete operation, we can set Sync to false.
+	// Because the data will be written to the WAL,
+	// and the WAL file will be synced to disk according to the DB options.
+	batch.init(false, false, db).withPendingWrites()
+	if err := batch.PutWithTTL(key, value, ttl); err != nil {
+		return err
+	}
+	return batch.Commit()
+}
+
 // Get the value of the specified key from the database.
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Get operation.
@@ -294,11 +314,15 @@ func (db *DB) Ascend(handleFn func(k []byte, v []byte) (bool, error)) {
 	defer db.mu.RUnlock()
 
 	db.index.Ascend(func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		val, err := db.dataFiles.Read(pos)
+		chunk, err := db.dataFiles.Read(pos)
 		if err != nil {
-			return false, nil
+			return false, err
 		}
-		return handleFn(key, val)
+		value, err := db.checkValue(chunk)
+		if err != nil {
+			return false, err
+		}
+		return handleFn(key, value)
 	})
 }
 
@@ -308,11 +332,15 @@ func (db *DB) AscendRange(startKey, endKey []byte, handleFn func(k []byte, v []b
 	defer db.mu.RUnlock()
 
 	db.index.AscendRange(startKey, endKey, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		val, err := db.dataFiles.Read(pos)
+		chunk, err := db.dataFiles.Read(pos)
 		if err != nil {
 			return false, nil
 		}
-		return handleFn(key, val)
+		value, err := db.checkValue(chunk)
+		if err != nil {
+			return false, err
+		}
+		return handleFn(key, value)
 	})
 }
 
@@ -322,11 +350,15 @@ func (db *DB) AscendGreaterOrEqual(key []byte, handleFn func(k []byte, v []byte)
 	defer db.mu.RUnlock()
 
 	db.index.AscendGreaterOrEqual(key, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		val, err := db.dataFiles.Read(pos)
+		chunk, err := db.dataFiles.Read(pos)
 		if err != nil {
 			return false, nil
 		}
-		return handleFn(key, val)
+		value, err := db.checkValue(chunk)
+		if err != nil {
+			return false, err
+		}
+		return handleFn(key, value)
 	})
 }
 
@@ -336,11 +368,15 @@ func (db *DB) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
 	defer db.mu.RUnlock()
 
 	db.index.Descend(func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		val, err := db.dataFiles.Read(pos)
+		chunk, err := db.dataFiles.Read(pos)
 		if err != nil {
 			return false, nil
 		}
-		return handleFn(key, val)
+		value, err := db.checkValue(chunk)
+		if err != nil {
+			return false, err
+		}
+		return handleFn(key, value)
 	})
 }
 
@@ -350,11 +386,15 @@ func (db *DB) DescendRange(startKey, endKey []byte, handleFn func(k []byte, v []
 	defer db.mu.RUnlock()
 
 	db.index.DescendRange(startKey, endKey, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		val, err := db.dataFiles.Read(pos)
+		chunk, err := db.dataFiles.Read(pos)
 		if err != nil {
 			return false, nil
 		}
-		return handleFn(key, val)
+		value, err := db.checkValue(chunk)
+		if err != nil {
+			return false, err
+		}
+		return handleFn(key, value)
 	})
 }
 
@@ -364,12 +404,25 @@ func (db *DB) DescendLessOrEqual(key []byte, handleFn func(k []byte, v []byte) (
 	defer db.mu.RUnlock()
 
 	db.index.DescendLessOrEqual(key, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		val, err := db.dataFiles.Read(pos)
+		chunk, err := db.dataFiles.Read(pos)
 		if err != nil {
 			return false, nil
 		}
-		return handleFn(key, val)
+		value, err := db.checkValue(chunk)
+		if err != nil {
+			return false, err
+		}
+		return handleFn(key, value)
 	})
+}
+
+func (db *DB) checkValue(chunk []byte) ([]byte, error) {
+	record := decodeLogRecord(chunk)
+	now := time.Now().UnixNano()
+	if record.Type == LogRecordDeleted || (record.Expire > 0 && record.Expire <= now) {
+		return nil, ErrKeyNotFound
+	}
+	return record.Value, nil
 }
 
 func checkOptions(options Options) error {
@@ -391,6 +444,7 @@ func (db *DB) loadIndexFromWAL() error {
 		return err
 	}
 	indexRecords := make(map[uint64][]*IndexRecord)
+	now := time.Now().UnixNano()
 	// get a reader for WAL
 	reader := db.dataFiles.NewReader()
 	for {
@@ -435,6 +489,10 @@ func (db *DB) loadIndexFromWAL() error {
 			// so put the record into index directly.
 			db.index.Put(record.Key, position)
 		} else {
+			// expired records should not be indexed
+			if record.Expire > 0 && record.Expire <= now {
+				continue
+			}
 			// put the record into the temporary indexRecords
 			indexRecords[record.BatchId] = append(indexRecords[record.BatchId],
 				&IndexRecord{
