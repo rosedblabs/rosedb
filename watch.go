@@ -33,28 +33,31 @@ type Watcher interface {
 // If the event is overflow, It will remove the oldest data,
 // even if event hasn't been read yet.
 type watcher struct {
-	queue      eventQueue
-	mu         sync.RWMutex
-	watchCh    chan *Event
-	flagCh     chan struct{}
+	queue   eventQueue
+	mu      sync.RWMutex
+	watchCh chan *Event
+
+	cond     *sync.Cond
+	capacity uint64
+
+	closeMu    sync.Mutex
+	notifyCh   chan struct{}
 	cancelFunc func()
 }
 
-func newWatcher(capacity uint64, test ...bool) *watcher { // test is only for UT
+func newWatcher(capacity uint64) *watcher {
 	w := &watcher{
 		queue: eventQueue{
 			Events:   make([]*Event, capacity),
 			Capacity: capacity,
 		},
-		watchCh: make(chan *Event, 100),
-		flagCh:  make(chan struct{}, capacity),
+		watchCh:  make(chan *Event, 100),
+		cond:     sync.NewCond(&sync.Mutex{}),
+		notifyCh: make(chan struct{}),
 	}
 	w.cancelFunc = func() {
-		close(w.flagCh)
+		close(w.notifyCh)
 		close(w.watchCh)
-	}
-	if len(test) == 0 || !test[0] {
-		go w.sendEvent()
 	}
 	return w
 }
@@ -65,10 +68,11 @@ func (w *watcher) putEvent(e *Event) {
 	if w.queue.isFull() {
 		w.queue.frontTakeAStep()
 	}
-	select {
-	case w.flagCh <- struct{}{}:
-	default:
+	if w.capacity < w.queue.Capacity {
+		w.capacity++
 	}
+
+	w.cond.Signal()
 	w.mu.Unlock()
 }
 
@@ -79,6 +83,9 @@ func (w *watcher) getEvent() *Event {
 	if w.queue.isEmpty() {
 		return nil
 	}
+	if w.capacity > 0 {
+		w.capacity--
+	}
 	return w.queue.pop()
 }
 
@@ -87,6 +94,9 @@ func (w *watcher) Watch() WatchChan {
 }
 
 func (w *watcher) Close() error {
+	w.closeMu.Lock()
+	defer w.closeMu.Unlock()
+
 	w.cancelFunc()
 	return nil
 }
@@ -95,15 +105,30 @@ func (w *watcher) Close() error {
 func (w *watcher) sendEvent() {
 	for {
 		select {
-		case _, ok := <-w.flagCh:
-			if !ok {
-				return
+		case <-w.notifyCh:
+			return
+		default:
+			// Note that there may be three locks held here,
+			// so you need to pay attention to the order of
+			// the locks to avoid deadlocks.
+			w.cond.L.Lock()
+			for w.capacity <= 0 {
+				w.cond.Wait()
 			}
 			event := w.getEvent()
 			if event == nil {
+				w.cond.L.Unlock()
 				break
 			}
-			w.watchCh <- event
+			// check again
+			w.closeMu.Lock()
+			select {
+			case <-w.notifyCh:
+			default:
+				w.watchCh <- event
+			}
+			w.closeMu.Unlock()
+			w.cond.L.Unlock()
 		}
 	}
 }

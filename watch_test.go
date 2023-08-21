@@ -13,7 +13,7 @@ func TestWatch_Insert_Scan(t *testing.T) {
 	// There are two spaces to determine whether the queue is full and overwrite the write.
 	size := capacity - 2
 	q := make([][2][]byte, 0, size)
-	w := newWatcher(uint64(capacity), true)
+	w := newWatcher(uint64(capacity))
 	for i := 0; i < size; i++ {
 		key := utils.GetTestKey(rand.Int())
 		value := utils.RandomValue(128)
@@ -39,7 +39,7 @@ func TestWatch_Insert_Scan(t *testing.T) {
 func TestWatch_Rotate_Insert_Scan(t *testing.T) {
 	capacity := 1000
 	q := make([][2][]byte, capacity)
-	w := newWatcher(uint64(capacity), true)
+	w := newWatcher(uint64(capacity))
 	for i := 0; i < 2500; i++ {
 		key := utils.GetTestKey(rand.Int())
 		value := utils.RandomValue(128)

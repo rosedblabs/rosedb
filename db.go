@@ -117,6 +117,8 @@ func Open(options Options) (*DB, error) {
 	// enable watch
 	if options.WatchQueueSize > 0 {
 		db.watcher = newWatcher(options.WatchQueueSize)
+		// run a goroutine to synchronize event information
+		go db.watcher.sendEvent()
 	}
 
 	return db, nil
