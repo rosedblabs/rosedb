@@ -3,13 +3,13 @@ package rosedb
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/rosedblabs/wal"
 	"io"
 	"math"
 	"os"
 	"path/filepath"
 	"sync/atomic"
-
-	"github.com/rosedblabs/wal"
+	"time"
 )
 
 const (
@@ -103,6 +103,7 @@ func (db *DB) doMerge() error {
 		_ = mergeDB.Close()
 	}()
 
+	now := time.Now().UnixNano()
 	// iterate all the data files, and write the valid data to the new data file.
 	reader := db.dataFiles.NewReaderWithMax(prevActiveSegId)
 	for {
@@ -116,7 +117,7 @@ func (db *DB) doMerge() error {
 		record := decodeLogRecord(chunk)
 		// Only handle the normal log record, LogRecordDeleted and LogRecordBatchFinished
 		// will be ignored, because they are not valid data.
-		if record.Type == LogRecordNormal {
+		if record.Type == LogRecordNormal && (record.Expire == 0 || record.Expire > now) {
 			db.mu.RLock()
 			indexPos := db.index.Get(record.Key)
 			db.mu.RUnlock()

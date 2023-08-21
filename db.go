@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/gofrs/flock"
@@ -233,6 +234,22 @@ func (db *DB) Put(key []byte, value []byte) error {
 	return batch.Commit()
 }
 
+func (db *DB) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
+	batch := db.batchPool.Get().(*Batch)
+	defer func() {
+		batch.reset()
+		db.batchPool.Put(batch)
+	}()
+	// This is a single delete operation, we can set Sync to false.
+	// Because the data will be written to the WAL,
+	// and the WAL file will be synced to disk according to the DB options.
+	batch.init(false, false, db).withPendingWrites()
+	if err := batch.PutWithTTL(key, value, ttl); err != nil {
+		return err
+	}
+	return batch.Commit()
+}
+
 // Get the value of the specified key from the database.
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Get operation.
@@ -391,6 +408,7 @@ func (db *DB) loadIndexFromWAL() error {
 		return err
 	}
 	indexRecords := make(map[uint64][]*IndexRecord)
+	now := time.Now().UnixNano()
 	// get a reader for WAL
 	reader := db.dataFiles.NewReader()
 	for {
@@ -435,6 +453,9 @@ func (db *DB) loadIndexFromWAL() error {
 			// so put the record into index directly.
 			db.index.Put(record.Key, position)
 		} else {
+			if record.Expire > 0 && record.Expire <= now {
+				continue
+			}
 			// put the record into the temporary indexRecords
 			indexRecords[record.BatchId] = append(indexRecords[record.BatchId],
 				&IndexRecord{
