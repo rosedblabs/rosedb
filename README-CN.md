@@ -80,6 +80,11 @@ RoseDB 存储数据的文件使用预写日志（Write Ahead Log），这些日�
     RoseDB 支持 Watch 功能，DB 中的 key 发生变化时你可以得到一个事件通知。
 </details>
 
+<details>
+    <summary><b>支持 Key 的过期时间</b></summary>
+    RoseDB 支持为 key 设置过期时间，过期后 key 将被自动删除。
+</details>
+
 ### 缺点
 
 <details>

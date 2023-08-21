@@ -81,6 +81,11 @@ RoseDB log files are using the WAL(Write Ahead Log) as backend, which are append
 	RoseDB supports key watch, you can get the notification if keys changed in db.
 </details>
 
+<details>
+    <summary><b>Support key expire</b></summary>
+	RoseDB supports key expire, you can set the expire time for keys.
+</details>
+
 ### Weaknesses
 
 <details>
