@@ -161,7 +161,7 @@ func (b *Batch) Get(key []byte) ([]byte, error) {
 	if b.pendingWrites != nil {
 		b.mu.RLock()
 		if record := b.pendingWrites[string(key)]; record != nil {
-			if record.Type == LogRecordDeleted || (record.Expire > 0 && record.Expire <= now) {
+			if record.Type == LogRecordDeleted || record.IsExpired(now) {
 				b.mu.RUnlock()
 				return nil, ErrKeyNotFound
 			}
@@ -186,7 +186,8 @@ func (b *Batch) Get(key []byte) ([]byte, error) {
 	if record.Type == LogRecordDeleted {
 		panic("Deleted data cannot exist in the index")
 	}
-	if record.Expire > 0 && record.Expire <= now {
+	if record.IsExpired(now) {
+		b.db.index.Delete(record.Key)
 		return nil, ErrKeyNotFound
 	}
 	return record.Value, nil
@@ -252,7 +253,8 @@ func (b *Batch) Exist(key []byte) (bool, error) {
 
 	now := time.Now().UnixNano()
 	record := decodeLogRecord(chunk)
-	if record.Type == LogRecordDeleted || (record.Expire > 0 && record.Expire <= now) {
+	if record.Type == LogRecordDeleted || record.IsExpired(now) {
+		b.db.index.Delete(record.Key)
 		return false, nil
 	}
 	return true, nil
@@ -291,7 +293,7 @@ func (b *Batch) Commit() error {
 	// write to wal
 	for _, record := range b.pendingWrites {
 		// skip the expired record
-		if record.Expire > 0 && record.Expire <= now {
+		if record.IsExpired(now) {
 			continue
 		}
 
@@ -322,7 +324,7 @@ func (b *Batch) Commit() error {
 
 	// write to index
 	for key, record := range b.pendingWrites {
-		if record.Type == LogRecordDeleted || (record.Expire > 0 && record.Expire <= now) {
+		if record.Type == LogRecordDeleted || record.IsExpired(now) {
 			b.db.index.Delete(record.Key)
 		} else {
 			b.db.index.Put(record.Key, positions[key])

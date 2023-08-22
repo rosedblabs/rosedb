@@ -419,7 +419,7 @@ func (db *DB) DescendLessOrEqual(key []byte, handleFn func(k []byte, v []byte) (
 func (db *DB) checkValue(chunk []byte) ([]byte, error) {
 	record := decodeLogRecord(chunk)
 	now := time.Now().UnixNano()
-	if record.Type == LogRecordDeleted || (record.Expire > 0 && record.Expire <= now) {
+	if record.Type == LogRecordDeleted || record.IsExpired(now) {
 		return nil, ErrKeyNotFound
 	}
 	return record.Value, nil
@@ -490,7 +490,7 @@ func (db *DB) loadIndexFromWAL() error {
 			db.index.Put(record.Key, position)
 		} else {
 			// expired records should not be indexed
-			if record.Expire > 0 && record.Expire <= now {
+			if record.IsExpired(now) {
 				continue
 			}
 			// put the record into the temporary indexRecords

@@ -34,6 +34,13 @@ type LogRecord struct {
 	Expire  int64
 }
 
+func (lr LogRecord) IsExpired(now int64) bool {
+	if lr.Expire > 0 && lr.Expire <= now {
+		return true
+	}
+	return false
+}
+
 // IndexRecord is the index record of the key.
 // It contains the key, the record type and the position of the record in the wal.
 // Only used in start up to rebuild the index.
