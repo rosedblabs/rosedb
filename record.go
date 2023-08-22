@@ -34,7 +34,7 @@ type LogRecord struct {
 	Expire  int64
 }
 
-func (lr LogRecord) IsExpired(now int64) bool {
+func (lr *LogRecord) IsExpired(now int64) bool {
 	if lr.Expire > 0 && lr.Expire <= now {
 		return true
 	}
