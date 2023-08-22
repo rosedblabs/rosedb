@@ -375,6 +375,7 @@ func TestDB_PutWithTTL(t *testing.T) {
 	assert.Nil(t, val2)
 
 	err = db.PutWithTTL(utils.GetTestKey(2), utils.RandomValue(128), time.Millisecond*200)
+	assert.Nil(t, err)
 	// rewrite
 	err = db.Put(utils.GetTestKey(2), utils.RandomValue(128))
 	assert.Nil(t, err)
@@ -398,6 +399,30 @@ func TestDB_PutWithTTL(t *testing.T) {
 	assert.NotNil(t, val5)
 
 	_ = db2.Close()
+}
+
+func TestDB_RePutWithTTL(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	err = db.Put(utils.GetTestKey(10), utils.RandomValue(10))
+	assert.Nil(t, err)
+	err = db.PutWithTTL(utils.GetTestKey(10), utils.RandomValue(10), time.Millisecond*100)
+	assert.Nil(t, err)
+	time.Sleep(time.Second * 1) // wait for expired
+
+	val1, err := db.Get(utils.GetTestKey(10))
+	assert.Equal(t, err, ErrKeyNotFound)
+	assert.Nil(t, val1)
+
+	err = db.Merge(true)
+	assert.Nil(t, err)
+
+	val2, err := db.Get(utils.GetTestKey(10))
+	assert.Equal(t, err, ErrKeyNotFound)
+	assert.Nil(t, val2)
 }
 
 func TestDB_PutWithTTL_Merge(t *testing.T) {

@@ -34,11 +34,9 @@ type LogRecord struct {
 	Expire  int64
 }
 
+// IsExpired checks whether the log record is expired.
 func (lr *LogRecord) IsExpired(now int64) bool {
-	if lr.Expire > 0 && lr.Expire <= now {
-		return true
-	}
-	return false
+	return lr.Expire > 0 && lr.Expire <= now
 }
 
 // IndexRecord is the index record of the key.

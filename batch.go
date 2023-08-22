@@ -292,11 +292,6 @@ func (b *Batch) Commit() error {
 	now := time.Now().UnixNano()
 	// write to wal
 	for _, record := range b.pendingWrites {
-		// skip the expired record
-		if record.IsExpired(now) {
-			continue
-		}
-
 		record.BatchId = uint64(batchId)
 		encRecord := encodeLogRecord(record)
 		pos, err := b.db.dataFiles.Write(encRecord)
