@@ -420,6 +420,7 @@ func (db *DB) checkValue(chunk []byte) ([]byte, error) {
 	record := decodeLogRecord(chunk)
 	now := time.Now().UnixNano()
 	if record.Type == LogRecordDeleted || record.IsExpired(now) {
+		db.index.Delete(record.Key)
 		return nil, ErrKeyNotFound
 	}
 	return record.Value, nil
