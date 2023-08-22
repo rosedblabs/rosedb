@@ -322,7 +322,7 @@ func (b *Batch) Commit() error {
 
 	// write to index
 	for key, record := range b.pendingWrites {
-		if record.Type == LogRecordDeleted {
+		if record.Type == LogRecordDeleted || (record.Expire > 0 && record.Expire <= now) {
 			b.db.index.Delete(record.Key)
 		} else {
 			b.db.index.Put(record.Key, positions[key])
