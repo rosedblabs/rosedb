@@ -496,3 +496,44 @@ func TestDB_PutWithTTL_Merge(t *testing.T) {
 		assert.NotNil(t, val)
 	}
 }
+
+func TestDB_Expire(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	err = db.Put(utils.GetTestKey(1), utils.RandomValue(10))
+	assert.Nil(t, err)
+
+	err = db.Expire(utils.GetTestKey(1), time.Second*100)
+	assert.Nil(t, err)
+	tt1, err := db.TTL(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.True(t, tt1.Seconds() > 90)
+
+	err = db.PutWithTTL(utils.GetTestKey(2), utils.RandomValue(10), time.Second*1)
+	assert.Nil(t, err)
+
+	tt2, err := db.TTL(utils.GetTestKey(2))
+	assert.Nil(t, err)
+	assert.True(t, tt2.Microseconds() > 500)
+
+	err = db.Close()
+	assert.Nil(t, err)
+
+	db2, err := Open(options)
+	assert.Nil(t, err)
+	defer func() {
+		_ = db2.Close()
+	}()
+
+	tt3, err := db2.TTL(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.True(t, tt3.Seconds() > 90)
+
+	time.Sleep(time.Second)
+	tt4, err := db2.TTL(utils.GetTestKey(2))
+	assert.Equal(t, tt4, time.Duration(-1))
+	assert.Equal(t, err, ErrKeyNotFound)
+}
