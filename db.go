@@ -36,7 +36,7 @@ const (
 // But since we should store all keys and their positions(index) in memory,
 // our total data size is limited by the memory size.
 //
-// So if your memory can almost hold all the keys, ROSEDB is the perfect stroage engine for you.
+// So if your memory can almost hold all the keys, ROSEDB is the perfect storage engine for you.
 type DB struct {
 	dataFiles    *wal.WAL // data files are a sets of segment files in WAL.
 	hintFile     *wal.WAL // hint file is used to store the key and the position for fast startup.
@@ -63,7 +63,7 @@ type Stat struct {
 // If the database directory does not exist, it will be created automatically.
 //
 // Multiple processes can not use the same database directory at the same time,
-// otherwise it will retrun ErrDatabaseIsUsing.
+// otherwise it will return ErrDatabaseIsUsing.
 //
 // It will open the wal files in the database directory and load the index from them.
 // Return the DB instance, or an error if any.
@@ -225,7 +225,7 @@ func (db *DB) Put(key []byte, value []byte) error {
 		batch.reset()
 		db.batchPool.Put(batch)
 	}()
-	// This is a single delete operation, we can set Sync to false.
+	// This is a single put operation, we can set Sync to false.
 	// Because the data will be written to the WAL,
 	// and the WAL file will be synced to disk according to the DB options.
 	batch.init(false, false, db).withPendingWrites()
@@ -244,7 +244,7 @@ func (db *DB) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
 		batch.reset()
 		db.batchPool.Put(batch)
 	}()
-	// This is a single delete operation, we can set Sync to false.
+	// This is a single put operation, we can set Sync to false.
 	// Because the data will be written to the WAL,
 	// and the WAL file will be synced to disk according to the DB options.
 	batch.init(false, false, db).withPendingWrites()
@@ -300,6 +300,35 @@ func (db *DB) Exist(key []byte) (bool, error) {
 		db.batchPool.Put(batch)
 	}()
 	return batch.Exist(key)
+}
+
+// Expire sets the ttl of the key.
+func (db *DB) Expire(key []byte, ttl time.Duration) error {
+	batch := db.batchPool.Get().(*Batch)
+	defer func() {
+		batch.reset()
+		db.batchPool.Put(batch)
+	}()
+	// This is a single put operation, we can set Sync to false.
+	// Because the data will be written to the WAL,
+	// and the WAL file will be synced to disk according to the DB options.
+	batch.init(false, false, db).withPendingWrites()
+	if err := batch.Expire(key, ttl); err != nil {
+		return err
+	}
+	return batch.Commit()
+}
+
+// TTL get the ttl of the key.
+func (db *DB) TTL(key []byte) (time.Duration, error) {
+	batch := db.batchPool.Get().(*Batch)
+	batch.init(true, false, db)
+	defer func() {
+		_ = batch.Commit()
+		batch.reset()
+		db.batchPool.Put(batch)
+	}()
+	return batch.TTL(key)
 }
 
 func (db *DB) Watch() (chan *Event, error) {

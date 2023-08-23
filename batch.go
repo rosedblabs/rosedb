@@ -260,6 +260,7 @@ func (b *Batch) Exist(key []byte) (bool, error) {
 	return true, nil
 }
 
+// Expire sets the ttl of the key.
 func (b *Batch) Expire(key []byte, ttl time.Duration) error {
 	if len(key) == 0 {
 		return ErrKeyIsEmpty
@@ -273,9 +274,11 @@ func (b *Batch) Expire(key []byte, ttl time.Duration) error {
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	// if the key exists in pendingWrites, update the expiry time directly
 	if record := b.pendingWrites[string(key)]; record != nil {
 		record.Expire = time.Now().Add(ttl).UnixNano()
 	} else {
+		// if the key does not exist in pendingWrites, get the value from wal
 		position := b.db.index.Get(key)
 		if position == nil {
 			return ErrKeyNotFound
@@ -287,10 +290,14 @@ func (b *Batch) Expire(key []byte, ttl time.Duration) error {
 
 		now := time.Now()
 		record := decodeLogRecord(chunk)
+		// if the record is deleted or expired, we can assume that the key does not exist,
+		// and delete the key from the index
 		if record.Type == LogRecordDeleted || record.IsExpired(now.UnixNano()) {
 			b.db.index.Delete(key)
 			return ErrKeyNotFound
 		}
+		// now we get the value from wal, update the expiry time
+		// and rewrite the record to pendingWrites
 		record.Expire = now.Add(ttl).UnixNano()
 		b.pendingWrites[string(key)] = record
 	}
@@ -298,6 +305,7 @@ func (b *Batch) Expire(key []byte, ttl time.Duration) error {
 	return nil
 }
 
+// TTL returns the ttl of the key.
 func (b *Batch) TTL(key []byte) (time.Duration, error) {
 	if len(key) == 0 {
 		return -1, ErrKeyIsEmpty
@@ -310,18 +318,21 @@ func (b *Batch) TTL(key []byte) (time.Duration, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.pendingWrites != nil {
+		// if the key exists in pendingWrites, return the ttl directly
 		if record := b.pendingWrites[string(key)]; record != nil {
 			if record.Expire == 0 {
 				return -1, nil
 			}
-			if record.IsExpired(now.UnixNano()) {
+			// return key not found if the record is deleted or expired
+			if record.Type == LogRecordDeleted || record.IsExpired(now.UnixNano()) {
 				return -1, ErrKeyNotFound
 			}
-			ttl := record.Expire - now.UnixNano()
-			return time.Duration(ttl), nil
+			// now we get the valid expiry time, we can calculate the ttl
+			return time.Duration(record.Expire - now.UnixNano()), nil
 		}
 	}
 
+	// if the key does not exist in pendingWrites, get the value from wal
 	position := b.db.index.Get(key)
 	if position == nil {
 		return -1, ErrKeyNotFound
@@ -330,6 +341,8 @@ func (b *Batch) TTL(key []byte) (time.Duration, error) {
 	if err != nil {
 		return -1, err
 	}
+
+	// return key not found if the record is deleted or expired
 	record := decodeLogRecord(chunk)
 	if record.Type == LogRecordDeleted {
 		return -1, ErrKeyNotFound
@@ -338,6 +351,8 @@ func (b *Batch) TTL(key []byte) (time.Duration, error) {
 		b.db.index.Delete(key)
 		return -1, ErrKeyNotFound
 	}
+
+	// now we get the valid expiry time, we can calculate the ttl
 	if record.Expire > 0 {
 		return time.Duration(record.Expire - now.UnixNano()), nil
 	}

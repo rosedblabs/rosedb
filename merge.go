@@ -134,9 +134,9 @@ func (db *DB) doMerge() error {
 				if err != nil {
 					return err
 				}
-				// And now we should write the new posistion to the write-ahead log,
+				// And now we should write the new position to the write-ahead log,
 				// which is so-called HINT FILE in bitcask paper.
-				// The HINT FILE will be used to rebuild the index fastly when the database is restarted.
+				// The HINT FILE will be used to rebuild the index quickly when the database is restarted.
 				_, err = mergeDB.hintFile.Write(encodeHintRecord(record.Key, newPosition))
 				if err != nil {
 					return err
