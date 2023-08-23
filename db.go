@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 
@@ -362,6 +363,24 @@ func (db *DB) AscendGreaterOrEqual(key []byte, handleFn func(k []byte, v []byte)
 	})
 }
 
+// AscendKeys calls handleFn for each key in the db in ascending order.
+func (db *DB) AscendKeys(pattern []byte, handleFn func(k []byte) (bool, error)) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	var reg *regexp.Regexp
+	if len(pattern) > 0 {
+		reg = regexp.MustCompile(string(pattern))
+	}
+
+	db.index.Ascend(func(key []byte, _ *wal.ChunkPosition) (bool, error) {
+		if reg == nil || reg.Match(key) {
+			return handleFn(key)
+		}
+		return true, nil
+	})
+}
+
 // Descend calls handleFn for each key/value pair in the db in descending order.
 func (db *DB) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
 	db.mu.RLock()
@@ -413,6 +432,24 @@ func (db *DB) DescendLessOrEqual(key []byte, handleFn func(k []byte, v []byte) (
 			return false, err
 		}
 		return handleFn(key, value)
+	})
+}
+
+// DescendKeys calls handleFn for each key in the db in descending order.
+func (db *DB) DescendKeys(pattern []byte, handleFn func(k []byte) (bool, error)) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	var reg *regexp.Regexp
+	if len(pattern) > 0 {
+		reg = regexp.MustCompile(string(pattern))
+	}
+
+	db.index.Descend(func(key []byte, _ *wal.ChunkPosition) (bool, error) {
+		if reg == nil || reg.Match(key) {
+			return handleFn(key)
+		}
+		return true, nil
 	})
 }
 

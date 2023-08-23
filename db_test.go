@@ -114,9 +114,6 @@ func TestDB_Ascend(t *testing.T) {
 	db, err := Open(options)
 	assert.Nil(t, err)
 	defer destroyDB(db)
-	if err != nil {
-		t.Fatalf("Failed to open database: %v", err)
-	}
 
 	// Insert some test data
 	data := []struct {
@@ -163,9 +160,6 @@ func TestDB_Descend(t *testing.T) {
 	db, err := Open(options)
 	assert.Nil(t, err)
 	defer destroyDB(db)
-	if err != nil {
-		t.Fatalf("Failed to open database: %v", err)
-	}
 
 	// Insert some test data
 	data := []struct {
@@ -212,9 +206,6 @@ func TestDB_AscendRange(t *testing.T) {
 	db, err := Open(options)
 	assert.Nil(t, err)
 	defer destroyDB(db)
-	if err != nil {
-		t.Fatalf("Failed to open database: %v", err)
-	}
 
 	// Insert some test data
 	data := []struct {
@@ -250,9 +241,6 @@ func TestDB_DescendRange(t *testing.T) {
 	db, err := Open(options)
 	assert.Nil(t, err)
 	defer destroyDB(db)
-	if err != nil {
-		t.Fatalf("Failed to open database: %v", err)
-	}
 
 	// Insert some test data
 	data := []struct {
@@ -288,9 +276,6 @@ func TestDB_AscendGreaterOrEqual(t *testing.T) {
 	db, err := Open(options)
 	assert.Nil(t, err)
 	defer destroyDB(db)
-	if err != nil {
-		t.Fatalf("Failed to open database: %v", err)
-	}
 
 	// Insert some test data
 	data := []struct {
@@ -326,9 +311,6 @@ func TestDB_DescendLessOrEqual(t *testing.T) {
 	db, err := Open(options)
 	assert.Nil(t, err)
 	defer destroyDB(db)
-	if err != nil {
-		t.Fatalf("Failed to open database: %v", err)
-	}
 
 	// Insert some test data
 	data := []struct {
@@ -356,6 +338,66 @@ func TestDB_DescendLessOrEqual(t *testing.T) {
 		return true, nil
 	})
 	assert.Equal(t, []string{"grape", "date", "cherry", "banana", "apple"}, resultDescendLessOrEqual)
+}
+
+func TestDB_AscendKeys(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	err = db.Put([]byte("aacd"), utils.RandomValue(10))
+	assert.Nil(t, err)
+
+	validate := func(target [][]byte, pattern []byte) {
+		var keys [][]byte
+		db.AscendKeys(pattern, func(k []byte) (bool, error) {
+			keys = append(keys, k)
+			return true, nil
+		})
+		assert.Equal(t, keys, target)
+	}
+
+	validate([][]byte{[]byte("aacd")}, nil)
+
+	err = db.Put([]byte("bbde"), utils.RandomValue(10))
+	assert.Nil(t, err)
+	err = db.Put([]byte("cdea"), utils.RandomValue(10))
+	assert.Nil(t, err)
+	err = db.Put([]byte("bcae"), utils.RandomValue(10))
+	assert.Nil(t, err)
+
+	validate([][]byte{[]byte("aacd"), []byte("bbde"), []byte("bcae"), []byte("cdea")}, nil)
+}
+
+func TestDB_DescendKeys(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	err = db.Put([]byte("aacd"), utils.RandomValue(10))
+	assert.Nil(t, err)
+
+	validate := func(target [][]byte, pattern []byte) {
+		var keys [][]byte
+		db.DescendKeys(pattern, func(k []byte) (bool, error) {
+			keys = append(keys, k)
+			return true, nil
+		})
+		assert.Equal(t, keys, target)
+	}
+
+	validate([][]byte{[]byte("aacd")}, nil)
+
+	err = db.Put([]byte("bbde"), utils.RandomValue(10))
+	assert.Nil(t, err)
+	err = db.Put([]byte("cdea"), utils.RandomValue(10))
+	assert.Nil(t, err)
+	err = db.Put([]byte("bcae"), utils.RandomValue(10))
+	assert.Nil(t, err)
+
+	validate([][]byte{[]byte("cdea"), []byte("bcae"), []byte("bbde"), []byte("aacd")}, nil)
 }
 
 func TestDB_PutWithTTL(t *testing.T) {
