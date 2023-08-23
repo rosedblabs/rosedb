@@ -229,12 +229,14 @@ func (b *Batch) Exist(key []byte) (bool, error) {
 		return false, ErrDBClosed
 	}
 
+	now := time.Now().UnixNano()
+
 	// check if the key exists in pendingWrites
 	if b.pendingWrites != nil {
 		b.mu.RLock()
 		if record := b.pendingWrites[string(key)]; record != nil {
 			b.mu.RUnlock()
-			return record.Type != LogRecordDeleted, nil
+			return record.Type != LogRecordDeleted && !record.IsExpired(now), nil
 		}
 		b.mu.RUnlock()
 	}
@@ -251,7 +253,6 @@ func (b *Batch) Exist(key []byte) (bool, error) {
 		return false, err
 	}
 
-	now := time.Now().UnixNano()
 	record := decodeLogRecord(chunk)
 	if record.Type == LogRecordDeleted || record.IsExpired(now) {
 		b.db.index.Delete(record.Key)
