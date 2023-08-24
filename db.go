@@ -230,6 +230,7 @@ func (db *DB) Put(key []byte, value []byte) error {
 	// and the WAL file will be synced to disk according to the DB options.
 	batch.init(false, false, db).withPendingWrites()
 	if err := batch.Put(key, value); err != nil {
+		_ = batch.Rollback()
 		return err
 	}
 	return batch.Commit()
@@ -249,6 +250,7 @@ func (db *DB) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
 	// and the WAL file will be synced to disk according to the DB options.
 	batch.init(false, false, db).withPendingWrites()
 	if err := batch.PutWithTTL(key, value, ttl); err != nil {
+		_ = batch.Rollback()
 		return err
 	}
 	return batch.Commit()
@@ -314,6 +316,7 @@ func (db *DB) Expire(key []byte, ttl time.Duration) error {
 	// and the WAL file will be synced to disk according to the DB options.
 	batch.init(false, false, db).withPendingWrites()
 	if err := batch.Expire(key, ttl); err != nil {
+		_ = batch.Rollback()
 		return err
 	}
 	return batch.Commit()
@@ -559,6 +562,7 @@ func (db *DB) loadIndexFromWAL() error {
 		} else {
 			// expired records should not be indexed
 			if record.IsExpired(now) {
+				db.index.Delete(record.Key)
 				continue
 			}
 			// put the record into the temporary indexRecords

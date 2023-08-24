@@ -537,3 +537,29 @@ func TestDB_Expire(t *testing.T) {
 	assert.Equal(t, tt4, time.Duration(-1))
 	assert.Equal(t, err, ErrKeyNotFound)
 }
+
+func TestDB_Expire2(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	// expire an expired key
+	_ = db.PutWithTTL(utils.GetTestKey(1), utils.RandomValue(10), time.Second*1)
+	_ = db.Put(utils.GetTestKey(2), utils.RandomValue(10))
+	err = db.Expire(utils.GetTestKey(2), time.Second*2)
+	assert.Nil(t, err)
+
+	time.Sleep(time.Second * 2)
+	_ = db.Close()
+
+	db2, err := Open(options)
+	assert.Nil(t, err)
+	defer func() {
+		_ = db2.Close()
+	}()
+	err = db2.Expire(utils.GetTestKey(1), time.Second)
+	assert.Equal(t, err, ErrKeyNotFound)
+	err = db2.Expire(utils.GetTestKey(2), time.Second)
+	assert.Equal(t, err, ErrKeyNotFound)
+}
