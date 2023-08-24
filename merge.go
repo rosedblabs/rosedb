@@ -88,6 +88,7 @@ func (db *DB) doMerge() error {
 	// rotate the write-ahead log, create a new active segment file.
 	// so all the older segment files will be merged.
 	if err := db.dataFiles.OpenNewActiveSegment(); err != nil {
+		db.mu.Unlock()
 		return err
 	}
 
