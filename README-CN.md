@@ -164,3 +164,6 @@ func main() {
 可扫描下方二维码，邀请你加入 RoseDB 社区交流群，请备注 **rosedb**
 | <img src="https://i.loli.net/2021/05/06/tGTH7SXg8w95slA.jpg" width="200px" align="left"/> |
 | ------------------------------------------------------------ |
+
+## 贡献者
+[![](https://opencollective.com/rosedb/contributors.svg?width=890&button=false)](https://github.com/rosedblabs/rosedb/graphs/contributors)
