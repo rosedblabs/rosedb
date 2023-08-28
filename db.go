@@ -1,6 +1,8 @@
 package rosedb
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -489,8 +491,6 @@ func (db *DB) checkValue(chunk []byte) ([]byte, error) {
 	record := decodeLogRecord(chunk)
 	now := time.Now().UnixNano()
 	if record.Type == LogRecordDeleted || record.IsExpired(now) {
-		// delete from index if the key is expired.
-		db.index.Delete(record.Key)
 		return nil, ErrKeyNotFound
 	}
 	return record.Value, nil
@@ -575,4 +575,59 @@ func (db *DB) loadIndexFromWAL() error {
 		}
 	}
 	return nil
+}
+
+// DeleteExpiredKeys scan the entire index in ascending order to delete expired keys.
+// It is a time-consuming operation, so we need to specify a timeout
+// to prevent the DB from being unavailable for a long time.
+func (db *DB) DeleteExpiredKeys(timeout time.Duration) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	// set expiration time
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	now := time.Now().UnixNano()
+	go func(ctx context.Context) {
+		key := []byte{}
+		for {
+			// get 100 key's positions
+			positions := make([]*wal.ChunkPosition, 0, 100)
+			db.index.AscendGreaterOrEqual(key, func(k []byte, pos *wal.ChunkPosition) (bool, error) {
+				// filter processed key
+				if bytes.Compare(k, key) == 0 {
+					return true, nil
+				}
+				key = k
+				positions = append(positions, pos)
+				if len(positions) >= 100 {
+					return false, nil
+				}
+				return true, nil
+			})
+
+			// If keys in the db.index has been traversed, len(positions) will be 0.
+			if len(positions) == 0 {
+				return
+			}
+
+			// delete from index if the key is expired.
+			for _, pos := range positions {
+				chunk, err := db.dataFiles.Read(pos)
+				if err != nil {
+					continue
+				}
+				record := decodeLogRecord(chunk)
+				if record.IsExpired(now) {
+					db.index.Delete(record.Key)
+				}
+			}
+		}
+	}(ctx)
+
+	select {
+	case <-ctx.Done():
+		return
+	}
 }

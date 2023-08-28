@@ -563,3 +563,25 @@ func TestDB_Expire2(t *testing.T) {
 	err = db2.Expire(utils.GetTestKey(2), time.Second)
 	assert.Equal(t, err, ErrKeyNotFound)
 }
+
+func TestDB_DeleteExpiredKeys(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	for i := 0; i < 10000; i++ {
+		err = db.Put(utils.GetTestKey(i), utils.RandomValue(10))
+		assert.Nil(t, err)
+	}
+	for i := 10000; i < 100001; i++ {
+		err = db.PutWithTTL(utils.GetTestKey(i), utils.RandomValue(10), time.Second*1)
+		assert.Nil(t, err)
+	}
+
+	// wait for key to expire
+	time.Sleep(time.Second * 2)
+
+	db.DeleteExpiredKeys(time.Second * 2)
+	assert.Equal(t, 10000, db.Stat().KeysNum)
+}
