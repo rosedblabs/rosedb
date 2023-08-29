@@ -51,6 +51,7 @@ type DB struct {
 	batchPool    sync.Pool
 	watchCh      chan *Event // user consume channel for watch events
 	watcher      *Watcher
+	cursorKey    []byte // the location to which DeleteExpiredKeys executes.
 }
 
 // Stat represents the statistics of the database.
@@ -590,16 +591,14 @@ func (db *DB) DeleteExpiredKeys(timeout time.Duration) {
 
 	now := time.Now().UnixNano()
 	go func(ctx context.Context) {
-		key := []byte{}
 		for {
 			// get 100 key's positions
 			positions := make([]*wal.ChunkPosition, 0, 100)
-			db.index.AscendGreaterOrEqual(key, func(k []byte, pos *wal.ChunkPosition) (bool, error) {
+			db.index.AscendGreaterOrEqual(db.cursorKey, func(k []byte, pos *wal.ChunkPosition) (bool, error) {
 				// filter processed key
-				if bytes.Compare(k, key) == 0 {
+				if bytes.Compare(k, db.cursorKey) == 0 {
 					return true, nil
 				}
-				key = k
 				positions = append(positions, pos)
 				if len(positions) >= 100 {
 					return false, nil
@@ -609,6 +608,7 @@ func (db *DB) DeleteExpiredKeys(timeout time.Duration) {
 
 			// If keys in the db.index has been traversed, len(positions) will be 0.
 			if len(positions) == 0 {
+				db.cursorKey = []byte{}
 				return
 			}
 
@@ -622,6 +622,7 @@ func (db *DB) DeleteExpiredKeys(timeout time.Duration) {
 				if record.IsExpired(now) {
 					db.index.Delete(record.Key)
 				}
+				db.cursorKey = record.Key
 			}
 		}
 	}(ctx)
