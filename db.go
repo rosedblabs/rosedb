@@ -1,6 +1,8 @@
 package rosedb
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -38,17 +40,18 @@ const (
 //
 // So if your memory can almost hold all the keys, ROSEDB is the perfect storage engine for you.
 type DB struct {
-	dataFiles    *wal.WAL // data files are a sets of segment files in WAL.
-	hintFile     *wal.WAL // hint file is used to store the key and the position for fast startup.
-	index        index.Indexer
-	options      Options
-	fileLock     *flock.Flock
-	mu           sync.RWMutex
-	closed       bool
-	mergeRunning uint32 // indicate if the database is merging
-	batchPool    sync.Pool
-	watchCh      chan *Event // user consume channel for watch events
-	watcher      *Watcher
+	dataFiles        *wal.WAL // data files are a sets of segment files in WAL.
+	hintFile         *wal.WAL // hint file is used to store the key and the position for fast startup.
+	index            index.Indexer
+	options          Options
+	fileLock         *flock.Flock
+	mu               sync.RWMutex
+	closed           bool
+	mergeRunning     uint32 // indicate if the database is merging
+	batchPool        sync.Pool
+	watchCh          chan *Event // user consume channel for watch events
+	watcher          *Watcher
+	expiredCursorKey []byte // the location to which DeleteExpiredKeys executes.
 }
 
 // Stat represents the statistics of the database.
@@ -489,8 +492,6 @@ func (db *DB) checkValue(chunk []byte) ([]byte, error) {
 	record := decodeLogRecord(chunk)
 	now := time.Now().UnixNano()
 	if record.Type == LogRecordDeleted || record.IsExpired(now) {
-		// delete from index if the key is expired.
-		db.index.Delete(record.Key)
 		return nil, ErrKeyNotFound
 	}
 	return record.Value, nil
@@ -575,4 +576,64 @@ func (db *DB) loadIndexFromWAL() error {
 		}
 	}
 	return nil
+}
+
+// DeleteExpiredKeys scan the entire index in ascending order to delete expired keys.
+// It is a time-consuming operation, so we need to specify a timeout
+// to prevent the DB from being unavailable for a long time.
+func (db *DB) DeleteExpiredKeys(timeout time.Duration) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	// set expiration time
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	innerErrs := make([]error, 0) // record anonymous func error
+	now := time.Now().UnixNano()
+	go func(ctx context.Context) {
+		for {
+			// get 100 key's positions
+			positions := make([]*wal.ChunkPosition, 0, 100)
+			db.index.AscendGreaterOrEqual(db.expiredCursorKey, func(k []byte, pos *wal.ChunkPosition) (bool, error) {
+				// filter processed key
+				if bytes.Compare(k, db.expiredCursorKey) == 0 {
+					return true, nil
+				}
+				positions = append(positions, pos)
+				if len(positions) >= 100 {
+					return false, nil
+				}
+				return true, nil
+			})
+
+			// If keys in the db.index has been traversed, len(positions) will be 0.
+			if len(positions) == 0 {
+				db.expiredCursorKey = nil
+				return
+			}
+
+			// delete from index if the key is expired.
+			for _, pos := range positions {
+				chunk, err := db.dataFiles.Read(pos)
+				if err != nil {
+					innerErrs = append(innerErrs, err)
+					return
+				}
+				record := decodeLogRecord(chunk)
+				if record.IsExpired(now) {
+					db.index.Delete(record.Key)
+				}
+				db.expiredCursorKey = record.Key
+			}
+		}
+	}(ctx)
+
+	select {
+	case <-ctx.Done():
+		if len(innerErrs) > 0 {
+			return innerErrs[0]
+		}
+		return nil
+	}
 }
