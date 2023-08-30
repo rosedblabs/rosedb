@@ -603,7 +603,7 @@ func TestDB_Multi_DeleteExpiredKeys(t *testing.T) {
 		// wait for key to expire
 		time.Sleep(time.Second * 2)
 
-		db.DeleteExpiredKeys(time.Second * 2)
+		err = db.DeleteExpiredKeys(time.Second * 2)
 		assert.Nil(t, err)
 		assert.Equal(t, 10000, db.Stat().KeysNum)
 	}
