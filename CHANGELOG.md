@@ -1,3 +1,22 @@
+# Release 2.3.2(2023-08-30)
+## 🚀 New Features
+* add AscendKeys and DescnedKeys
+* Add Expire and TTL functions (https://github.com/rosedblabs/rosedb/pull/278)
+
+## 🎄 Enhancements
+* fix expire bug and add examples
+* add iterate examples
+
+## 🎠 Community
+* Thanks to @Jeremy-Run 
+    * Delete expired key of the index (https://github.com/rosedblabs/rosedb/pull/269)
+    * New: Delete Expired Keys (https://github.com/rosedblabs/rosedb/pull/280)
+* Thanks to @LEAVING-7 
+    * Fix potential deadlock in merge.go (https://github.com/rosedblabs/rosedb/pull/279)
+
+## 🐞 Bug Fixes
+* fix reput ttl bug
+
 # Release 2.3.1(2023-08-21)
 ## 🚀 New Features
 * Support key expire
