@@ -29,7 +29,7 @@ func main() {
 	_ = db.Put([]byte("key41"), []byte("value41"))
 
 	// iterate all keys in order
-	db.AscendKeys(nil, func(k []byte) (bool, error) {
+	db.AscendKeys(nil, true, func(k []byte) (bool, error) {
 		fmt.Println("key = ", string(k))
 		return true, nil
 	})
@@ -41,7 +41,7 @@ func main() {
 	})
 
 	// iterate all keys in reverse order
-	db.DescendKeys(nil, func(k []byte) (bool, error) {
+	db.DescendKeys(nil, true, func(k []byte) (bool, error) {
 		fmt.Println("key = ", string(k))
 		return true, nil
 	})

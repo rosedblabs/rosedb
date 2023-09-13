@@ -351,7 +351,7 @@ func TestDB_AscendKeys(t *testing.T) {
 
 	validate := func(target [][]byte, pattern []byte) {
 		var keys [][]byte
-		db.AscendKeys(pattern, func(k []byte) (bool, error) {
+		db.AscendKeys(pattern, false, func(k []byte) (bool, error) {
 			keys = append(keys, k)
 			return true, nil
 		})
@@ -370,6 +370,32 @@ func TestDB_AscendKeys(t *testing.T) {
 	validate([][]byte{[]byte("aacd"), []byte("bbde"), []byte("bcae"), []byte("cdea")}, nil)
 }
 
+func TestDB_AscendKeysExpired(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	validate := func(target [][]byte, pattern []byte) {
+		var keys [][]byte
+		db.AscendKeys(pattern, true, func(k []byte) (bool, error) {
+			keys = append(keys, k)
+			return true, nil
+		})
+		assert.Equal(t, keys, target)
+	}
+
+	err = db.PutWithTTL([]byte("bbde"), utils.RandomValue(10), time.Millisecond*500)
+	assert.Nil(t, err)
+	err = db.Put([]byte("cdea"), utils.RandomValue(10))
+	assert.Nil(t, err)
+	err = db.Put([]byte("bcae"), utils.RandomValue(10))
+	assert.Nil(t, err)
+	time.Sleep(time.Millisecond * 600)
+
+	validate([][]byte{[]byte("bcae"), []byte("cdea")}, nil)
+}
+
 func TestDB_DescendKeys(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
@@ -381,7 +407,7 @@ func TestDB_DescendKeys(t *testing.T) {
 
 	validate := func(target [][]byte, pattern []byte) {
 		var keys [][]byte
-		db.DescendKeys(pattern, func(k []byte) (bool, error) {
+		db.DescendKeys(pattern, false, func(k []byte) (bool, error) {
 			keys = append(keys, k)
 			return true, nil
 		})
@@ -398,6 +424,33 @@ func TestDB_DescendKeys(t *testing.T) {
 	assert.Nil(t, err)
 
 	validate([][]byte{[]byte("cdea"), []byte("bcae"), []byte("bbde"), []byte("aacd")}, nil)
+}
+
+func TestDB_DescendKeysExpired(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	validate := func(target [][]byte, pattern []byte) {
+		var keys [][]byte
+		db.DescendKeys(pattern, true, func(k []byte) (bool, error) {
+			keys = append(keys, k)
+			return true, nil
+		})
+		assert.Equal(t, keys, target)
+	}
+
+	err = db.Put([]byte("bbde"), utils.RandomValue(10))
+	assert.Nil(t, err)
+	err = db.PutWithTTL([]byte("cdea"), utils.RandomValue(10), time.Millisecond*500)
+	assert.Nil(t, err)
+	err = db.PutWithTTL([]byte("bcae"), utils.RandomValue(10), time.Millisecond*500)
+	assert.Nil(t, err)
+
+	time.Sleep(time.Millisecond * 600)
+
+	validate([][]byte{[]byte("bbde")}, nil)
 }
 
 func TestDB_PutWithTTL(t *testing.T) {
