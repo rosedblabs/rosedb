@@ -661,3 +661,46 @@ func TestDB_Multi_DeleteExpiredKeys(t *testing.T) {
 		assert.Equal(t, 10000, db.Stat().KeysNum)
 	}
 }
+
+func TestDB_Persist(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	// not exist
+	err = db.Persist(utils.GetTestKey(1))
+	assert.Equal(t, err, ErrKeyNotFound)
+
+	err = db.PutWithTTL(utils.GetTestKey(1), utils.RandomValue(10), time.Second*1)
+	assert.Nil(t, err)
+
+	// exist
+	err = db.Persist(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	time.Sleep(time.Second * 2)
+	// check ttl
+	ttl, err := db.TTL(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.Equal(t, ttl, time.Duration(-1))
+	val1, err := db.Get(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.NotNil(t, val1)
+
+	// restart
+	err = db.Close()
+	assert.Nil(t, err)
+
+	db2, err := Open(options)
+	assert.Nil(t, err)
+	defer func() {
+		_ = db2.Close()
+	}()
+
+	ttl2, err := db2.TTL(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.Equal(t, ttl2, time.Duration(-1))
+	val2, err := db2.Get(utils.GetTestKey(1))
+	assert.Nil(t, err)
+	assert.NotNil(t, val2)
+}

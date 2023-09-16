@@ -360,6 +360,57 @@ func (b *Batch) TTL(key []byte) (time.Duration, error) {
 	return -1, nil
 }
 
+// Persist removes the ttl of the key.
+func (b *Batch) Persist(key []byte) error {
+	if len(key) == 0 {
+		return ErrKeyIsEmpty
+	}
+	if b.db.closed {
+		return ErrDBClosed
+	}
+	if b.options.ReadOnly {
+		return ErrReadOnlyBatch
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// if the key exists in pendingWrites, update the expiry time directly
+	pendingRecord := b.pendingWrites[string(key)]
+	if pendingRecord != nil && pendingRecord.Type != LogRecordDeleted {
+		pendingRecord.Expire = 0
+	} else {
+		// check if the key exists in index
+		position := b.db.index.Get(key)
+		if position == nil {
+			return ErrKeyNotFound
+		}
+		chunk, err := b.db.dataFiles.Read(position)
+		if err != nil {
+			return err
+		}
+
+		record := decodeLogRecord(chunk)
+		now := time.Now().UnixNano()
+		// check if the record is deleted or expired
+		if record.Type == LogRecordDeleted || record.IsExpired(now) {
+			b.db.index.Delete(record.Key)
+			return ErrKeyNotFound
+		}
+		// if the expiration time is 0, it means that the key has no expiration time,
+		// so we can return directly
+		if record.Expire == 0 {
+			return nil
+		}
+
+		// set the expiration time to 0, and rewrite the record to wal
+		record.Expire = 0
+		b.pendingWrites[string(key)] = record
+	}
+
+	return nil
+}
+
 // Commit commits the batch, if the batch is readonly or empty, it will return directly.
 //
 // It will iterate the pendingWrites and write the data to the database,

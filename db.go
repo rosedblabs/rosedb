@@ -313,7 +313,7 @@ func (db *DB) Expire(key []byte, ttl time.Duration) error {
 		batch.reset()
 		db.batchPool.Put(batch)
 	}()
-	// This is a single put operation, we can set Sync to false.
+	// This is a single expire operation, we can set Sync to false.
 	// Because the data will be written to the WAL,
 	// and the WAL file will be synced to disk according to the DB options.
 	batch.init(false, false, db).withPendingWrites()
@@ -334,6 +334,25 @@ func (db *DB) TTL(key []byte) (time.Duration, error) {
 		db.batchPool.Put(batch)
 	}()
 	return batch.TTL(key)
+}
+
+// Persist removes the ttl of the key.
+// If the key does not exist or expired, it will return ErrKeyNotFound.
+func (db *DB) Persist(key []byte) error {
+	batch := db.batchPool.Get().(*Batch)
+	defer func() {
+		batch.reset()
+		db.batchPool.Put(batch)
+	}()
+	// This is a single persist operation, we can set Sync to false.
+	// Because the data will be written to the WAL,
+	// and the WAL file will be synced to disk according to the DB options.
+	batch.init(false, false, db).withPendingWrites()
+	if err := batch.Persist(key); err != nil {
+		_ = batch.Rollback()
+		return err
+	}
+	return batch.Commit()
 }
 
 func (db *DB) Watch() (chan *Event, error) {
