@@ -1,3 +1,8 @@
+# Release 2.3.3(2023-09-16)
+## 🚀 New Features
+* add filterExpired for ascend/descend keys
+* Add persist function to remove the TTL of the key
+
 # Release 2.3.2(2023-08-30)
 ## 🚀 New Features
 * add AscendKeys and DescnedKeys
