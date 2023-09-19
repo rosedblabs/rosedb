@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/snowflake"
-	"github.com/rosedblabs/wal"
 )
 
 // Batch is a batch operations of the database.
@@ -437,19 +436,22 @@ func (b *Batch) Commit() error {
 		return ErrBatchRollbacked
 	}
 
-	batchId := b.batchId.Generate()
-	positions := make(map[string]*wal.ChunkPosition)
+	var (
+		batchId  = b.batchId.Generate()
+		posIndex = make(map[string]int)
+		idx      = 0
+	)
 
 	now := time.Now().UnixNano()
-	// write to wal
+	// write to wal buffer
 	for _, record := range b.pendingWrites {
 		record.BatchId = uint64(batchId)
 		encRecord := encodeLogRecord(record)
-		pos, err := b.db.dataFiles.Write(encRecord)
-		if err != nil {
+		if err := b.db.dataFiles.PendingWrites(encRecord); err != nil {
 			return err
 		}
-		positions[string(record.Key)] = pos
+		posIndex[string(record.Key)] = idx
+		idx++
 	}
 
 	// write a record to indicate the end of the batch
@@ -457,8 +459,17 @@ func (b *Batch) Commit() error {
 		Key:  batchId.Bytes(),
 		Type: LogRecordBatchFinished,
 	})
-	if _, err := b.db.dataFiles.Write(endRecord); err != nil {
+	if err := b.db.dataFiles.PendingWrites(endRecord); err != nil {
 		return err
+	}
+	// write to wal file
+	chunkPositions, err := b.db.dataFiles.WriteAll()
+	if err != nil {
+		b.db.dataFiles.ClearPendingWrites()
+		return err
+	}
+	if len(chunkPositions) != len(b.pendingWrites)+1 {
+		panic("chunk positions length is not equal to pending writes length")
 	}
 
 	// flush wal if necessary
@@ -470,10 +481,15 @@ func (b *Batch) Commit() error {
 
 	// write to index
 	for key, record := range b.pendingWrites {
+		i, ok := posIndex[key]
+		if !ok || chunkPositions[i] == nil {
+			panic("position index not found")
+		}
+
 		if record.Type == LogRecordDeleted || record.IsExpired(now) {
 			b.db.index.Delete(record.Key)
 		} else {
-			b.db.index.Put(record.Key, positions[key])
+			b.db.index.Put(record.Key, chunkPositions[i])
 		}
 
 		if b.db.options.WatchQueueSize > 0 {

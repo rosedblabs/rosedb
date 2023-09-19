@@ -24,7 +24,23 @@ func TestBatch_Put_Normal(t *testing.T) {
 }
 
 func TestBatch_Put_IncrSegmentFile(t *testing.T) {
-	batchPutAndIterate(t, 64*MB, 5000, 32*KB)
+	batchPutAndIterate(t, 64*MB, 2000, 32*KB)
+	options := DefaultOptions
+	options.SegmentSize = 64 * MB
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	generateData(t, db, 1, 2000, 32*KB)
+
+	// write more data to rotate new segment file
+	batch := db.NewBatch(DefaultBatchOptions)
+	for i := 0; i < 1000; i++ {
+		err := batch.Put(utils.GetTestKey(i*100), utils.RandomValue(32*KB))
+		assert.Nil(t, err)
+	}
+	err = batch.Commit()
+	assert.Nil(t, err)
 }
 
 func TestBatch_Get_Normal(t *testing.T) {

@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/google/btree v1.1.2
-	github.com/rosedblabs/wal v1.3.3
+	github.com/rosedblabs/wal v1.3.5
 )
 
 require (
