@@ -1,11 +1,13 @@
 package rosedb
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/bwmarrin/snowflake"
+	"github.com/valyala/bytebufferpool"
 )
 
 // Batch is a batch operations of the database.
@@ -21,12 +23,13 @@ import (
 // You must call Commit method to commit the batch, otherwise the DB will be locked.
 type Batch struct {
 	db            *DB
-	pendingWrites map[string]*LogRecord // save the data to be written
+	pendingWrites []*LogRecord // save the data to be written
 	options       BatchOptions
 	mu            sync.RWMutex
 	committed     bool // whether the batch has been committed
 	rollbacked    bool // whether the batch has been rollbacked
 	batchId       *snowflake.Node
+	buffers       []*bytebufferpool.ByteBuffer
 }
 
 // NewBatch creates a new Batch instance.
@@ -38,7 +41,6 @@ func (db *DB) NewBatch(options BatchOptions) *Batch {
 		rollbacked: false,
 	}
 	if !options.ReadOnly {
-		batch.pendingWrites = make(map[string]*LogRecord)
 		node, err := snowflake.NewNode(1)
 		if err != nil {
 			panic(fmt.Sprintf("snowflake.NewNode(1) failed: %v", err))
@@ -49,7 +51,7 @@ func (db *DB) NewBatch(options BatchOptions) *Batch {
 	return batch
 }
 
-func makeBatch() interface{} {
+func newBatch() interface{} {
 	node, err := snowflake.NewNode(1)
 	if err != nil {
 		panic(fmt.Sprintf("snowflake.NewNode(1) failed: %v", err))
@@ -60,6 +62,10 @@ func makeBatch() interface{} {
 	}
 }
 
+func newRecord() interface{} {
+	return &LogRecord{}
+}
+
 func (b *Batch) init(rdonly, sync bool, db *DB) *Batch {
 	b.options.ReadOnly = rdonly
 	b.options.Sync = sync
@@ -68,16 +74,16 @@ func (b *Batch) init(rdonly, sync bool, db *DB) *Batch {
 	return b
 }
 
-func (b *Batch) withPendingWrites() *Batch {
-	b.pendingWrites = make(map[string]*LogRecord)
-	return b
-}
-
 func (b *Batch) reset() {
 	b.db = nil
-	b.pendingWrites = nil
+	b.pendingWrites = b.pendingWrites[:0]
 	b.committed = false
 	b.rollbacked = false
+	// put all buffers back to the pool
+	for _, buf := range b.buffers {
+		bytebufferpool.Put(buf)
+	}
+	b.buffers = b.buffers[:0]
 }
 
 func (b *Batch) lock() {
@@ -110,12 +116,23 @@ func (b *Batch) Put(key []byte, value []byte) error {
 
 	b.mu.Lock()
 	// write to pendingWrites
-	b.pendingWrites[string(key)] = &LogRecord{
-		Key:    key,
-		Value:  value,
-		Type:   LogRecordNormal,
-		Expire: 0,
+	var record *LogRecord
+	// if the key exists in pendingWrites, update the value directly
+	for i := len(b.pendingWrites) - 1; i >= 0; i-- {
+		if bytes.Equal(key, b.pendingWrites[i].Key) {
+			record = b.pendingWrites[i]
+			break
+		}
 	}
+	if record == nil {
+		// if the key does not exist in pendingWrites, write a new record
+		// the record will be put back to the pool when the batch is committed or rollbacked
+		record = b.db.recordPool.Get().(*LogRecord)
+		b.pendingWrites = append(b.pendingWrites, record)
+	}
+
+	record.Key, record.Value = key, value
+	record.Type, record.Expire = LogRecordNormal, 0
 	b.mu.Unlock()
 
 	return nil
@@ -135,12 +152,23 @@ func (b *Batch) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
 
 	b.mu.Lock()
 	// write to pendingWrites
-	b.pendingWrites[string(key)] = &LogRecord{
-		Key:    key,
-		Value:  value,
-		Type:   LogRecordNormal,
-		Expire: time.Now().Add(ttl).UnixNano(),
+	var record *LogRecord
+	// if the key exists in pendingWrites, update the value directly
+	for i := len(b.pendingWrites) - 1; i >= 0; i-- {
+		if bytes.Equal(key, b.pendingWrites[i].Key) {
+			record = b.pendingWrites[i]
+			break
+		}
 	}
+	if record == nil {
+		// if the key does not exist in pendingWrites, write a new record
+		// the record will be put back to the pool when the batch is committed or rollbacked
+		record = b.db.recordPool.Get().(*LogRecord)
+		b.pendingWrites = append(b.pendingWrites, record)
+	}
+
+	record.Key, record.Value = key, value
+	record.Type, record.Expire = LogRecordNormal, time.Now().Add(ttl).UnixNano()
 	b.mu.Unlock()
 
 	return nil
@@ -157,20 +185,25 @@ func (b *Batch) Get(key []byte) ([]byte, error) {
 
 	now := time.Now().UnixNano()
 	// get from pendingWrites
-	if b.pendingWrites != nil {
-		b.mu.RLock()
-		if record := b.pendingWrites[string(key)]; record != nil {
-			if record.Type == LogRecordDeleted || record.IsExpired(now) {
-				b.mu.RUnlock()
-				return nil, ErrKeyNotFound
-			}
-			b.mu.RUnlock()
-			return record.Value, nil
+	b.mu.RLock()
+	var record *LogRecord
+	for i := len(b.pendingWrites) - 1; i >= 0; i-- {
+		if bytes.Equal(key, b.pendingWrites[i].Key) {
+			record = b.pendingWrites[i]
+			break
 		}
-		b.mu.RUnlock()
+	}
+	b.mu.RUnlock()
+
+	// if the record is in pendingWrites, return the value directly
+	if record != nil {
+		if record.Type == LogRecordDeleted || record.IsExpired(now) {
+			return nil, ErrKeyNotFound
+		}
+		return record.Value, nil
 	}
 
-	// get from data file
+	// get key/value from data file
 	chunkPosition := b.db.index.Get(key)
 	if chunkPosition == nil {
 		return nil, ErrKeyNotFound
@@ -181,7 +214,7 @@ func (b *Batch) Get(key []byte) ([]byte, error) {
 	}
 
 	// check if the record is deleted or expired
-	record := decodeLogRecord(chunk)
+	record = decodeLogRecord(chunk)
 	if record.Type == LogRecordDeleted {
 		panic("Deleted data cannot exist in the index")
 	}
@@ -205,14 +238,22 @@ func (b *Batch) Delete(key []byte) error {
 	}
 
 	b.mu.Lock()
-	if position := b.db.index.Get(key); position != nil {
-		// write to pendingWrites if the key exists
-		b.pendingWrites[string(key)] = &LogRecord{
+	// only need key and type when deleting a value.
+	var exist bool
+	for i := len(b.pendingWrites) - 1; i >= 0; i-- {
+		if bytes.Equal(key, b.pendingWrites[i].Key) {
+			b.pendingWrites[i].Type = LogRecordDeleted
+			b.pendingWrites[i].Value = nil
+			b.pendingWrites[i].Expire = 0
+			exist = true
+			break
+		}
+	}
+	if !exist {
+		b.pendingWrites = append(b.pendingWrites, &LogRecord{
 			Key:  key,
 			Type: LogRecordDeleted,
-		}
-	} else {
-		delete(b.pendingWrites, string(key))
+		})
 	}
 	b.mu.Unlock()
 
@@ -230,13 +271,18 @@ func (b *Batch) Exist(key []byte) (bool, error) {
 
 	now := time.Now().UnixNano()
 	// check if the key exists in pendingWrites
-	if b.pendingWrites != nil {
-		b.mu.RLock()
-		if record := b.pendingWrites[string(key)]; record != nil {
-			b.mu.RUnlock()
-			return record.Type != LogRecordDeleted && !record.IsExpired(now), nil
+	b.mu.RLock()
+	var record *LogRecord
+	for i := len(b.pendingWrites) - 1; i >= 0; i-- {
+		if bytes.Equal(key, b.pendingWrites[i].Key) {
+			record = b.pendingWrites[i]
+			break
 		}
-		b.mu.RUnlock()
+	}
+	b.mu.RUnlock()
+
+	if record != nil {
+		return record.Type != LogRecordDeleted && !record.IsExpired(now), nil
 	}
 
 	// check if the key exists in index
@@ -251,7 +297,7 @@ func (b *Batch) Exist(key []byte) (bool, error) {
 		return false, err
 	}
 
-	record := decodeLogRecord(chunk)
+	record = decodeLogRecord(chunk)
 	if record.Type == LogRecordDeleted || record.IsExpired(now) {
 		b.db.index.Delete(record.Key)
 		return false, nil
@@ -273,8 +319,21 @@ func (b *Batch) Expire(key []byte, ttl time.Duration) error {
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	var record *LogRecord
+	for i := len(b.pendingWrites) - 1; i >= 0; i-- {
+		if bytes.Equal(key, b.pendingWrites[i].Key) {
+			record = b.pendingWrites[i]
+			break
+		}
+	}
+
 	// if the key exists in pendingWrites, update the expiry time directly
-	if record := b.pendingWrites[string(key)]; record != nil {
+	if record != nil {
+		// return key not found if the record is deleted or expired
+		if record.Type == LogRecordDeleted || record.IsExpired(time.Now().UnixNano()) {
+			return ErrKeyNotFound
+		}
 		record.Expire = time.Now().Add(ttl).UnixNano()
 	} else {
 		// if the key does not exist in pendingWrites, get the value from wal
@@ -288,7 +347,7 @@ func (b *Batch) Expire(key []byte, ttl time.Duration) error {
 		}
 
 		now := time.Now()
-		record := decodeLogRecord(chunk)
+		record = decodeLogRecord(chunk)
 		// if the record is deleted or expired, we can assume that the key does not exist,
 		// and delete the key from the index
 		if record.Type == LogRecordDeleted || record.IsExpired(now.UnixNano()) {
@@ -298,7 +357,7 @@ func (b *Batch) Expire(key []byte, ttl time.Duration) error {
 		// now we get the value from wal, update the expiry time
 		// and rewrite the record to pendingWrites
 		record.Expire = now.Add(ttl).UnixNano()
-		b.pendingWrites[string(key)] = record
+		b.pendingWrites = append(b.pendingWrites, record)
 	}
 
 	return nil
@@ -316,9 +375,18 @@ func (b *Batch) TTL(key []byte) (time.Duration, error) {
 	now := time.Now()
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if b.pendingWrites != nil {
+
+	// check if the key exists in pendingWrites
+	if len(b.pendingWrites) > 0 {
+		var record *LogRecord
+		for i := len(b.pendingWrites) - 1; i >= 0; i-- {
+			if bytes.Equal(key, b.pendingWrites[i].Key) {
+				record = b.pendingWrites[i]
+				break
+			}
+		}
 		// if the key exists in pendingWrites, return the ttl directly
-		if record := b.pendingWrites[string(key)]; record != nil {
+		if record != nil {
 			if record.Expire == 0 {
 				return -1, nil
 			}
@@ -375,9 +443,19 @@ func (b *Batch) Persist(key []byte) error {
 	defer b.mu.Unlock()
 
 	// if the key exists in pendingWrites, update the expiry time directly
-	pendingRecord := b.pendingWrites[string(key)]
-	if pendingRecord != nil && pendingRecord.Type != LogRecordDeleted {
-		pendingRecord.Expire = 0
+	var record *LogRecord
+	for i := len(b.pendingWrites) - 1; i >= 0; i-- {
+		if bytes.Equal(key, b.pendingWrites[i].Key) {
+			record = b.pendingWrites[i]
+			break
+		}
+	}
+
+	if record != nil {
+		if record.Type == LogRecordDeleted && record.IsExpired(time.Now().UnixNano()) {
+			return ErrKeyNotFound
+		}
+		record.Expire = 0
 	} else {
 		// check if the key exists in index
 		position := b.db.index.Get(key)
@@ -404,7 +482,7 @@ func (b *Batch) Persist(key []byte) error {
 
 		// set the expiration time to 0, and rewrite the record to wal
 		record.Expire = 0
-		b.pendingWrites[string(key)] = record
+		b.pendingWrites = append(b.pendingWrites, record)
 	}
 
 	return nil
@@ -436,32 +514,26 @@ func (b *Batch) Commit() error {
 		return ErrBatchRollbacked
 	}
 
-	var (
-		batchId  = b.batchId.Generate()
-		posIndex = make(map[string]int)
-		idx      = 0
-	)
-
+	batchId := b.batchId.Generate()
 	now := time.Now().UnixNano()
 	// write to wal buffer
 	for _, record := range b.pendingWrites {
+		buf := bytebufferpool.Get()
+		b.buffers = append(b.buffers, buf)
 		record.BatchId = uint64(batchId)
-		encRecord := encodeLogRecord(record)
-		if err := b.db.dataFiles.PendingWrites(encRecord); err != nil {
-			return err
-		}
-		posIndex[string(record.Key)] = idx
-		idx++
+		encRecord := encodeLogRecord(record, b.db.encodeHeader, buf)
+		b.db.dataFiles.PendingWrites(encRecord)
 	}
 
 	// write a record to indicate the end of the batch
+	buf := bytebufferpool.Get()
+	b.buffers = append(b.buffers, buf)
 	endRecord := encodeLogRecord(&LogRecord{
 		Key:  batchId.Bytes(),
 		Type: LogRecordBatchFinished,
-	})
-	if err := b.db.dataFiles.PendingWrites(endRecord); err != nil {
-		return err
-	}
+	}, b.db.encodeHeader, buf)
+	b.db.dataFiles.PendingWrites(endRecord)
+
 	// write to wal file
 	chunkPositions, err := b.db.dataFiles.WriteAll()
 	if err != nil {
@@ -480,12 +552,7 @@ func (b *Batch) Commit() error {
 	}
 
 	// write to index
-	for key, record := range b.pendingWrites {
-		i, ok := posIndex[key]
-		if !ok || chunkPositions[i] == nil {
-			panic("position index not found")
-		}
-
+	for i, record := range b.pendingWrites {
 		if record.Type == LogRecordDeleted || record.IsExpired(now) {
 			b.db.index.Delete(record.Key)
 		} else {
@@ -501,6 +568,8 @@ func (b *Batch) Commit() error {
 			}
 			b.db.watcher.putEvent(e)
 		}
+		// put the record back to the pool
+		b.db.recordPool.Put(record)
 	}
 
 	b.committed = true
@@ -523,9 +592,16 @@ func (b *Batch) Rollback() error {
 		return ErrBatchRollbacked
 	}
 
+	for _, buf := range b.buffers {
+		bytebufferpool.Put(buf)
+	}
+
 	if !b.options.ReadOnly {
 		// clear pendingWrites
-		b.pendingWrites = nil
+		for _, record := range b.pendingWrites {
+			b.db.recordPool.Put(record)
+		}
+		b.pendingWrites = b.pendingWrites[:0]
 	}
 
 	b.rollbacked = true

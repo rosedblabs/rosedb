@@ -48,6 +48,8 @@ type DB struct {
 	closed           bool
 	mergeRunning     uint32 // indicate if the database is merging
 	batchPool        sync.Pool
+	recordPool       sync.Pool
+	encodeHeader     []byte
 	watchCh          chan *Event // user consume channel for watch events
 	watcher          *Watcher
 	expiredCursorKey []byte // the location to which DeleteExpiredKeys executes.
@@ -99,10 +101,12 @@ func Open(options Options) (*DB, error) {
 
 	// init DB instance
 	db := &DB{
-		index:     index.NewIndexer(),
-		options:   options,
-		fileLock:  fileLock,
-		batchPool: sync.Pool{New: makeBatch},
+		index:        index.NewIndexer(),
+		options:      options,
+		fileLock:     fileLock,
+		batchPool:    sync.Pool{New: newBatch},
+		recordPool:   sync.Pool{New: newRecord},
+		encodeHeader: make([]byte, maxLogRecordHeaderSize),
 	}
 
 	// open data files
@@ -230,7 +234,7 @@ func (db *DB) Put(key []byte, value []byte) error {
 	// This is a single put operation, we can set Sync to false.
 	// Because the data will be written to the WAL,
 	// and the WAL file will be synced to disk according to the DB options.
-	batch.init(false, false, db).withPendingWrites()
+	batch.init(false, false, db)
 	if err := batch.Put(key, value); err != nil {
 		_ = batch.Rollback()
 		return err
@@ -250,7 +254,7 @@ func (db *DB) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
 	// This is a single put operation, we can set Sync to false.
 	// Because the data will be written to the WAL,
 	// and the WAL file will be synced to disk according to the DB options.
-	batch.init(false, false, db).withPendingWrites()
+	batch.init(false, false, db)
 	if err := batch.PutWithTTL(key, value, ttl); err != nil {
 		_ = batch.Rollback()
 		return err
@@ -284,7 +288,7 @@ func (db *DB) Delete(key []byte) error {
 	// This is a single delete operation, we can set Sync to false.
 	// Because the data will be written to the WAL,
 	// and the WAL file will be synced to disk according to the DB options.
-	batch.init(false, false, db).withPendingWrites()
+	batch.init(false, false, db)
 	if err := batch.Delete(key); err != nil {
 		_ = batch.Rollback()
 		return err
@@ -316,7 +320,7 @@ func (db *DB) Expire(key []byte, ttl time.Duration) error {
 	// This is a single expire operation, we can set Sync to false.
 	// Because the data will be written to the WAL,
 	// and the WAL file will be synced to disk according to the DB options.
-	batch.init(false, false, db).withPendingWrites()
+	batch.init(false, false, db)
 	if err := batch.Expire(key, ttl); err != nil {
 		_ = batch.Rollback()
 		return err
@@ -347,7 +351,7 @@ func (db *DB) Persist(key []byte) error {
 	// This is a single persist operation, we can set Sync to false.
 	// Because the data will be written to the WAL,
 	// and the WAL file will be synced to disk according to the DB options.
-	batch.init(false, false, db).withPendingWrites()
+	batch.init(false, false, db)
 	if err := batch.Persist(key); err != nil {
 		_ = batch.Rollback()
 		return err

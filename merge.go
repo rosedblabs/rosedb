@@ -3,14 +3,16 @@ package rosedb
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/rosedblabs/rosedb/v2/index"
-	"github.com/rosedblabs/wal"
 	"io"
 	"math"
 	"os"
 	"path/filepath"
 	"sync/atomic"
 	"time"
+
+	"github.com/rosedblabs/rosedb/v2/index"
+	"github.com/rosedblabs/wal"
+	"github.com/valyala/bytebufferpool"
 )
 
 const (
@@ -107,10 +109,14 @@ func (db *DB) doMerge() error {
 		_ = mergeDB.Close()
 	}()
 
+	buf := bytebufferpool.Get()
 	now := time.Now().UnixNano()
+	defer bytebufferpool.Put(buf)
+
 	// iterate all the data files, and write the valid data to the new data file.
 	reader := db.dataFiles.NewReaderWithMax(prevActiveSegId)
 	for {
+		buf.Reset()
 		chunk, position, err := reader.Next()
 		if err != nil {
 			if err == io.EOF {
@@ -131,7 +137,7 @@ func (db *DB) doMerge() error {
 				record.BatchId = mergeFinishedBatchID
 				// Since the mergeDB will never be used for any read or write operations,
 				// it is not necessary to update the index.
-				newPosition, err := mergeDB.dataFiles.Write(encodeLogRecord(record))
+				newPosition, err := mergeDB.dataFiles.Write(encodeLogRecord(record, mergeDB.encodeHeader, buf))
 				if err != nil {
 					return err
 				}

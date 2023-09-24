@@ -2,8 +2,8 @@ package rosedb
 
 import (
 	"encoding/binary"
-
 	"github.com/rosedblabs/wal"
+	"github.com/valyala/bytebufferpool"
 )
 
 // LogRecordType is the type of the log record.
@@ -53,9 +53,7 @@ type IndexRecord struct {
 // +-------------+-------------+-------------+--------------+---------------+--------+--------------+
 //
 //	1 byte	      varint(max 10) varint(max 5)  varint(max 5) varint(max 10)  varint      varint
-func encodeLogRecord(logRecord *LogRecord) []byte {
-	header := make([]byte, maxLogRecordHeaderSize)
-
+func encodeLogRecord(logRecord *LogRecord, header []byte, buf *bytebufferpool.ByteBuffer) []byte {
 	header[0] = logRecord.Type
 	var index = 1
 
@@ -68,17 +66,14 @@ func encodeLogRecord(logRecord *LogRecord) []byte {
 	// expire
 	index += binary.PutVarint(header[index:], logRecord.Expire)
 
-	var size = index + len(logRecord.Key) + len(logRecord.Value)
-	encBytes := make([]byte, size)
-
 	// copy header
-	copy(encBytes[:index], header[:index])
+	_, _ = buf.Write(header[:index])
 	// copy key
-	copy(encBytes[index:], logRecord.Key)
+	_, _ = buf.Write(logRecord.Key)
 	// copy value
-	copy(encBytes[index+len(logRecord.Key):], logRecord.Value)
+	_, _ = buf.Write(logRecord.Value)
 
-	return encBytes
+	return buf.Bytes()
 }
 
 // decodeLogRecord decodes the log record from the given byte slice.
