@@ -110,11 +110,16 @@ func (db *DB) doMerge() error {
 	}()
 
 	buf := bytebufferpool.Get()
+	record := db.recordPool.Get().(*LogRecord)
 	now := time.Now().UnixNano()
-	defer bytebufferpool.Put(buf)
+	defer func() {
+		bytebufferpool.Put(buf)
+		db.recordPool.Put(record)
+	}()
 
 	// iterate all the data files, and write the valid data to the new data file.
 	reader := db.dataFiles.NewReaderWithMax(prevActiveSegId)
+
 	for {
 		buf.Reset()
 		chunk, position, err := reader.Next()
@@ -124,7 +129,7 @@ func (db *DB) doMerge() error {
 			}
 			return err
 		}
-		record := decodeLogRecord(chunk)
+		decodeLogRecord(chunk, record)
 		// Only handle the normal log record, LogRecordDeleted and LogRecordBatchFinished
 		// will be ignored, because they are not valid data.
 		if record.Type == LogRecordNormal && (record.Expire == 0 || record.Expire > now) {

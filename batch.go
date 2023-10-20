@@ -214,7 +214,9 @@ func (b *Batch) Get(key []byte) ([]byte, error) {
 	}
 
 	// check if the record is deleted or expired
-	record = decodeLogRecord(chunk)
+	record = b.db.recordPool.Get().(*LogRecord)
+	decodeLogRecord(chunk, record)
+	defer b.db.recordPool.Put(record)
 	if record.Type == LogRecordDeleted {
 		panic("Deleted data cannot exist in the index")
 	}
@@ -297,7 +299,9 @@ func (b *Batch) Exist(key []byte) (bool, error) {
 		return false, err
 	}
 
-	record = decodeLogRecord(chunk)
+	record = b.db.recordPool.Get().(*LogRecord)
+	decodeLogRecord(chunk, record)
+	defer b.db.recordPool.Put(record)
 	if record.Type == LogRecordDeleted || record.IsExpired(now) {
 		b.db.index.Delete(record.Key)
 		return false, nil
@@ -347,7 +351,9 @@ func (b *Batch) Expire(key []byte, ttl time.Duration) error {
 		}
 
 		now := time.Now()
-		record = decodeLogRecord(chunk)
+		record = b.db.recordPool.Get().(*LogRecord)
+		decodeLogRecord(chunk, record)
+		defer b.db.recordPool.Put(record)
 		// if the record is deleted or expired, we can assume that the key does not exist,
 		// and delete the key from the index
 		if record.Type == LogRecordDeleted || record.IsExpired(now.UnixNano()) {
@@ -410,7 +416,9 @@ func (b *Batch) TTL(key []byte) (time.Duration, error) {
 	}
 
 	// return key not found if the record is deleted or expired
-	record := decodeLogRecord(chunk)
+	record := b.db.recordPool.Get().(*LogRecord)
+	decodeLogRecord(chunk, record)
+	defer b.db.recordPool.Put(record)
 	if record.Type == LogRecordDeleted {
 		return -1, ErrKeyNotFound
 	}
@@ -467,7 +475,9 @@ func (b *Batch) Persist(key []byte) error {
 			return err
 		}
 
-		record := decodeLogRecord(chunk)
+		record := b.db.recordPool.Get().(*LogRecord)
+		decodeLogRecord(chunk, record)
+		defer b.db.recordPool.Put(record)
 		now := time.Now().UnixNano()
 		// check if the record is deleted or expired
 		if record.Type == LogRecordDeleted || record.IsExpired(now) {

@@ -77,12 +77,15 @@ func encodeLogRecord(logRecord *LogRecord, header []byte, buf *bytebufferpool.By
 }
 
 // decodeLogRecord decodes the log record from the given byte slice.
-func decodeLogRecord(buf []byte) *LogRecord {
-	recordType := buf[0]
+func decodeLogRecord(buf []byte, record *LogRecord) {
+	record.Type = buf[0]
 
-	var index uint32 = 1
+	var (
+		index uint32 = 1
+		n     int
+	)
 	// batch id
-	batchId, n := binary.Uvarint(buf[index:])
+	record.BatchId, n = binary.Uvarint(buf[index:])
 	index += uint32(n)
 
 	// key size
@@ -94,18 +97,13 @@ func decodeLogRecord(buf []byte) *LogRecord {
 	index += uint32(n)
 
 	// expire
-	expire, n := binary.Varint(buf[index:])
+	record.Expire, n = binary.Varint(buf[index:])
 	index += uint32(n)
 
-	// copy key
-	key := make([]byte, keySize)
-	copy(key[:], buf[index:index+uint32(keySize)])
+	// key
+	record.Key = buf[index : index+uint32(keySize)]
 	index += uint32(keySize)
 
-	// copy value
-	value := make([]byte, valueSize)
-	copy(value[:], buf[index:index+uint32(valueSize)])
-
-	return &LogRecord{Key: key, Value: value, Expire: expire,
-		BatchId: batchId, Type: recordType}
+	// value
+	record.Value = buf[index : index+uint32(valueSize)]
 }

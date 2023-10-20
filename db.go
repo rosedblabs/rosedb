@@ -537,7 +537,9 @@ func (db *DB) DescendKeys(pattern []byte, filterExpired bool, handleFn func(k []
 }
 
 func (db *DB) checkValue(chunk []byte) []byte {
-	record := decodeLogRecord(chunk)
+	record := db.recordPool.Get().(*LogRecord)
+	decodeLogRecord(chunk, record)
+	defer db.recordPool.Put(record)
 	now := time.Now().UnixNano()
 	if record.Type != LogRecordDeleted && !record.IsExpired(now) {
 		return record.Value
@@ -567,6 +569,10 @@ func (db *DB) loadIndexFromWAL() error {
 	now := time.Now().UnixNano()
 	// get a reader for WAL
 	reader := db.dataFiles.NewReader()
+
+	record := db.recordPool.Get().(*LogRecord)
+	defer db.recordPool.Put(record)
+
 	for {
 		// if the current segment id is less than the mergeFinSegmentId,
 		// we can skip this segment because it has been merged,
@@ -584,7 +590,7 @@ func (db *DB) loadIndexFromWAL() error {
 			return err
 		}
 		// decode and get log record
-		record := decodeLogRecord(chunk)
+		decodeLogRecord(chunk, record)
 
 		// if we get the end of a batch,
 		// all records in this batch are ready to be indexed.
@@ -639,7 +645,13 @@ func (db *DB) DeleteExpiredKeys(timeout time.Duration) error {
 	now := time.Now().UnixNano()
 	go func(ctx context.Context) {
 		db.mu.Lock()
-		defer db.mu.Unlock()
+		record := db.recordPool.Get().(*LogRecord)
+
+		defer func() {
+			db.recordPool.Put(record)
+			db.mu.Unlock()
+		}()
+
 		for {
 			// select 100 keys from the db.index
 			positions := make([]*wal.ChunkPosition, 0, 100)
@@ -666,7 +678,7 @@ func (db *DB) DeleteExpiredKeys(timeout time.Duration) error {
 					done <- struct{}{}
 					return
 				}
-				record := decodeLogRecord(chunk)
+				decodeLogRecord(chunk, record)
 				if record.IsExpired(now) {
 					db.index.Delete(record.Key)
 				}
