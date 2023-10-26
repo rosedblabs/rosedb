@@ -353,7 +353,6 @@ func (b *Batch) Expire(key []byte, ttl time.Duration) error {
 		now := time.Now()
 		record = b.db.recordPool.Get().(*LogRecord)
 		decodeLogRecord(chunk, record)
-		defer b.db.recordPool.Put(record)
 		// if the record is deleted or expired, we can assume that the key does not exist,
 		// and delete the key from the index
 		if record.Type == LogRecordDeleted || record.IsExpired(now.UnixNano()) {
@@ -477,7 +476,6 @@ func (b *Batch) Persist(key []byte) error {
 
 		record := b.db.recordPool.Get().(*LogRecord)
 		decodeLogRecord(chunk, record)
-		defer b.db.recordPool.Put(record)
 		now := time.Now().UnixNano()
 		// check if the record is deleted or expired
 		if record.Type == LogRecordDeleted || record.IsExpired(now) {
