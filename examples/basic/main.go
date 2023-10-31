@@ -1,16 +1,24 @@
 package main
 
 import (
-	"github.com/rosedblabs/rosedb/v2"
 	"os"
+	"runtime"
+
+	"github.com/rosedblabs/rosedb/v2"
 )
 
 // this file shows how to use the basic operations of rosedb
 
 func main() {
+
 	// specify the options
 	options := rosedb.DefaultOptions
-	options.DirPath = "/tmp/rosedb_basic"
+	sysType := runtime.GOOS
+	if sysType == "windows" {
+		options.DirPath = "C:\\rosedb_basic"
+	} else {
+		options.DirPath = "/tmp/rosedb_basic"
+	}
 
 	//remove data dir, for test, there's no need to keep any file or directory on disk
 	defer func() {
