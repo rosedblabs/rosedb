@@ -359,7 +359,7 @@ func (db *DB) Persist(key []byte) error {
 	return batch.Commit()
 }
 
-func (db *DB) Watch() (chan *Event, error) {
+func (db *DB) Watch() (<-chan *Event, error) {
 	if db.options.WatchQueueSize <= 0 {
 		return nil, ErrWatchDisabled
 	}
