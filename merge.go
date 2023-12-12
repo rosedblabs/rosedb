@@ -289,7 +289,10 @@ func loadMergeFiles(dirPath string) error {
 	mergeDirPath := mergeDirPath(dirPath)
 	if _, err := os.Stat(mergeDirPath); err != nil {
 		// does not exist, just return.
-		return nil
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	}
 
 	// remove the merge directory at last
