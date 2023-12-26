@@ -31,6 +31,19 @@ type Options struct {
 	// WatchQueueSize the cache length of the watch queue.
 	// if the size greater than 0, which means enable the watch.
 	WatchQueueSize uint64
+
+	// AutoMergeEnable enable the auto merge.
+	// auto merge will be triggered when cron expr is satisfied.
+	// cron expression follows the standard cron expression.
+	// e.g. "0 0 * * *" means merge at 00:00:00 every day.
+	// it also supports seconds optionally.
+	// when enable the second field, the cron expression will be like this: "0/10 * * * * *" (every 10 seconds).
+	// refer to https://en.wikipedia.org/wiki/Cron
+	AutoMergeCronExpr string
+
+	// AutoMergeReopenAfterDone reopen the db after auto merge done.
+	// refer to function mergeDB() in db.go
+	AutoMergeReopenAfterDone bool
 }
 
 // BatchOptions specifies the options for creating a batch.
@@ -49,12 +62,14 @@ const (
 )
 
 var DefaultOptions = Options{
-	DirPath:        tempDBDir(),
-	SegmentSize:    1 * GB,
-	BlockCache:     0,
-	Sync:           false,
-	BytesPerSync:   0,
-	WatchQueueSize: 0,
+	DirPath:                  tempDBDir(),
+	SegmentSize:              1 * GB,
+	BlockCache:               0,
+	Sync:                     false,
+	BytesPerSync:             0,
+	WatchQueueSize:           0,
+	AutoMergeCronExpr:        "",
+	AutoMergeReopenAfterDone: false,
 }
 
 var DefaultBatchOptions = BatchOptions{

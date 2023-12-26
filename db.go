@@ -13,6 +13,7 @@ import (
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/gofrs/flock"
+	"github.com/robfig/cron/v3"
 	"github.com/rosedblabs/rosedb/v2/index"
 	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/rosedblabs/wal"
@@ -52,7 +53,8 @@ type DB struct {
 	encodeHeader     []byte
 	watchCh          chan *Event // user consume channel for watch events
 	watcher          *Watcher
-	expiredCursorKey []byte // the location to which DeleteExpiredKeys executes.
+	expiredCursorKey []byte     // the location to which DeleteExpiredKeys executes.
+	cronScheduler    *cron.Cron // cron scheduler for auto merge task
 }
 
 // Stat represents the statistics of the database.
@@ -127,6 +129,16 @@ func Open(options Options) (*DB, error) {
 		go db.watcher.sendEvent(db.watchCh)
 	}
 
+	if len(options.AutoMergeCronExpr) > 0 {
+		db.cronScheduler = cron.New(cron.WithParser(
+			cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)))
+		db.cronScheduler.AddFunc(options.AutoMergeCronExpr, func() {
+			// maybe we should deal with different errors with different logic, but a background task can't omit its error
+			_ = db.Merge(options.AutoMergeReopenAfterDone)
+		})
+		db.cronScheduler.Start()
+	}
+
 	return db, nil
 }
 
@@ -177,6 +189,11 @@ func (db *DB) Close() error {
 	// close watch channel
 	if db.options.WatchQueueSize > 0 {
 		close(db.watchCh)
+	}
+
+	// close auto merge cron scheduler
+	if db.cronScheduler != nil {
+		db.cronScheduler.Stop()
 	}
 
 	db.closed = true
@@ -552,6 +569,14 @@ func checkOptions(options Options) error {
 	if options.SegmentSize <= 0 {
 		return errors.New("database data file size must be greater than 0")
 	}
+
+	if len(options.AutoMergeCronExpr) > 0 {
+		if _, err := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor).
+			Parse(options.AutoMergeCronExpr); err != nil {
+			return fmt.Errorf("databse auto merge cron expression is invalid, err: %s", err)
+		}
+	}
+
 	return nil
 }
 

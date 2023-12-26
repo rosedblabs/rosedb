@@ -704,3 +704,77 @@ func TestDB_Persist(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, val2)
 }
+
+func TestDB_invalid_cron_expression(t *testing.T) {
+	options := DefaultOptions
+	options.AutoMergeCronExpr = "*/1 * * * * * *"
+	_, err := Open(options)
+	assert.NotNil(t, err)
+}
+
+func TestDB_valid_cron_expression(t *testing.T) {
+	options := DefaultOptions
+	options.AutoMergeCronExpr = "* */1 * * * *"
+	db, err := Open(options)
+	assert.Nil(t, err)
+	destroyDB(db)
+
+	options.AutoMergeCronExpr = "*/1 * * * *"
+	db, err = Open(options)
+	assert.Nil(t, err)
+	destroyDB(db)
+
+	options.AutoMergeCronExpr = "5 0 * 8 *"
+	db, err = Open(options)
+	assert.Nil(t, err)
+	destroyDB(db)
+
+	options.AutoMergeCronExpr = "*/2 14 1 * *"
+	db, err = Open(options)
+	assert.Nil(t, err)
+	destroyDB(db)
+
+	options.AutoMergeCronExpr = "@hourly"
+	db, err = Open(options)
+	assert.Nil(t, err)
+	destroyDB(db)
+}
+
+func TestDB_autoMerge(t *testing.T) {
+	options := DefaultOptions
+	options.AutoMergeCronExpr = "* * * * * *"
+	options.AutoMergeReopenAfterDone = true
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	var recordSize int
+	timeAfter := time.After(time.Second * 2)
+WriteLoop:
+	for {
+		select {
+		case <-timeAfter:
+			break WriteLoop
+
+		default:
+			err := db.Put(utils.GetTestKey(rand.Int()), utils.RandomValue(128))
+			assert.Nil(t, err)
+			err = db.Put(utils.GetTestKey(rand.Int()), utils.RandomValue(KB))
+			assert.Nil(t, err)
+			err = db.Put(utils.GetTestKey(rand.Int()), utils.RandomValue(5*KB))
+			assert.Nil(t, err)
+			recordSize += 3
+		}
+	}
+
+	// reopen
+	err = db.Close()
+	assert.Nil(t, err)
+	db2, err := Open(options)
+	assert.Nil(t, err)
+	defer func() {
+		_ = db2.Close()
+	}()
+	stat := db2.Stat()
+	assert.Equal(t, recordSize, stat.KeysNum)
+}
