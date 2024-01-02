@@ -38,12 +38,10 @@ type Options struct {
 	// e.g. "0 0 * * *" means merge at 00:00:00 every day.
 	// it also supports seconds optionally.
 	// when enable the second field, the cron expression will be like this: "0/10 * * * * *" (every 10 seconds).
+	// when auto merge is enabled, the db will be closed and reopened after merge done.
+	// do not set this shecule too frequently, it will affect the performance.
 	// refer to https://en.wikipedia.org/wiki/Cron
 	AutoMergeCronExpr string
-
-	// AutoMergeReopenAfterDone reopen the db after auto merge done.
-	// refer to function mergeDB() in db.go
-	AutoMergeReopenAfterDone bool
 }
 
 // BatchOptions specifies the options for creating a batch.
@@ -62,14 +60,13 @@ const (
 )
 
 var DefaultOptions = Options{
-	DirPath:                  tempDBDir(),
-	SegmentSize:              1 * GB,
-	BlockCache:               0,
-	Sync:                     false,
-	BytesPerSync:             0,
-	WatchQueueSize:           0,
-	AutoMergeCronExpr:        "",
-	AutoMergeReopenAfterDone: false,
+	DirPath:           tempDBDir(),
+	SegmentSize:       1 * GB,
+	BlockCache:        0,
+	Sync:              false,
+	BytesPerSync:      0,
+	WatchQueueSize:    0,
+	AutoMergeCronExpr: "",
 }
 
 var DefaultBatchOptions = BatchOptions{
