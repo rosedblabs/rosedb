@@ -717,30 +717,40 @@ func TestDB_Invalid_Cron_Expression(t *testing.T) {
 
 func TestDB_Valid_Cron_Expression(t *testing.T) {
 	options := DefaultOptions
-	options.AutoMergeCronExpr = "* */1 * * * *"
-	db, err := Open(options)
-	assert.Nil(t, err)
-	destroyDB(db)
+	{
+		options.AutoMergeCronExpr = "* */1 * * * *"
+		db, err := Open(options)
+		assert.Nil(t, err)
+		destroyDB(db)
+	}
 
-	options.AutoMergeCronExpr = "*/1 * * * *"
-	db, err = Open(options)
-	assert.Nil(t, err)
-	destroyDB(db)
+	{
+		options.AutoMergeCronExpr = "*/1 * * * *"
+		db, err := Open(options)
+		assert.Nil(t, err)
+		destroyDB(db)
+	}
 
-	options.AutoMergeCronExpr = "5 0 * 8 *"
-	db, err = Open(options)
-	assert.Nil(t, err)
-	destroyDB(db)
+	{
+		options.AutoMergeCronExpr = "5 0 * 8 *"
+		db, err := Open(options)
+		assert.Nil(t, err)
+		destroyDB(db)
+	}
 
-	options.AutoMergeCronExpr = "*/2 14 1 * *"
-	db, err = Open(options)
-	assert.Nil(t, err)
-	destroyDB(db)
+	{
+		options.AutoMergeCronExpr = "*/2 14 1 * *"
+		db, err := Open(options)
+		assert.Nil(t, err)
+		destroyDB(db)
+	}
 
-	options.AutoMergeCronExpr = "@hourly"
-	db, err = Open(options)
-	assert.Nil(t, err)
-	destroyDB(db)
+	{
+		options.AutoMergeCronExpr = "@hourly"
+		db, err := Open(options)
+		assert.Nil(t, err)
+		destroyDB(db)
+	}
 }
 
 func TestDB_Auto_Merge(t *testing.T) {
@@ -779,20 +789,23 @@ func TestDB_Auto_Merge(t *testing.T) {
 	}
 	assert.NoError(t, db.Close())
 
-	options.AutoMergeCronExpr = "* * * * * *" // every second
-	db, err = Open(options)
-	assert.Nil(t, err)
 	{
-		<-time.After(time.Second * 2)
-		reader := db.dataFiles.NewReader()
-		var keyCnt int
-		for {
-			if _, _, err := reader.Next(); errors.Is(err, io.EOF) {
-				break
+		options.AutoMergeCronExpr = "* * * * * *" // every second
+		db, err := Open(options)
+		assert.Nil(t, err)
+		{
+			<-time.After(time.Second * 2)
+			reader := db.dataFiles.NewReader()
+			var keyCnt int
+			for {
+				if _, _, err := reader.Next(); errors.Is(err, io.EOF) {
+					break
+				}
+				keyCnt++
 			}
-			keyCnt++
+			// after merge records are only valid data, so totally is 2000
+			assert.Equal(t, 2000, keyCnt)
 		}
-		// after merge records are only valid data, so totally is 2000
-		assert.Equal(t, 2000, keyCnt)
+		destroyDB(db)
 	}
 }
