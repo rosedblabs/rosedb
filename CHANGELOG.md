@@ -1,3 +1,19 @@
+# Release 2.3.4(2024-01-07)
+
+## 🎄 Enhancements
+* use wal write batch to optimize performance.
+* optimize memory usage.
+
+## 🎠 Community
+* Thanks to @LindaSummer
+  * add auto merge(https://github.com/rosedblabs/rosedb/commit/f31d45ef0cc3e738bbfe547df41fdfc23817bc4a)
+* Thanks to @justforward
+  * clarify file error(https://github.com/rosedblabs/rosedb/commit/b00612621aa9c27e79b4a012b53f5f1af1dd41bd)
+* Thanks to @lyonzhi
+  * approce test case for windows(https://github.com/rosedblabs/rosedb/commit/7d8c6c0e09bd556b65f11b37eca12cfdcb81b567)
+* Thanks to @246859
+  * fix(watch): make channnel that DB.Watch returns is readonly (https://github.com/rosedblabs/rosedb/pull/294)
+
 # Release 2.3.3(2023-09-16)
 ## 🚀 New Features
 * add filterExpired for ascend/descend keys
