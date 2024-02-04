@@ -27,7 +27,7 @@ type Batch struct {
 	options       BatchOptions
 	mu            sync.RWMutex
 	committed     bool // whether the batch has been committed
-	rollbacked    bool // whether the batch has been rollbacked
+	rolledBack    bool // whether the batch has been rolled back
 	batchId       *snowflake.Node
 	buffers       []*bytebufferpool.ByteBuffer
 }
@@ -38,7 +38,7 @@ func (db *DB) NewBatch(options BatchOptions) *Batch {
 		db:         db,
 		options:    options,
 		committed:  false,
-		rollbacked: false,
+		rolledBack: false,
 	}
 	if !options.ReadOnly {
 		node, err := snowflake.NewNode(1)
@@ -78,7 +78,7 @@ func (b *Batch) reset() {
 	b.db = nil
 	b.pendingWrites = b.pendingWrites[:0]
 	b.committed = false
-	b.rollbacked = false
+	b.rolledBack = false
 	// put all buffers back to the pool
 	for _, buf := range b.buffers {
 		bytebufferpool.Put(buf)
@@ -126,7 +126,7 @@ func (b *Batch) Put(key []byte, value []byte) error {
 	}
 	if record == nil {
 		// if the key does not exist in pendingWrites, write a new record
-		// the record will be put back to the pool when the batch is committed or rollbacked
+		// the record will be put back to the pool when the batch is committed or rolled back
 		record = b.db.recordPool.Get().(*LogRecord)
 		b.pendingWrites = append(b.pendingWrites, record)
 	}
@@ -162,7 +162,7 @@ func (b *Batch) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
 	}
 	if record == nil {
 		// if the key does not exist in pendingWrites, write a new record
-		// the record will be put back to the pool when the batch is committed or rollbacked
+		// the record will be put back to the pool when the batch is committed or rolled back
 		record = b.db.recordPool.Get().(*LogRecord)
 		b.pendingWrites = append(b.pendingWrites, record)
 	}
@@ -506,12 +506,12 @@ func (b *Batch) Commit() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	// check if committed or rollbacked
+	// check if committed or rolled back
 	if b.committed {
 		return ErrBatchCommitted
 	}
-	if b.rollbacked {
-		return ErrBatchRollbacked
+	if b.rolledBack {
+		return ErrBatchRolledBack
 	}
 
 	batchId := b.batchId.Generate()
@@ -588,8 +588,8 @@ func (b *Batch) Rollback() error {
 	if b.committed {
 		return ErrBatchCommitted
 	}
-	if b.rollbacked {
-		return ErrBatchRollbacked
+	if b.rolledBack {
+		return ErrBatchRolledBack
 	}
 
 	for _, buf := range b.buffers {
@@ -604,6 +604,6 @@ func (b *Batch) Rollback() error {
 		b.pendingWrites = b.pendingWrites[:0]
 	}
 
-	b.rollbacked = true
+	b.rolledBack = true
 	return nil
 }
