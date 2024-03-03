@@ -1,3 +1,7 @@
+# Release 2.3.5(2024-03-03)
+## 🐞 Bug Fixes
+* Fix index Less function panic.
+
 # Release 2.3.4(2024-01-07)
 
 ## 🎄 Enhancements

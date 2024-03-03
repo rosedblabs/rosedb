@@ -28,6 +28,9 @@ func newBTree() *MemoryBTree {
 }
 
 func (it *item) Less(bi btree.Item) bool {
+	if bi == nil {
+		return false
+	}
 	return bytes.Compare(it.key, bi.(*item).key) < 0
 }
 
