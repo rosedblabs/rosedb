@@ -1,8 +1,12 @@
+github.com/Jcowwell/go-algorithm-club v0.0.0-20220301144310-f6cfca9526c5 h1:LofeQVtJbtUmIF6HhZH+Ohxjdq1VMjUx6jb/pzkbgj8=
+github.com/Jcowwell/go-algorithm-club v0.0.0-20220301144310-f6cfca9526c5/go.mod h1:TDxTq6hk1eSyLrahkriGwtkmM9QYL6vytPfRrVynncI=
 github.com/bwmarrin/snowflake v0.3.0 h1:xm67bEhkKh6ij1790JB83OujPR5CzNe8QuQqAgISZN0=
 github.com/bwmarrin/snowflake v0.3.0/go.mod h1:NdZxfVWX+oR6y2K0o6qAYv6gIOP9rjG0/E9WsDpxqwE=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/drewlanenga/govector v0.0.0-20220726163947-b958ac08bc93 h1:2VXZHsypUG1HaQcj/+nQc5TbZ4qZ5FSl7KN4s1BjFQY=
+github.com/drewlanenga/govector v0.0.0-20220726163947-b958ac08bc93/go.mod h1:AbP/uRrjZFATEwl0P2DHePteIMZRWHEJBWBmMmLdCkk=
 github.com/gofrs/flock v0.8.1 h1:+gYjHKf32LDeiEEFhQaotPbLuUXjY5ZqxKgXy7n59aw=
 github.com/gofrs/flock v0.8.1/go.mod h1:F1TvTiK9OcQqauNUHlbJvyl9Qa1QvF/gOUDKA14jxHU=
 github.com/google/btree v1.1.2 h1:xf4v41cLI2Z6FxbKm+8Bu+m8ifhj15JuZ9sa0jZCMUU=
