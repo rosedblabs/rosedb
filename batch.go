@@ -1,7 +1,9 @@
 package rosedb
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/rosedblabs/rosedb/v2/utils"
 	"sync"
 	"time"
 
@@ -22,8 +24,8 @@ import (
 // You must call Commit method to commit the batch, otherwise the DB will be locked.
 type Batch struct {
 	db               *DB
-	pendingWrites    []*LogRecord   // save the data to be written
-	pendingWritesMap map[string]int // map record key to index
+	pendingWrites    []*LogRecord     // save the data to be written
+	pendingWritesMap map[uint64][]int // map record hash key to index, with open hashing
 	options          BatchOptions
 	mu               sync.RWMutex
 	committed        bool // whether the batch has been committed
@@ -570,9 +572,11 @@ func (b *Batch) lookupPendingWrites(key []byte) (record *LogRecord) {
 	if len(b.pendingWritesMap) == 0 {
 		return
 	}
-	if idx, found := b.pendingWritesMap[string(key)]; found {
-		record = b.pendingWrites[idx]
-		return
+	hashKey := utils.MemHash(key)
+	for _, entry := range b.pendingWritesMap[hashKey] {
+		if bytes.Compare(b.pendingWrites[entry].Key, key) == 0 {
+			return b.pendingWrites[entry]
+		}
 	}
 	return
 }
@@ -580,7 +584,8 @@ func (b *Batch) lookupPendingWrites(key []byte) (record *LogRecord) {
 func (b *Batch) appendPendingWrites(key []byte, record *LogRecord) {
 	b.pendingWrites = append(b.pendingWrites, record)
 	if b.pendingWritesMap == nil {
-		b.pendingWritesMap = make(map[string]int)
+		b.pendingWritesMap = make(map[uint64][]int)
 	}
-	b.pendingWritesMap[string(key)] = len(b.pendingWrites) - 1
+	hashKey := utils.MemHash(key)
+	b.pendingWritesMap[hashKey] = append(b.pendingWritesMap[hashKey], len(b.pendingWrites)-1)
 }
