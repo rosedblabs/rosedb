@@ -22,8 +22,9 @@ type VectorIndex struct {
 	graph           map[uint32]map[uint32]struct{}
 	graphNodeMap    map[uint32]graphNode
 	currGraphNodeId uint32
-
-	mu sync.RWMutex
+	m               uint32
+	maxM            uint32
+	mu              sync.RWMutex
 
 	entryNode []uint32
 }
@@ -51,19 +52,15 @@ func distance(v1 govector.Vector, v2 govector.Vector) (float64, error) {
 	return govector.Norm(diff, 2), nil
 }
 
-func (vi *VectorIndex) Get(key govector.Vector, num uint32) ([]govector.Vector, error) {
+func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint32, error) {
 	if len(vi.entryNode) == 0 {
-		return []govector.Vector{}, nil
+		return []uint32{}, nil
 	}
-
 	candidateQueue := queue.PriorityQueueInit(minPriorityQueue)
 	resultQueue := queue.PriorityQueueInit(maxPriorityQueue)
-
 	visited := make(map[uint32]struct{})
-
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
-
 	// initialize all with entry points
 	for _, e := range vi.entryNode {
 		d, err := distance(key, vi.graphNodeMap[e].item.key)
@@ -80,7 +77,6 @@ func (vi *VectorIndex) Get(key govector.Vector, num uint32) ([]govector.Vector, 
 
 		visited[e] = struct{}{}
 	}
-
 	for candidateQueue.Count() != 0 {
 		currNode, _ := candidateQueue.Dequeue()
 		furthestNode, _ := resultQueue.Peek()
@@ -108,19 +104,45 @@ func (vi *VectorIndex) Get(key govector.Vector, num uint32) ([]govector.Vector, 
 				}
 			}
 		}
-
 	}
-
-	if uint32(resultQueue.Count()) > num {
-		panic("result queue gives more result than expected")
-	}
-
-	res := make([]govector.Vector, 0)
+	res := make([]uint32, 0)
 	for resultQueue.Count() > 0 {
 		n, _ := resultQueue.Dequeue()
-		res = append(res, vi.graphNodeMap[n.nodeId].item.key)
+		res = append(res, n.nodeId)
+	}
+	return res, nil
+}
+
+func (vi *VectorIndex) Get(key govector.Vector, num uint32) ([]govector.Vector, error) {
+	nodeIdList, err := vi.getNodeIdsByKey(key, num)
+	if err != nil {
+		return nil, err
 	}
 
+	if len(vi.entryNode) == 0 {
+		return []govector.Vector{}, nil
+	}
+	res := make([]govector.Vector, 0)
+
+	for _, nodeId := range nodeIdList {
+		res = append(res, vi.graphNodeMap[nodeId].item.key)
+	}
 	return res, nil
+}
+
+func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
+
+	// TODO: check uniqueness in B-tree Index
+
+	// find m closest nodes
+	nodeIdList, e := vi.getNodeIdsByKey(key, vi.m)
+	if e != nil {
+		return false, e
+	}
+
+	vi.mu.Lock()
+	defer vi.mu.Unlock()
+	// build graph
+	// if one node has more than max_m edges, we need to delete edges
 
 }
