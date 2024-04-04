@@ -211,7 +211,7 @@ func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bo
 			maxDistance := float64(0)
 			var deleteNode uint32
 			nodeVector := vi.graphNodeMap[nodeId].item.key
-			for dNode, _ := range vi.graph[nodeId] {
+			for dNode := range vi.graph[nodeId] {
 				dis, err := distance(nodeVector, vi.graphNodeMap[dNode].item.key)
 				if err != nil {
 					return false, err
