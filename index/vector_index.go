@@ -9,18 +9,18 @@ import (
 	"sync"
 )
 
-type VectorItem struct {
+type vectorItem struct {
 	key govector.Vector
 	pos *wal.ChunkPosition
 }
 
-type GraphNode struct {
-	item VectorItem
+type graphNode struct {
+	item vectorItem
 }
 
 type VectorIndex struct {
 	graph           map[uint32]map[uint32]struct{}
-	graphNodeMap    map[uint32]GraphNode
+	graphNodeMap    map[uint32]graphNode
 	currGraphNodeId uint32
 	m               uint32
 	maxM            uint32
@@ -199,7 +199,7 @@ func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bo
 	if newNodeId%vi.interval == 0 {
 		vi.entryNode = append(vi.entryNode, newNodeId)
 	}
-	graphNode := GraphNode{item: VectorItem{
+	graphNode := graphNode{item: vectorItem{
 		key: key,
 		pos: position,
 	}}
