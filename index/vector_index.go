@@ -1,12 +1,12 @@
 package index
 
 import (
-	"sync"
-
+	"bytes"
+	"encoding/gob"
+	queue "github.com/Jcowwell/go-algorithm-club/PriorityQueue"
 	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
-
-	queue "github.com/Jcowwell/go-algorithm-club/PriorityQueue"
+	"sync"
 )
 
 type VectorItem struct {
@@ -169,6 +169,19 @@ func (vi *VectorIndex) DeleteEdge(inNode uint32, outNode uint32) {
 
 func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
 	// TODO: check uniqueness in B-tree Index
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(key)
+	if err != nil {
+		return false, err
+	}
+	bTreeKey := buffer.Bytes()
+	existKey := vi.btreeIndex.Get(bTreeKey)
+	if existKey != nil {
+		return true, nil
+	}
+	// insert key into b-tree
+	vi.btreeIndex.Put(bTreeKey, position)
 
 	newNodeId := vi.currGraphNodeId
 	vi.currGraphNodeId++
