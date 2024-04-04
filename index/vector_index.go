@@ -9,22 +9,25 @@ import (
 	queue "github.com/Jcowwell/go-algorithm-club/PriorityQueue"
 )
 
-type vectorItem struct {
+type VectorItem struct {
 	key govector.Vector
 	pos *wal.ChunkPosition
 }
 
-type graphNode struct {
-	item vectorItem
+type GraphNode struct {
+	item VectorItem
 }
 
 type VectorIndex struct {
 	graph           map[uint32]map[uint32]struct{}
-	graphNodeMap    map[uint32]graphNode
+	graphNodeMap    map[uint32]GraphNode
 	currGraphNodeId uint32
 	m               uint32
 	maxM            uint32
-	mu              sync.RWMutex
+	interval        uint32 // decide which node will be entry point
+
+	btreeIndex *MemoryBTree
+	mu         sync.RWMutex
 
 	entryNode []uint32
 }
@@ -32,6 +35,16 @@ type VectorIndex struct {
 type priorityQueueItem struct {
 	distance float64
 	nodeId   uint32
+}
+
+func newVectorIndex(m uint32, maxM uint32, interval uint32) *VectorIndex {
+	return &VectorIndex{
+		currGraphNodeId: 0,
+		m:               m,
+		maxM:            maxM,
+		interval:        interval,
+		btreeIndex:      newBTree(),
+	}
 }
 
 func minPriorityQueue(left priorityQueueItem, right priorityQueueItem) bool {
@@ -130,9 +143,35 @@ func (vi *VectorIndex) Get(key govector.Vector, num uint32) ([]govector.Vector, 
 	return res, nil
 }
 
-func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
+func (vi *VectorIndex) AddEdge(inNode uint32, outNode uint32) {
+	if _, ok := vi.graph[inNode]; !ok {
+		vi.graph[inNode] = make(map[uint32]struct{})
+	}
+	vi.graph[inNode][outNode] = struct{}{}
+	if _, ok := vi.graph[outNode]; !ok {
+		vi.graph[outNode] = make(map[uint32]struct{})
+	}
+	vi.graph[outNode][inNode] = struct{}{}
+}
 
+func (vi *VectorIndex) DeleteEdge(inNode uint32, outNode uint32) {
+	if inner, ok := vi.graph[inNode]; ok {
+		if _, ok := inner[outNode]; ok {
+			delete(inner, outNode)
+		}
+	}
+	if inner, ok := vi.graph[outNode]; ok {
+		if _, ok := inner[inNode]; ok {
+			delete(inner, inNode)
+		}
+	}
+}
+
+func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
 	// TODO: check uniqueness in B-tree Index
+
+	newNodeId := vi.currGraphNodeId
+	vi.currGraphNodeId++
 
 	// find m closest nodes
 	nodeIdList, e := vi.getNodeIdsByKey(key, vi.m)
@@ -142,7 +181,35 @@ func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bo
 
 	vi.mu.Lock()
 	defer vi.mu.Unlock()
-	// build graph
-	// if one node has more than max_m edges, we need to delete edges
 
+	// add node to entry node every #interval times of put
+	if newNodeId%vi.interval == 0 {
+		vi.entryNode = append(vi.entryNode, newNodeId)
+	}
+	graphNode := GraphNode{item: VectorItem{
+		key: key,
+		pos: position,
+	}}
+	vi.graphNodeMap[newNodeId] = graphNode
+	for _, nodeId := range nodeIdList {
+		vi.AddEdge(newNodeId, nodeId)
+		if uint32(len(vi.graph[nodeId])) > vi.maxM {
+			// delete edges if nodeId has more than max_m edges, just find the node with farest distance
+			maxDistance := float64(0)
+			var deleteNode uint32
+			nodeVector := vi.graphNodeMap[nodeId].item.key
+			for dNode, _ := range vi.graph[nodeId] {
+				dis, err := distance(nodeVector, vi.graphNodeMap[dNode].item.key)
+				if err != nil {
+					return false, err
+				}
+				if dis > maxDistance {
+					maxDistance = dis
+					deleteNode = dNode
+				}
+			}
+			vi.DeleteEdge(nodeId, deleteNode)
+		}
+	}
+	return true, nil
 }
