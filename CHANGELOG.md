@@ -1,3 +1,10 @@
+# Release 2.3.6(2024-04-05)
+## 🐞 Bug Fixes
+* Fix index lock
+## 🎠 Community
+* Thanks to @Sora233
+  * perf: improve batch performance #303
+
 # Release 2.3.5(2024-03-03)
 ## 🐞 Bug Fixes
 * Fix index Less function panic.
