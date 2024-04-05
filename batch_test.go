@@ -214,3 +214,26 @@ func TestBatch_Rollback(t *testing.T) {
 	assert.Equal(t, ErrKeyNotFound, err)
 	assert.Empty(t, resp)
 }
+
+func TestBatch_SetTwice(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	batch := db.NewBatch(DefaultBatchOptions)
+	key := []byte("rosedb")
+	value1 := []byte("val1")
+	value2 := []byte("val2")
+	_ = batch.Put(key, value1)
+	_ = batch.Put(key, value2)
+
+	res, err := batch.Get(key)
+	assert.Nil(t, err)
+	assert.Equal(t, res, value2)
+
+	_ = batch.Commit()
+	res2, err := db.Get(key)
+	assert.Nil(t, err)
+	assert.Equal(t, res2, value2)
+}

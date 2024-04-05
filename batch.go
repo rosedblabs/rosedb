@@ -25,7 +25,7 @@ import (
 type Batch struct {
 	db               *DB
 	pendingWrites    []*LogRecord     // save the data to be written
-	pendingWritesMap map[uint64][]int // map record hash key to index, with open hashing
+	pendingWritesMap map[uint64][]int // map record hash key to index, fast lookup to pendingWrites
 	options          BatchOptions
 	mu               sync.RWMutex
 	committed        bool // whether the batch has been committed
@@ -79,9 +79,7 @@ func (b *Batch) init(rdonly, sync bool, db *DB) *Batch {
 func (b *Batch) reset() {
 	b.db = nil
 	b.pendingWrites = b.pendingWrites[:0]
-	for key := range b.pendingWritesMap {
-		delete(b.pendingWritesMap, key)
-	}
+	b.pendingWritesMap = nil
 	b.committed = false
 	b.rollbacked = false
 	// put all buffers back to the pool
@@ -568,19 +566,21 @@ func (b *Batch) Rollback() error {
 }
 
 // lookupPendingWrites if the key exists in pendingWrites, update the value directly
-func (b *Batch) lookupPendingWrites(key []byte) (record *LogRecord) {
+func (b *Batch) lookupPendingWrites(key []byte) *LogRecord {
 	if len(b.pendingWritesMap) == 0 {
-		return
+		return nil
 	}
+
 	hashKey := utils.MemHash(key)
 	for _, entry := range b.pendingWritesMap[hashKey] {
 		if bytes.Compare(b.pendingWrites[entry].Key, key) == 0 {
 			return b.pendingWrites[entry]
 		}
 	}
-	return
+	return nil
 }
 
+// add new record to pendingWrites and pendingWritesMap.
 func (b *Batch) appendPendingWrites(key []byte, record *LogRecord) {
 	b.pendingWrites = append(b.pendingWrites, record)
 	if b.pendingWritesMap == nil {

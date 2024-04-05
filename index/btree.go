@@ -46,6 +46,8 @@ func (mt *MemoryBTree) Put(key []byte, position *wal.ChunkPosition) *wal.ChunkPo
 }
 
 func (mt *MemoryBTree) Get(key []byte) *wal.ChunkPosition {
+	mt.lock.RLock()
+	defer mt.lock.RUnlock()
 	value := mt.tree.Get(&item{key: key})
 	if value != nil {
 		return value.(*item).pos
