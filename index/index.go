@@ -48,15 +48,18 @@ type IndexerType = byte
 
 const (
 	BTree IndexerType = iota
+	Vector
 )
 
 // Change the index type as you implement.
-var indexType = BTree
+// var indexType = BTree
+var indexType = Vector
 
 func NewIndexer() Indexer {
 	switch indexType {
 	case BTree:
 		return newBTree()
+	//case Vector: return newVectorIndex(3, 5, 5)
 	default:
 		panic("unexpected index type")
 	}

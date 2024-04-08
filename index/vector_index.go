@@ -3,6 +3,7 @@ package index
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	queue "github.com/Jcowwell/go-algorithm-club/PriorityQueue"
 	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
@@ -63,6 +64,29 @@ func distance(v1 govector.Vector, v2 govector.Vector) (float64, error) {
 	}
 
 	return govector.Norm(diff, 2), nil
+}
+
+func encodeVector(v govector.Vector) []byte {
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(v)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil
+	}
+	return buffer.Bytes()
+}
+
+func decodeVector(data []byte) govector.Vector {
+	var vector govector.Vector
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	err := dec.Decode(&vector)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil
+	}
+	return vector
 }
 
 func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint32, error) {
@@ -169,13 +193,7 @@ func (vi *VectorIndex) DeleteEdge(inNode uint32, outNode uint32) {
 
 func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
 	// TODO: check uniqueness in B-tree Index
-	var buffer bytes.Buffer
-	encoder := gob.NewEncoder(&buffer)
-	err := encoder.Encode(key)
-	if err != nil {
-		return false, err
-	}
-	bTreeKey := buffer.Bytes()
+	bTreeKey := encodeVector(key)
 	existKey := vi.btreeIndex.Get(bTreeKey)
 	if existKey != nil {
 		return true, nil
