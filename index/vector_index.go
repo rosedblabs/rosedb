@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"sync"
+
 	queue "github.com/Jcowwell/go-algorithm-club/PriorityQueue"
 	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
-	"sync"
 )
 
 type vectorItem struct {
@@ -110,7 +111,7 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 
 		resultQueue.Enqueue(priorityQueueItem{distance: d, nodeId: e})
 		// keep result queue the same number as parameter num
-		if uint32(resultQueue.Count()) < num {
+		if uint32(resultQueue.Count()) > num {
 			resultQueue.Dequeue()
 		}
 
@@ -121,7 +122,7 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 		furthestNode, _ := resultQueue.Peek()
 
 		// we assume there will be no node close to the target
-		if currNode.distance > furthestNode.distance {
+		if currNode.distance > furthestNode.distance && uint32(resultQueue.Count()) == num {
 			break
 		}
 
@@ -138,7 +139,7 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 
 				resultQueue.Enqueue(priorityQueueItem{distance: d, nodeId: neighbor_id})
 				// keep result queue the same number as parameter num
-				if uint32(resultQueue.Count()) < num {
+				if uint32(resultQueue.Count()) > num {
 					resultQueue.Dequeue()
 				}
 			}

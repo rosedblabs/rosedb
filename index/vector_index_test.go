@@ -2,9 +2,10 @@ package index
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
-	"testing"
 )
 
 func TestVectorIndex_Put_Get(t *testing.T) {
