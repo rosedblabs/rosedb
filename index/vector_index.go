@@ -142,6 +142,8 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 				if uint32(resultQueue.Count()) > num {
 					resultQueue.Dequeue()
 				}
+
+				visited[neighbor_id] = struct{}{}
 			}
 		}
 	}
