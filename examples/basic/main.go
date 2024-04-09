@@ -52,4 +52,24 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	// insert a key that is a vector
+	err = db.Put([]byte("(1,2)"), []byte("rose"))
+	if err != nil {
+		panic(err)
+	}
+
+	// update a key that is a vector
+	err = db.Put([]byte("(1,2)"), []byte("db"))
+	if err != nil {
+		panic(err)
+	}
+
+	// get a key that is a vector
+	val, err = db.Get([]byte("(1,2)"))
+	if err != nil {
+		panic(err)
+	}
+	println(string(val))
+
 }
