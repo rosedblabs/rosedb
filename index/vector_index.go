@@ -45,6 +45,9 @@ func newVectorIndex(m uint32, maxM uint32, interval uint32) *VectorIndex {
 		maxM:            maxM,
 		interval:        interval,
 		btreeIndex:      newBTree(),
+		graphNodeMap:    make(map[uint32]graphNode),
+		graph:           make(map[uint32]map[uint32]struct{}),
+		entryNode:       make([]uint32, 0),
 	}
 }
 
@@ -96,8 +99,7 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 	candidateQueue := queue.PriorityQueueInit(minPriorityQueue)
 	resultQueue := queue.PriorityQueueInit(maxPriorityQueue)
 	visited := make(map[uint32]struct{})
-	vi.mu.RLock()
-	defer vi.mu.RUnlock()
+
 	// initialize all with entry points
 	for _, e := range vi.entryNode {
 		d, err := distance(key, vi.graphNodeMap[e].item.key)
@@ -151,6 +153,8 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 }
 
 func (vi *VectorIndex) Get(key govector.Vector, num uint32) ([]govector.Vector, error) {
+	vi.mu.RLock()
+	defer vi.mu.RUnlock()
 	nodeIdList, err := vi.getNodeIdsByKey(key, num)
 	if err != nil {
 		return nil, err
@@ -201,6 +205,9 @@ func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bo
 	// insert key into b-tree
 	vi.btreeIndex.Put(bTreeKey, position)
 
+	vi.mu.Lock()
+	defer vi.mu.Unlock()
+
 	newNodeId := vi.currGraphNodeId
 	vi.currGraphNodeId++
 
@@ -209,14 +216,12 @@ func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bo
 	if e != nil {
 		return false, e
 	}
-
-	vi.mu.Lock()
-	defer vi.mu.Unlock()
-
-	// add node to entry node every #interval times of put
 	if newNodeId%vi.interval == 0 {
 		vi.entryNode = append(vi.entryNode, newNodeId)
 	}
+
+	// add node to entry node every #interval times of put
+
 	graphNode := graphNode{item: vectorItem{
 		key: key,
 		pos: position,
