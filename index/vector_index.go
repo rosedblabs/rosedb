@@ -3,10 +3,12 @@ package index
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
+	"sync"
+
 	queue "github.com/Jcowwell/go-algorithm-club/PriorityQueue"
 	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
-	"sync"
 )
 
 type vectorItem struct {
@@ -44,6 +46,9 @@ func newVectorIndex(m uint32, maxM uint32, interval uint32) *VectorIndex {
 		maxM:            maxM,
 		interval:        interval,
 		btreeIndex:      newBTree(),
+		graphNodeMap:    make(map[uint32]graphNode),
+		graph:           make(map[uint32]map[uint32]struct{}),
+		entryNode:       make([]uint32, 0),
 	}
 }
 
@@ -65,6 +70,29 @@ func distance(v1 govector.Vector, v2 govector.Vector) (float64, error) {
 	return govector.Norm(diff, 2), nil
 }
 
+func encodeVector(v govector.Vector) []byte {
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(v)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil
+	}
+	return buffer.Bytes()
+}
+
+func decodeVector(data []byte) govector.Vector {
+	var vector govector.Vector
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	err := dec.Decode(&vector)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil
+	}
+	return vector
+}
+
 func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint32, error) {
 	if len(vi.entryNode) == 0 {
 		return []uint32{}, nil
@@ -72,8 +100,7 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 	candidateQueue := queue.PriorityQueueInit(minPriorityQueue)
 	resultQueue := queue.PriorityQueueInit(maxPriorityQueue)
 	visited := make(map[uint32]struct{})
-	vi.mu.RLock()
-	defer vi.mu.RUnlock()
+
 	// initialize all with entry points
 	for _, e := range vi.entryNode {
 		d, err := distance(key, vi.graphNodeMap[e].item.key)
@@ -84,7 +111,7 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 
 		resultQueue.Enqueue(priorityQueueItem{distance: d, nodeId: e})
 		// keep result queue the same number as parameter num
-		if uint32(resultQueue.Count()) < num {
+		if uint32(resultQueue.Count()) > num {
 			resultQueue.Dequeue()
 		}
 
@@ -95,7 +122,7 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 		furthestNode, _ := resultQueue.Peek()
 
 		// we assume there will be no node close to the target
-		if currNode.distance > furthestNode.distance {
+		if currNode.distance > furthestNode.distance && uint32(resultQueue.Count()) == num {
 			break
 		}
 
@@ -112,9 +139,11 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 
 				resultQueue.Enqueue(priorityQueueItem{distance: d, nodeId: neighbor_id})
 				// keep result queue the same number as parameter num
-				if uint32(resultQueue.Count()) < num {
+				if uint32(resultQueue.Count()) > num {
 					resultQueue.Dequeue()
 				}
+
+				visited[neighbor_id] = struct{}{}
 			}
 		}
 	}
@@ -127,6 +156,8 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 }
 
 func (vi *VectorIndex) Get(key govector.Vector, num uint32) ([]govector.Vector, error) {
+	vi.mu.RLock()
+	defer vi.mu.RUnlock()
 	nodeIdList, err := vi.getNodeIdsByKey(key, num)
 	if err != nil {
 		return nil, err
@@ -169,19 +200,16 @@ func (vi *VectorIndex) DeleteEdge(inNode uint32, outNode uint32) {
 
 func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
 	// TODO: check uniqueness in B-tree Index
-	var buffer bytes.Buffer
-	encoder := gob.NewEncoder(&buffer)
-	err := encoder.Encode(key)
-	if err != nil {
-		return false, err
-	}
-	bTreeKey := buffer.Bytes()
+	bTreeKey := encodeVector(key)
 	existKey := vi.btreeIndex.Get(bTreeKey)
 	if existKey != nil {
 		return true, nil
 	}
 	// insert key into b-tree
 	vi.btreeIndex.Put(bTreeKey, position)
+
+	vi.mu.Lock()
+	defer vi.mu.Unlock()
 
 	newNodeId := vi.currGraphNodeId
 	vi.currGraphNodeId++
@@ -191,14 +219,12 @@ func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bo
 	if e != nil {
 		return false, e
 	}
-
-	vi.mu.Lock()
-	defer vi.mu.Unlock()
-
-	// add node to entry node every #interval times of put
 	if newNodeId%vi.interval == 0 {
 		vi.entryNode = append(vi.entryNode, newNodeId)
 	}
+
+	// add node to entry node every #interval times of put
+
 	graphNode := graphNode{item: vectorItem{
 		key: key,
 		pos: position,
