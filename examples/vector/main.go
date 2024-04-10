@@ -7,7 +7,7 @@ import (
 	"github.com/rosedblabs/rosedb/v2"
 )
 
-// this file shows how to use the basic operations of rosedb
+// this file shows how to use the vector index of rosedb
 
 func main() {
 
@@ -34,23 +34,23 @@ func main() {
 		_ = db.Close()
 	}()
 
-	// set a key
-	err = db.Put([]byte("name"), []byte("rosedb"))
+	// insert a key that is a vector
+	err = db.Put([]byte("(1,2)"), []byte("rose"))
 	if err != nil {
 		panic(err)
 	}
 
-	// get a key
-	val, err := db.Get([]byte("name"))
+	// update a key that is a vector
+	err = db.Put([]byte("(1,2)"), []byte("db"))
+	if err != nil {
+		panic(err)
+	}
+
+	// get a key that is a vector
+	val, err := db.Get([]byte("(1,2)"))
 	if err != nil {
 		panic(err)
 	}
 	println(string(val))
-
-	// delete a key
-	err = db.Delete([]byte("name"))
-	if err != nil {
-		panic(err)
-	}
 
 }

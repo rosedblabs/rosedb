@@ -8,7 +8,6 @@ import (
 
 	queue "github.com/Jcowwell/go-algorithm-club/PriorityQueue"
 	"github.com/drewlanenga/govector"
-	"github.com/google/btree"
 	"github.com/rosedblabs/wal"
 )
 
@@ -33,10 +32,6 @@ type VectorIndex struct {
 	mu         sync.RWMutex
 
 	entryNode []uint32
-
-	// from the original index.go
-	tree *btree.BTree
-	lock *sync.RWMutex
 }
 
 type priorityQueueItem struct {
@@ -165,21 +160,18 @@ func (vi *VectorIndex) GetVector(key govector.Vector, num uint32) ([]govector.Ve
 	defer vi.mu.RUnlock()
 	nodeIdList, err := vi.getNodeIdsByKey(key, num)
 	if err != nil {
-		// TODO: update position if needed
-		return nil, err, position
+		return nil, err
 	}
 
 	if len(vi.entryNode) == 0 {
-		// TODO: update position if needed
-		return []govector.Vector{}, nil, position
+		return []govector.Vector{}, nil
 	}
 	res := make([]govector.Vector, 0)
 
 	for _, nodeId := range nodeIdList {
 		res = append(res, vi.graphNodeMap[nodeId].item.key)
 	}
-	// TODO: update position if needed
-	return res, nil, position
+	return res, nil
 }
 
 func (vi *VectorIndex) AddEdge(inNode uint32, outNode uint32) {
@@ -206,13 +198,12 @@ func (vi *VectorIndex) DeleteEdge(inNode uint32, outNode uint32) {
 	}
 }
 
-func (vi *VectorIndex) PutVector(key govector.Vector, position *wal.ChunkPosition) (bool, error, *wal.ChunkPosition) {
+func (vi *VectorIndex) PutVector(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
 	// TODO: check uniqueness in B-tree Index
 	bTreeKey := encodeVector(key)
 	existKey := vi.btreeIndex.Get(bTreeKey)
 	if existKey != nil {
-		// TODO: update position if needed
-		return true, nil, position
+		return true, nil
 	}
 	// insert key into b-tree
 	vi.btreeIndex.Put(bTreeKey, position)
@@ -226,8 +217,7 @@ func (vi *VectorIndex) PutVector(key govector.Vector, position *wal.ChunkPositio
 	// find m closest nodes
 	nodeIdList, e := vi.getNodeIdsByKey(key, vi.m)
 	if e != nil {
-		// TODO: update position if needed
-		return false, e, position
+		return false, e
 	}
 	if newNodeId%vi.interval == 0 {
 		vi.entryNode = append(vi.entryNode, newNodeId)
@@ -250,8 +240,7 @@ func (vi *VectorIndex) PutVector(key govector.Vector, position *wal.ChunkPositio
 			for dNode := range vi.graph[nodeId] {
 				dis, err := distance(nodeVector, vi.graphNodeMap[dNode].item.key)
 				if err != nil {
-					// TODO: update position if needed
-					return false, err, position
+					return false, err
 				}
 				if dis > maxDistance {
 					maxDistance = dis
@@ -261,125 +250,77 @@ func (vi *VectorIndex) PutVector(key govector.Vector, position *wal.ChunkPositio
 			vi.DeleteEdge(nodeId, deleteNode)
 		}
 	}
-	// TODO: update position if needed
-	return true, nil, position
+	return true, nil
 }
 
 func (vi *VectorIndex) Put(key []byte, position *wal.ChunkPosition) *wal.ChunkPosition {
+	//convert byte array to govector
 	govec, err := vi.BytesToVector(key)
 	if err != nil {
-		return position
+		return nil
 	}
-	_, err, put_position := vi.PutVector(govec, position)
-	if err != nil {
-		return put_position // TODO: check
+	// store vector and get position by calling btree's Put method
+	_, put_err := vi.PutVector(govec, position)
+	put_position := vi.btreeIndex.Put(key, position)
+
+	if put_err != nil {
+		return nil
 	}
 	return put_position
 }
 
 func (vi *VectorIndex) Get(key []byte) *wal.ChunkPosition {
+	//convert byte array to govector
 	govec, err := vi.BytesToVector(key)
 	if err != nil {
 		return nil
 	}
-	_, err, position := vi.GetVector(govec, 1)
-	if err != nil {
+	// get vector and get position by calling btree's Get method
+	_, get_err := vi.GetVector(govec, 1)
+	get_position := vi.btreeIndex.Get(key)
+
+	if get_err != nil {
 		return nil
 	}
-	return position
+	return get_position
 }
 
-// from index/index.go
-
 func (vi *VectorIndex) Delete(key []byte) (*wal.ChunkPosition, bool) {
-	vi.lock.Lock()
-	defer vi.lock.Unlock()
-
-	value := vi.tree.Delete(&item{key: key})
-	if value != nil {
-		return value.(*item).pos, true
-	}
-	return nil, false
+	fmt.Println("vector index's Delete method is being called")
+	return vi.btreeIndex.Delete(key)
 }
 
 func (vi *VectorIndex) Size() int {
-	return vi.tree.Len()
+	fmt.Println("vector index's Size method is being called")
+	return vi.btreeIndex.Size()
 }
 
 func (vi *VectorIndex) Ascend(handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
-	vi.lock.RLock()
-	defer vi.lock.RUnlock()
-
-	vi.tree.Ascend(func(i btree.Item) bool {
-		cont, err := handleFn(i.(*item).key, i.(*item).pos)
-		if err != nil {
-			return false
-		}
-		return cont
-	})
+	fmt.Println("vector index's Ascend method is being called")
+	return
 }
 
 func (vi *VectorIndex) Descend(handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
-	vi.lock.RLock()
-	defer vi.lock.RUnlock()
-
-	vi.tree.Descend(func(i btree.Item) bool {
-		cont, err := handleFn(i.(*item).key, i.(*item).pos)
-		if err != nil {
-			return false
-		}
-		return cont
-	})
+	fmt.Println("vector index's Descend method is being called")
+	return
 }
 
 func (vi *VectorIndex) AscendRange(startKey, endKey []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
-	vi.lock.RLock()
-	defer vi.lock.RUnlock()
-
-	vi.tree.AscendRange(&item{key: startKey}, &item{key: endKey}, func(i btree.Item) bool {
-		cont, err := handleFn(i.(*item).key, i.(*item).pos)
-		if err != nil {
-			return false
-		}
-		return cont
-	})
+	fmt.Println("vector index's AscendRange method is being called")
+	return
 }
 
 func (vi *VectorIndex) DescendRange(startKey, endKey []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
-	vi.lock.RLock()
-	defer vi.lock.RUnlock()
-
-	vi.tree.DescendRange(&item{key: startKey}, &item{key: endKey}, func(i btree.Item) bool {
-		cont, err := handleFn(i.(*item).key, i.(*item).pos)
-		if err != nil {
-			return false
-		}
-		return cont
-	})
+	fmt.Println("vector index's DescendRange method is being called")
+	return
 }
 
 func (vi *VectorIndex) AscendGreaterOrEqual(key []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
-	vi.lock.RLock()
-	defer vi.lock.RUnlock()
-
-	vi.tree.AscendGreaterOrEqual(&item{key: key}, func(i btree.Item) bool {
-		cont, err := handleFn(i.(*item).key, i.(*item).pos)
-		if err != nil {
-			return false
-		}
-		return cont
-	})
+	fmt.Println("vector index's AscendGreaterOrEqual method is being called")
+	return
 }
 
 func (vi *VectorIndex) DescendLessOrEqual(key []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
-	vi.lock.RLock()
-	defer vi.lock.RUnlock()
-
-	vi.tree.DescendLessOrEqual(&item{key: key}, func(i btree.Item) bool {
-		cont, err := handleFn(i.(*item).key, i.(*item).pos)
-		if err != nil {
-			return false
-		}
-		return cont
-	})
+	fmt.Println("vector index's DescendLessOrEqual method is being called")
+	return
 }
