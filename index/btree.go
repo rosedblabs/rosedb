@@ -39,6 +39,7 @@ func (mt *MemoryBTree) Put(key []byte, position *wal.ChunkPosition) *wal.ChunkPo
 	defer mt.lock.Unlock()
 
 	oldValue := mt.tree.ReplaceOrInsert(&item{key: key, pos: position})
+
 	if oldValue != nil {
 		return oldValue.(*item).pos
 	}

@@ -70,7 +70,7 @@ func distance(v1 govector.Vector, v2 govector.Vector) (float64, error) {
 	return govector.Norm(diff, 2), nil
 }
 
-func encodeVector(v govector.Vector) []byte {
+func EncodeVector(v govector.Vector) []byte {
 	var buffer bytes.Buffer
 	encoder := gob.NewEncoder(&buffer)
 	err := encoder.Encode(v)
@@ -155,7 +155,7 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 	return res, nil
 }
 
-func (vi *VectorIndex) Get(key govector.Vector, num uint32) ([]govector.Vector, error) {
+func (vi *VectorIndex) GetVector(key govector.Vector, num uint32) ([]govector.Vector, error) {
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
 	nodeIdList, err := vi.getNodeIdsByKey(key, num)
@@ -198,15 +198,13 @@ func (vi *VectorIndex) DeleteEdge(inNode uint32, outNode uint32) {
 	}
 }
 
-func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
+func (vi *VectorIndex) PutVector(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
 	// TODO: check uniqueness in B-tree Index
-	bTreeKey := encodeVector(key)
+	bTreeKey := EncodeVector(key)
 	existKey := vi.btreeIndex.Get(bTreeKey)
 	if existKey != nil {
 		return true, nil
 	}
-	// insert key into b-tree
-	vi.btreeIndex.Put(bTreeKey, position)
 
 	vi.mu.Lock()
 	defer vi.mu.Unlock()
@@ -251,4 +249,60 @@ func (vi *VectorIndex) Put(key govector.Vector, position *wal.ChunkPosition) (bo
 		}
 	}
 	return true, nil
+}
+
+func (vi *VectorIndex) Put(key []byte, position *wal.ChunkPosition) *wal.ChunkPosition {
+	//convert byte array to govector
+	govec := decodeVector(key)
+	if govec == nil {
+		return nil
+	}
+	// store vector and get position by calling btree's Put method
+	_, put_err := vi.PutVector(govec, position)
+
+	// insert key into b-tree
+	put_position := vi.btreeIndex.Put(key, position)
+
+	if put_err != nil {
+		return nil
+	}
+	return put_position
+}
+
+func (vi *VectorIndex) Get(key []byte) *wal.ChunkPosition {
+	return vi.btreeIndex.Get(key)
+}
+
+func (vi *VectorIndex) Delete(key []byte) (*wal.ChunkPosition, bool) {
+	fmt.Println("vector index's Delete method is being called")
+	return vi.btreeIndex.Delete(key)
+}
+
+func (vi *VectorIndex) Size() int {
+	fmt.Println("vector index's Size method is being called")
+	return vi.btreeIndex.Size()
+}
+
+func (vi *VectorIndex) Ascend(handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
+	vi.btreeIndex.Ascend(handleFn)
+}
+
+func (vi *VectorIndex) Descend(handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
+	vi.btreeIndex.Descend(handleFn)
+}
+
+func (vi *VectorIndex) AscendRange(startKey, endKey []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
+	vi.btreeIndex.AscendRange(startKey, endKey, handleFn)
+}
+
+func (vi *VectorIndex) DescendRange(startKey, endKey []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
+	vi.btreeIndex.DescendRange(startKey, endKey, handleFn)
+}
+
+func (vi *VectorIndex) AscendGreaterOrEqual(key []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
+	vi.btreeIndex.AscendGreaterOrEqual(key, handleFn)
+}
+
+func (vi *VectorIndex) DescendLessOrEqual(key []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error)) {
+	vi.btreeIndex.DescendLessOrEqual(key, handleFn)
 }

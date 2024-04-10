@@ -47,16 +47,22 @@ type Indexer interface {
 type IndexerType = byte
 
 const (
-	BTree IndexerType = iota
-	Vector
+	BTree  IndexerType = iota
+	VIndex IndexerType = iota
 )
 
 // Change the index type as you implement.
 // var indexType = BTree
-var indexType = Vector
+var indexType = VIndex
 
 func NewIndexer() Indexer {
 	switch indexType {
+	case VIndex:
+		// TODO: allow user to set the parameters
+		m := uint32(2)
+		maxM := uint32(4)
+		interval := uint32(2)
+		return newVectorIndex(m, maxM, interval)
 	case BTree:
 		return newBTree()
 	//case Vector: return newVectorIndex(3, 5, 5)
