@@ -88,7 +88,7 @@ func TestThroughput_test(t *testing.T) {
 	m := uint32(3)
 	maxM := uint32(5)
 	interval := uint32(5)
-	resultSize := uint32(3)
+	resultSize := uint32(30)
 	originalFileItem := uint32(10)
 	testFileItem := uint32(10)
 
@@ -102,10 +102,11 @@ func TestThroughput_test(t *testing.T) {
 
 	now := time.Now()
 	// put vector into db
-	for _, vector := range vecArr {
-		key := EncodeVector(vector)
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vector, chunkPosition)
+		_, err := vi.PutVector(vecArr[i], chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
@@ -113,16 +114,15 @@ func TestThroughput_test(t *testing.T) {
 	putTime := time.Since(now)
 
 	now = time.Now()
-	for _, vector := range testArr {
-		resultArr, err := vi.GetVector(vector, resultSize)
+	for i = 0; i < testFileItem; i++ {
+		resultArr, err := vi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
 		fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
-	fmt.Println("time to put all", originalFileItem, "items is ", putTime.Seconds(), "s")
-	fmt.Println("time to get result for all", testFileItem, "items is ", getTime.Seconds(), "s")
+	printReport(originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_10(t *testing.T) {
@@ -130,9 +130,9 @@ func TestThroughput_test_10(t *testing.T) {
 	m := uint32(3)
 	maxM := uint32(5)
 	interval := uint32(5)
-	resultSize := uint32(3)
+	resultSize := uint32(30)
 	originalFileItem := uint32(10000)
-	testFileItem := uint32(100)
+	testFileItem := uint32(10000)
 
 	// initiate database
 	vi := newVectorIndex(m, maxM, interval)
@@ -144,10 +144,11 @@ func TestThroughput_test_10(t *testing.T) {
 
 	now := time.Now()
 	// put vector into db
-	for _, vector := range vecArr {
-		key := EncodeVector(vector)
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vector, chunkPosition)
+		_, err := vi.PutVector(vecArr[i], chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
@@ -155,16 +156,15 @@ func TestThroughput_test_10(t *testing.T) {
 	putTime := time.Since(now)
 
 	now = time.Now()
-	for _, vector := range testArr {
-		resultArr, err := vi.GetVector(vector, resultSize)
+	for i = 0; i < testFileItem; i++ {
+		resultArr, err := vi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
 		fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
-	fmt.Println("time to put all", originalFileItem, "items is ", putTime.Seconds(), "s")
-	fmt.Println("time to get result for all", testFileItem, "items is ", getTime.Seconds(), "s")
+	printReport(originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_50(t *testing.T) {
@@ -172,9 +172,9 @@ func TestThroughput_test_50(t *testing.T) {
 	m := uint32(3)
 	maxM := uint32(5)
 	interval := uint32(5)
-	resultSize := uint32(3)
+	resultSize := uint32(30)
 	originalFileItem := uint32(10000)
-	testFileItem := uint32(100)
+	testFileItem := uint32(10000)
 
 	// initiate database
 	vi := newVectorIndex(m, maxM, interval)
@@ -186,10 +186,11 @@ func TestThroughput_test_50(t *testing.T) {
 
 	now := time.Now()
 	// put vector into db
-	for _, vector := range vecArr {
-		key := EncodeVector(vector)
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vector, chunkPosition)
+		_, err := vi.PutVector(vecArr[i], chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
@@ -197,16 +198,15 @@ func TestThroughput_test_50(t *testing.T) {
 	putTime := time.Since(now)
 
 	now = time.Now()
-	for _, vector := range testArr {
-		resultArr, err := vi.GetVector(vector, resultSize)
+	for i = 0; i < testFileItem; i++ {
+		resultArr, err := vi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
 		fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
-	fmt.Println("time to put all", originalFileItem, "items is ", putTime.Seconds(), "s")
-	fmt.Println("time to get result for all", testFileItem, "items is ", getTime.Seconds(), "s")
+	printReport(originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_100(t *testing.T) {
@@ -214,9 +214,9 @@ func TestThroughput_test_100(t *testing.T) {
 	m := uint32(3)
 	maxM := uint32(5)
 	interval := uint32(5)
-	resultSize := uint32(3)
+	resultSize := uint32(30)
 	originalFileItem := uint32(10000)
-	testFileItem := uint32(100)
+	testFileItem := uint32(10000)
 
 	// initiate database
 	vi := newVectorIndex(m, maxM, interval)
@@ -228,10 +228,11 @@ func TestThroughput_test_100(t *testing.T) {
 
 	now := time.Now()
 	// put vector into db
-	for _, vector := range vecArr {
-		key := EncodeVector(vector)
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vector, chunkPosition)
+		_, err := vi.PutVector(vecArr[i], chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
@@ -239,16 +240,15 @@ func TestThroughput_test_100(t *testing.T) {
 	putTime := time.Since(now)
 
 	now = time.Now()
-	for _, vector := range testArr {
-		resultArr, err := vi.GetVector(vector, resultSize)
+	for i = 0; i < testFileItem; i++ {
+		resultArr, err := vi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
 		fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
-	fmt.Println("time to put all", originalFileItem, "items is ", putTime.Seconds(), "s")
-	fmt.Println("time to get result for all", testFileItem, "items is ", getTime.Seconds(), "s")
+	printReport(originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_500(t *testing.T) {
@@ -256,9 +256,9 @@ func TestThroughput_test_500(t *testing.T) {
 	m := uint32(3)
 	maxM := uint32(5)
 	interval := uint32(5)
-	resultSize := uint32(3)
+	resultSize := uint32(30)
 	originalFileItem := uint32(10000)
-	testFileItem := uint32(100)
+	testFileItem := uint32(10000)
 
 	// initiate database
 	vi := newVectorIndex(m, maxM, interval)
@@ -270,10 +270,11 @@ func TestThroughput_test_500(t *testing.T) {
 
 	now := time.Now()
 	// put vector into db
-	for _, vector := range vecArr {
-		key := EncodeVector(vector)
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vector, chunkPosition)
+		_, err := vi.PutVector(vecArr[i], chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
@@ -281,16 +282,15 @@ func TestThroughput_test_500(t *testing.T) {
 	putTime := time.Since(now)
 
 	now = time.Now()
-	for _, vector := range testArr {
-		resultArr, err := vi.GetVector(vector, resultSize)
+	for i = 0; i < testFileItem; i++ {
+		resultArr, err := vi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
 		fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
-	fmt.Println("time to put all", originalFileItem, "items is ", putTime.Seconds(), "s")
-	fmt.Println("time to get result for all", testFileItem, "items is ", getTime.Seconds(), "s")
+	printReport(originalFileItem, testFileItem, putTime, getTime)
 
 }
 
@@ -299,7 +299,7 @@ func TestThroughput_test_1000(t *testing.T) {
 	m := uint32(3)
 	maxM := uint32(5)
 	interval := uint32(5)
-	resultSize := uint32(3)
+	resultSize := uint32(30)
 	originalFileItem := uint32(10000)
 	testFileItem := uint32(100)
 
@@ -313,10 +313,11 @@ func TestThroughput_test_1000(t *testing.T) {
 
 	now := time.Now()
 	// put vector into db
-	for _, vector := range vecArr {
-		key := EncodeVector(vector)
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vector, chunkPosition)
+		_, err := vi.PutVector(vecArr[i], chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
@@ -324,17 +325,15 @@ func TestThroughput_test_1000(t *testing.T) {
 	putTime := time.Since(now)
 
 	now = time.Now()
-	for _, vector := range testArr {
-		resultArr, err := vi.GetVector(vector, resultSize)
+	for i = 0; i < testFileItem; i++ {
+		resultArr, err := vi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
 		fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
-	fmt.Println("time to put all", originalFileItem, "items is ", putTime.Seconds(), "s")
-	fmt.Println("time to get result for all", testFileItem, "items is ", getTime.Seconds(), "s")
-
+	printReport(originalFileItem, testFileItem, putTime, getTime)
 }
 func loadVectorFromTxt(fileName string, VectorSize uint32) []govector.Vector {
 	// read vector from file
@@ -370,4 +369,11 @@ func loadVectorFromTxt(fileName string, VectorSize uint32) []govector.Vector {
 	}
 	fmt.Println("load vectors success")
 	return vecArr
+}
+func printReport(originalFileItem uint32, testFileItem uint32, putTime time.Duration, getTime time.Duration) {
+	fmt.Println("\n---------------------------------Here is the report ----------------------------")
+	fmt.Println("time to put all", originalFileItem, "items is ", putTime.Seconds(), "s")
+	fmt.Println("throughput is ", float64(originalFileItem)/putTime.Seconds(), "qps")
+	fmt.Println("time to get result for all", testFileItem, "items is ", getTime.Seconds(), "s")
+	fmt.Println("throughput is ", float64(testFileItem)/getTime.Seconds(), "qps")
 }
