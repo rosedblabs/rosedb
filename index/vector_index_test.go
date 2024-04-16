@@ -1,11 +1,15 @@
 package index
 
 import (
+	"bufio"
 	"fmt"
-	"testing"
-
 	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
+	"os"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
 )
 
 func TestVectorIndex_Put_Get(t *testing.T) {
@@ -77,4 +81,299 @@ func TestVectorIndex_Simple_Put_Get(t *testing.T) {
 	for _, resVec := range resSet {
 		fmt.Println(resVec)
 	}
+}
+
+func TestThroughput_test(t *testing.T) {
+	VectorSize := uint32(10)
+	m := uint32(3)
+	maxM := uint32(5)
+	interval := uint32(5)
+	resultSize := uint32(30)
+	originalFileItem := uint32(10)
+	testFileItem := uint32(10)
+
+	// initiate database
+	vi := newVectorIndex(m, maxM, interval)
+	w, _ := wal.Open(wal.DefaultOptions)
+
+	// load data from txt file
+	vecArr := loadVectorFromTxt("../test_files/vectors_test.txt", VectorSize)
+	testArr := loadVectorFromTxt("../test_files/testData/vectors_test.txt", VectorSize)
+
+	now := time.Now()
+	// put vector into db
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
+		chunkPosition, _ := w.Write(key)
+		_, err := vi.PutVector(vecArr[i], chunkPosition)
+		if err != nil {
+			t.Fatalf("put failed: %v", err.Error())
+		}
+	}
+	putTime := time.Since(now)
+
+	now = time.Now()
+	for i = 0; i < testFileItem; i++ {
+		resultArr, err := vi.GetVector(testArr[i], resultSize)
+		if err != nil {
+			t.Fatalf("get failed: %v", err.Error())
+		}
+		fmt.Println(resultArr)
+	}
+	getTime := time.Since(now)
+	printReport(originalFileItem, testFileItem, putTime, getTime)
+}
+
+func TestThroughput_test_10(t *testing.T) {
+	VectorSize := uint32(10)
+	m := uint32(3)
+	maxM := uint32(5)
+	interval := uint32(5)
+	resultSize := uint32(30)
+	originalFileItem := uint32(10000)
+	testFileItem := uint32(10000)
+
+	// initiate database
+	vi := newVectorIndex(m, maxM, interval)
+	w, _ := wal.Open(wal.DefaultOptions)
+
+	// load data from txt file
+	vecArr := loadVectorFromTxt("../test_files/vectors_10.txt", VectorSize)
+	testArr := loadVectorFromTxt("../test_files/testData/vectors_10.txt", VectorSize)
+
+	now := time.Now()
+	// put vector into db
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
+		chunkPosition, _ := w.Write(key)
+		_, err := vi.PutVector(vecArr[i], chunkPosition)
+		if err != nil {
+			t.Fatalf("put failed: %v", err.Error())
+		}
+	}
+	putTime := time.Since(now)
+
+	now = time.Now()
+	for i = 0; i < testFileItem; i++ {
+		resultArr, err := vi.GetVector(testArr[i], resultSize)
+		if err != nil {
+			t.Fatalf("get failed: %v", err.Error())
+		}
+		fmt.Println(resultArr)
+	}
+	getTime := time.Since(now)
+	printReport(originalFileItem, testFileItem, putTime, getTime)
+}
+
+func TestThroughput_test_50(t *testing.T) {
+	VectorSize := uint32(50)
+	m := uint32(3)
+	maxM := uint32(5)
+	interval := uint32(5)
+	resultSize := uint32(30)
+	originalFileItem := uint32(10000)
+	testFileItem := uint32(10000)
+
+	// initiate database
+	vi := newVectorIndex(m, maxM, interval)
+	w, _ := wal.Open(wal.DefaultOptions)
+
+	// load data from txt file
+	vecArr := loadVectorFromTxt("../test_files/vectors_50.txt", VectorSize)
+	testArr := loadVectorFromTxt("../test_files/testData/vectors_50.txt", VectorSize)
+
+	now := time.Now()
+	// put vector into db
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
+		chunkPosition, _ := w.Write(key)
+		_, err := vi.PutVector(vecArr[i], chunkPosition)
+		if err != nil {
+			t.Fatalf("put failed: %v", err.Error())
+		}
+	}
+	putTime := time.Since(now)
+
+	now = time.Now()
+	for i = 0; i < testFileItem; i++ {
+		resultArr, err := vi.GetVector(testArr[i], resultSize)
+		if err != nil {
+			t.Fatalf("get failed: %v", err.Error())
+		}
+		fmt.Println(resultArr)
+	}
+	getTime := time.Since(now)
+	printReport(originalFileItem, testFileItem, putTime, getTime)
+}
+
+func TestThroughput_test_100(t *testing.T) {
+	VectorSize := uint32(100)
+	m := uint32(3)
+	maxM := uint32(5)
+	interval := uint32(5)
+	resultSize := uint32(30)
+	originalFileItem := uint32(10000)
+	testFileItem := uint32(10000)
+
+	// initiate database
+	vi := newVectorIndex(m, maxM, interval)
+	w, _ := wal.Open(wal.DefaultOptions)
+
+	// load data from txt file
+	vecArr := loadVectorFromTxt("../test_files/vectors_100.txt", VectorSize)
+	testArr := loadVectorFromTxt("../test_files/testData/vectors_100.txt", VectorSize)
+
+	now := time.Now()
+	// put vector into db
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
+		chunkPosition, _ := w.Write(key)
+		_, err := vi.PutVector(vecArr[i], chunkPosition)
+		if err != nil {
+			t.Fatalf("put failed: %v", err.Error())
+		}
+	}
+	putTime := time.Since(now)
+
+	now = time.Now()
+	for i = 0; i < testFileItem; i++ {
+		resultArr, err := vi.GetVector(testArr[i], resultSize)
+		if err != nil {
+			t.Fatalf("get failed: %v", err.Error())
+		}
+		fmt.Println(resultArr)
+	}
+	getTime := time.Since(now)
+	printReport(originalFileItem, testFileItem, putTime, getTime)
+}
+
+func TestThroughput_test_500(t *testing.T) {
+	VectorSize := uint32(500)
+	m := uint32(3)
+	maxM := uint32(5)
+	interval := uint32(5)
+	resultSize := uint32(30)
+	originalFileItem := uint32(10000)
+	testFileItem := uint32(10000)
+
+	// initiate database
+	vi := newVectorIndex(m, maxM, interval)
+	w, _ := wal.Open(wal.DefaultOptions)
+
+	// load data from txt file
+	vecArr := loadVectorFromTxt("../test_files/vectors_500.txt", VectorSize)
+	testArr := loadVectorFromTxt("../test_files/testData/vectors_500.txt", VectorSize)
+
+	now := time.Now()
+	// put vector into db
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
+		chunkPosition, _ := w.Write(key)
+		_, err := vi.PutVector(vecArr[i], chunkPosition)
+		if err != nil {
+			t.Fatalf("put failed: %v", err.Error())
+		}
+	}
+	putTime := time.Since(now)
+
+	now = time.Now()
+	for i = 0; i < testFileItem; i++ {
+		resultArr, err := vi.GetVector(testArr[i], resultSize)
+		if err != nil {
+			t.Fatalf("get failed: %v", err.Error())
+		}
+		fmt.Println(resultArr)
+	}
+	getTime := time.Since(now)
+	printReport(originalFileItem, testFileItem, putTime, getTime)
+
+}
+
+func TestThroughput_test_1000(t *testing.T) {
+	VectorSize := uint32(1000)
+	m := uint32(3)
+	maxM := uint32(5)
+	interval := uint32(5)
+	resultSize := uint32(30)
+	originalFileItem := uint32(10000)
+	testFileItem := uint32(100)
+
+	// initiate database
+	vi := newVectorIndex(m, maxM, interval)
+	w, _ := wal.Open(wal.DefaultOptions)
+
+	// load data from txt file
+	vecArr := loadVectorFromTxt("../test_files/vectors_1000.txt", VectorSize)
+	testArr := loadVectorFromTxt("../test_files/testData/vectors_1000.txt", VectorSize)
+
+	now := time.Now()
+	// put vector into db
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
+		chunkPosition, _ := w.Write(key)
+		_, err := vi.PutVector(vecArr[i], chunkPosition)
+		if err != nil {
+			t.Fatalf("put failed: %v", err.Error())
+		}
+	}
+	putTime := time.Since(now)
+
+	now = time.Now()
+	for i = 0; i < testFileItem; i++ {
+		resultArr, err := vi.GetVector(testArr[i], resultSize)
+		if err != nil {
+			t.Fatalf("get failed: %v", err.Error())
+		}
+		fmt.Println(resultArr)
+	}
+	getTime := time.Since(now)
+	printReport(originalFileItem, testFileItem, putTime, getTime)
+}
+func loadVectorFromTxt(fileName string, VectorSize uint32) []govector.Vector {
+	// read vector from file
+	fmt.Println("loading vectors from txt file ......")
+	file, err := os.Open(fileName)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return nil
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Println("Error closing file:", err)
+		}
+	}(file)
+
+	scanner := bufio.NewScanner(file)
+	vecArr := []govector.Vector{}
+	for scanner.Scan() {
+		line := scanner.Text()
+		vec := make(govector.Vector, VectorSize)
+		numbers := strings.Split(line, " ")
+		for idx, num := range numbers {
+			floatNum, err := strconv.ParseFloat(num, 64)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			vec[idx] = floatNum
+		}
+		//encodeVec := EncodeVector(vec)
+		vecArr = append(vecArr, vec)
+	}
+	fmt.Println("load vectors success")
+	return vecArr
+}
+func printReport(originalFileItem uint32, testFileItem uint32, putTime time.Duration, getTime time.Duration) {
+	fmt.Println("\n---------------------------------Here is the report ----------------------------")
+	fmt.Println("time to put all", originalFileItem, "items is ", putTime.Seconds(), "s")
+	fmt.Println("throughput is ", float64(originalFileItem)/putTime.Seconds(), "qps")
+	fmt.Println("time to get result for all", testFileItem, "items is ", getTime.Seconds(), "s")
+	fmt.Println("throughput is ", float64(testFileItem)/getTime.Seconds(), "qps")
 }
