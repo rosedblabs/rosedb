@@ -15,6 +15,8 @@ type Indexer interface {
 	// Get the position of the key in the index.
 	Get(key []byte) *wal.ChunkPosition
 
+	GetVector(key []byte, num uint32) ([]*wal.ChunkPosition, error)
+
 	// Delete the index of the key.
 	Delete(key []byte) (*wal.ChunkPosition, bool)
 

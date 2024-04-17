@@ -33,16 +33,14 @@ func TestVectorIndex_Put_Get(t *testing.T) {
 	for _, vector := range vectorArr {
 		key := EncodeVector(vector)
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vector, chunkPosition)
+		wrapper := &ChunkPositionWrapper{pos: chunkPosition, deleted: false}
+		_, err := vi.putVector(vector, wrapper)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
 	}
 
-	resSet, err := vi.GetVector(vectorArr[3], 3)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
+	resSet := vi.getVectorTest(vectorArr[3], 3)
 	for _, resVec := range resSet {
 		fmt.Println(resVec)
 	}
@@ -70,16 +68,45 @@ func TestVectorIndex_Simple_Put_Get(t *testing.T) {
 	for _, vector := range vectorArr {
 		key := EncodeVector(vector)
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vector, chunkPosition)
-		if err != nil {
-			t.Fatalf("put failed: %v", err.Error())
-		}
+		vi.Put(key, chunkPosition)
 	}
 
-	resSet, err := vi.GetVector(govector.Vector{8, 7}, 3)
-	if err != nil {
-		t.Fatalf(err.Error())
+	resSet := vi.getVectorTest(govector.Vector{8, 7}, 3)
+	for _, resVec := range resSet {
+		fmt.Println(resVec)
 	}
+}
+
+func TestVectorIndex_Simple_Delete(t *testing.T) {
+	vi := newVectorIndex(3, 5, 5)
+	w, _ := wal.Open(wal.DefaultOptions)
+
+	var vectorArr = []govector.Vector{{1, 2},
+		{4, 8},
+		{4, 9},
+		{8, 10},
+		{10, 12},
+		{10, 6},
+		{15, 3},
+		{5, 4},
+		{6, 7},
+		{8, 3},
+		{2, 9},
+		{12, 5},
+		{14, 2},
+	}
+
+	for _, vector := range vectorArr {
+		key := EncodeVector(vector)
+		chunkPosition, _ := w.Write(key)
+		vi.Put(key, chunkPosition)
+	}
+
+	// delete
+	vi.Delete(EncodeVector(govector.Vector{8, 10}))
+
+	resSet := vi.getVectorTest(govector.Vector{8, 7}, 3)
+
 	for _, resVec := range resSet {
 		fmt.Println(resVec)
 	}
