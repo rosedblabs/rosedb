@@ -1,6 +1,9 @@
 package index
 
-import "github.com/rosedblabs/wal"
+import (
+	"github.com/drewlanenga/govector"
+	"github.com/rosedblabs/wal"
+)
 
 // Indexer is an interface for indexing key and position.
 // It is used to store the key and the position of the data in the WAL.
@@ -12,6 +15,9 @@ type Indexer interface {
 
 	// Get the position of the key in the index.
 	Get(key []byte) *wal.ChunkPosition
+
+	// Get nearby vectors (as measured in euclidean distance)
+	GetVector(key govector.Vector, num uint32) ([]govector.Vector, error)
 
 	// Delete the index of the key.
 	Delete(key []byte) (*wal.ChunkPosition, bool)
@@ -47,25 +53,29 @@ type Indexer interface {
 type IndexerType = byte
 
 const (
-	BTree  IndexerType = iota
-	VIndex IndexerType = iota
+	BTree   IndexerType = iota
+	VIndex  IndexerType = iota
+	NVIndex IndexerType = iota
 )
 
-// Change the index type as you implement.
-// var indexType = BTree
+// Change the index type as you implement
 var indexType = VIndex
+
+// var indexType = BTree
+// var indexType = NVIndex
 
 func NewIndexer() Indexer {
 	switch indexType {
+	case BTree:
+		return newBTree()
 	case VIndex:
 		// TODO: allow user to set the parameters
 		m := uint32(2)
 		maxM := uint32(4)
 		interval := uint32(2)
 		return newVectorIndex(m, maxM, interval)
-	case BTree:
-		return newBTree()
-	//case Vector: return newVectorIndex(3, 5, 5)
+	case NVIndex:
+		return newNaiveVectorIndex()
 	default:
 		panic("unexpected index type")
 	}

@@ -3,13 +3,14 @@ package index
 import (
 	"bufio"
 	"fmt"
-	"github.com/drewlanenga/govector"
-	"github.com/rosedblabs/wal"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/drewlanenga/govector"
+	"github.com/rosedblabs/wal"
 )
 
 func TestVectorIndex_Put_Get(t *testing.T) {
