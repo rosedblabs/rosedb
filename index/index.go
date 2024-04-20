@@ -57,7 +57,7 @@ const (
 // Change the index type as you implement
 // var indexType = BTree
 // var indexType = VIndex
-var indexType = NVIndex
+var indexType = VIndex
 
 func NewIndexer() Indexer {
 	switch indexType {

@@ -120,8 +120,8 @@ func TestNaiveThroughput_test(t *testing.T) {
 	printReport("naive_knn", originalFileItem, testFileItem, putTime, getTime)
 }
 
-var originalFileItem = uint32(500)
-var testFileItem = uint32(500)
+var originalFileItem = uint32(1000)
+var testFileItem = uint32(1000)
 
 func TestNaiveThroughput_test_10(t *testing.T) {
 	VectorSize := uint32(10)
@@ -150,11 +150,11 @@ func TestNaiveThroughput_test_10(t *testing.T) {
 
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		_, err := nvi.GetVector(testArr[i], resultSize)
+		resultArr, err := nvi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
-		// fmt.Println(resultArr)
+		fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
 	printReport("naive_knn_10", originalFileItem, testFileItem, putTime, getTime)

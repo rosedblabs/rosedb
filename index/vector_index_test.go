@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -114,14 +115,21 @@ func TestThroughput_test(t *testing.T) {
 	}
 	putTime := time.Since(now)
 
+	var wg sync.WaitGroup
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		resultArr, err := vi.GetVector(testArr[i], resultSize)
-		if err != nil {
-			t.Fatalf("get failed: %v", err.Error())
-		}
-		fmt.Println(resultArr)
+		wg.Add(1)
+		go func(key govector.Vector) {
+			defer wg.Done()
+			resultArr, err := vi.GetVector(key, resultSize)
+			if err != nil {
+				err := fmt.Errorf("get failed: %v", err.Error())
+				fmt.Println(err.Error())
+			}
+			fmt.Println(resultArr)
+		}(testArr[i])
 	}
+	wg.Wait()
 	getTime := time.Since(now)
 	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
@@ -156,16 +164,23 @@ func TestThroughput_test_10(t *testing.T) {
 	}
 	putTime := time.Since(now)
 
+	var wg sync.WaitGroup
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		resultArr, err := vi.GetVector(testArr[i], resultSize)
-		if err != nil {
-			t.Fatalf("get failed: %v", err.Error())
-		}
-		fmt.Println(resultArr)
+		wg.Add(1)
+		go func(key govector.Vector) {
+			defer wg.Done()
+			resultArr, err := vi.GetVector(key, resultSize)
+			if err != nil {
+				err := fmt.Errorf("get failed: %v", err.Error())
+				fmt.Println(err.Error())
+			}
+			fmt.Println(resultArr)
+		}(testArr[i])
 	}
+	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index_10", originalFileItem, testFileItem, putTime, getTime)
+	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_50(t *testing.T) {
@@ -198,16 +213,23 @@ func TestThroughput_test_50(t *testing.T) {
 	}
 	putTime := time.Since(now)
 
+	var wg sync.WaitGroup
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		resultArr, err := vi.GetVector(testArr[i], resultSize)
-		if err != nil {
-			t.Fatalf("get failed: %v", err.Error())
-		}
-		fmt.Println(resultArr)
+		wg.Add(1)
+		go func(key govector.Vector) {
+			defer wg.Done()
+			resultArr, err := vi.GetVector(key, resultSize)
+			if err != nil {
+				err := fmt.Errorf("get failed: %v", err.Error())
+				fmt.Println(err.Error())
+			}
+			fmt.Println(resultArr)
+		}(testArr[i])
 	}
+	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index_50", originalFileItem, testFileItem, putTime, getTime)
+	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_100(t *testing.T) {
@@ -240,16 +262,23 @@ func TestThroughput_test_100(t *testing.T) {
 	}
 	putTime := time.Since(now)
 
+	var wg sync.WaitGroup
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		resultArr, err := vi.GetVector(testArr[i], resultSize)
-		if err != nil {
-			t.Fatalf("get failed: %v", err.Error())
-		}
-		fmt.Println(resultArr)
+		wg.Add(1)
+		go func(key govector.Vector) {
+			defer wg.Done()
+			resultArr, err := vi.GetVector(key, resultSize)
+			if err != nil {
+				err := fmt.Errorf("get failed: %v", err.Error())
+				fmt.Println(err.Error())
+			}
+			fmt.Println(resultArr)
+		}(testArr[i])
 	}
+	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index_100", originalFileItem, testFileItem, putTime, getTime)
+	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_500(t *testing.T) {
@@ -282,17 +311,23 @@ func TestThroughput_test_500(t *testing.T) {
 	}
 	putTime := time.Since(now)
 
+	var wg sync.WaitGroup
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		resultArr, err := vi.GetVector(testArr[i], resultSize)
-		if err != nil {
-			t.Fatalf("get failed: %v", err.Error())
-		}
-		fmt.Println(resultArr)
+		wg.Add(1)
+		go func(key govector.Vector) {
+			defer wg.Done()
+			resultArr, err := vi.GetVector(key, resultSize)
+			if err != nil {
+				err := fmt.Errorf("get failed: %v", err.Error())
+				fmt.Println(err.Error())
+			}
+			fmt.Println(resultArr)
+		}(testArr[i])
 	}
+	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index_500", originalFileItem, testFileItem, putTime, getTime)
-
+	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_1000(t *testing.T) {
@@ -325,16 +360,23 @@ func TestThroughput_test_1000(t *testing.T) {
 	}
 	putTime := time.Since(now)
 
+	var wg sync.WaitGroup
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		resultArr, err := vi.GetVector(testArr[i], resultSize)
-		if err != nil {
-			t.Fatalf("get failed: %v", err.Error())
-		}
-		fmt.Println(resultArr)
+		wg.Add(1)
+		go func(key govector.Vector) {
+			defer wg.Done()
+			resultArr, err := vi.GetVector(key, resultSize)
+			if err != nil {
+				err := fmt.Errorf("get failed: %v", err.Error())
+				fmt.Println(err.Error())
+			}
+			fmt.Println(resultArr)
+		}(testArr[i])
 	}
+	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index_1000", originalFileItem, testFileItem, putTime, getTime)
+	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func loadVectorFromTxt(fileName string, VectorSize uint32) []govector.Vector {
@@ -353,7 +395,7 @@ func loadVectorFromTxt(fileName string, VectorSize uint32) []govector.Vector {
 	}(file)
 
 	scanner := bufio.NewScanner(file)
-	vecArr := []govector.Vector{}
+	var vecArr []govector.Vector
 	for scanner.Scan() {
 		line := scanner.Text()
 		vec := make(govector.Vector, VectorSize)
