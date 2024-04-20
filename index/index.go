@@ -1,7 +1,6 @@
 package index
 
 import (
-	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
 )
 
@@ -15,9 +14,6 @@ type Indexer interface {
 
 	// Get the position of the key in the index.
 	Get(key []byte) *wal.ChunkPosition
-
-	// Get nearby vectors (as measured in euclidean distance)
-	GetVector(key govector.Vector, num uint32) ([]govector.Vector, error)
 
 	// Delete the index of the key.
 	Delete(key []byte) (*wal.ChunkPosition, bool)

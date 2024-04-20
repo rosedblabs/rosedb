@@ -53,7 +53,7 @@ axs[1, 1].plot(x, y4, 'tab:orange')
 axs[1, 1].set_title('Get Throughput')
 
 # Adding a title to the figure
-fig.suptitle('Naive Nearest K Neighbors')
+fig.suptitle('Naive Nearest K Neighbors (num_file_items = 500)')
 
 # Automatically adjust layout
 plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust the rect so the title does not overlap with subplots

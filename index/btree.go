@@ -2,10 +2,8 @@ package index
 
 import (
 	"bytes"
-	"errors"
 	"sync"
 
-	"github.com/drewlanenga/govector"
 	"github.com/google/btree"
 	"github.com/rosedblabs/wal"
 )
@@ -54,10 +52,6 @@ func (mt *MemoryBTree) Get(key []byte) *wal.ChunkPosition {
 		return value.(*item).pos
 	}
 	return nil
-}
-
-func (mt *MemoryBTree) GetVector(key govector.Vector, num uint32) ([]govector.Vector, error) {
-	return nil, errors.New("btree's GetVector method not implemented")
 }
 
 func (mt *MemoryBTree) Delete(key []byte) (*wal.ChunkPosition, bool) {
