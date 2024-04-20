@@ -1,20 +1,17 @@
 package index
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
+
+	"time"
 )
 
-func TestVectorIndex_Put_Get(t *testing.T) {
-	vi := newVectorIndex(3, 5, 5)
+func TestNaiveVector_Put_Get(t *testing.T) {
+	nvi := newNaiveVectorIndex()
 	w, _ := wal.Open(wal.DefaultOptions)
 
 	var vectorArr = []govector.Vector{{8, -7, -10, -8, 3, -6, 6, -2, 5, 1},
@@ -32,13 +29,13 @@ func TestVectorIndex_Put_Get(t *testing.T) {
 	for _, vector := range vectorArr {
 		key := EncodeVector(vector)
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vector, chunkPosition)
+		_, err := nvi.PutVector(vector, chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
 	}
 
-	resSet, err := vi.GetVector(vectorArr[3], 3)
+	resSet, err := nvi.GetVector(govector.Vector{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -47,8 +44,8 @@ func TestVectorIndex_Put_Get(t *testing.T) {
 	}
 }
 
-func TestVectorIndex_Simple_Put_Get(t *testing.T) {
-	vi := newVectorIndex(3, 5, 5)
+func TestNaiveVector_Simple_Put_Get(t *testing.T) {
+	nvi := newNaiveVectorIndex()
 	w, _ := wal.Open(wal.DefaultOptions)
 
 	var vectorArr = []govector.Vector{{1, 2},
@@ -69,13 +66,13 @@ func TestVectorIndex_Simple_Put_Get(t *testing.T) {
 	for _, vector := range vectorArr {
 		key := EncodeVector(vector)
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vector, chunkPosition)
+		_, err := nvi.PutVector(vector, chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
 	}
 
-	resSet, err := vi.GetVector(govector.Vector{8, 7}, 3)
+	resSet, err := nvi.GetVector(govector.Vector{0, 0}, 3)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -84,17 +81,14 @@ func TestVectorIndex_Simple_Put_Get(t *testing.T) {
 	}
 }
 
-func TestThroughput_test(t *testing.T) {
+func TestNaiveThroughput_test(t *testing.T) {
 	VectorSize := uint32(10)
-	m := uint32(3)
-	maxM := uint32(5)
-	interval := uint32(5)
 	resultSize := uint32(30)
 	originalFileItem := uint32(10)
 	testFileItem := uint32(10)
 
 	// initiate database
-	vi := newVectorIndex(m, maxM, interval)
+	nvi := newNaiveVectorIndex()
 	w, _ := wal.Open(wal.DefaultOptions)
 
 	// load data from txt file
@@ -107,7 +101,7 @@ func TestThroughput_test(t *testing.T) {
 	for i = 0; i < originalFileItem; i++ {
 		key := EncodeVector(vecArr[i])
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vecArr[i], chunkPosition)
+		_, err := nvi.PutVector(vecArr[i], chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
@@ -116,27 +110,25 @@ func TestThroughput_test(t *testing.T) {
 
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		resultArr, err := vi.GetVector(testArr[i], resultSize)
+		_, err := nvi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
-		fmt.Println(resultArr)
+		// fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
-	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
+	printReport("naive_knn", originalFileItem, testFileItem, putTime, getTime)
 }
 
-func TestThroughput_test_10(t *testing.T) {
+var originalFileItem = uint32(500)
+var testFileItem = uint32(500)
+
+func TestNaiveThroughput_test_10(t *testing.T) {
 	VectorSize := uint32(10)
-	m := uint32(3)
-	maxM := uint32(5)
-	interval := uint32(5)
 	resultSize := uint32(30)
-	originalFileItem := uint32(10000)
-	testFileItem := uint32(10000)
 
 	// initiate database
-	vi := newVectorIndex(m, maxM, interval)
+	nvi := newNaiveVectorIndex()
 	w, _ := wal.Open(wal.DefaultOptions)
 
 	// load data from txt file
@@ -149,7 +141,7 @@ func TestThroughput_test_10(t *testing.T) {
 	for i = 0; i < originalFileItem; i++ {
 		key := EncodeVector(vecArr[i])
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vecArr[i], chunkPosition)
+		_, err := nvi.PutVector(vecArr[i], chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
@@ -158,27 +150,22 @@ func TestThroughput_test_10(t *testing.T) {
 
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		resultArr, err := vi.GetVector(testArr[i], resultSize)
+		_, err := nvi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
-		fmt.Println(resultArr)
+		// fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
-	printReport("vector_index_10", originalFileItem, testFileItem, putTime, getTime)
+	printReport("naive_knn_10", originalFileItem, testFileItem, putTime, getTime)
 }
 
-func TestThroughput_test_50(t *testing.T) {
+func TestNaiveThroughput_test_50(t *testing.T) {
 	VectorSize := uint32(50)
-	m := uint32(3)
-	maxM := uint32(5)
-	interval := uint32(5)
 	resultSize := uint32(30)
-	originalFileItem := uint32(10000)
-	testFileItem := uint32(10000)
 
 	// initiate database
-	vi := newVectorIndex(m, maxM, interval)
+	nvi := newNaiveVectorIndex()
 	w, _ := wal.Open(wal.DefaultOptions)
 
 	// load data from txt file
@@ -191,7 +178,7 @@ func TestThroughput_test_50(t *testing.T) {
 	for i = 0; i < originalFileItem; i++ {
 		key := EncodeVector(vecArr[i])
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vecArr[i], chunkPosition)
+		_, err := nvi.PutVector(vecArr[i], chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
@@ -200,27 +187,22 @@ func TestThroughput_test_50(t *testing.T) {
 
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		resultArr, err := vi.GetVector(testArr[i], resultSize)
+		_, err := nvi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
-		fmt.Println(resultArr)
+		// fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
-	printReport("vector_index_50", originalFileItem, testFileItem, putTime, getTime)
+	printReport("naive_knn_50", originalFileItem, testFileItem, putTime, getTime)
 }
 
-func TestThroughput_test_100(t *testing.T) {
+func TestNaiveThroughput_test_100(t *testing.T) {
 	VectorSize := uint32(100)
-	m := uint32(3)
-	maxM := uint32(5)
-	interval := uint32(5)
 	resultSize := uint32(30)
-	originalFileItem := uint32(10000)
-	testFileItem := uint32(10000)
 
 	// initiate database
-	vi := newVectorIndex(m, maxM, interval)
+	nvi := newNaiveVectorIndex()
 	w, _ := wal.Open(wal.DefaultOptions)
 
 	// load data from txt file
@@ -233,7 +215,7 @@ func TestThroughput_test_100(t *testing.T) {
 	for i = 0; i < originalFileItem; i++ {
 		key := EncodeVector(vecArr[i])
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vecArr[i], chunkPosition)
+		_, err := nvi.PutVector(vecArr[i], chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
@@ -242,27 +224,22 @@ func TestThroughput_test_100(t *testing.T) {
 
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		resultArr, err := vi.GetVector(testArr[i], resultSize)
+		_, err := nvi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
-		fmt.Println(resultArr)
+		// fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
-	printReport("vector_index_100", originalFileItem, testFileItem, putTime, getTime)
+	printReport("naive_knn_100", originalFileItem, testFileItem, putTime, getTime)
 }
 
-func TestThroughput_test_500(t *testing.T) {
+func TestNaiveThroughput_test_500(t *testing.T) {
 	VectorSize := uint32(500)
-	m := uint32(3)
-	maxM := uint32(5)
-	interval := uint32(5)
 	resultSize := uint32(30)
-	originalFileItem := uint32(10000)
-	testFileItem := uint32(10000)
 
 	// initiate database
-	vi := newVectorIndex(m, maxM, interval)
+	nvi := newNaiveVectorIndex()
 	w, _ := wal.Open(wal.DefaultOptions)
 
 	// load data from txt file
@@ -275,7 +252,7 @@ func TestThroughput_test_500(t *testing.T) {
 	for i = 0; i < originalFileItem; i++ {
 		key := EncodeVector(vecArr[i])
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vecArr[i], chunkPosition)
+		_, err := nvi.PutVector(vecArr[i], chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
@@ -284,28 +261,23 @@ func TestThroughput_test_500(t *testing.T) {
 
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		resultArr, err := vi.GetVector(testArr[i], resultSize)
+		_, err := nvi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
-		fmt.Println(resultArr)
+		// fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
-	printReport("vector_index_500", originalFileItem, testFileItem, putTime, getTime)
+	printReport("naive_knn_500", originalFileItem, testFileItem, putTime, getTime)
 
 }
 
-func TestThroughput_test_1000(t *testing.T) {
+func TestNaiveThroughput_test_1000(t *testing.T) {
 	VectorSize := uint32(1000)
-	m := uint32(3)
-	maxM := uint32(5)
-	interval := uint32(5)
 	resultSize := uint32(30)
-	originalFileItem := uint32(10000)
-	testFileItem := uint32(100)
 
 	// initiate database
-	vi := newVectorIndex(m, maxM, interval)
+	nvi := newNaiveVectorIndex()
 	w, _ := wal.Open(wal.DefaultOptions)
 
 	// load data from txt file
@@ -318,7 +290,7 @@ func TestThroughput_test_1000(t *testing.T) {
 	for i = 0; i < originalFileItem; i++ {
 		key := EncodeVector(vecArr[i])
 		chunkPosition, _ := w.Write(key)
-		_, err := vi.PutVector(vecArr[i], chunkPosition)
+		_, err := nvi.PutVector(vecArr[i], chunkPosition)
 		if err != nil {
 			t.Fatalf("put failed: %v", err.Error())
 		}
@@ -327,72 +299,13 @@ func TestThroughput_test_1000(t *testing.T) {
 
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
-		resultArr, err := vi.GetVector(testArr[i], resultSize)
+		_, err := nvi.GetVector(testArr[i], resultSize)
 		if err != nil {
 			t.Fatalf("get failed: %v", err.Error())
 		}
-		fmt.Println(resultArr)
+		// fmt.Println(resultArr)
 	}
 	getTime := time.Since(now)
-	printReport("vector_index_1000", originalFileItem, testFileItem, putTime, getTime)
-}
+	printReport("naive_knn_1000", originalFileItem, testFileItem, putTime, getTime)
 
-func loadVectorFromTxt(fileName string, VectorSize uint32) []govector.Vector {
-	// read vector from file
-	fmt.Println("loading vectors from txt file ......")
-	file, err := os.Open(fileName)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return nil
-	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			fmt.Println("Error closing file:", err)
-		}
-	}(file)
-
-	scanner := bufio.NewScanner(file)
-	vecArr := []govector.Vector{}
-	for scanner.Scan() {
-		line := scanner.Text()
-		vec := make(govector.Vector, VectorSize)
-		numbers := strings.Split(line, " ")
-		for idx, num := range numbers {
-			floatNum, err := strconv.ParseFloat(num, 64)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			vec[idx] = floatNum
-		}
-		//encodeVec := EncodeVector(vec)
-		vecArr = append(vecArr, vec)
-	}
-	fmt.Println("load vectors success")
-	return vecArr
-}
-
-func printReport(filename string, originalFileItem uint32, testFileItem uint32, putTime time.Duration, getTime time.Duration) {
-
-	fmt.Println("\n---------------------------------Here is the report ----------------------------")
-	fmt.Println("time to put all", originalFileItem, "items is ", putTime.Seconds(), "s")
-	get_throughput := float64(originalFileItem) / putTime.Seconds()
-	fmt.Println("throughput is ", get_throughput, "qps")
-	fmt.Println("time to get result for all", testFileItem, "items is ", getTime.Seconds(), "s")
-	put_throughput := float64(testFileItem) / getTime.Seconds()
-	fmt.Println("throughput is ", put_throughput, "qps")
-
-	resultsFolder := "../test_files/resultsData/"
-	resultsFilePath := resultsFolder + filename
-	file, err := os.Create(resultsFilePath)
-	if err != nil {
-		fmt.Println("Error creating file:", err)
-		return
-	}
-	defer file.Close()
-	_, err = file.WriteString(fmt.Sprintf("%v %v %v %v", putTime.Seconds(), get_throughput, getTime.Seconds(), put_throughput))
-	if err != nil {
-		fmt.Println("Error writing to file:", err)
-	}
 }

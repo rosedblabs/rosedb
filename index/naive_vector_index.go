@@ -1,7 +1,6 @@
 package index
 
 import (
-	"fmt"
 	"sync"
 
 	queue "github.com/Jcowwell/go-algorithm-club/PriorityQueue"
@@ -20,25 +19,21 @@ func newNaiveVectorIndex() *NaiveVectorIndex {
 	}
 }
 
-type naivePQItem struct {
+type PQItem struct {
 	distance float64
 	idx      uint32
 }
 
-func naiveMinPQ(left naivePQItem, right naivePQItem) bool {
+func minPQ(left PQItem, right PQItem) bool {
 	return left.distance < right.distance
 }
 
 func (nvi *NaiveVectorIndex) Put(key []byte, position *wal.ChunkPosition) *wal.ChunkPosition {
-	// call btreeIndex's Put method
 	return nvi.btreeIndex.Put(key, position)
 }
 
 func (nvi *NaiveVectorIndex) PutVector(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
-	position = nvi.Put(EncodeVector(key), position)
-	if position == nil {
-		return false, fmt.Errorf("put failed")
-	}
+	nvi.btreeIndex.Put(EncodeVector(key), position)
 	return true, nil
 }
 
@@ -59,11 +54,6 @@ func (nvi *NaiveVectorIndex) GetVector(key govector.Vector, num uint32) ([]govec
 	}
 	nvi.Ascend(handleFn)
 
-	// print each element of the vector
-	for i := 0; i < len(vectors); i++ {
-		fmt.Println(vectors[i])
-	}
-
 	// calculate distances between the given vector and other vectors in the databse
 	distances := make([]float64, 0)
 	for _, vector := range vectors {
@@ -74,29 +64,27 @@ func (nvi *NaiveVectorIndex) GetVector(key govector.Vector, num uint32) ([]govec
 		distances = append(distances, dis)
 	}
 
-	// get the nearest n vectors
-	pq := queue.PriorityQueueInit(naiveMinPQ)
+	// get the nearest num vectors
+	pq := queue.PriorityQueueInit(minPQ)
 	for i, dis := range distances {
-		pq.Enqueue(naivePQItem{distance: dis, idx: uint32(i)})
+		pq.Enqueue(PQItem{distance: dis, idx: uint32(i)})
 	}
 	res := make([]govector.Vector, 0)
 	for i := 0; i < int(num); i++ {
 		item, success := pq.Dequeue()
 		if success {
 			res = append(res, vectors[item.idx])
-			fmt.Println(vectors[item.idx])
+			// fmt.Println(vectors[item.idx])
 		}
 	}
 	return res, nil
 }
 
 func (nvi *NaiveVectorIndex) Delete(key []byte) (*wal.ChunkPosition, bool) {
-	fmt.Println("vector index's Delete method is being called")
 	return nvi.btreeIndex.Delete(key)
 }
 
 func (nvi *NaiveVectorIndex) Size() int {
-	fmt.Println("vector index's Size method is being called")
 	return nvi.btreeIndex.Size()
 }
 
