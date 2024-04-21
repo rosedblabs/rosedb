@@ -13,18 +13,19 @@ func TestMemoryBTree_Put_Get(t *testing.T) {
 	w, _ := wal.Open(wal.DefaultOptions)
 
 	key := []byte("testKey")
-	chunkPosition, _ := w.Write([]byte("some data 1"))
+	position, _ := w.Write([]byte("some data 1"))
 
 	// Test Put
-	oldPos := mt.Put(key, chunkPosition)
+	wrapper := &ChunkPositionWrapper{pos: position, deleted: false}
+	oldPos := mt.Put(key, wrapper)
 	if oldPos != nil {
 		t.Fatalf("expected nil, got %+v", oldPos)
 	}
 
 	// Test Get
 	gotPos := mt.Get(key)
-	if chunkPosition.ChunkOffset != gotPos.ChunkOffset {
-		t.Fatalf("expected %+v, got %+v", chunkPosition, gotPos)
+	if position.ChunkOffset != gotPos.pos.ChunkOffset {
+		t.Fatalf("expected %+v, got %+v", position, gotPos.pos.ChunkOffset)
 	}
 }
 
@@ -33,17 +34,19 @@ func TestMemoryBTree_Delete(t *testing.T) {
 	w, _ := wal.Open(wal.DefaultOptions)
 
 	key := []byte("testKey")
-	chunkPosition, _ := w.Write([]byte("some data 2"))
+	position, _ := w.Write([]byte("some data 2"))
 
-	mt.Put(key, chunkPosition)
+	wrapper := &ChunkPositionWrapper{pos: position, deleted: false}
+
+	mt.Put(key, wrapper)
 
 	// Test Delete
 	delPos, ok := mt.Delete(key)
 	if !ok {
 		t.Fatal("expected item to be deleted")
 	}
-	if chunkPosition.ChunkOffset != delPos.ChunkOffset {
-		t.Fatalf("expected %+v, got %+v", chunkPosition, delPos)
+	if position.ChunkOffset != delPos.pos.ChunkOffset {
+		t.Fatalf("expected %+v, got %+v", position, delPos.pos)
 	}
 
 	// Ensure the key is deleted
@@ -61,9 +64,11 @@ func TestMemoryBTree_Size(t *testing.T) {
 
 	w, _ := wal.Open(wal.DefaultOptions)
 	key := []byte("testKey")
-	chunkPosition, _ := w.Write([]byte("some data 3"))
+	position, _ := w.Write([]byte("some data 3"))
 
-	mt.Put(key, chunkPosition)
+	wrapper := &ChunkPositionWrapper{pos: position, deleted: false}
+
+	mt.Put(key, wrapper)
 
 	if mt.Size() != 1 {
 		t.Fatalf("expected size to be 1, got %d", mt.Size())
@@ -83,9 +88,11 @@ func TestMemoryBTree_Ascend_Descend(t *testing.T) {
 	positionMap := make(map[string]*wal.ChunkPosition)
 
 	for k, v := range data {
-		chunkPosition, _ := w.Write(v)
-		positionMap[k] = chunkPosition
-		mt.Put([]byte(k), chunkPosition)
+		position, _ := w.Write(v)
+		positionMap[k] = position
+
+		wrapper := &ChunkPositionWrapper{pos: position, deleted: false}
+		mt.Put([]byte(k), wrapper)
 	}
 
 	// Test Ascend
@@ -139,9 +146,11 @@ func TestMemoryBTree_AscendRange_DescendRange(t *testing.T) {
 	positionMap := make(map[string]*wal.ChunkPosition)
 
 	for k, v := range data {
-		chunkPosition, _ := w.Write(v)
-		positionMap[k] = chunkPosition
-		mt.Put([]byte(k), chunkPosition)
+		position, _ := w.Write(v)
+		positionMap[k] = position
+
+		wrapper := &ChunkPositionWrapper{pos: position, deleted: false}
+		mt.Put([]byte(k), wrapper)
 	}
 
 	// Test AscendRange
@@ -174,9 +183,11 @@ func TestMemoryBTree_AscendGreaterOrEqual_DescendLessOrEqual(t *testing.T) {
 	positionMap := make(map[string]*wal.ChunkPosition)
 
 	for k, v := range data {
-		chunkPosition, _ := w.Write(v)
-		positionMap[k] = chunkPosition
-		mt.Put([]byte(k), chunkPosition)
+		position, _ := w.Write(v)
+		positionMap[k] = position
+
+		wrapper := &ChunkPositionWrapper{pos: position, deleted: false}
+		mt.Put([]byte(k), wrapper)
 	}
 
 	// Test AscendGreaterOrEqual

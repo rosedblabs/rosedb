@@ -17,7 +17,7 @@ type MemoryBTree struct {
 
 type item struct {
 	key []byte
-	pos *wal.ChunkPosition
+	chunkPosWrapper *ChunkPositionWrapper
 }
 
 func newBTree() *MemoryBTree {
@@ -34,33 +34,33 @@ func (it *item) Less(bi btree.Item) bool {
 	return bytes.Compare(it.key, bi.(*item).key) < 0
 }
 
-func (mt *MemoryBTree) Put(key []byte, position *wal.ChunkPosition) *wal.ChunkPosition {
+func (mt *MemoryBTree) Put(key []byte, position *ChunkPositionWrapper) *ChunkPositionWrapper {
 	mt.lock.Lock()
 	defer mt.lock.Unlock()
 
-	oldValue := mt.tree.ReplaceOrInsert(&item{key: key, pos: position})
+	oldValue := mt.tree.ReplaceOrInsert(&item{key: key, chunkPosWrapper: position})
 
 	if oldValue != nil {
-		return oldValue.(*item).pos
+		return oldValue.(*item).chunkPosWrapper
 	}
 	return nil
 }
 
-func (mt *MemoryBTree) Get(key []byte) *wal.ChunkPosition {
+func (mt *MemoryBTree) Get(key []byte) *ChunkPositionWrapper {
 	value := mt.tree.Get(&item{key: key})
 	if value != nil {
-		return value.(*item).pos
+		return value.(*item).chunkPosWrapper
 	}
 	return nil
 }
 
-func (mt *MemoryBTree) Delete(key []byte) (*wal.ChunkPosition, bool) {
+func (mt *MemoryBTree) Delete(key []byte) (*ChunkPositionWrapper, bool) {
 	mt.lock.Lock()
 	defer mt.lock.Unlock()
 
 	value := mt.tree.Delete(&item{key: key})
 	if value != nil {
-		return value.(*item).pos, true
+		return value.(*item).chunkPosWrapper, true
 	}
 	return nil, false
 }
@@ -74,7 +74,7 @@ func (mt *MemoryBTree) Ascend(handleFn func(key []byte, position *wal.ChunkPosit
 	defer mt.lock.RUnlock()
 
 	mt.tree.Ascend(func(i btree.Item) bool {
-		cont, err := handleFn(i.(*item).key, i.(*item).pos)
+		cont, err := handleFn(i.(*item).key, i.(*item).chunkPosWrapper.pos)
 		if err != nil {
 			return false
 		}
@@ -87,7 +87,7 @@ func (mt *MemoryBTree) Descend(handleFn func(key []byte, position *wal.ChunkPosi
 	defer mt.lock.RUnlock()
 
 	mt.tree.Descend(func(i btree.Item) bool {
-		cont, err := handleFn(i.(*item).key, i.(*item).pos)
+		cont, err := handleFn(i.(*item).key, i.(*item).chunkPosWrapper.pos)
 		if err != nil {
 			return false
 		}
@@ -100,7 +100,7 @@ func (mt *MemoryBTree) AscendRange(startKey, endKey []byte, handleFn func(key []
 	defer mt.lock.RUnlock()
 
 	mt.tree.AscendRange(&item{key: startKey}, &item{key: endKey}, func(i btree.Item) bool {
-		cont, err := handleFn(i.(*item).key, i.(*item).pos)
+		cont, err := handleFn(i.(*item).key, i.(*item).chunkPosWrapper.pos)
 		if err != nil {
 			return false
 		}
@@ -113,7 +113,7 @@ func (mt *MemoryBTree) DescendRange(startKey, endKey []byte, handleFn func(key [
 	defer mt.lock.RUnlock()
 
 	mt.tree.DescendRange(&item{key: startKey}, &item{key: endKey}, func(i btree.Item) bool {
-		cont, err := handleFn(i.(*item).key, i.(*item).pos)
+		cont, err := handleFn(i.(*item).key, i.(*item).chunkPosWrapper.pos)
 		if err != nil {
 			return false
 		}
@@ -126,7 +126,7 @@ func (mt *MemoryBTree) AscendGreaterOrEqual(key []byte, handleFn func(key []byte
 	defer mt.lock.RUnlock()
 
 	mt.tree.AscendGreaterOrEqual(&item{key: key}, func(i btree.Item) bool {
-		cont, err := handleFn(i.(*item).key, i.(*item).pos)
+		cont, err := handleFn(i.(*item).key, i.(*item).chunkPosWrapper.pos)
 		if err != nil {
 			return false
 		}
@@ -139,7 +139,7 @@ func (mt *MemoryBTree) DescendLessOrEqual(key []byte, handleFn func(key []byte, 
 	defer mt.lock.RUnlock()
 
 	mt.tree.DescendLessOrEqual(&item{key: key}, func(i btree.Item) bool {
-		cont, err := handleFn(i.(*item).key, i.(*item).pos)
+		cont, err := handleFn(i.(*item).key, i.(*item).chunkPosWrapper.pos)
 		if err != nil {
 			return false
 		}

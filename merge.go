@@ -55,7 +55,7 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 	}
 
 	// discard the old index first.
-	db.index = index.NewIndexer()
+	db.index = index.NewIndexer(index.VIndex)
 	// rebuild index
 	if err = db.loadIndex(); err != nil {
 		return err

@@ -1,6 +1,7 @@
 package index
 
 import (
+	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
 )
 
@@ -14,6 +15,11 @@ type Indexer interface {
 
 	// Get the position of the key in the index.
 	Get(key []byte) *wal.ChunkPosition
+
+	GetVector(key govector.Vector, num uint32) ([]*wal.ChunkPosition, error)
+
+	// Testing purpose only
+	GetVectorTest(keyVec govector.Vector, num uint32) ([]govector.Vector, error)
 
 	// Delete the index of the key.
 	Delete(key []byte) (*wal.ChunkPosition, bool)
@@ -57,12 +63,9 @@ const (
 // Change the index type as you implement
 // var indexType = BTree
 // var indexType = VIndex
-var indexType = NVIndex
 
-func NewIndexer() Indexer {
+func NewIndexer(indexType IndexerType) Indexer {
 	switch indexType {
-	case BTree:
-		return newBTree()
 	case VIndex:
 		// TODO: allow user to set the parameters
 		m := uint32(2)

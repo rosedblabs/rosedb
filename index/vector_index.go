@@ -1,19 +1,26 @@
 package index
 
 import (
-	"bytes"
-	"encoding/gob"
-	"fmt"
+	"errors"
 	"sync"
+	"sync/atomic"
 
 	queue "github.com/Jcowwell/go-algorithm-club/PriorityQueue"
 	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
 )
 
+var (
+	ErrVec = errors.New("the input is not a vector")
+)
+
+var (
+	kReconstructPercent = 0.1
+)
+
 type vectorItem struct {
 	key govector.Vector
-	pos *wal.ChunkPosition
+	pos *ChunkPositionWrapper
 }
 
 type graphNode struct {
@@ -32,6 +39,8 @@ type VectorIndex struct {
 	mu         sync.RWMutex
 
 	entryNode []uint32
+
+	toDelete atomic.Uint32
 }
 
 type priorityQueueItem struct {
@@ -70,29 +79,6 @@ func distance(v1 govector.Vector, v2 govector.Vector) (float64, error) {
 	return govector.Norm(diff, 2), nil
 }
 
-func EncodeVector(v govector.Vector) []byte {
-	var buffer bytes.Buffer
-	encoder := gob.NewEncoder(&buffer)
-	err := encoder.Encode(v)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil
-	}
-	return buffer.Bytes()
-}
-
-func decodeVector(data []byte) govector.Vector {
-	var vector govector.Vector
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	err := dec.Decode(&vector)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil
-	}
-	return vector
-}
-
 func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint32, error) {
 	if len(vi.entryNode) == 0 {
 		return []uint32{}, nil
@@ -109,10 +95,12 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 		}
 		candidateQueue.Enqueue(priorityQueueItem{distance: d, nodeId: e})
 
-		resultQueue.Enqueue(priorityQueueItem{distance: d, nodeId: e})
-		// keep result queue the same number as parameter num
-		if uint32(resultQueue.Count()) > num {
-			resultQueue.Dequeue()
+		if !vi.graphNodeMap[e].item.pos.deleted {
+			resultQueue.Enqueue(priorityQueueItem{distance: d, nodeId: e})
+			// keep result queue the same number as parameter num
+			if uint32(resultQueue.Count()) > num {
+				resultQueue.Dequeue()
+			}
 		}
 
 		visited[e] = struct{}{}
@@ -137,10 +125,12 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 			if _, exists := visited[neighbor_id]; !exists {
 				candidateQueue.Enqueue(priorityQueueItem{distance: d, nodeId: neighbor_id})
 
-				resultQueue.Enqueue(priorityQueueItem{distance: d, nodeId: neighbor_id})
-				// keep result queue the same number as parameter num
-				if uint32(resultQueue.Count()) > num {
-					resultQueue.Dequeue()
+				if !vi.graphNodeMap[neighbor_id].item.pos.deleted {
+					resultQueue.Enqueue(priorityQueueItem{distance: d, nodeId: neighbor_id})
+					// keep result queue the same number as parameter num
+					if uint32(resultQueue.Count()) > num {
+						resultQueue.Dequeue()
+					}
 				}
 
 				visited[neighbor_id] = struct{}{}
@@ -155,26 +145,44 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 	return res, nil
 }
 
-func (vi *VectorIndex) GetVector(key govector.Vector, num uint32) ([]govector.Vector, error) {
-	vi.mu.RLock()
-	defer vi.mu.RUnlock()
-	nodeIdList, err := vi.getNodeIdsByKey(key, num)
-	if err != nil {
-		return nil, err
+func (vi *VectorIndex) reconstructGraph() {
+	vi.mu.Lock()
+
+	defer vi.mu.Unlock()
+
+	newEntryNode := []uint32{}
+
+	for _, node := range vi.entryNode {
+		if !vi.graphNodeMap[node].item.pos.deleted {
+			newEntryNode = append(newEntryNode, node)
+		}
 	}
 
-	if len(vi.entryNode) == 0 {
-		return []govector.Vector{}, nil
-	}
-	res := make([]govector.Vector, 0)
+	vi.entryNode = newEntryNode
 
-	for _, nodeId := range nodeIdList {
-		res = append(res, vi.graphNodeMap[nodeId].item.key)
+	toBeDeleted := []uint32{}
+	for node, neighbor := range vi.graph {
+		if !vi.graphNodeMap[node].item.pos.deleted {
+			continue
+		}
+
+		for n := range neighbor {
+			vi.deleteEdge(node, n)
+		}
+
+		toBeDeleted = append(toBeDeleted, node)
 	}
-	return res, nil
+
+	for _, node := range toBeDeleted {
+		delete(vi.graph, node)
+		delete(vi.graphNodeMap, node)
+	}
+
+	vi.toDelete.Store(0)
+
 }
 
-func (vi *VectorIndex) AddEdge(inNode uint32, outNode uint32) {
+func (vi *VectorIndex) addEdge(inNode uint32, outNode uint32) {
 	if _, ok := vi.graph[inNode]; !ok {
 		vi.graph[inNode] = make(map[uint32]struct{})
 	}
@@ -185,27 +193,16 @@ func (vi *VectorIndex) AddEdge(inNode uint32, outNode uint32) {
 	vi.graph[outNode][inNode] = struct{}{}
 }
 
-func (vi *VectorIndex) DeleteEdge(inNode uint32, outNode uint32) {
+func (vi *VectorIndex) deleteEdge(inNode uint32, outNode uint32) {
 	if inner, ok := vi.graph[inNode]; ok {
-		if _, ok := inner[outNode]; ok {
-			delete(inner, outNode)
-		}
+		delete(inner, outNode)
 	}
 	if inner, ok := vi.graph[outNode]; ok {
-		if _, ok := inner[inNode]; ok {
-			delete(inner, inNode)
-		}
+		delete(inner, inNode)
 	}
 }
 
-func (vi *VectorIndex) PutVector(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
-	// TODO: check uniqueness in B-tree Index
-	bTreeKey := EncodeVector(key)
-	existKey := vi.btreeIndex.Get(bTreeKey)
-	if existKey != nil {
-		return true, nil
-	}
-
+func (vi *VectorIndex) putVector(key govector.Vector, chunkWrapper *ChunkPositionWrapper) (bool, error) {
 	vi.mu.Lock()
 	defer vi.mu.Unlock()
 
@@ -222,14 +219,13 @@ func (vi *VectorIndex) PutVector(key govector.Vector, position *wal.ChunkPositio
 	}
 
 	// add node to entry node every #interval times of put
-
 	graphNode := graphNode{item: vectorItem{
 		key: key,
-		pos: position,
+		pos: chunkWrapper,
 	}}
 	vi.graphNodeMap[newNodeId] = graphNode
 	for _, nodeId := range nodeIdList {
-		vi.AddEdge(newNodeId, nodeId)
+		vi.addEdge(newNodeId, nodeId)
 		if uint32(len(vi.graph[nodeId])) > vi.maxM {
 			// delete edges if nodeId has more than max_m edges, just find the node with farest distance
 			maxDistance := float64(0)
@@ -245,41 +241,118 @@ func (vi *VectorIndex) PutVector(key govector.Vector, position *wal.ChunkPositio
 					deleteNode = dNode
 				}
 			}
-			vi.DeleteEdge(nodeId, deleteNode)
+			vi.deleteEdge(nodeId, deleteNode)
 		}
 	}
 	return true, nil
 }
 
 func (vi *VectorIndex) Put(key []byte, position *wal.ChunkPosition) *wal.ChunkPosition {
+
+	// insert key into b-tree
+	var wrapper *ChunkPositionWrapper
+	var exists bool
+
+	wrapper = vi.btreeIndex.Get(key)
+
+	if wrapper == nil {
+		wrapper = &ChunkPositionWrapper{pos: position, deleted: false}
+		exists = false
+	} else {
+		wrapper.pos = position
+		exists = true
+	}
+
+	resWrapper := vi.btreeIndex.Put(key, wrapper)
+
+	if exists {
+		// vector already exists in the graph
+		return resWrapper.pos
+	}
 	//convert byte array to govector
-	govec := decodeVector(key)
+	govec := DecodeVector(key)
 	if govec == nil {
 		return nil
 	}
-	// store vector and get position by calling btree's Put method
-	_, put_err := vi.PutVector(govec, position)
 
-	// insert key into b-tree
-	put_position := vi.btreeIndex.Put(key, position)
+	// store vector and get position by calling btree's Put method
+	_, put_err := vi.putVector(govec, wrapper)
 
 	if put_err != nil {
 		return nil
 	}
-	return put_position
+
+	if resWrapper == nil {
+		return nil
+	}
+	return resWrapper.pos
+}
+
+// Testing purpose only
+func (vi *VectorIndex) GetVectorTest(keyVec govector.Vector, num uint32) ([]govector.Vector, error) {
+	vi.mu.RLock()
+	defer vi.mu.RUnlock()
+	nodeIdList, err := vi.getNodeIdsByKey(keyVec, num)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]govector.Vector, 0)
+
+	for _, nodeId := range nodeIdList {
+		res = append(res, vi.graphNodeMap[nodeId].item.key)
+	}
+
+	return res, nil
+}
+
+func (vi *VectorIndex) GetVector(key govector.Vector, num uint32) ([]*wal.ChunkPosition, error) {
+	if key == nil {
+		return nil, ErrVec
+	}
+
+	vi.mu.RLock()
+	defer vi.mu.RUnlock()
+	nodeIdList, err := vi.getNodeIdsByKey(key, num)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*wal.ChunkPosition, 0)
+
+	for _, nodeId := range nodeIdList {
+		res = append(res, vi.graphNodeMap[nodeId].item.pos.pos)
+	}
+
+	return res, nil
 }
 
 func (vi *VectorIndex) Get(key []byte) *wal.ChunkPosition {
-	return vi.btreeIndex.Get(key)
+	chunkWrapper := vi.btreeIndex.Get(key)
+
+	if chunkWrapper == nil {
+		return nil
+	}
+	return chunkWrapper.pos
 }
 
 func (vi *VectorIndex) Delete(key []byte) (*wal.ChunkPosition, bool) {
-	fmt.Println("vector index's Delete method is being called")
-	return vi.btreeIndex.Delete(key)
+	wrapper, res := vi.btreeIndex.Delete(key)
+	if wrapper == nil {
+		return nil, res
+	}
+
+	wrapper.deleted = true
+
+	vi.toDelete.Add(1)
+
+	if float64(vi.toDelete.Load()) > float64(len(vi.graphNodeMap)) * kReconstructPercent {
+		vi.reconstructGraph()
+	}
+	return wrapper.pos, res
 }
 
 func (vi *VectorIndex) Size() int {
-	fmt.Println("vector index's Size method is being called")
 	return vi.btreeIndex.Size()
 }
 
