@@ -103,7 +103,7 @@ func Open(options Options) (*DB, error) {
 
 	// init DB instance
 	db := &DB{
-		index:        index.NewIndexer(),
+		index:        index.NewIndexer(index.VIndex),
 		options:      options,
 		fileLock:     fileLock,
 		batchPool:    sync.Pool{New: newBatch},

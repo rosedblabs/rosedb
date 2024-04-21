@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/drewlanenga/govector"
-	"github.com/rosedblabs/wal"
 	"sync"
 	"time"
+
+	"github.com/drewlanenga/govector"
+	"github.com/rosedblabs/wal"
 )
 
 func TestNaiveVector_Put_Get(t *testing.T) {
@@ -35,7 +36,7 @@ func TestNaiveVector_Put_Get(t *testing.T) {
 		}
 	}
 
-	resSet, err := nvi.GetVector(govector.Vector{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3)
+	resSet, err := nvi.GetVectorTest(govector.Vector{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -72,7 +73,7 @@ func TestNaiveVector_Simple_Put_Get(t *testing.T) {
 		}
 	}
 
-	resSet, err := nvi.GetVector(govector.Vector{0, 0}, 3)
+	resSet, err := nvi.GetVectorTest(govector.Vector{0, 0}, 3)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -114,7 +115,7 @@ func TestNaiveThroughput_test(t *testing.T) {
 		wg.Add(1)
 		go func(key govector.Vector) {
 			defer wg.Done()
-			resultArr, err := nvi.GetVector(key, resultSize)
+			resultArr, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
 				err := fmt.Errorf("get failed: %v", err.Error())
 				fmt.Println(err.Error())
@@ -161,7 +162,7 @@ func TestNaiveThroughput_test_10(t *testing.T) {
 		wg.Add(1)
 		go func(key govector.Vector) {
 			defer wg.Done()
-			resultArr, err := nvi.GetVector(key, resultSize)
+			resultArr, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
 				err := fmt.Errorf("get failed: %v", err.Error())
 				fmt.Println(err.Error())
@@ -205,7 +206,7 @@ func TestNaiveThroughput_test_50(t *testing.T) {
 		wg.Add(1)
 		go func(key govector.Vector) {
 			defer wg.Done()
-			resultArr, err := nvi.GetVector(key, resultSize)
+			resultArr, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
 				err := fmt.Errorf("get failed: %v", err.Error())
 				fmt.Println(err.Error())
@@ -249,7 +250,7 @@ func TestNaiveThroughput_test_100(t *testing.T) {
 		wg.Add(1)
 		go func(key govector.Vector) {
 			defer wg.Done()
-			resultArr, err := nvi.GetVector(key, resultSize)
+			resultArr, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
 				err := fmt.Errorf("get failed: %v", err.Error())
 				fmt.Println(err.Error())
@@ -293,7 +294,7 @@ func TestNaiveThroughput_test_500(t *testing.T) {
 		wg.Add(1)
 		go func(key govector.Vector) {
 			defer wg.Done()
-			resultArr, err := nvi.GetVector(key, resultSize)
+			resultArr, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
 				err := fmt.Errorf("get failed: %v", err.Error())
 				fmt.Println(err.Error())
@@ -338,7 +339,7 @@ func TestNaiveThroughput_test_1000(t *testing.T) {
 		wg.Add(1)
 		go func(key govector.Vector) {
 			defer wg.Done()
-			resultArr, err := nvi.GetVector(key, resultSize)
+			resultArr, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
 				err := fmt.Errorf("get failed: %v", err.Error())
 				fmt.Println(err.Error())

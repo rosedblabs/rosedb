@@ -15,7 +15,7 @@ var (
 )
 
 var (
-	kReconstructPercent = 0.05
+	kReconstructPercent = 0.1
 )
 
 type vectorItem struct {
@@ -289,12 +289,12 @@ func (vi *VectorIndex) Put(key []byte, position *wal.ChunkPosition) *wal.ChunkPo
 }
 
 // Testing purpose only
-func (vi *VectorIndex) getVectorTest(keyVec govector.Vector, num uint32) []govector.Vector {
+func (vi *VectorIndex) GetVectorTest(keyVec govector.Vector, num uint32) ([]govector.Vector, error) {
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
 	nodeIdList, err := vi.getNodeIdsByKey(keyVec, num)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	res := make([]govector.Vector, 0)
@@ -303,19 +303,17 @@ func (vi *VectorIndex) getVectorTest(keyVec govector.Vector, num uint32) []govec
 		res = append(res, vi.graphNodeMap[nodeId].item.key)
 	}
 
-	return res
+	return res, nil
 }
 
-func (vi *VectorIndex) GetVector(key []byte, num uint32) ([]*wal.ChunkPosition, error) {
-	keyVec := DecodeVector(key)
-
-	if keyVec == nil {
+func (vi *VectorIndex) GetVector(key govector.Vector, num uint32) ([]*wal.ChunkPosition, error) {
+	if key == nil {
 		return nil, ErrVec
 	}
 
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
-	nodeIdList, err := vi.getNodeIdsByKey(keyVec, num)
+	nodeIdList, err := vi.getNodeIdsByKey(key, num)
 	if err != nil {
 		return nil, err
 	}

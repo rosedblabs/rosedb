@@ -24,32 +24,37 @@ type PQItem struct {
 	idx      uint32
 }
 
+type vectorPair struct {
+	vector govector.Vector
+	chunk *wal.ChunkPosition
+}
+
 func minPQ(left PQItem, right PQItem) bool {
 	return left.distance < right.distance
 }
 
 func (nvi *NaiveVectorIndex) Put(key []byte, position *wal.ChunkPosition) *wal.ChunkPosition {
-	return nvi.btreeIndex.Put(key, position)
+	return nvi.btreeIndex.Put(key, &ChunkPositionWrapper{pos: position, deleted: false}).pos
 }
 
 func (nvi *NaiveVectorIndex) PutVector(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
-	nvi.btreeIndex.Put(EncodeVector(key), position)
+	nvi.btreeIndex.Put(EncodeVector(key), &ChunkPositionWrapper{pos: position, deleted: false})
 	return true, nil
 }
 
 func (nvi *NaiveVectorIndex) Get(key []byte) *wal.ChunkPosition {
-	return nvi.btreeIndex.Get(key)
+	return nvi.btreeIndex.Get(key).pos
 }
 
-func (nvi *NaiveVectorIndex) GetVector(key govector.Vector, num uint32) ([]govector.Vector, error) {
+func (nvi *NaiveVectorIndex) getVectorInternal(key govector.Vector, num uint32) ([]vectorPair, error) {
 	nvi.mu.RLock()
 	defer nvi.mu.RUnlock()
 
 	// iterate over btree to get all the keys (vectors) in the database
-	vectors := make([]govector.Vector, 0)
+	vectors := make([]vectorPair, 0)
 	handleFn := func(key []byte, position *wal.ChunkPosition) (bool, error) {
-		vec := decodeVector(key)
-		vectors = append(vectors, vec)
+		vec := DecodeVector(key)
+		vectors = append(vectors, vectorPair{vector: vec, chunk: position})
 		return true, nil
 	}
 	nvi.Ascend(handleFn)
@@ -57,7 +62,7 @@ func (nvi *NaiveVectorIndex) GetVector(key govector.Vector, num uint32) ([]govec
 	// calculate distances between the given vector and other vectors in the databse
 	distances := make([]float64, 0)
 	for _, vector := range vectors {
-		dis, err := distance(key, vector)
+		dis, err := distance(key, vector.vector)
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +74,7 @@ func (nvi *NaiveVectorIndex) GetVector(key govector.Vector, num uint32) ([]govec
 	for i, dis := range distances {
 		pq.Enqueue(PQItem{distance: dis, idx: uint32(i)})
 	}
-	res := make([]govector.Vector, 0)
+	res := make([]vectorPair, 0)
 	for i := 0; i < int(num); i++ {
 		item, success := pq.Dequeue()
 		if success {
@@ -80,8 +85,39 @@ func (nvi *NaiveVectorIndex) GetVector(key govector.Vector, num uint32) ([]govec
 	return res, nil
 }
 
+func (nvi *NaiveVectorIndex) GetVectorTest(key govector.Vector, num uint32) ([]govector.Vector, error) {
+	res, err := nvi.getVectorInternal(key, num)
+
+	if err != nil {
+		return nil, err
+	}
+
+	vectorList := make([]govector.Vector, 0)
+
+	for _, vpair := range res {
+		vectorList = append(vectorList, vpair.vector)
+	}
+	return vectorList, nil
+}
+
+func (nvi *NaiveVectorIndex) GetVector(key govector.Vector, num uint32) ([]*wal.ChunkPosition, error) {
+	res, err := nvi.getVectorInternal(key, num)
+
+	if err != nil {
+		return nil, err
+	}
+
+	chunkList := make([]*wal.ChunkPosition, 0)
+
+	for _, vpair := range res {
+		chunkList = append(chunkList, vpair.chunk)
+	}
+	return chunkList, nil
+}
+
 func (nvi *NaiveVectorIndex) Delete(key []byte) (*wal.ChunkPosition, bool) {
-	return nvi.btreeIndex.Delete(key)
+	wrapper, deleted := nvi.btreeIndex.Delete(key)
+	return wrapper.pos, deleted
 }
 
 func (nvi *NaiveVectorIndex) Size() int {
