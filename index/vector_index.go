@@ -116,13 +116,12 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 
 		// exploring the neighbor
 		for neighbor_id := range vi.graph[currNode.nodeId] {
-			d, err := distance(key, vi.graphNodeMap[neighbor_id].item.key)
-			if err != nil {
-				return nil, err
-			}
-
 			// if we didnt visit this neighbor before, put into candidate queue.
 			if _, exists := visited[neighbor_id]; !exists {
+				d, err := distance(key, vi.graphNodeMap[neighbor_id].item.key)
+				if err != nil {
+					return nil, err
+				}
 				candidateQueue.Enqueue(priorityQueueItem{distance: d, nodeId: neighbor_id})
 
 				if !vi.graphNodeMap[neighbor_id].item.pos.deleted {
