@@ -1,7 +1,6 @@
 package index
 
 import (
-	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
 )
 
@@ -16,10 +15,10 @@ type Indexer interface {
 	// Get the position of the key in the index.
 	Get(key []byte) *wal.ChunkPosition
 
-	GetVector(key govector.Vector, num uint32) ([]*wal.ChunkPosition, error)
+	GetVector(key RoseVector, num uint32) ([]*wal.ChunkPosition, error)
 
 	// Testing purpose only
-	GetVectorTest(keyVec govector.Vector, num uint32) ([]govector.Vector, error)
+	GetVectorTest(keyVec RoseVector, num uint32) ([]RoseVector, error)
 
 	// Delete the index of the key.
 	Delete(key []byte) (*wal.ChunkPosition, bool)
