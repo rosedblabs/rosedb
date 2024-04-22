@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rosedblabs/wal"
+	"github.com/viterin/vek/vek32"
 )
 
 func TestNaiveVector_Put_Get(t *testing.T) {
@@ -124,7 +125,7 @@ func TestNaiveThroughput_test(t *testing.T) {
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("naive_knn", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("naive_knn", originalFileItem, testFileItem, putTime, getTime)
 }
 
 var originalFileItem = uint32(10000)
@@ -171,7 +172,7 @@ func TestNaiveThroughput_test_10(t *testing.T) {
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("naive_knn_10", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("naive_knn_10", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestNaiveThroughput_test_50(t *testing.T) {
@@ -215,7 +216,7 @@ func TestNaiveThroughput_test_50(t *testing.T) {
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("naive_knn_50", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("naive_knn_50", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestNaiveThroughput_test_100(t *testing.T) {
@@ -249,17 +250,16 @@ func TestNaiveThroughput_test_100(t *testing.T) {
 		wg.Add(1)
 		go func(key RoseVector) {
 			defer wg.Done()
-			resultArr, err := nvi.GetVectorTest(key, resultSize)
+			_, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
 				err := fmt.Errorf("get failed: %v", err.Error())
 				fmt.Println(err.Error())
 			}
-			fmt.Println(resultArr)
 		}(testArr[i])
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("naive_knn_100", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("naive_knn_100", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestNaiveThroughput_test_500(t *testing.T) {
@@ -303,7 +303,7 @@ func TestNaiveThroughput_test_500(t *testing.T) {
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("naive_knn_500", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("naive_knn_500", originalFileItem, testFileItem, putTime, getTime)
 
 }
 
@@ -338,15 +338,65 @@ func TestNaiveThroughput_test_1000(t *testing.T) {
 		wg.Add(1)
 		go func(key RoseVector) {
 			defer wg.Done()
-			resultArr, err := nvi.GetVectorTest(key, resultSize)
+			_, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
 				err := fmt.Errorf("get failed: %v", err.Error())
 				fmt.Println(err.Error())
 			}
-			fmt.Println(resultArr)
 		}(testArr[i])
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("naive_knn_1000", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("naive_knn_1000", originalFileItem, testFileItem, putTime, getTime)
+}
+
+func TestNaiveAccuracy_test_100(t *testing.T) {
+	VectorSize := uint32(100)
+	resultSize := uint32(5)
+
+	// initiate database
+	nvi := newNaiveVectorIndex()
+	w, _ := wal.Open(wal.DefaultOptions)
+
+	// load data from txt file
+	vecArr := loadVectorFromTxt("../test_files/vectors_100.txt", VectorSize)
+	testArr := loadVectorFromTxt("../test_files/testData/vectors_100.txt", VectorSize)
+
+	// put vector into db
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
+		chunkPosition, _ := w.Write(key)
+		_, err := nvi.PutVector(vecArr[i], chunkPosition)
+		if err != nil {
+			t.Fatalf("put failed: %v", err.Error())
+		}
+	}
+
+	var localMu sync.Mutex
+
+	var totalDistance float32 = 0
+	var wg sync.WaitGroup
+	for i = 0; i < testFileItem; i++ {
+		wg.Add(1)
+		go func(key RoseVector) {
+			defer wg.Done()
+			res, err := nvi.GetVectorTest(key, resultSize)
+			if err != nil {
+				err := fmt.Errorf("get failed: %v", err.Error())
+				fmt.Println(err.Error())
+			}
+			
+			var avgDistance float32
+			for _, r := range res {
+				avgDistance += vek32.Distance(r, key)
+			}
+
+			localMu.Lock()
+			totalDistance += avgDistance/float32(len(res))
+			localMu.Unlock()
+		}(testArr[i])
+	}
+	wg.Wait()
+	printAccuracyReport("naive_knn_100", totalDistance / float32(testFileItem))
 }

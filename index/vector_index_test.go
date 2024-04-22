@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/rosedblabs/wal"
+	"github.com/viterin/vek/vek32"
 )
 
 func TestVectorIndex_Put_Get(t *testing.T) {
@@ -159,7 +160,7 @@ func TestThroughput_test(t *testing.T) {
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_10(t *testing.T) {
@@ -208,7 +209,7 @@ func TestThroughput_test_10(t *testing.T) {
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_50(t *testing.T) {
@@ -257,7 +258,7 @@ func TestThroughput_test_50(t *testing.T) {
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_100(t *testing.T) {
@@ -306,7 +307,7 @@ func TestThroughput_test_100(t *testing.T) {
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_500(t *testing.T) {
@@ -355,7 +356,7 @@ func TestThroughput_test_500(t *testing.T) {
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_test_1000(t *testing.T) {
@@ -403,7 +404,62 @@ func TestThroughput_test_1000(t *testing.T) {
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
+}
+
+func TestAccuracy_test_100(t *testing.T) {
+	VectorSize := uint32(500)
+	m := uint32(5)
+	maxM := uint32(10)
+	interval := uint32(100)
+	resultSize := uint32(5)
+	originalFileItem := uint32(10000)
+	testFileItem := uint32(10000)
+
+	// initiate database
+	vi := newVectorIndex(m, maxM, interval)
+	w, _ := wal.Open(wal.DefaultOptions)
+
+	// load data from txt file
+	vecArr := loadVectorFromTxt("../test_files/vectors_500.txt", VectorSize)
+	testArr := loadVectorFromTxt("../test_files/testData/vectors_500.txt", VectorSize)
+
+	// put vector into db
+	var i uint32
+	for i = 0; i < originalFileItem; i++ {
+		key := EncodeVector(vecArr[i])
+		chunkPosition, _ := w.Write(key)
+		_, err := vi.putVector(vecArr[i], &ChunkPositionWrapper{pos: chunkPosition, deleted: false})
+		if err != nil {
+			t.Fatalf("put failed: %v", err.Error())
+		}
+	}
+
+	var localMu sync.Mutex
+
+	var totalDistance float32 = 0
+	var wg sync.WaitGroup
+	for i = 0; i < testFileItem; i++ {
+		wg.Add(1)
+		go func(key RoseVector) {
+			defer wg.Done()
+			resultArr, err := vi.GetVectorTest(key, resultSize)
+			if err != nil {
+				err := fmt.Errorf("get failed: %v", err.Error())
+				fmt.Println(err.Error())
+			}
+			var avgDistance float32
+			for _, r := range resultArr {
+				avgDistance += vek32.Distance(r, key)
+			}
+
+			localMu.Lock()
+			totalDistance += avgDistance / float32(len(resultArr))
+			localMu.Unlock()
+		}(testArr[i])
+	}
+	wg.Wait()
+	printAccuracyReport("naive_knn_100", totalDistance / float32(testFileItem))
 }
 
 func TestThroughput_Get_Only_1000(t *testing.T) {
@@ -451,7 +507,7 @@ func TestThroughput_Get_Only_1000(t *testing.T) {
 	}
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func TestThroughput_Get_With_Delete_1000(t *testing.T) {
@@ -521,7 +577,7 @@ func TestThroughput_Get_With_Delete_1000(t *testing.T) {
 
 	wg.Wait()
 	getTime := time.Since(now)
-	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
+	printThroughputReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
 func loadVectorFromTxt(fileName string, VectorSize uint32) []RoseVector {
@@ -560,9 +616,9 @@ func loadVectorFromTxt(fileName string, VectorSize uint32) []RoseVector {
 	return vecArr
 }
 
-func printReport(filename string, originalFileItem uint32, testFileItem uint32, putTime time.Duration, getTime time.Duration) {
+func printThroughputReport(filename string, originalFileItem uint32, testFileItem uint32, putTime time.Duration, getTime time.Duration) {
 
-	fmt.Println("\n---------------------------------Here is the report ----------------------------")
+	fmt.Println("\n---------------------------------Here is the throughput report ----------------------------")
 	fmt.Println("time to put all", originalFileItem, "items is ", putTime.Seconds(), "s")
 	get_throughput := float64(originalFileItem) / putTime.Seconds()
 	fmt.Println("throughput is ", get_throughput, "qps")
@@ -579,6 +635,25 @@ func printReport(filename string, originalFileItem uint32, testFileItem uint32, 
 	}
 	defer file.Close()
 	_, err = file.WriteString(fmt.Sprintf("%v %v %v %v", putTime.Seconds(), get_throughput, getTime.Seconds(), put_throughput))
+	if err != nil {
+		fmt.Println("Error writing to file:", err)
+	}
+}
+
+func printAccuracyReport(filename string, avgDistance float32) {
+
+	fmt.Println("\n---------------------------------Here is the accuracy report ----------------------------")
+	fmt.Printf("average distance %f", avgDistance)
+
+	resultsFolder := "../test_files/resultsData/"
+	resultsFilePath := resultsFolder + filename
+	file, err := os.Create(resultsFilePath)
+	if err != nil {
+		fmt.Println("Error creating file:", err)
+		return
+	}
+	defer file.Close()
+	_, err = file.WriteString(fmt.Sprintf("%f", avgDistance))
 	if err != nil {
 		fmt.Println("Error writing to file:", err)
 	}
