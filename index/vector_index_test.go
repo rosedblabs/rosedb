@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
 )
 
@@ -20,7 +19,7 @@ func TestVectorIndex_Put_Get(t *testing.T) {
 	vi := newVectorIndex(3, 5, 5)
 	w, _ := wal.Open(wal.DefaultOptions)
 
-	var vectorArr = []govector.Vector{{8, -7, -10, -8, 3, -6, 6, -2, 5, 1},
+	var vectorArr = []RoseVector{{8, -7, -10, -8, 3, -6, 6, -2, 5, 1},
 		{-2, -2, -6, -10, 10, -3, 1, 3, -9, -10},
 		{-4, 7, -6, -1, 3, -5, 5, -2, -10, -3},
 		{1, 0, -7, 1, 3, -3, 1, 0, -2, 7},
@@ -52,7 +51,7 @@ func TestVectorIndex_Simple_Put_Get(t *testing.T) {
 	vi := newVectorIndex(3, 5, 5)
 	w, _ := wal.Open(wal.DefaultOptions)
 
-	var vectorArr = []govector.Vector{{1, 2},
+	var vectorArr = []RoseVector{{1, 2},
 		{4, 8},
 		{4, 9},
 		{8, 10},
@@ -73,7 +72,7 @@ func TestVectorIndex_Simple_Put_Get(t *testing.T) {
 		vi.Put(key, chunkPosition)
 	}
 
-	resSet, _ := vi.GetVectorTest(govector.Vector{8, 7}, 3)
+	resSet, _ := vi.GetVectorTest(RoseVector{8, 7}, 3)
 	for _, resVec := range resSet {
 		fmt.Println(resVec)
 	}
@@ -83,7 +82,7 @@ func TestVectorIndex_Simple_Delete(t *testing.T) {
 	vi := newVectorIndex(3, 5, 5)
 	w, _ := wal.Open(wal.DefaultOptions)
 
-	var vectorArr = []govector.Vector{{1, 2},
+	var vectorArr = []RoseVector{{1, 2},
 		{4, 8},
 		{4, 9},
 		{8, 10},
@@ -105,9 +104,9 @@ func TestVectorIndex_Simple_Delete(t *testing.T) {
 	}
 
 	// delete
-	vi.Delete(EncodeVector(govector.Vector{8, 10}))
+	vi.Delete(EncodeVector(RoseVector{8, 10}))
 
-	resSet, _ := vi.GetVectorTest(govector.Vector{8, 7}, 3)
+	resSet, _ := vi.GetVectorTest(RoseVector{8, 7}, 3)
 
 	for _, resVec := range resSet {
 		fmt.Println(resVec)
@@ -148,7 +147,7 @@ func TestThroughput_test(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
 			resultArr, err := vi.GetVectorTest(key, resultSize)
 			if err != nil {
@@ -197,7 +196,7 @@ func TestThroughput_test_10(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
 			resultArr, err := vi.GetVectorTest(key, resultSize)
 			if err != nil {
@@ -246,7 +245,7 @@ func TestThroughput_test_50(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
 			resultArr, err := vi.GetVectorTest(key, resultSize)
 			if err != nil {
@@ -295,7 +294,7 @@ func TestThroughput_test_100(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
 			resultArr, err := vi.GetVectorTest(key, resultSize)
 			if err != nil {
@@ -344,7 +343,7 @@ func TestThroughput_test_500(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
 			resultArr, err := vi.GetVectorTest(key, resultSize)
 			if err != nil {
@@ -393,14 +392,13 @@ func TestThroughput_test_1000(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
-			resultArr, err := vi.GetVectorTest(key, resultSize)
+			_, err := vi.GetVectorTest(key, resultSize)
 			if err != nil {
 				err := fmt.Errorf("get failed: %v", err.Error())
 				fmt.Println(err.Error())
 			}
-			fmt.Println(resultArr)
 		}(testArr[i])
 	}
 	wg.Wait()
@@ -442,14 +440,13 @@ func TestThroughput_Get_Only_1000(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
-			resultArr, err := vi.GetVectorTest(key, resultSize)
+			_, err := vi.GetVectorTest(key, resultSize)
 			if err != nil {
 				err := fmt.Errorf("get failed: %v", err.Error())
 				fmt.Println(err.Error())
 			}
-			fmt.Println(resultArr)
 		}(testArr[i])
 	}
 	wg.Wait()
@@ -504,7 +501,7 @@ func TestThroughput_Get_With_Delete_1000(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
 			resultArr, err := vi.GetVectorTest(key, resultSize)
 			if err != nil {
@@ -527,7 +524,7 @@ func TestThroughput_Get_With_Delete_1000(t *testing.T) {
 	printReport("vector_index", originalFileItem, testFileItem, putTime, getTime)
 }
 
-func loadVectorFromTxt(fileName string, VectorSize uint32) []govector.Vector {
+func loadVectorFromTxt(fileName string, VectorSize uint32) []RoseVector {
 	// read vector from file
 	fmt.Println("loading vectors from txt file ......")
 	file, err := os.Open(fileName)
@@ -543,18 +540,18 @@ func loadVectorFromTxt(fileName string, VectorSize uint32) []govector.Vector {
 	}(file)
 
 	scanner := bufio.NewScanner(file)
-	var vecArr []govector.Vector
+	var vecArr []RoseVector
 	for scanner.Scan() {
 		line := scanner.Text()
-		vec := make(govector.Vector, VectorSize)
+		vec := make(RoseVector, VectorSize)
 		numbers := strings.Split(line, " ")
 		for idx, num := range numbers {
-			floatNum, err := strconv.ParseFloat(num, 64)
+			floatNum, err := strconv.ParseFloat(num, 32)
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
-			vec[idx] = floatNum
+			vec[idx] = float32(floatNum)
 		}
 		//encodeVec := EncodeVector(vec)
 		vecArr = append(vecArr, vec)

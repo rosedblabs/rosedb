@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	queue "github.com/Jcowwell/go-algorithm-club/PriorityQueue"
-	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
 )
 
@@ -20,12 +19,12 @@ func newNaiveVectorIndex() *NaiveVectorIndex {
 }
 
 type PQItem struct {
-	distance float64
+	distance float32
 	idx      uint32
 }
 
 type vectorPair struct {
-	vector govector.Vector
+	vector RoseVector
 	chunk *wal.ChunkPosition
 }
 
@@ -37,7 +36,7 @@ func (nvi *NaiveVectorIndex) Put(key []byte, position *wal.ChunkPosition) *wal.C
 	return nvi.btreeIndex.Put(key, &ChunkPositionWrapper{pos: position, deleted: false}).pos
 }
 
-func (nvi *NaiveVectorIndex) PutVector(key govector.Vector, position *wal.ChunkPosition) (bool, error) {
+func (nvi *NaiveVectorIndex) PutVector(key RoseVector, position *wal.ChunkPosition) (bool, error) {
 	nvi.btreeIndex.Put(EncodeVector(key), &ChunkPositionWrapper{pos: position, deleted: false})
 	return true, nil
 }
@@ -46,7 +45,7 @@ func (nvi *NaiveVectorIndex) Get(key []byte) *wal.ChunkPosition {
 	return nvi.btreeIndex.Get(key).pos
 }
 
-func (nvi *NaiveVectorIndex) getVectorInternal(key govector.Vector, num uint32) ([]vectorPair, error) {
+func (nvi *NaiveVectorIndex) getVectorInternal(key RoseVector, num uint32) ([]vectorPair, error) {
 	nvi.mu.RLock()
 	defer nvi.mu.RUnlock()
 
@@ -60,12 +59,9 @@ func (nvi *NaiveVectorIndex) getVectorInternal(key govector.Vector, num uint32) 
 	nvi.Ascend(handleFn)
 
 	// calculate distances between the given vector and other vectors in the databse
-	distances := make([]float64, 0)
+	distances := make([]float32, 0)
 	for _, vector := range vectors {
-		dis, err := distance(key, vector.vector)
-		if err != nil {
-			return nil, err
-		}
+		dis := distance(key, vector.vector)
 		distances = append(distances, dis)
 	}
 
@@ -85,14 +81,14 @@ func (nvi *NaiveVectorIndex) getVectorInternal(key govector.Vector, num uint32) 
 	return res, nil
 }
 
-func (nvi *NaiveVectorIndex) GetVectorTest(key govector.Vector, num uint32) ([]govector.Vector, error) {
+func (nvi *NaiveVectorIndex) GetVectorTest(key RoseVector, num uint32) ([]RoseVector, error) {
 	res, err := nvi.getVectorInternal(key, num)
 
 	if err != nil {
 		return nil, err
 	}
 
-	vectorList := make([]govector.Vector, 0)
+	vectorList := make([]RoseVector, 0)
 
 	for _, vpair := range res {
 		vectorList = append(vectorList, vpair.vector)
@@ -100,7 +96,7 @@ func (nvi *NaiveVectorIndex) GetVectorTest(key govector.Vector, num uint32) ([]g
 	return vectorList, nil
 }
 
-func (nvi *NaiveVectorIndex) GetVector(key govector.Vector, num uint32) ([]*wal.ChunkPosition, error) {
+func (nvi *NaiveVectorIndex) GetVector(key RoseVector, num uint32) ([]*wal.ChunkPosition, error) {
 	res, err := nvi.getVectorInternal(key, num)
 
 	if err != nil {

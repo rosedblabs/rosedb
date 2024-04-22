@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 
 	queue "github.com/Jcowwell/go-algorithm-club/PriorityQueue"
-	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
+	"github.com/viterin/vek/vek32"
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 )
 
 type vectorItem struct {
-	key govector.Vector
+	key RoseVector
 	pos *ChunkPositionWrapper
 }
 
@@ -44,7 +44,7 @@ type VectorIndex struct {
 }
 
 type priorityQueueItem struct {
-	distance float64
+	distance float32
 	nodeId   uint32
 }
 
@@ -69,17 +69,11 @@ func maxPriorityQueue(left priorityQueueItem, right priorityQueueItem) bool {
 	return left.distance > right.distance
 }
 
-func distance(v1 govector.Vector, v2 govector.Vector) (float64, error) {
-	diff, err := v1.Subtract(v2)
-
-	if err != nil {
-		return 0, err
-	}
-
-	return govector.Norm(diff, 2), nil
+func distance(v1 RoseVector, v2 RoseVector) float32 {
+	return vek32.Distance(v1, v2)
 }
 
-func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint32, error) {
+func (vi *VectorIndex) getNodeIdsByKey(key RoseVector, num uint32) ([]uint32, error) {
 	if len(vi.entryNode) == 0 {
 		return []uint32{}, nil
 	}
@@ -89,10 +83,7 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 
 	// initialize all with entry points
 	for _, e := range vi.entryNode {
-		d, err := distance(key, vi.graphNodeMap[e].item.key)
-		if err != nil {
-			return nil, err
-		}
+		d := distance(key, vi.graphNodeMap[e].item.key)
 		candidateQueue.Enqueue(priorityQueueItem{distance: d, nodeId: e})
 
 		if !vi.graphNodeMap[e].item.pos.deleted {
@@ -118,10 +109,7 @@ func (vi *VectorIndex) getNodeIdsByKey(key govector.Vector, num uint32) ([]uint3
 		for neighbor_id := range vi.graph[currNode.nodeId] {
 			// if we didnt visit this neighbor before, put into candidate queue.
 			if _, exists := visited[neighbor_id]; !exists {
-				d, err := distance(key, vi.graphNodeMap[neighbor_id].item.key)
-				if err != nil {
-					return nil, err
-				}
+				d := distance(key, vi.graphNodeMap[neighbor_id].item.key)
 				candidateQueue.Enqueue(priorityQueueItem{distance: d, nodeId: neighbor_id})
 
 				if !vi.graphNodeMap[neighbor_id].item.pos.deleted {
@@ -201,7 +189,7 @@ func (vi *VectorIndex) deleteEdge(inNode uint32, outNode uint32) {
 	}
 }
 
-func (vi *VectorIndex) putVector(key govector.Vector, chunkWrapper *ChunkPositionWrapper) (bool, error) {
+func (vi *VectorIndex) putVector(key RoseVector, chunkWrapper *ChunkPositionWrapper) (bool, error) {
 	vi.mu.Lock()
 	defer vi.mu.Unlock()
 
@@ -227,14 +215,11 @@ func (vi *VectorIndex) putVector(key govector.Vector, chunkWrapper *ChunkPositio
 		vi.addEdge(newNodeId, nodeId)
 		if uint32(len(vi.graph[nodeId])) > vi.maxM {
 			// delete edges if nodeId has more than max_m edges, just find the node with farest distance
-			maxDistance := float64(0)
+			maxDistance := float32(0)
 			var deleteNode uint32
 			nodeVector := vi.graphNodeMap[nodeId].item.key
 			for dNode := range vi.graph[nodeId] {
-				dis, err := distance(nodeVector, vi.graphNodeMap[dNode].item.key)
-				if err != nil {
-					return false, err
-				}
+				dis := distance(nodeVector, vi.graphNodeMap[dNode].item.key)
 				if dis > maxDistance {
 					maxDistance = dis
 					deleteNode = dNode
@@ -288,7 +273,7 @@ func (vi *VectorIndex) Put(key []byte, position *wal.ChunkPosition) *wal.ChunkPo
 }
 
 // Testing purpose only
-func (vi *VectorIndex) GetVectorTest(keyVec govector.Vector, num uint32) ([]govector.Vector, error) {
+func (vi *VectorIndex) GetVectorTest(keyVec RoseVector, num uint32) ([]RoseVector, error) {
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
 	nodeIdList, err := vi.getNodeIdsByKey(keyVec, num)
@@ -296,7 +281,7 @@ func (vi *VectorIndex) GetVectorTest(keyVec govector.Vector, num uint32) ([]gove
 		return nil, err
 	}
 
-	res := make([]govector.Vector, 0)
+	res := make([]RoseVector, 0)
 
 	for _, nodeId := range nodeIdList {
 		res = append(res, vi.graphNodeMap[nodeId].item.key)
@@ -305,7 +290,7 @@ func (vi *VectorIndex) GetVectorTest(keyVec govector.Vector, num uint32) ([]gove
 	return res, nil
 }
 
-func (vi *VectorIndex) GetVector(key govector.Vector, num uint32) ([]*wal.ChunkPosition, error) {
+func (vi *VectorIndex) GetVector(key RoseVector, num uint32) ([]*wal.ChunkPosition, error) {
 	if key == nil {
 		return nil, ErrVec
 	}

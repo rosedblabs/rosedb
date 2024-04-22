@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/drewlanenga/govector"
 	"github.com/rosedblabs/wal"
 )
 
@@ -15,7 +14,7 @@ func TestNaiveVector_Put_Get(t *testing.T) {
 	nvi := newNaiveVectorIndex()
 	w, _ := wal.Open(wal.DefaultOptions)
 
-	var vectorArr = []govector.Vector{{8, -7, -10, -8, 3, -6, 6, -2, 5, 1},
+	var vectorArr = []RoseVector{{8, -7, -10, -8, 3, -6, 6, -2, 5, 1},
 		{-2, -2, -6, -10, 10, -3, 1, 3, -9, -10},
 		{-4, 7, -6, -1, 3, -5, 5, -2, -10, -3},
 		{1, 0, -7, 1, 3, -3, 1, 0, -2, 7},
@@ -36,7 +35,7 @@ func TestNaiveVector_Put_Get(t *testing.T) {
 		}
 	}
 
-	resSet, err := nvi.GetVectorTest(govector.Vector{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3)
+	resSet, err := nvi.GetVectorTest(RoseVector{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 3)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -49,7 +48,7 @@ func TestNaiveVector_Simple_Put_Get(t *testing.T) {
 	nvi := newNaiveVectorIndex()
 	w, _ := wal.Open(wal.DefaultOptions)
 
-	var vectorArr = []govector.Vector{{1, 2},
+	var vectorArr = []RoseVector{{1, 2},
 		{4, 8},
 		{4, 9},
 		{8, 10},
@@ -73,7 +72,7 @@ func TestNaiveVector_Simple_Put_Get(t *testing.T) {
 		}
 	}
 
-	resSet, err := nvi.GetVectorTest(govector.Vector{0, 0}, 3)
+	resSet, err := nvi.GetVectorTest(RoseVector{0, 0}, 3)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -113,7 +112,7 @@ func TestNaiveThroughput_test(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
 			resultArr, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
@@ -160,7 +159,7 @@ func TestNaiveThroughput_test_10(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
 			resultArr, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
@@ -204,7 +203,7 @@ func TestNaiveThroughput_test_50(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
 			resultArr, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
@@ -248,7 +247,7 @@ func TestNaiveThroughput_test_100(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
 			resultArr, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
@@ -292,7 +291,7 @@ func TestNaiveThroughput_test_500(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
 			resultArr, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {
@@ -337,7 +336,7 @@ func TestNaiveThroughput_test_1000(t *testing.T) {
 	now = time.Now()
 	for i = 0; i < testFileItem; i++ {
 		wg.Add(1)
-		go func(key govector.Vector) {
+		go func(key RoseVector) {
 			defer wg.Done()
 			resultArr, err := nvi.GetVectorTest(key, resultSize)
 			if err != nil {

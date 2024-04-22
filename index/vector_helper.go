@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-
-	"github.com/drewlanenga/govector"
 )
 
 
-func EncodeVector(v govector.Vector) []byte {
+func EncodeVector(v RoseVector) []byte {
 	var buffer bytes.Buffer
 	encoder := gob.NewEncoder(&buffer)
 	err := encoder.Encode(v)
@@ -20,8 +18,8 @@ func EncodeVector(v govector.Vector) []byte {
 	return buffer.Bytes()
 }
 
-func DecodeVector(data []byte) govector.Vector {
-	var vector govector.Vector
+func DecodeVector(data []byte) RoseVector {
+	var vector RoseVector
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	err := dec.Decode(&vector)
@@ -31,3 +29,5 @@ func DecodeVector(data []byte) govector.Vector {
 	}
 	return vector
 }
+
+type RoseVector []float32
