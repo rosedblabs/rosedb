@@ -408,21 +408,21 @@ func TestThroughput_test_1000(t *testing.T) {
 }
 
 func TestAccuracy_test_100(t *testing.T) {
-	VectorSize := uint32(500)
-	m := uint32(5)
-	maxM := uint32(10)
-	interval := uint32(100)
-	resultSize := uint32(5)
-	originalFileItem := uint32(10000)
-	testFileItem := uint32(10000)
+	VectorSize := uint32(100)
+	m := uint32(10)
+	maxM := uint32(15)
+	interval := uint32(500)
+	resultSize := uint32(30)
+	originalFileItem := uint32(5000)
+	testFileItem := uint32(5000)
 
 	// initiate database
 	vi := newVectorIndex(m, maxM, interval)
 	w, _ := wal.Open(wal.DefaultOptions)
 
 	// load data from txt file
-	vecArr := loadVectorFromTxt("../test_files/vectors_500.txt", VectorSize)
-	testArr := loadVectorFromTxt("../test_files/testData/vectors_500.txt", VectorSize)
+	vecArr := loadVectorFromTxt("../test_files/vectors_100.txt", VectorSize)
+	testArr := loadVectorFromTxt("../test_files/testData/vectors_100.txt", VectorSize)
 
 	// put vector into db
 	var i uint32
