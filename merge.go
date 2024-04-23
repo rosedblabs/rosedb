@@ -228,60 +228,6 @@ func positionEquals(a, b *wal.ChunkPosition) bool {
 		a.ChunkOffset == b.ChunkOffset
 }
 
-func encodeHintRecord(key []byte, pos *wal.ChunkPosition) []byte {
-	// SegmentId BlockNumber ChunkOffset ChunkSize
-	//    5          5           10          5      =    25
-	// see binary.MaxVarintLen64 and binary.MaxVarintLen32
-	buf := make([]byte, 25)
-	var idx = 0
-
-	// SegmentId
-	idx += binary.PutUvarint(buf[idx:], uint64(pos.SegmentId))
-	// BlockNumber
-	idx += binary.PutUvarint(buf[idx:], uint64(pos.BlockNumber))
-	// ChunkOffset
-	idx += binary.PutUvarint(buf[idx:], uint64(pos.ChunkOffset))
-	// ChunkSize
-	idx += binary.PutUvarint(buf[idx:], uint64(pos.ChunkSize))
-
-	// key
-	result := make([]byte, idx+len(key))
-	copy(result, buf[:idx])
-	copy(result[idx:], key)
-	return result
-}
-
-func decodeHintRecord(buf []byte) ([]byte, *wal.ChunkPosition) {
-	var idx = 0
-	// SegmentId
-	segmentId, n := binary.Uvarint(buf[idx:])
-	idx += n
-	// BlockNumber
-	blockNumber, n := binary.Uvarint(buf[idx:])
-	idx += n
-	// ChunkOffset
-	chunkOffset, n := binary.Uvarint(buf[idx:])
-	idx += n
-	// ChunkSize
-	chunkSize, n := binary.Uvarint(buf[idx:])
-	idx += n
-	// Key
-	key := buf[idx:]
-
-	return key, &wal.ChunkPosition{
-		SegmentId:   wal.SegmentID(segmentId),
-		BlockNumber: uint32(blockNumber),
-		ChunkOffset: int64(chunkOffset),
-		ChunkSize:   uint32(chunkSize),
-	}
-}
-
-func encodeMergeFinRecord(segmentId wal.SegmentID) []byte {
-	buf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(buf, segmentId)
-	return buf
-}
-
 // loadMergeFiles loads all the merge files, and copy the data to the original data directory.
 // If there is no merge files, or the merge operation is not completed, it will return nil.
 func loadMergeFiles(dirPath string) error {
