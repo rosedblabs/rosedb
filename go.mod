@@ -2,6 +2,8 @@ module github.com/rosedblabs/rosedb/v2
 
 go 1.19
 
+replace github.com/rosedblabs/wal => github.com/izouxv/wal v0.0.0-20240604050325-522b6b05e11d
+
 require (
 	github.com/google/btree v1.1.2
 	github.com/robfig/cron/v3 v3.0.0
@@ -23,6 +25,5 @@ require (
 require (
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/gofrs/flock v0.8.1
-	github.com/hashicorp/golang-lru/v2 v2.0.4 // indirect
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 )
