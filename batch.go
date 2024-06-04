@@ -3,9 +3,10 @@ package rosedb
 import (
 	"bytes"
 	"fmt"
-	"github.com/rosedblabs/rosedb/v2/utils"
 	"sync"
 	"time"
+
+	"github.com/rosedblabs/rosedb/v2/utils"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/valyala/bytebufferpool"
@@ -23,7 +24,7 @@ import (
 //
 // You must call Commit method to commit the batch, otherwise the DB will be locked.
 type Batch struct {
-	db               *DB
+	db               *rose
 	pendingWrites    []*LogRecord     // save the data to be written
 	pendingWritesMap map[uint64][]int // map record hash key to index, fast lookup to pendingWrites
 	options          BatchOptions
@@ -35,7 +36,7 @@ type Batch struct {
 }
 
 // NewBatch creates a new Batch instance.
-func (db *DB) NewBatch(options BatchOptions) *Batch {
+func (db *rose) NewBatch(options BatchOptions) *Batch {
 	batch := &Batch{
 		db:         db,
 		options:    options,
@@ -68,7 +69,7 @@ func newRecord() interface{} {
 	return &LogRecord{}
 }
 
-func (b *Batch) init(rdonly, sync bool, db *DB) *Batch {
+func (b *Batch) init(rdonly, sync bool, db *rose) *Batch {
 	b.options.ReadOnly = rdonly
 	b.options.Sync = sync
 	b.db = db

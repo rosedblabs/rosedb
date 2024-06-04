@@ -3,7 +3,6 @@ package benchmark
 import (
 	"errors"
 	"math/rand"
-	"os"
 	"testing"
 
 	"github.com/rosedblabs/rosedb/v2"
@@ -11,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var db *rosedb.DB
+var db rosedb.DB
 
 func openDB() func() {
 	options := rosedb.DefaultOptions
@@ -25,7 +24,7 @@ func openDB() func() {
 
 	return func() {
 		_ = db.Close()
-		_ = os.RemoveAll(options.DirPath)
+		_ = options.Fs.RemoveAll(options.DirPath)
 	}
 }
 

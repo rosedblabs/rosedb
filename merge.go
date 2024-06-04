@@ -12,6 +12,7 @@ import (
 
 	"github.com/rosedblabs/rosedb/v2/index"
 	"github.com/rosedblabs/wal"
+	"github.com/spf13/afero"
 	"github.com/valyala/bytebufferpool"
 )
 
@@ -29,7 +30,7 @@ const (
 //
 // If reopenAfterDone is true, the original file will be replaced by the merge file,
 // and db's index will be rebuilt after the merge completes.
-func (db *DB) Merge(reopenAfterDone bool) error {
+func (db *rose) Merge(reopenAfterDone bool) error {
 	if err := db.doMerge(); err != nil {
 		return err
 	}
@@ -44,7 +45,7 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 	_ = db.closeFiles()
 
 	// replace original file
-	err := loadMergeFiles(db.options.DirPath)
+	err := loadMergeFiles(db.options.DirPath, db.fs)
 	if err != nil {
 		return err
 	}
@@ -64,7 +65,7 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 	return nil
 }
 
-func (db *DB) doMerge() error {
+func (db *rose) doMerge() error {
 	db.mu.Lock()
 	// check if the database is closed
 	if db.closed {
@@ -172,10 +173,10 @@ func (db *DB) doMerge() error {
 	return nil
 }
 
-func (db *DB) openMergeDB() (*DB, error) {
+func (db *rose) openMergeDB() (*rose, error) {
 	mergePath := mergeDirPath(db.options.DirPath)
 	// delete the merge directory if it exists
-	if err := os.RemoveAll(mergePath); err != nil {
+	if err := db.fs.RemoveAll(mergePath); err != nil {
 		return nil, err
 	}
 	options := db.options
@@ -183,10 +184,11 @@ func (db *DB) openMergeDB() (*DB, error) {
 	// because we can sync the data file manually after the merge operation is completed.
 	options.Sync, options.BytesPerSync = false, 0
 	options.DirPath = mergePath
-	mergeDB, err := Open(options)
+	mergeDBI, err := Open(options)
 	if err != nil {
 		return nil, err
 	}
+	mergeDB := mergeDBI.(*rose)
 
 	// open the hint files to write the new position of the data.
 	hintFile, err := wal.Open(wal.Options{
@@ -211,7 +213,7 @@ func mergeDirPath(dirPath string) string {
 	return filepath.Join(dir, base+mergeDirSuffixName)
 }
 
-func (db *DB) openMergeFinishedFile() (*wal.WAL, error) {
+func (db *rose) openMergeFinishedFile() (*wal.WAL, error) {
 	return wal.Open(wal.Options{
 		DirPath:        db.options.DirPath,
 		SegmentSize:    GB,
@@ -230,10 +232,10 @@ func positionEquals(a, b *wal.ChunkPosition) bool {
 
 // loadMergeFiles loads all the merge files, and copy the data to the original data directory.
 // If there is no merge files, or the merge operation is not completed, it will return nil.
-func loadMergeFiles(dirPath string) error {
+func loadMergeFiles(dirPath string, fs afero.Fs) error {
 	// check if there is a merge directory
 	mergeDirPath := mergeDirPath(dirPath)
-	if _, err := os.Stat(mergeDirPath); err != nil {
+	if _, err := fs.Stat(mergeDirPath); err != nil {
 		// does not exist, just return.
 		if os.IsNotExist(err) {
 			return nil
@@ -243,12 +245,12 @@ func loadMergeFiles(dirPath string) error {
 
 	// remove the merge directory at last
 	defer func() {
-		_ = os.RemoveAll(mergeDirPath)
+		_ = fs.RemoveAll(mergeDirPath)
 	}()
 
 	copyFile := func(suffix string, fileId uint32, force bool) {
 		srcFile := wal.SegmentFileName(mergeDirPath, suffix, fileId)
-		stat, err := os.Stat(srcFile)
+		stat, err := fs.Stat(srcFile)
 		if os.IsNotExist(err) {
 			return
 		}
@@ -259,11 +261,11 @@ func loadMergeFiles(dirPath string) error {
 			return
 		}
 		destFile := wal.SegmentFileName(dirPath, suffix, fileId)
-		_ = os.Rename(srcFile, destFile)
+		_ = fs.Rename(srcFile, destFile)
 	}
 
 	// get the merge finished segment id
-	mergeFinSegmentId, err := getMergeFinSegmentId(mergeDirPath)
+	mergeFinSegmentId, err := getMergeFinSegmentId(mergeDirPath, fs)
 	if err != nil {
 		return err
 	}
@@ -281,8 +283,8 @@ func loadMergeFiles(dirPath string) error {
 		// }
 
 		// remove the original data file
-		if _, err = os.Stat(destFile); err == nil {
-			if err = os.Remove(destFile); err != nil {
+		if _, err = fs.Stat(destFile); err == nil {
+			if err = fs.Remove(destFile); err != nil {
 				return err
 			}
 		}
@@ -299,9 +301,9 @@ func loadMergeFiles(dirPath string) error {
 	return nil
 }
 
-func getMergeFinSegmentId(mergePath string) (wal.SegmentID, error) {
+func getMergeFinSegmentId(mergePath string, fs afero.Fs) (wal.SegmentID, error) {
 	// check if the merge operation is completed
-	mergeFinFile, err := os.Open(wal.SegmentFileName(mergePath, mergeFinNameSuffix, 1))
+	mergeFinFile, err := fs.Open(wal.SegmentFileName(mergePath, mergeFinNameSuffix, 1))
 	if err != nil {
 		// if the merge finished file does not exist, it means that the merge operation is not completed.
 		// so we should remove the merge directory and return nil.
@@ -321,7 +323,7 @@ func getMergeFinSegmentId(mergePath string) (wal.SegmentID, error) {
 	return mergeFinSegmentId, nil
 }
 
-func (db *DB) loadIndexFromHintFile() error {
+func (db *rose) loadIndexFromHintFile() error {
 	hintFile, err := wal.Open(wal.Options{
 		DirPath: db.options.DirPath,
 		// we don't need to rotate the hint file, just write all data to the same file.

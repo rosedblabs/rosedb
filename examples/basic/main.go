@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"runtime"
 
 	"github.com/rosedblabs/rosedb/v2"
@@ -22,7 +21,7 @@ func main() {
 
 	//remove data dir, for test, there's no need to keep any file or directory on disk
 	defer func() {
-		_ = os.RemoveAll(options.DirPath)
+		_ = options.Fs.RemoveAll(options.DirPath)
 	}()
 
 	// open a database

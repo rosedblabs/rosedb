@@ -6,17 +6,16 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"regexp"
 	"sync"
 	"time"
 
 	"github.com/bwmarrin/snowflake"
-	"github.com/gofrs/flock"
 	"github.com/robfig/cron/v3"
 	"github.com/rosedblabs/rosedb/v2/index"
 	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/rosedblabs/wal"
+	"github.com/spf13/afero"
 )
 
 const (
@@ -26,7 +25,7 @@ const (
 	mergeFinNameSuffix = ".MERGEFIN"
 )
 
-// DB represents a ROSEDB database instance.
+// rose represents a ROSEDB database instance.
 // It is built on the bitcask model, which is a log-structured storage.
 // It uses WAL to write data, and uses an in-memory index to store the key
 // and the position of the data in the WAL,
@@ -39,12 +38,13 @@ const (
 // our total data size is limited by the memory size.
 //
 // So if your memory can almost hold all the keys, ROSEDB is the perfect storage engine for you.
-type DB struct {
+type rose struct {
+	fs               afero.Fs
 	dataFiles        *wal.WAL // data files are a sets of segment files in WAL.
 	hintFile         *wal.WAL // hint file is used to store the key and the position for fast startup.
 	index            index.Indexer
 	options          Options
-	fileLock         *flock.Flock
+	fileLock         Lock
 	mu               sync.RWMutex
 	closed           bool
 	mergeRunning     uint32 // indicate if the database is merging
@@ -73,36 +73,53 @@ type Stat struct {
 //
 // It will open the wal files in the database directory and load the index from them.
 // Return the DB instance, or an error if any.
-func Open(options Options) (*DB, error) {
+
+func OpenReadOnly(options Options) (DBReadOnly, error) {
+	return open(options, false)
+}
+func Open(options Options) (DB, error) {
+	return open(options, true)
+}
+func open(options Options, writeEnable bool) (*rose, error) {
 	// check options
 	if err := checkOptions(options); err != nil {
 		return nil, err
 	}
 
+	fs := options.Fs
+
 	// create data directory if not exist
-	if _, err := os.Stat(options.DirPath); err != nil {
-		if err := os.MkdirAll(options.DirPath, os.ModePerm); err != nil {
+	if _, err := fs.Stat(options.DirPath); err != nil {
+		if err := fs.MkdirAll(options.DirPath, os.ModePerm); err != nil {
 			return nil, err
 		}
 	}
 
 	// create file lock, prevent multiple processes from using the same database directory
-	fileLock := flock.New(filepath.Join(options.DirPath, fileLockName))
-	hold, err := fileLock.TryLock()
-	if err != nil {
-		return nil, err
-	}
-	if !hold {
-		return nil, ErrDatabaseIsUsing
+	// fileLock := flock.New(filepath.Join(options.DirPath, fileLockName))
+
+	var err error
+	var fileLock Lock = nil
+
+	if writeEnable {
+		fileLock = options.Lock
+		hold, err := fileLock.TryLock()
+		if err != nil {
+			return nil, err
+		}
+		if !hold {
+			return nil, ErrDatabaseIsUsing
+		}
 	}
 
 	// load merge files if exists
-	if err = loadMergeFiles(options.DirPath); err != nil {
+	if err = loadMergeFiles(options.DirPath, fs); err != nil {
 		return nil, err
 	}
 
 	// init DB instance
-	db := &DB{
+	db := &rose{
+		fs:           fs,
 		index:        index.NewIndexer(),
 		options:      options,
 		fileLock:     fileLock,
@@ -151,7 +168,10 @@ func Open(options Options) (*DB, error) {
 	return db, nil
 }
 
-func (db *DB) openWalFiles() (*wal.WAL, error) {
+func (db *rose) Fs() afero.Fs {
+	return db.fs
+}
+func (db *rose) openWalFiles() (*wal.WAL, error) {
 	// open data files from WAL
 	walFiles, err := wal.Open(wal.Options{
 		DirPath:        db.options.DirPath,
@@ -167,7 +187,7 @@ func (db *DB) openWalFiles() (*wal.WAL, error) {
 	return walFiles, nil
 }
 
-func (db *DB) loadIndex() error {
+func (db *rose) loadIndex() error {
 	// load index frm hint file
 	if err := db.loadIndexFromHintFile(); err != nil {
 		return err
@@ -182,7 +202,7 @@ func (db *DB) loadIndex() error {
 // Close the database, close all data files and release file lock.
 // Set the closed flag to true.
 // The DB instance cannot be used after closing.
-func (db *DB) Close() error {
+func (db *rose) Close() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -191,8 +211,10 @@ func (db *DB) Close() error {
 	}
 
 	// release file lock
-	if err := db.fileLock.Unlock(); err != nil {
-		return err
+	if db.fileLock != nil {
+		if err := db.fileLock.Unlock(); err != nil {
+			return err
+		}
 	}
 
 	// close watch channel
@@ -210,7 +232,7 @@ func (db *DB) Close() error {
 }
 
 // closeFiles close all data files and hint file
-func (db *DB) closeFiles() error {
+func (db *rose) closeFiles() error {
 	// close wal
 	if err := db.dataFiles.Close(); err != nil {
 		return err
@@ -225,7 +247,7 @@ func (db *DB) closeFiles() error {
 }
 
 // Sync all data files to the underlying storage.
-func (db *DB) Sync() error {
+func (db *rose) Sync() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -233,7 +255,7 @@ func (db *DB) Sync() error {
 }
 
 // Stat returns the statistics of the database.
-func (db *DB) Stat() *Stat {
+func (db *rose) Stat() *Stat {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -251,7 +273,7 @@ func (db *DB) Stat() *Stat {
 // Put a key-value pair into the database.
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Put operation.
-func (db *DB) Put(key []byte, value []byte) error {
+func (db *rose) Put(key []byte, value []byte) error {
 	batch := db.batchPool.Get().(*Batch)
 	defer func() {
 		batch.reset()
@@ -271,7 +293,7 @@ func (db *DB) Put(key []byte, value []byte) error {
 // PutWithTTL a key-value pair into the database, with a ttl.
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one PutWithTTL operation.
-func (db *DB) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
+func (db *rose) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
 	batch := db.batchPool.Get().(*Batch)
 	defer func() {
 		batch.reset()
@@ -291,7 +313,7 @@ func (db *DB) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
 // Get the value of the specified key from the database.
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Get operation.
-func (db *DB) Get(key []byte) ([]byte, error) {
+func (db *rose) Get(key []byte) ([]byte, error) {
 	batch := db.batchPool.Get().(*Batch)
 	batch.init(true, false, db)
 	defer func() {
@@ -305,7 +327,7 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 // Delete the specified key from the database.
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Delete operation.
-func (db *DB) Delete(key []byte) error {
+func (db *rose) Delete(key []byte) error {
 	batch := db.batchPool.Get().(*Batch)
 	defer func() {
 		batch.reset()
@@ -325,7 +347,7 @@ func (db *DB) Delete(key []byte) error {
 // Exist checks if the specified key exists in the database.
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Exist operation.
-func (db *DB) Exist(key []byte) (bool, error) {
+func (db *rose) Exist(key []byte) (bool, error) {
 	batch := db.batchPool.Get().(*Batch)
 	batch.init(true, false, db)
 	defer func() {
@@ -337,7 +359,7 @@ func (db *DB) Exist(key []byte) (bool, error) {
 }
 
 // Expire sets the ttl of the key.
-func (db *DB) Expire(key []byte, ttl time.Duration) error {
+func (db *rose) Expire(key []byte, ttl time.Duration) error {
 	batch := db.batchPool.Get().(*Batch)
 	defer func() {
 		batch.reset()
@@ -355,7 +377,7 @@ func (db *DB) Expire(key []byte, ttl time.Duration) error {
 }
 
 // TTL get the ttl of the key.
-func (db *DB) TTL(key []byte) (time.Duration, error) {
+func (db *rose) TTL(key []byte) (time.Duration, error) {
 	batch := db.batchPool.Get().(*Batch)
 	batch.init(true, false, db)
 	defer func() {
@@ -368,7 +390,7 @@ func (db *DB) TTL(key []byte) (time.Duration, error) {
 
 // Persist removes the ttl of the key.
 // If the key does not exist or expired, it will return ErrKeyNotFound.
-func (db *DB) Persist(key []byte) error {
+func (db *rose) Persist(key []byte) error {
 	batch := db.batchPool.Get().(*Batch)
 	defer func() {
 		batch.reset()
@@ -385,7 +407,7 @@ func (db *DB) Persist(key []byte) error {
 	return batch.Commit()
 }
 
-func (db *DB) Watch() (<-chan *Event, error) {
+func (db *rose) Watch() (<-chan *Event, error) {
 	if db.options.WatchQueueSize <= 0 {
 		return nil, ErrWatchDisabled
 	}
@@ -393,7 +415,7 @@ func (db *DB) Watch() (<-chan *Event, error) {
 }
 
 // Ascend calls handleFn for each key/value pair in the db in ascending order.
-func (db *DB) Ascend(handleFn func(k []byte, v []byte) (bool, error)) {
+func (db *rose) Ascend(handleFn func(k []byte, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -410,7 +432,7 @@ func (db *DB) Ascend(handleFn func(k []byte, v []byte) (bool, error)) {
 }
 
 // AscendRange calls handleFn for each key/value pair in the db within the range [startKey, endKey] in ascending order.
-func (db *DB) AscendRange(startKey, endKey []byte, handleFn func(k []byte, v []byte) (bool, error)) {
+func (db *rose) AscendRange(startKey, endKey []byte, handleFn func(k []byte, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -427,7 +449,7 @@ func (db *DB) AscendRange(startKey, endKey []byte, handleFn func(k []byte, v []b
 }
 
 // AscendGreaterOrEqual calls handleFn for each key/value pair in the db with keys greater than or equal to the given key.
-func (db *DB) AscendGreaterOrEqual(key []byte, handleFn func(k []byte, v []byte) (bool, error)) {
+func (db *rose) AscendGreaterOrEqual(key []byte, handleFn func(k []byte, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -447,7 +469,7 @@ func (db *DB) AscendGreaterOrEqual(key []byte, handleFn func(k []byte, v []byte)
 // Since our expiry time is stored in the value, if you want to filter expired keys,
 // you need to set parameter filterExpired to true. But the performance will be affected.
 // Because we need to read the value of each key to determine if it is expired.
-func (db *DB) AscendKeys(pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) {
+func (db *rose) AscendKeys(pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -478,7 +500,7 @@ func (db *DB) AscendKeys(pattern []byte, filterExpired bool, handleFn func(k []b
 }
 
 // Descend calls handleFn for each key/value pair in the db in descending order.
-func (db *DB) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
+func (db *rose) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -495,7 +517,7 @@ func (db *DB) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
 }
 
 // DescendRange calls handleFn for each key/value pair in the db within the range [startKey, endKey] in descending order.
-func (db *DB) DescendRange(startKey, endKey []byte, handleFn func(k []byte, v []byte) (bool, error)) {
+func (db *rose) DescendRange(startKey, endKey []byte, handleFn func(k []byte, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -512,7 +534,7 @@ func (db *DB) DescendRange(startKey, endKey []byte, handleFn func(k []byte, v []
 }
 
 // DescendLessOrEqual calls handleFn for each key/value pair in the db with keys less than or equal to the given key.
-func (db *DB) DescendLessOrEqual(key []byte, handleFn func(k []byte, v []byte) (bool, error)) {
+func (db *rose) DescendLessOrEqual(key []byte, handleFn func(k []byte, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -532,7 +554,7 @@ func (db *DB) DescendLessOrEqual(key []byte, handleFn func(k []byte, v []byte) (
 // Since our expiry time is stored in the value, if you want to filter expired keys,
 // you need to set parameter filterExpired to true. But the performance will be affected.
 // Because we need to read the value of each key to determine if it is expired.
-func (db *DB) DescendKeys(pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) {
+func (db *rose) DescendKeys(pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -562,7 +584,7 @@ func (db *DB) DescendKeys(pattern []byte, filterExpired bool, handleFn func(k []
 	})
 }
 
-func (db *DB) checkValue(chunk []byte) []byte {
+func (db *rose) checkValue(chunk []byte) []byte {
 	record := decodeLogRecord(chunk)
 	now := time.Now().UnixNano()
 	if record.Type != LogRecordDeleted && !record.IsExpired(now) {
@@ -592,8 +614,8 @@ func checkOptions(options Options) error {
 // loadIndexFromWAL loads index from WAL.
 // It will iterate over all the WAL files and read data
 // from them to rebuild the index.
-func (db *DB) loadIndexFromWAL() error {
-	mergeFinSegmentId, err := getMergeFinSegmentId(db.options.DirPath)
+func (db *rose) loadIndexFromWAL() error {
+	mergeFinSegmentId, err := getMergeFinSegmentId(db.options.DirPath, db.fs)
 	if err != nil {
 		return err
 	}
@@ -663,7 +685,7 @@ func (db *DB) loadIndexFromWAL() error {
 // DeleteExpiredKeys scan the entire index in ascending order to delete expired keys.
 // It is a time-consuming operation, so we need to specify a timeout
 // to prevent the DB from being unavailable for a long time.
-func (db *DB) DeleteExpiredKeys(timeout time.Duration) error {
+func (db *rose) DeleteExpiredKeys(timeout time.Duration) error {
 	// set timeout
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()

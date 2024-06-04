@@ -230,7 +230,7 @@ func TestDB_Multi_Open_Merge(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, value, v)
 	}
-	assert.Equal(t, len(kvs), db.index.Size())
+	assert.Equal(t, len(kvs), db.(*rose).index.Size())
 }
 
 func TestDB_Merge_ReopenAfterDone(t *testing.T) {
@@ -250,7 +250,7 @@ func TestDB_Merge_ReopenAfterDone(t *testing.T) {
 
 	err = db.Merge(true)
 	assert.Nil(t, err)
-	_, err = os.Stat(mergeDirPath(options.DirPath))
+	_, err = db.Fs().Stat(mergeDirPath(options.DirPath))
 	assert.Equal(t, true, os.IsNotExist(err))
 
 	for key, value := range kvs {
@@ -258,7 +258,7 @@ func TestDB_Merge_ReopenAfterDone(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, value, v)
 	}
-	assert.Equal(t, len(kvs), db.index.Size())
+	assert.Equal(t, len(kvs), db.(*rose).index.Size())
 }
 
 func TestDB_Merge_Concurrent_Put(t *testing.T) {
@@ -289,7 +289,7 @@ func TestDB_Merge_Concurrent_Put(t *testing.T) {
 	}()
 	wg.Wait()
 
-	_, err = os.Stat(mergeDirPath(options.DirPath))
+	_, err = db.Fs().Stat(mergeDirPath(options.DirPath))
 	assert.Equal(t, true, os.IsNotExist(err))
 
 	var count int
@@ -300,6 +300,6 @@ func TestDB_Merge_Concurrent_Put(t *testing.T) {
 		count++
 		return true
 	})
-	assert.Equal(t, count, db.index.Size())
+	assert.Equal(t, count, db.(*rose).index.Size())
 
 }

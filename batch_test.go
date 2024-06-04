@@ -1,17 +1,16 @@
 package rosedb
 
 import (
-	"os"
 	"testing"
 
 	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/stretchr/testify/assert"
 )
 
-func destroyDB(db *DB) {
+func destroyDB(db DB) {
 	_ = db.Close()
-	_ = os.RemoveAll(db.options.DirPath)
-	_ = os.RemoveAll(mergeDirPath(db.options.DirPath))
+	_ = db.Fs().RemoveAll(db.(*rose).options.DirPath)
+	_ = db.Fs().RemoveAll(mergeDirPath(db.(*rose).options.DirPath))
 }
 
 func TestBatch_Put_Normal(t *testing.T) {
@@ -140,7 +139,7 @@ func TestBatch_Exist_Normal(t *testing.T) {
 	assertKeyExistOrNot(t, db2, utils.GetTestKey(99), true)
 }
 
-func generateData(t *testing.T, db *DB, start, end int, valueLen int) {
+func generateData(t *testing.T, db DB, start, end int, valueLen int) {
 	for ; start < end; start++ {
 		err := db.Put(utils.GetTestKey(start), utils.RandomValue(valueLen))
 		assert.Nil(t, err)
@@ -183,7 +182,7 @@ func batchPutAndIterate(t *testing.T, segmentSize int64, size int, valueLen int)
 	}
 }
 
-func assertKeyExistOrNot(t *testing.T, db *DB, key []byte, exist bool) {
+func assertKeyExistOrNot(t *testing.T, db DB, key []byte, exist bool) {
 	val, err := db.Get(key)
 	if exist {
 		assert.Nil(t, err)

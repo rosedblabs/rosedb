@@ -108,7 +108,7 @@ func TestDB_Concurrent_Put(t *testing.T) {
 		count++
 		return true
 	})
-	assert.Equal(t, count, db.index.Size())
+	assert.Equal(t, count, db.(*rose).index.Size())
 }
 
 func TestDB_Ascend(t *testing.T) {
@@ -770,7 +770,7 @@ func TestDB_Auto_Merge(t *testing.T) {
 	}
 
 	{
-		reader := db.dataFiles.NewReader()
+		reader := db.(*rose).dataFiles.NewReader()
 		var keyCnt int
 		for {
 			if _, _, err := reader.Next(); errors.Is(err, io.EOF) {
@@ -784,7 +784,7 @@ func TestDB_Auto_Merge(t *testing.T) {
 	}
 
 	mergeDirPath := mergeDirPath(options.DirPath)
-	if _, err := os.Stat(mergeDirPath); err != nil {
+	if _, err := db.Fs().Stat(mergeDirPath); err != nil {
 		assert.True(t, os.IsNotExist(err))
 	}
 	assert.NoError(t, db.Close())
@@ -795,7 +795,7 @@ func TestDB_Auto_Merge(t *testing.T) {
 		assert.Nil(t, err)
 		{
 			<-time.After(time.Second * 2)
-			reader := db.dataFiles.NewReader()
+			reader := db.(*rose).dataFiles.NewReader()
 			var keyCnt int
 			for {
 				if _, _, err := reader.Next(); errors.Is(err, io.EOF) {

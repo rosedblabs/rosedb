@@ -1,6 +1,12 @@
 package rosedb
 
-import "os"
+import (
+	"os"
+	"path/filepath"
+
+	"github.com/gofrs/flock"
+	"github.com/spf13/afero"
+)
 
 // Options specifies the options for opening a database.
 type Options struct {
@@ -42,6 +48,10 @@ type Options struct {
 	// do not set this shecule too frequently, it will affect the performance.
 	// refer to https://en.wikipedia.org/wiki/Cron
 	AutoMergeCronExpr string
+
+	Fs afero.Fs
+
+	Lock Lock
 }
 
 // BatchOptions specifies the options for creating a batch.
@@ -67,6 +77,8 @@ var DefaultOptions = Options{
 	BytesPerSync:      0,
 	WatchQueueSize:    0,
 	AutoMergeCronExpr: "",
+	Fs:                afero.NewOsFs(),
+	Lock:              flock.New(filepath.Join(tempDBDir(), fileLockName)),
 }
 
 var DefaultBatchOptions = BatchOptions{
