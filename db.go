@@ -706,6 +706,8 @@ func (db *DB) DeleteExpiredKeys(timeout time.Duration) error {
 				}
 				db.expiredCursorKey = record.Key
 			}
+
+			done <- struct{}{}
 		}
 	}(ctx)
 
