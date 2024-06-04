@@ -174,6 +174,7 @@ func (db *rose) Fs() afero.Fs {
 func (db *rose) openWalFiles() (*wal.WAL, error) {
 	// open data files from WAL
 	walFiles, err := wal.Open(wal.Options{
+		Fs:             db.options.Fs,
 		DirPath:        db.options.DirPath,
 		SegmentSize:    db.options.SegmentSize,
 		SegmentFileExt: dataFileNameSuffix,

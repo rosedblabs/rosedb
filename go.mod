@@ -2,7 +2,7 @@ module github.com/rosedblabs/rosedb/v2
 
 go 1.19
 
-replace github.com/rosedblabs/wal => github.com/izouxv/wal v0.0.0-20240604050325-522b6b05e11d
+replace github.com/rosedblabs/wal => github.com/izouxv/wal v0.0.9
 
 require (
 	github.com/google/btree v1.1.2
@@ -14,6 +14,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect

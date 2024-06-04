@@ -192,6 +192,7 @@ func (db *rose) openMergeDB() (*rose, error) {
 
 	// open the hint files to write the new position of the data.
 	hintFile, err := wal.Open(wal.Options{
+		Fs:      db.options.Fs,
 		DirPath: options.DirPath,
 		// we don't need to rotate the hint file, just write all data to a single file.
 		SegmentSize:    math.MaxInt64,
@@ -215,6 +216,7 @@ func mergeDirPath(dirPath string) string {
 
 func (db *rose) openMergeFinishedFile() (*wal.WAL, error) {
 	return wal.Open(wal.Options{
+		Fs:             db.options.Fs,
 		DirPath:        db.options.DirPath,
 		SegmentSize:    GB,
 		SegmentFileExt: mergeFinNameSuffix,
@@ -325,6 +327,7 @@ func getMergeFinSegmentId(mergePath string, fs afero.Fs) (wal.SegmentID, error) 
 
 func (db *rose) loadIndexFromHintFile() error {
 	hintFile, err := wal.Open(wal.Options{
+		Fs:      db.options.Fs,
 		DirPath: db.options.DirPath,
 		// we don't need to rotate the hint file, just write all data to the same file.
 		SegmentSize:    math.MaxInt64,
