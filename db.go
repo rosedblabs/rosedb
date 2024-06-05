@@ -582,7 +582,7 @@ func checkOptions(options Options) error {
 	if len(options.AutoMergeCronExpr) > 0 {
 		if _, err := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor).
 			Parse(options.AutoMergeCronExpr); err != nil {
-			return fmt.Errorf("databse auto merge cron expression is invalid, err: %s", err)
+			return fmt.Errorf("database auto merge cron expression is invalid, err: %s", err)
 		}
 	}
 

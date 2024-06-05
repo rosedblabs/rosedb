@@ -13,7 +13,7 @@ var (
 	letters = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 )
 
-// GetTestKey get formated key, for test only
+// GetTestKey get formatted key, for test only
 func GetTestKey(i int) []byte {
 	return []byte(fmt.Sprintf("rosedb-test-key-%09d", i))
 }
