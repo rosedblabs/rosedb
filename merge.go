@@ -196,7 +196,6 @@ func (db *DB) openMergeDB() (*DB, error) {
 		SegmentFileExt: hintFileNameSuffix,
 		Sync:           false,
 		BytesPerSync:   0,
-		BlockCache:     0,
 	})
 	if err != nil {
 		return nil, err
@@ -218,7 +217,6 @@ func (db *DB) openMergeFinishedFile() (*wal.WAL, error) {
 		SegmentFileExt: mergeFinNameSuffix,
 		Sync:           false,
 		BytesPerSync:   0,
-		BlockCache:     0,
 	})
 }
 
@@ -327,7 +325,6 @@ func (db *DB) loadIndexFromHintFile() error {
 		// we don't need to rotate the hint file, just write all data to the same file.
 		SegmentSize:    math.MaxInt64,
 		SegmentFileExt: hintFileNameSuffix,
-		BlockCache:     32 * KB * 10,
 	})
 	if err != nil {
 		return err

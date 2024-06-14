@@ -157,7 +157,6 @@ func (db *DB) openWalFiles() (*wal.WAL, error) {
 		DirPath:        db.options.DirPath,
 		SegmentSize:    db.options.SegmentSize,
 		SegmentFileExt: dataFileNameSuffix,
-		BlockCache:     db.options.BlockCache,
 		Sync:           db.options.Sync,
 		BytesPerSync:   db.options.BytesPerSync,
 	})
