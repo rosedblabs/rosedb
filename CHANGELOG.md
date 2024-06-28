@@ -1,3 +1,10 @@
+# Release 2.3.7(2024-06-28)
+## 🎄 Enhancements
+* Update wal, imporve the iterate performance, and remove block cache.
+## 🎠 Community
+* Thanks to @yinheli
+  * fix typo (https://github.com/rosedblabs/rosedb/commit/e51d6dc6dbba3d3e9c5a1c98de93df4b611b8755)
+
 # Release 2.3.6(2024-04-05)
 ## 🐞 Bug Fixes
 * Fix index lock
