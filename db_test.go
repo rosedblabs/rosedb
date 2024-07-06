@@ -111,6 +111,36 @@ func TestDB_Concurrent_Put(t *testing.T) {
 	assert.Equal(t, count, db.index.Size())
 }
 
+func TestDB_Concurrent_Get(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	for i := 0; i < 10000; i++ {
+		err = db.Put(utils.GetTestKey(i), utils.RandomValue(128))
+		assert.Nil(t, err)
+	}
+	for i := 10000; i < 20000; i++ {
+		err = db.Put(utils.GetTestKey(i), utils.RandomValue(4096))
+		assert.Nil(t, err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(50)
+	for i := 0; i < 50; i++ {
+		go func() {
+			defer wg.Done()
+			db.Ascend(func(key []byte, value []byte) (bool, error) {
+				assert.NotNil(t, key)
+				assert.NotNil(t, value)
+				return true, nil
+			})
+		}()
+	}
+	wg.Wait()
+}
+
 func TestDB_Ascend(t *testing.T) {
 	// Create a test database instance
 	options := DefaultOptions
@@ -791,11 +821,11 @@ func TestDB_Auto_Merge(t *testing.T) {
 
 	{
 		options.AutoMergeCronExpr = "* * * * * *" // every second
-		db, err := Open(options)
+		db2, err := Open(options)
 		assert.Nil(t, err)
 		{
 			<-time.After(time.Second * 2)
-			reader := db.dataFiles.NewReader()
+			reader := db2.dataFiles.NewReader()
 			var keyCnt int
 			for {
 				if _, _, err := reader.Next(); errors.Is(err, io.EOF) {
@@ -806,6 +836,6 @@ func TestDB_Auto_Merge(t *testing.T) {
 			// after merge records are only valid data, so totally is 2000
 			assert.Equal(t, 2000, keyCnt)
 		}
-		destroyDB(db)
+		_ = db2.Close()
 	}
 }

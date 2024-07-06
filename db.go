@@ -600,6 +600,7 @@ func (db *DB) loadIndexFromWAL() error {
 	now := time.Now().UnixNano()
 	// get a reader for WAL
 	reader := db.dataFiles.NewReader()
+	db.dataFiles.SetIsStartupTraversal(true)
 	for {
 		// if the current segment id is less than the mergeFinSegmentId,
 		// we can skip this segment because it has been merged,
@@ -656,6 +657,7 @@ func (db *DB) loadIndexFromWAL() error {
 				})
 		}
 	}
+	db.dataFiles.SetIsStartupTraversal(false)
 	return nil
 }
 

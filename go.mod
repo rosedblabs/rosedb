@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/google/btree v1.1.2
-	github.com/rosedblabs/wal v1.3.7
+	github.com/rosedblabs/wal v1.3.8
 	github.com/valyala/bytebufferpool v1.0.0
 )
 

@@ -335,6 +335,7 @@ func (db *DB) loadIndexFromHintFile() error {
 
 	// read all the hint records from the hint file
 	reader := hintFile.NewReader()
+	hintFile.SetIsStartupTraversal(true)
 	for {
 		chunk, _, err := reader.Next()
 		if err != nil {
@@ -349,5 +350,6 @@ func (db *DB) loadIndexFromHintFile() error {
 		// So just put them into the index without checking.
 		db.index.Put(key, position)
 	}
+	hintFile.SetIsStartupTraversal(false)
 	return nil
 }
