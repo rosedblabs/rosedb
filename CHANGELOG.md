@@ -1,3 +1,7 @@
+# Release 2.3.8(2024-07-06)
+## 🐞 Bug Fixes
+* fix concurrent read
+
 # Release 2.3.7(2024-06-28)
 ## 🎄 Enhancements
 * Update wal, imporve the iterate performance, and remove block cache.
