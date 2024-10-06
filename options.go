@@ -1,6 +1,12 @@
 package rosedb
 
-import "os"
+import (
+	"math/rand"
+	"os"
+	"path/filepath"
+	"strconv"
+	"time"
+)
 
 // Options specifies the options for opening a database.
 type Options struct {
@@ -68,7 +74,8 @@ var DefaultBatchOptions = BatchOptions{
 	ReadOnly: false,
 }
 
+var nameRand = rand.NewSource(time.Now().UnixNano())
+
 func tempDBDir() string {
-	dir, _ := os.MkdirTemp("", "rosedb-temp")
-	return dir
+	return filepath.Join(os.TempDir(), "rosedb-temp"+strconv.Itoa(int(nameRand.Int63())))
 }
