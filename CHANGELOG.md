@@ -1,3 +1,7 @@
+# Release 2.3.9(2024-10-06)
+## 🎄 Enhancements
+* fix `DefaultOptions`: just return a temp dir name instead of creating it.
+
 # Release 2.3.8(2024-07-06)
 ## 🐞 Bug Fixes
 * fix concurrent read
