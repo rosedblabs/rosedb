@@ -714,6 +714,6 @@ func (db *DB) DeleteExpiredKeys(timeout time.Duration) error {
 	case <-ctx.Done():
 		return innerErr
 	case <-done:
-		return nil
+		return innerErr
 	}
 }
