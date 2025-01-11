@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/rosedblabs/rosedb/v2"
 	"github.com/rosedblabs/rosedb/v2/utils"
+	"runtime"
 )
 
 // this file shows how to use the Merge feature of rosedb.
@@ -12,7 +13,12 @@ import (
 func main() {
 	// specify the options
 	options := rosedb.DefaultOptions
-	options.DirPath = "/tmp/rosedb_merge"
+	sysType := runtime.GOOS
+	if sysType == "windows" {
+		options.DirPath = "C:\\rosedb_merge"
+	} else {
+		options.DirPath = "/tmp/rosedb_merge"
+	}
 
 	// open a database
 	db, err := rosedb.Open(options)

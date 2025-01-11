@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/rosedblabs/rosedb/v2"
 )
@@ -11,7 +12,12 @@ import (
 func main() {
 	// specify the options
 	options := rosedb.DefaultOptions
-	options.DirPath = "/tmp/rosedb_iterate"
+	sysType := runtime.GOOS
+	if sysType == "windows" {
+		options.DirPath = "C:\\rosedb_iterate"
+	} else {
+		options.DirPath = "/tmp/rosedb_iterate"
+	}
 
 	// open a database
 	db, err := rosedb.Open(options)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/rosedblabs/rosedb/v2"
@@ -13,7 +14,12 @@ import (
 func main() {
 	// specify the options
 	options := rosedb.DefaultOptions
-	options.DirPath = "/tmp/rosedb_watch"
+	sysType := runtime.GOOS
+	if sysType == "windows" {
+		options.DirPath = "C:\\rosedb_watch"
+	} else {
+		options.DirPath = "/tmp/rosedb_watch"
+	}
 	options.WatchQueueSize = 1000
 
 	// open a database

@@ -16,12 +16,23 @@ import (
 // An error will be returned if you try to use Put or Delete method.
 //
 // If readonly is false, you can use Put and Delete method to write data to the batch.
-// The data will be written to the database when you call Commit method.
+// The data will be written to the database permanently after you call Commit method.
+//
+// NB. There can only one write batch and multi read-only batches at the same time.
+// And the db method is not allowed to use before the batch commit/rollback.
+// So a typical usage of Batch is like:
+//
+// batch := db.NewBatch(rosedb.DefaultBatchOptions)
+// batch.Put/batch.Get (and other methods)
+// /* 1. a new write batch is not allowed */
+// /* 2. invoke DB method is not allowed, like db.Put */
+// batch.Commit() or batch.Rollback()
 //
 // Batch is not a transaction, it does not guarantee isolation.
 // But it can guarantee atomicity, consistency and durability(if the Sync options is true).
 //
-// You must call Commit method to commit the batch, otherwise the DB will be locked.
+// You must call Commit or Rollback method after using the batch,
+// otherwise the DB will be locked in an unexpected way.
 type Batch struct {
 	db               *DB
 	pendingWrites    []*LogRecord     // save the data to be written
@@ -68,12 +79,11 @@ func newRecord() interface{} {
 	return &LogRecord{}
 }
 
-func (b *Batch) init(rdonly, sync bool, db *DB) *Batch {
+func (b *Batch) init(rdonly, sync bool, db *DB) {
 	b.options.ReadOnly = rdonly
 	b.options.Sync = sync
 	b.db = db
 	b.lock()
-	return b
 }
 
 func (b *Batch) reset() {
