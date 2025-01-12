@@ -23,7 +23,7 @@ rosedb is well tested and ready for production use. There are serveral projects 
 
 ![](https://github.com/rosedblabs/rosedb/blob/main/docs/imgs/design-overview-rosedb.png)
 
-RoseDB log files are using the WAL(Write Ahead Log) as backend, which are append-only files with block cache.
+RoseDB log files are using the WAL(Write Ahead Log) as backend, which are append-only files with multiple blocks.
 
 > wal: https://github.com/rosedblabs/wal
 

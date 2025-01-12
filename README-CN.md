@@ -22,7 +22,7 @@ RoseDB 经过充分测试，可放心在生产环境使用。目前有一些用�
 
 ![](https://github.com/rosedblabs/rosedb/blob/main/docs/imgs/design-overview-rosedb.png)
 
-RoseDB 存储数据的文件使用预写日志（Write Ahead Log），这些日志文件是具有 block 缓存的只追加写入（append-only）文件。
+RoseDB 存储数据的文件使用预写日志（Write Ahead Log），这些日志文件是具有分块结构的只追加写入（append-only）文件。
 
 > wal: https://github.com/rosedblabs/wal
 
