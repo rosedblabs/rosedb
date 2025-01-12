@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/rand"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/rosedblabs/rosedb/v2"
@@ -15,7 +16,12 @@ var db *rosedb.DB
 
 func openDB() func() {
 	options := rosedb.DefaultOptions
-	options.DirPath = "/tmp/rosedbv2"
+	sysType := runtime.GOOS
+	if sysType == "windows" {
+		options.DirPath = "C:\\rosedb_bench_test"
+	} else {
+		options.DirPath = "/tmp/rosedb_bench_test"
+	}
 
 	var err error
 	db, err = rosedb.Open(options)
@@ -60,7 +66,9 @@ func benchmarkBatchPut(b *testing.B) {
 	b.ReportAllocs()
 
 	batch := db.NewBatch(rosedb.DefaultBatchOptions)
-	defer batch.Commit()
+	defer func() {
+		_ = batch.Commit()
+	}()
 	for i := 0; i < b.N; i++ {
 		err := batch.Put(utils.GetTestKey(i), utils.RandomValue(1024))
 		assert.Nil(b, err)
@@ -76,7 +84,9 @@ func benchmarkBatchGet(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	batch := db.NewBatch(rosedb.DefaultBatchOptions)
-	defer batch.Commit()
+	defer func() {
+		_ = batch.Commit()
+	}()
 	for i := 0; i < b.N; i++ {
 		_, err := batch.Get(utils.GetTestKey(rand.Int()))
 		if err != nil && !errors.Is(err, rosedb.ErrKeyNotFound) {
