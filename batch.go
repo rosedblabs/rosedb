@@ -3,11 +3,11 @@ package rosedb
 import (
 	"bytes"
 	"fmt"
-	"github.com/rosedblabs/rosedb/v2/utils"
 	"sync"
 	"time"
 
 	"github.com/bwmarrin/snowflake"
+	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/valyala/bytebufferpool"
 )
 
@@ -583,7 +583,7 @@ func (b *Batch) lookupPendingWrites(key []byte) *LogRecord {
 
 	hashKey := utils.MemHash(key)
 	for _, entry := range b.pendingWritesMap[hashKey] {
-		if bytes.Compare(b.pendingWrites[entry].Key, key) == 0 {
+		if bytes.Equal(b.pendingWrites[entry].Key, key) {
 			return b.pendingWrites[entry]
 		}
 	}
