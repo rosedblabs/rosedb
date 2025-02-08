@@ -476,6 +476,40 @@ func (db *DB) AscendKeys(pattern []byte, filterExpired bool, handleFn func(k []b
 	})
 }
 
+// AscendKeysRange calls handleFn for keys within a range in the db in ascending order.
+// Since our expiry time is stored in the value, if you want to filter expired keys,
+// you need to set parameter filterExpired to true. But the performance will be affected.
+// Because we need to read the value of each key to determine if it is expired.
+func (db *DB) AscendKeysRange(startKey, endKey, pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	var reg *regexp.Regexp
+	if len(pattern) > 0 {
+		reg = regexp.MustCompile(string(pattern))
+	}
+
+	db.index.AscendRange(startKey, endKey, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		if reg == nil || reg.Match(key) {
+			var invalid bool
+			if filterExpired {
+				chunk, err := db.dataFiles.Read(pos)
+				if err != nil {
+					return false, err
+				}
+				if value := db.checkValue(chunk); value == nil {
+					invalid = true
+				}
+			}
+			if invalid {
+				return true, nil
+			}
+			return handleFn(key)
+		}
+		return true, nil
+	})
+}
+
 // Descend calls handleFn for each key/value pair in the db in descending order.
 func (db *DB) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
 	db.mu.RLock()
@@ -541,6 +575,40 @@ func (db *DB) DescendKeys(pattern []byte, filterExpired bool, handleFn func(k []
 	}
 
 	db.index.Descend(func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		if reg == nil || reg.Match(key) {
+			var invalid bool
+			if filterExpired {
+				chunk, err := db.dataFiles.Read(pos)
+				if err != nil {
+					return false, err
+				}
+				if value := db.checkValue(chunk); value == nil {
+					invalid = true
+				}
+			}
+			if invalid {
+				return true, nil
+			}
+			return handleFn(key)
+		}
+		return true, nil
+	})
+}
+
+// DescendKeysRange calls handleFn for keys within a range in the db in descending order.
+// Since our expiry time is stored in the value, if you want to filter expired keys,
+// you need to set parameter filterExpired to true. But the performance will be affected.
+// Because we need to read the value of each key to determine if it is expired.
+func (db *DB) DescendKeysRange(startKey, endKey, pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	var reg *regexp.Regexp
+	if len(pattern) > 0 {
+		reg = regexp.MustCompile(string(pattern))
+	}
+
+	db.index.DescendRange(startKey, endKey, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
 		if reg == nil || reg.Match(key) {
 			var invalid bool
 			if filterExpired {
