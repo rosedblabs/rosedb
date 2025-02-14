@@ -446,68 +446,70 @@ func (db *DB) AscendGreaterOrEqual(key []byte, handleFn func(k []byte, v []byte)
 // Since our expiry time is stored in the value, if you want to filter expired keys,
 // you need to set parameter filterExpired to true. But the performance will be affected.
 // Because we need to read the value of each key to determine if it is expired.
-func (db *DB) AscendKeys(pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) {
+func (db *DB) AscendKeys(pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
 	var reg *regexp.Regexp
 	if len(pattern) > 0 {
-		reg = regexp.MustCompile(string(pattern))
+		var err error
+		reg, err = regexp.Compile(string(pattern))
+		if err != nil {
+			return err
+		}
 	}
 
 	db.index.Ascend(func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		if reg == nil || reg.Match(key) {
-			var invalid bool
-			if filterExpired {
-				chunk, err := db.dataFiles.Read(pos)
-				if err != nil {
-					return false, err
-				}
-				if value := db.checkValue(chunk); value == nil {
-					invalid = true
-				}
+		if reg != nil && !reg.Match(key) {
+			return true, nil
+		}
+		if filterExpired {
+			chunk, err := db.dataFiles.Read(pos)
+			if err != nil {
+				return false, err
 			}
-			if invalid {
+			if value := db.checkValue(chunk); value == nil {
 				return true, nil
 			}
-			return handleFn(key)
 		}
-		return true, nil
+		return handleFn(key)
 	})
+	return nil
 }
 
 // AscendKeysRange calls handleFn for keys within a range in the db in ascending order.
 // Since our expiry time is stored in the value, if you want to filter expired keys,
 // you need to set parameter filterExpired to true. But the performance will be affected.
 // Because we need to read the value of each key to determine if it is expired.
-func (db *DB) AscendKeysRange(startKey, endKey, pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) {
+func (db *DB) AscendKeysRange(startKey, endKey, pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
 	var reg *regexp.Regexp
 	if len(pattern) > 0 {
-		reg = regexp.MustCompile(string(pattern))
+		var err error
+		reg, err = regexp.Compile(string(pattern))
+		if err != nil {
+			return err
+		}
 	}
 
 	db.index.AscendRange(startKey, endKey, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		if reg == nil || reg.Match(key) {
-			var invalid bool
-			if filterExpired {
-				chunk, err := db.dataFiles.Read(pos)
-				if err != nil {
-					return false, err
-				}
-				if value := db.checkValue(chunk); value == nil {
-					invalid = true
-				}
+		if reg != nil && !reg.Match(key) {
+			return true, nil
+		}
+		if filterExpired {
+			chunk, err := db.dataFiles.Read(pos)
+			if err != nil {
+				return false, err
 			}
-			if invalid {
+			if value := db.checkValue(chunk); value == nil {
 				return true, nil
 			}
-			return handleFn(key)
 		}
-		return true, nil
+		return handleFn(key)
 	})
+	return nil
 }
 
 // Descend calls handleFn for each key/value pair in the db in descending order.
@@ -565,68 +567,70 @@ func (db *DB) DescendLessOrEqual(key []byte, handleFn func(k []byte, v []byte) (
 // Since our expiry time is stored in the value, if you want to filter expired keys,
 // you need to set parameter filterExpired to true. But the performance will be affected.
 // Because we need to read the value of each key to determine if it is expired.
-func (db *DB) DescendKeys(pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) {
+func (db *DB) DescendKeys(pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
 	var reg *regexp.Regexp
 	if len(pattern) > 0 {
-		reg = regexp.MustCompile(string(pattern))
+		var err error
+		reg, err = regexp.Compile(string(pattern))
+		if err != nil {
+			return err
+		}
 	}
 
 	db.index.Descend(func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		if reg == nil || reg.Match(key) {
-			var invalid bool
-			if filterExpired {
-				chunk, err := db.dataFiles.Read(pos)
-				if err != nil {
-					return false, err
-				}
-				if value := db.checkValue(chunk); value == nil {
-					invalid = true
-				}
+		if reg != nil && !reg.Match(key) {
+			return true, nil
+		}
+		if filterExpired {
+			chunk, err := db.dataFiles.Read(pos)
+			if err != nil {
+				return false, err
 			}
-			if invalid {
+			if value := db.checkValue(chunk); value == nil {
 				return true, nil
 			}
-			return handleFn(key)
 		}
-		return true, nil
+		return handleFn(key)
 	})
+	return nil
 }
 
 // DescendKeysRange calls handleFn for keys within a range in the db in descending order.
 // Since our expiry time is stored in the value, if you want to filter expired keys,
 // you need to set parameter filterExpired to true. But the performance will be affected.
 // Because we need to read the value of each key to determine if it is expired.
-func (db *DB) DescendKeysRange(startKey, endKey, pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) {
+func (db *DB) DescendKeysRange(startKey, endKey, pattern []byte, filterExpired bool, handleFn func(k []byte) (bool, error)) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
 	var reg *regexp.Regexp
 	if len(pattern) > 0 {
-		reg = regexp.MustCompile(string(pattern))
+		var err error
+		reg, err = regexp.Compile(string(pattern))
+		if err != nil {
+			return err
+		}
 	}
 
 	db.index.DescendRange(startKey, endKey, func(key []byte, pos *wal.ChunkPosition) (bool, error) {
-		if reg == nil || reg.Match(key) {
-			var invalid bool
-			if filterExpired {
-				chunk, err := db.dataFiles.Read(pos)
-				if err != nil {
-					return false, err
-				}
-				if value := db.checkValue(chunk); value == nil {
-					invalid = true
-				}
+		if reg != nil && !reg.Match(key) {
+			return true, nil
+		}
+		if filterExpired {
+			chunk, err := db.dataFiles.Read(pos)
+			if err != nil {
+				return false, err
 			}
-			if invalid {
+			if value := db.checkValue(chunk); value == nil {
 				return true, nil
 			}
-			return handleFn(key)
 		}
-		return true, nil
+		return handleFn(key)
 	})
+	return nil
 }
 
 func (db *DB) checkValue(chunk []byte) []byte {
