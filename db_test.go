@@ -429,6 +429,100 @@ func TestDB_AscendKeysExpired(t *testing.T) {
 	validate([][]byte{[]byte("bcae"), []byte("cdea")}, nil)
 }
 
+func TestDB_AscendKeysRange(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	// add some data
+	err = db.Put([]byte("apple"), []byte("value1"))
+	assert.Nil(t, err)
+	err = db.Put([]byte("banana"), []byte("value2"))
+	assert.Nil(t, err)
+	err = db.PutWithTTL([]byte("cherry"), []byte("value3"), time.Millisecond*100)
+	assert.Nil(t, err)
+	err = db.Put([]byte("date"), []byte("value4"))
+	assert.Nil(t, err)
+	err = db.Put([]byte("grape"), []byte("value5"))
+	assert.Nil(t, err)
+
+	// normal iteration
+	var result []string
+	err = db.AscendKeysRange([]byte("banana"), []byte("grape"), nil, false, func(k []byte) (bool, error) {
+		result = append(result, string(k))
+		return true, nil
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"banana", "cherry", "date"}, result)
+
+	// Regular expression iteration
+	result = nil
+	err = db.AscendKeysRange([]byte("apple"), []byte("grape"), []byte(".*e$"), false, func(k []byte) (bool, error) {
+		result = append(result, string(k))
+		return true, nil
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"apple", "date"}, result)
+
+	// Filter expired keys
+	time.Sleep(time.Millisecond * 200)
+	result = nil
+	err = db.AscendKeysRange([]byte("banana"), []byte("grape"), nil, true, func(k []byte) (bool, error) {
+		result = append(result, string(k))
+		return true, nil
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"banana", "date"}, result)
+}
+
+func TestDB_DescendKeysRange(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	// add some data
+	err = db.Put([]byte("apple"), []byte("value1"))
+	assert.Nil(t, err)
+	err = db.Put([]byte("banana"), []byte("value2"))
+	assert.Nil(t, err)
+	err = db.PutWithTTL([]byte("cherry"), []byte("value3"), time.Millisecond*100)
+	assert.Nil(t, err)
+	err = db.Put([]byte("date"), []byte("value4"))
+	assert.Nil(t, err)
+	err = db.Put([]byte("grape"), []byte("value5"))
+	assert.Nil(t, err)
+
+	// normal iteration
+	var result []string
+	err = db.DescendKeysRange([]byte("grape"), []byte("banana"), nil, false, func(k []byte) (bool, error) {
+		result = append(result, string(k))
+		return true, nil
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"grape", "date", "cherry"}, result)
+
+	// Regular expression iteration
+	result = nil
+	err = db.DescendKeysRange([]byte("grape"), []byte("apple"), []byte(".*e$"), false, func(k []byte) (bool, error) {
+		result = append(result, string(k))
+		return true, nil
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"grape", "date"}, result)
+
+	// Filter expired keys
+	time.Sleep(time.Millisecond * 200)
+	result = nil
+	err = db.DescendKeysRange([]byte("grape"), []byte("banana"), nil, true, func(k []byte) (bool, error) {
+		result = append(result, string(k))
+		return true, nil
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"grape", "date"}, result)
+}
+
 func TestDB_DescendKeys(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
