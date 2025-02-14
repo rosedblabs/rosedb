@@ -138,7 +138,8 @@ func Open(options Options) (*DB, error) {
 			),
 		)
 		_, err = db.cronScheduler.AddFunc(options.AutoMergeCronExpr, func() {
-			// maybe we should deal with different errors with different logic, but a background task can't omit its error.
+			// maybe we should deal with different errors with different logic,
+			// but a background task can't omit its error.
 			// after auto merge, we should close and reopen the db.
 			_ = db.Merge(true)
 		})
