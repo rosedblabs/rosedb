@@ -3,6 +3,7 @@ package index
 import (
 	"bytes"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"github.com/rosedblabs/wal"
@@ -192,4 +193,94 @@ func TestMemoryBTree_AscendGreaterOrEqual_DescendLessOrEqual(t *testing.T) {
 		fmt.Printf("Key: %s, Position: %+v\n", key, pos)
 		return true, nil
 	})
+}
+
+func TestMemoryBTree_Iterator(t *testing.T) {
+	mt := newBTree()
+	// Test iterator for empty tree
+	it1 := mt.Iterator(false)
+	assert.Equal(t, false, it1.Valid())
+
+	// Build test data
+	testData := map[string]*wal.ChunkPosition{
+		"acee": {SegmentId: 1, BlockNumber: 2, ChunkOffset: 3, ChunkSize: 100},
+		"bbcd": {SegmentId: 2, BlockNumber: 3, ChunkOffset: 4, ChunkSize: 200},
+		"code": {SegmentId: 3, BlockNumber: 4, ChunkOffset: 5, ChunkSize: 300},
+		"eede": {SegmentId: 4, BlockNumber: 5, ChunkOffset: 6, ChunkSize: 400},
+	}
+
+	// Insert test data
+	for k, v := range testData {
+		mt.Put([]byte(k), v)
+	}
+
+	// Test ascending iteration
+	iter := mt.Iterator(false)
+	var prevKey string
+	count := 0
+	for iter.Rewind(); iter.Valid(); iter.Next() {
+		currKey := string(iter.Key())
+		pos := iter.Value()
+
+		// Verify key order
+		if prevKey != "" {
+			assert.True(t, currKey > prevKey)
+		}
+
+		// Verify value correctness
+		expectedPos := testData[currKey]
+		assert.Equal(t, expectedPos, pos)
+
+		prevKey = currKey
+		count++
+	}
+	assert.Equal(t, len(testData), count)
+
+	// Test descending iteration
+	iter = mt.Iterator(true)
+	prevKey = ""
+	count = 0
+	for iter.Rewind(); iter.Valid(); iter.Next() {
+		currKey := string(iter.Key())
+		pos := iter.Value()
+
+		// Verify key order
+		if prevKey != "" {
+			assert.True(t, currKey < prevKey)
+		}
+
+		// Verify value correctness
+		expectedPos := testData[currKey]
+		assert.Equal(t, expectedPos, pos)
+
+		prevKey = currKey
+		count++
+	}
+	assert.Equal(t, len(testData), count)
+
+	// Test Seek operation
+	testCases := []struct {
+		seekKey    string
+		expectKey  string
+		shouldFind bool
+	}{
+		{"b", "bbcd", true},   // Should find bbcd
+		{"cc", "code", true},  // Should find code
+		{"d", "eede", true},   // Should find eede
+		{"f", "", false},      // Should not find any element
+		{"aaa", "acee", true}, // Should find acee
+	}
+
+	for _, tc := range testCases {
+		iter = mt.Iterator(false)
+		iter.Seek([]byte(tc.seekKey))
+
+		if tc.shouldFind {
+			assert.True(t, iter.Valid())
+			assert.Equal(t, tc.expectKey, string(iter.Key()))
+			assert.Equal(t, testData[tc.expectKey], iter.Value())
+		} else {
+			assert.False(t, iter.Valid())
+		}
+	}
 }

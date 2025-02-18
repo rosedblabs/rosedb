@@ -147,3 +147,129 @@ func (mt *MemoryBTree) DescendLessOrEqual(key []byte, handleFn func(key []byte, 
 		return cont
 	})
 }
+
+func (mt *MemoryBTree) Iterator(reverse bool) Iterator {
+	if mt.tree == nil {
+		return nil
+	}
+	mt.lock.RLock()
+	defer mt.lock.RUnlock()
+
+	return newMemoryBTreeIterator(mt.tree, reverse)
+}
+
+// memoryBTreeIterator represents a B-tree index iterator implementation
+type memoryBTreeIterator struct {
+	tree    *btree.BTree // underlying B-tree implementation
+	reverse bool         // indicates whether to traverse in descending order
+	current *item        // current element being traversed
+	valid   bool         // indicates if the iterator is valid
+}
+
+func newMemoryBTreeIterator(tree *btree.BTree, reverse bool) *memoryBTreeIterator {
+	var current *item
+	var valid bool
+	if tree.Len() > 0 {
+		if reverse {
+			current = tree.Max().(*item)
+		} else {
+			current = tree.Min().(*item)
+		}
+		valid = true
+	}
+	return &memoryBTreeIterator{
+		tree:    tree.Clone(),
+		reverse: reverse,
+		current: current,
+		valid:   valid,
+	}
+}
+
+func (it *memoryBTreeIterator) Rewind() {
+	if !it.valid {
+		return
+	}
+	if it.reverse {
+		if mx, ok := it.tree.Max().(*item); ok {
+			it.current = mx
+		}
+	} else {
+		if mi, ok := it.tree.Min().(*item); ok {
+			it.current = mi
+		}
+	}
+}
+
+func (it *memoryBTreeIterator) Seek(key []byte) {
+	if !it.valid {
+		return
+	}
+	seekItem := &item{key: key}
+	it.valid = false
+	if it.reverse {
+		it.tree.DescendLessOrEqual(seekItem, func(i btree.Item) bool {
+			it.current = i.(*item)
+			it.valid = true
+			return false
+		})
+	} else {
+		it.tree.AscendGreaterOrEqual(seekItem, func(i btree.Item) bool {
+			it.current = i.(*item)
+			it.valid = true
+			return false
+		})
+	}
+}
+
+func (it *memoryBTreeIterator) Next() {
+	if !it.valid {
+		return
+	}
+	it.valid = false
+	if it.reverse {
+		it.tree.DescendLessOrEqual(it.current, func(i btree.Item) bool {
+			if !i.(*item).Less(it.current) {
+				return true
+			}
+			it.current = i.(*item)
+			it.valid = true
+			return false
+		})
+	} else {
+		it.tree.AscendGreaterOrEqual(it.current, func(i btree.Item) bool {
+			if !it.current.Less(i.(*item)) {
+				return true
+			}
+			it.current = i.(*item)
+			it.valid = true
+			return false
+		})
+	}
+	if !it.valid {
+		it.current = nil
+	}
+}
+
+func (it *memoryBTreeIterator) Valid() bool {
+	return it.valid
+}
+
+func (it *memoryBTreeIterator) Key() []byte {
+	if !it.valid {
+		return nil
+	}
+	return it.current.key
+}
+
+func (it *memoryBTreeIterator) Value() *wal.ChunkPosition {
+	if !it.valid {
+		return nil
+	}
+	return it.current.pos
+}
+
+func (it *memoryBTreeIterator) Close() {
+	it.tree = nil
+	it.current = nil
+	it.valid = false
+}
