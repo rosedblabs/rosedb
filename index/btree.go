@@ -148,7 +148,7 @@ func (mt *MemoryBTree) DescendLessOrEqual(key []byte, handleFn func(key []byte, 
 	})
 }
 
-func (mt *MemoryBTree) Iterator(reverse bool) Iterator {
+func (mt *MemoryBTree) Iterator(reverse bool) IndexIterator {
 	if mt.tree == nil {
 		return nil
 	}

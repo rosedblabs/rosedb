@@ -43,8 +43,8 @@ type Indexer interface {
 	// invoking handleFn. Stops if handleFn returns false.
 	DescendLessOrEqual(key []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error))
 
-	// Iterator returns an index iterator.
-	Iterator(reverse bool) Iterator
+	// IndexIterator returns an index iterator.
+	Iterator(reverse bool) IndexIterator
 }
 
 type IndexerType = byte
@@ -65,8 +65,8 @@ func NewIndexer() Indexer {
 	}
 }
 
-// Iterator represents a generic index iterator interface.
-type Iterator interface {
+// IndexIterator represents a generic index iterator interface.
+type IndexIterator interface {
 	// Rewind resets the iterator to its initial position.
 	Rewind()
 
