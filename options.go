@@ -53,6 +53,17 @@ type BatchOptions struct {
 	ReadOnly bool
 }
 
+// IteratorOptions defines configuration options for creating a new iterator.
+type IteratorOptions struct {
+	// Prefix specifies a key prefix for filtering. If set, the iterator will only
+	// traverse keys that start with this prefix. Default is empty (no filtering).
+	Prefix []byte
+
+	// Reverse determines the traversal order. If true, the iterator will traverse
+	// in descending order. Default is false (ascending order).
+	Reverse bool
+}
+
 const (
 	B  = 1
 	KB = 1024 * B
@@ -72,6 +83,11 @@ var DefaultOptions = Options{
 var DefaultBatchOptions = BatchOptions{
 	Sync:     true,
 	ReadOnly: false,
+}
+
+var DefaultIteratorOptions = IteratorOptions{
+	Prefix:  nil,
+	Reverse: false,
 }
 
 var nameRand = rand.NewSource(time.Now().UnixNano())
