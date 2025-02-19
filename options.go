@@ -62,6 +62,11 @@ type IteratorOptions struct {
 	// Reverse determines the traversal order. If true, the iterator will traverse
 	// in descending order. Default is false (ascending order).
 	Reverse bool
+
+	// ContinueOnError determines how the iterator handles errors during iteration.
+	// If true, the iterator will log errors and continue to the next entry.
+	// If false, the iterator will stop and become invalid when an error occurs.
+	ContinueOnError bool
 }
 
 const (
@@ -86,8 +91,9 @@ var DefaultBatchOptions = BatchOptions{
 }
 
 var DefaultIteratorOptions = IteratorOptions{
-	Prefix:  nil,
-	Reverse: false,
+	Prefix:          nil,
+	Reverse:         false,
+	ContinueOnError: false,
 }
 
 var nameRand = rand.NewSource(time.Now().UnixNano())

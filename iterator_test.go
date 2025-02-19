@@ -211,3 +211,50 @@ func TestIterator_Expired(t *testing.T) {
 	assert.False(t, iter.Valid())
 	iter.Close()
 }
+
+func TestIterator_Error(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	// Put some key-value pairs
+	keys := [][]byte{
+		[]byte("key1"),
+		[]byte("key2"),
+		[]byte("key3"),
+	}
+	values := [][]byte{
+		[]byte("value1"),
+		[]byte("value2"),
+		[]byte("value3"),
+	}
+
+	for i := 0; i < len(keys); i++ {
+		err := db.Put(keys[i], values[i])
+		assert.Nil(t, err)
+	}
+
+	// Corrupt the data file to simulate read errors
+	db.dataFiles.Close()
+
+	// Test with ContinueOnError = true
+	iteratorOptions := DefaultIteratorOptions
+	iteratorOptions.ContinueOnError = true
+	iter := db.NewIterator(iteratorOptions)
+
+	// Should continue iteration despite errors
+	iter.Rewind()
+	assert.NotNil(t, iter.Err())
+	iter.Close()
+
+	// Test with ContinueOnError = false
+	iteratorOptions.ContinueOnError = false
+	iter = db.NewIterator(iteratorOptions)
+
+	// Should stop iteration on first error
+	iter.Rewind()
+	assert.NotNil(t, iter.Err())
+	assert.False(t, iter.Valid())
+	iter.Close()
+}

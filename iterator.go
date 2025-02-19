@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"bytes"
+	"log"
 	"time"
 
 	"github.com/rosedblabs/rosedb/v2/index"
@@ -13,6 +14,7 @@ type Iterator struct {
 	indexIter index.IndexIterator // index iterator for traversing keys
 	db        *DB                 // database instance for retrieving values
 	options   IteratorOptions     // user-defined configuration options
+	lastError error               // stores the last error encountered during iteration
 }
 
 // NewIterator initializes and returns a new database iterator with the specified options.
@@ -71,6 +73,9 @@ func (it *Iterator) Key() []byte {
 		return nil
 	}
 	record := it.skipToNext()
+	if record == nil {
+		return nil
+	}
 	return record.Key
 }
 
@@ -80,6 +85,9 @@ func (it *Iterator) Value() []byte {
 		return nil
 	}
 	record := it.skipToNext()
+	if record == nil {
+		return nil
+	}
 	return record.Value
 }
 
@@ -91,6 +99,11 @@ func (it *Iterator) Close() {
 	it.indexIter.Close()
 	it.indexIter = nil
 	it.db = nil
+}
+
+// Err returns the last error encountered during iteration.
+func (it *Iterator) Err() error {
+	return it.lastError
 }
 
 // skipToNext advances the iterator to the next valid entry that satisfies all conditions:
@@ -120,6 +133,12 @@ func (it *Iterator) skipToNext() *LogRecord {
 
 		chunk, err := it.db.dataFiles.Read(position)
 		if err != nil {
+			it.lastError = err
+			if !it.options.ContinueOnError {
+				it.Close()
+				return nil
+			}
+			log.Printf("Error reading data file at key %q: %v", key, err)
 			it.indexIter.Next()
 			continue
 		}
