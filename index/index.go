@@ -42,6 +42,9 @@ type Indexer interface {
 	// DescendLessOrEqual iterates in descending order, starting from key <= given key,
 	// invoking handleFn. Stops if handleFn returns false.
 	DescendLessOrEqual(key []byte, handleFn func(key []byte, position *wal.ChunkPosition) (bool, error))
+
+	// IndexIterator returns an index iterator.
+	Iterator(reverse bool) IndexIterator
 }
 
 type IndexerType = byte
@@ -60,4 +63,28 @@ func NewIndexer() Indexer {
 	default:
 		panic("unexpected index type")
 	}
+}
+
+// IndexIterator represents a generic index iterator interface.
+type IndexIterator interface {
+	// Rewind resets the iterator to its initial position.
+	Rewind()
+
+	// Seek positions the cursor to the element with the specified key.
+	Seek(key []byte)
+
+	// Next moves the cursor to the next element.
+	Next()
+
+	// Valid checks if the iterator is still valid for reading.
+	Valid() bool
+
+	// Key returns the key of the current element.
+	Key() []byte
+
+	// Value returns the value (chunk position) of the current element.
+	Value() *wal.ChunkPosition
+
+	// Close releases the resources associated with the iterator.
+	Close()
 }
