@@ -186,19 +186,13 @@ func newMemoryBTreeIterator(tree *btree.BTree, reverse bool) *memoryBTreeIterato
 }
 
 func (it *memoryBTreeIterator) Rewind() {
-	if it.tree == nil {
+	if it.tree == nil || it.tree.Len() == 0 {
 		return
 	}
 	if it.reverse {
-		if mx, ok := it.tree.Max().(*item); ok {
-			it.current = mx
-			it.valid = true
-		}
+		it.current = it.tree.Max().(*item)
 	} else {
-		if mi, ok := it.tree.Min().(*item); ok {
-			it.current = mi
-			it.valid = true
-		}
+		it.current = it.tree.Min().(*item)
 	}
 }
 
@@ -271,6 +265,7 @@ func (it *memoryBTreeIterator) Value() *wal.ChunkPosition {
 }
 
 func (it *memoryBTreeIterator) Close() {
+	it.tree.Clear(true)
 	it.tree = nil
 	it.current = nil
 	it.valid = false
