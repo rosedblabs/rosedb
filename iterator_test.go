@@ -47,12 +47,10 @@ func TestIterator_Basic(t *testing.T) {
 	iter = db.NewIterator(iteratorOptions)
 	i := 0
 	for iter.Rewind(); iter.Valid(); iter.Next() {
-		key := iter.Key()
-		assert.NotNil(t, key)
-		assert.True(t, bytes.Equal(key, keys[i]))
-		val := iter.Value()
-		assert.NotNil(t, val)
-		assert.True(t, bytes.Equal(val, values[i]))
+		item := iter.Item()
+		assert.NotNil(t, item)
+		assert.True(t, bytes.Equal(item.Key, keys[i]))
+		assert.True(t, bytes.Equal(item.Value, values[i]))
 		i++
 	}
 	assert.Equal(t, len(keys), i)
@@ -64,12 +62,10 @@ func TestIterator_Basic(t *testing.T) {
 
 	i = len(keys) - 1
 	for iter.Rewind(); iter.Valid(); iter.Next() {
-		key := iter.Key()
-		assert.NotNil(t, key)
-		assert.True(t, bytes.Equal(key, keys[i]))
-		val := iter.Value()
-		assert.Nil(t, err)
-		assert.True(t, bytes.Equal(val, values[i]))
+		item := iter.Item()
+		assert.NotNil(t, item)
+		assert.True(t, bytes.Equal(item.Key, keys[i]))
+		assert.True(t, bytes.Equal(item.Value, values[i]))
 		i--
 	}
 	assert.Equal(t, -1, i)
@@ -109,12 +105,10 @@ func TestIterator_Seek(t *testing.T) {
 
 	iter.Seek([]byte("key3"))
 	assert.True(t, iter.Valid())
-	key := iter.Key()
-	assert.NotNil(t, key)
-	assert.True(t, bytes.Equal(key, []byte("key3")))
-	val := iter.Value()
-	assert.NotNil(t, val)
-	assert.True(t, bytes.Equal(val, []byte("value3")))
+	item := iter.Item()
+	assert.NotNil(t, item)
+	assert.True(t, bytes.Equal(item.Key, []byte("key3")))
+	assert.True(t, bytes.Equal(item.Value, []byte("value3")))
 	iter.Close()
 
 	// Test seek in descending order
@@ -123,12 +117,10 @@ func TestIterator_Seek(t *testing.T) {
 
 	iter.Seek([]byte("key3"))
 	assert.True(t, iter.Valid())
-	key = iter.Key()
-	assert.NotNil(t, key)
-	assert.True(t, bytes.Equal(key, []byte("key3")))
-	val = iter.Value()
-	assert.NotNil(t, val)
-	assert.True(t, bytes.Equal(val, []byte("value3")))
+	item = iter.Item()
+	assert.NotNil(t, item)
+	assert.True(t, bytes.Equal(item.Key, []byte("key3")))
+	assert.True(t, bytes.Equal(item.Value, []byte("value3")))
 	iter.Close()
 }
 
@@ -168,12 +160,10 @@ func TestIterator_Prefix(t *testing.T) {
 	expectedValues := [][]byte{[]byte("value3"), []byte("value4")}
 	i := 0
 	for iter.Rewind(); iter.Valid(); iter.Next() {
-		key := iter.Key()
-		assert.NotNil(t, key)
-		assert.True(t, bytes.Equal(key, expectedKeys[i]))
-		val := iter.Value()
-		assert.NotNil(t, val)
-		assert.True(t, bytes.Equal(val, expectedValues[i]))
+		item := iter.Item()
+		assert.NotNil(t, item)
+		assert.True(t, bytes.Equal(item.Key, expectedKeys[i]))
+		assert.True(t, bytes.Equal(item.Value, expectedValues[i]))
 		i++
 	}
 	assert.Equal(t, len(expectedKeys), i)
@@ -201,12 +191,10 @@ func TestIterator_Expired(t *testing.T) {
 
 	iter.Rewind()
 	assert.True(t, iter.Valid())
-	key := iter.Key()
-	assert.NotNil(t, key)
-	assert.True(t, bytes.Equal(key, []byte("key2")))
-	val := iter.Value()
-	assert.NotNil(t, val)
-	assert.True(t, bytes.Equal(val, []byte("value2")))
+	item := iter.Item()
+	assert.NotNil(t, item)
+	assert.True(t, bytes.Equal(item.Key, []byte("key2")))
+	assert.True(t, bytes.Equal(item.Value, []byte("value2")))
 	iter.Next()
 	assert.False(t, iter.Valid())
 	iter.Close()

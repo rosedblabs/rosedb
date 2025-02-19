@@ -8,6 +8,12 @@ import (
 	"github.com/rosedblabs/rosedb/v2/index"
 )
 
+// Item represents a key-value pair in the database.
+type Item struct {
+	Key   []byte
+	Value []byte
+}
+
 // Iterator represents a database-level iterator that provides methods to traverse over the key/value pairs in the database.
 // It wraps the index iterator and adds functionality to retrieve the actual values from the database.
 type Iterator struct {
@@ -37,7 +43,6 @@ func (it *Iterator) Rewind() {
 		return
 	}
 	it.indexIter.Rewind()
-	_ = it.skipToNext()
 }
 
 // Seek positions the iterator at a specific key in the database.
@@ -47,7 +52,6 @@ func (it *Iterator) Seek(key []byte) {
 		return
 	}
 	it.indexIter.Seek(key)
-	_ = it.skipToNext()
 }
 
 // Next advances the iterator to the next valid entry in the database.
@@ -67,8 +71,8 @@ func (it *Iterator) Valid() bool {
 	return it.indexIter.Valid()
 }
 
-// Key retrieves the key at the current iterator position.
-func (it *Iterator) Key() []byte {
+// Item retrieves the current key-value pair as an Item.
+func (it *Iterator) Item() *Item {
 	if it.db == nil || it.indexIter == nil || !it.Valid() {
 		return nil
 	}
@@ -76,19 +80,10 @@ func (it *Iterator) Key() []byte {
 	if record == nil {
 		return nil
 	}
-	return record.Key
-}
-
-// Value retrieves the value associated with the current key in the iterator.
-func (it *Iterator) Value() []byte {
-	if it.db == nil || it.indexIter == nil || !it.Valid() {
-		return nil
+	return &Item{
+		Key:   record.Key,
+		Value: record.Value,
 	}
-	record := it.skipToNext()
-	if record == nil {
-		return nil
-	}
-	return record.Value
 }
 
 // Close releases all resources associated with the iterator.
