@@ -163,4 +163,12 @@ see the [examples](https://github.com/rosedblabs/rosedb/tree/main/examples) for 
 Welcome to join the [Slack](https://join.slack.com/t/rosedblabs/shared_invite/zt-19oj8ecqb-V02ycMV0BH1~Tn6tfeTz6A) channel and [Discussions](https://github.com/orgs/rosedblabs/discussions) to connect with RoseDB team developers and other users.
 
 ## Contributors
-[![](https://opencollective.com/rosedb/contributors.svg?width=890&button=false)](https://github.com/rosedblabs/rosedb/graphs/contributors)
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
