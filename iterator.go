@@ -14,8 +14,10 @@ type Item struct {
 	Value []byte
 }
 
-// Iterator represents a database-level iterator that provides methods to traverse over the key/value pairs in the database.
-// It wraps the index iterator and adds functionality to retrieve the actual values from the database.
+// Iterator represents a database-level iterator that
+// provides methods to traverse over the key/value pairs in the database.
+// It wraps the index iterator and adds functionality to
+// retrieve the actual values from the database.
 type Iterator struct {
 	indexIter index.IndexIterator // index iterator for traversing keys
 	db        *DB                 // database instance for retrieving values
@@ -76,6 +78,7 @@ func (it *Iterator) Item() *Item {
 	if it.db == nil || it.indexIter == nil || !it.Valid() {
 		return nil
 	}
+
 	record := it.skipToNext()
 	if record == nil {
 		return nil
@@ -91,6 +94,7 @@ func (it *Iterator) Close() {
 	if it.db == nil || it.indexIter == nil {
 		return
 	}
+
 	it.indexIter.Close()
 	it.indexIter = nil
 	it.db = nil
@@ -119,13 +123,13 @@ func (it *Iterator) skipToNext() *LogRecord {
 			}
 		}
 
-		// Check if the key is expired
 		position := it.indexIter.Value()
 		if position == nil {
 			it.indexIter.Next()
 			continue
 		}
 
+		// read the record from data file
 		chunk, err := it.db.dataFiles.Read(position)
 		if err != nil {
 			it.lastError = err
@@ -140,7 +144,8 @@ func (it *Iterator) skipToNext() *LogRecord {
 
 		// Skip if record is deleted or expired
 		record := decodeLogRecord(chunk)
-		if record.Type == LogRecordDeleted || record.IsExpired(time.Now().UnixNano()) {
+		now := time.Now().UnixNano()
+		if record.Type == LogRecordDeleted || record.IsExpired(now) {
 			it.indexIter.Next()
 			continue
 		}

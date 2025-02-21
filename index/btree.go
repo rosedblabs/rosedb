@@ -177,6 +177,7 @@ func newMemoryBTreeIterator(tree *btree.BTree, reverse bool) *memoryBTreeIterato
 		}
 		valid = true
 	}
+
 	return &memoryBTreeIterator{
 		tree:    tree.Clone(),
 		reverse: reverse,
@@ -189,17 +190,20 @@ func (it *memoryBTreeIterator) Rewind() {
 	if it.tree == nil || it.tree.Len() == 0 {
 		return
 	}
+
 	if it.reverse {
 		it.current = it.tree.Max().(*item)
 	} else {
 		it.current = it.tree.Min().(*item)
 	}
+	it.valid = true
 }
 
 func (it *memoryBTreeIterator) Seek(key []byte) {
 	if it.tree == nil || !it.valid {
 		return
 	}
+
 	seekItem := &item{key: key}
 	it.valid = false
 	if it.reverse {
@@ -221,6 +225,7 @@ func (it *memoryBTreeIterator) Next() {
 	if it.tree == nil || !it.valid {
 		return
 	}
+
 	it.valid = false
 	if it.reverse {
 		it.tree.DescendLessOrEqual(it.current, func(i btree.Item) bool {
@@ -241,6 +246,7 @@ func (it *memoryBTreeIterator) Next() {
 			return false
 		})
 	}
+
 	if !it.valid {
 		it.current = nil
 	}

@@ -246,3 +246,53 @@ func TestIterator_Error(t *testing.T) {
 	assert.False(t, iter.Valid())
 	iter.Close()
 }
+
+func TestIterator_UseTwice(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	db.Put([]byte("aceds"), []byte("value1"))
+	db.Put([]byte("eedsq"), []byte("value2"))
+	db.Put([]byte("sedas"), []byte("value3"))
+	db.Put([]byte("efeds"), []byte("value4"))
+	db.Put([]byte("bbdes"), []byte("value5"))
+
+	iteratorOptions := DefaultIteratorOptions
+	iter := db.NewIterator(iteratorOptions)
+
+	for iter.Seek([]byte("bbe")); iter.Valid(); iter.Next() {
+		item := iter.Item()
+		assert.NotNil(t, item)
+	}
+
+	// rewind and iterate again
+	iter.Rewind()
+	assert.Equal(t, iter.Valid(), true)
+	for iter.Seek([]byte("bbe")); iter.Valid(); iter.Next() {
+		item := iter.Item()
+		assert.NotNil(t, item)
+	}
+}
+
+func TestIterator_UseAfterClose(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.Nil(t, err)
+	defer destroyDB(db)
+
+	db.Put([]byte("aceds"), []byte("value1"))
+	db.Put([]byte("eedsq"), []byte("value2"))
+
+	iteratorOptions := DefaultIteratorOptions
+	iter := db.NewIterator(iteratorOptions)
+
+	for iter.Seek([]byte("bbe")); iter.Valid(); iter.Next() {
+		item := iter.Item()
+		assert.NotNil(t, item)
+	}
+
+	iter.Close()
+	assert.Equal(t, iter.Valid(), false)
+}
