@@ -1,3 +1,19 @@
+# Release 2.4.0(2025-02-21)
+## 🚀 New Features
+Thans to @XiXi-2024 
+* implement database iterator functionality (https://github.com/rosedblabs/rosedb/pull/326)
+
+## 🎄 Enhancements
+Thanks to @miaozw 
+* Add AscendKeysRange and DescendKeysRange functions (https://github.com/rosedblabs/rosedb/pull/323)
+
+Thans to @XiXi-2024 
+* Add unit tests for AscendKeysRange and DescendKeysRange methods (https://github.com/rosedblabs/rosedb/pull/324)
+
+## 🐞 Bug Fixes
+Thanks to @auula
+* fix: inner error bug in the delete expired key method. (https://github.com/rosedblabs/rosedb/pull/322)
+
 # Release 2.3.9(2024-10-06)
 ## 🎄 Enhancements
 * fix `DefaultOptions`: just return a temp dir name instead of creating it.
