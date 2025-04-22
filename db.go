@@ -168,7 +168,7 @@ func (db *DB) openWalFiles() (*wal.WAL, error) {
 }
 
 func (db *DB) loadIndex() error {
-	// load index frm hint file
+	// load index from hint file
 	if err := db.loadIndexFromHintFile(); err != nil {
 		return err
 	}
