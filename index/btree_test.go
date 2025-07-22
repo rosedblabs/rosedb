@@ -2,6 +2,7 @@ package index
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -96,7 +97,7 @@ func TestMemoryBTree_Ascend_Descend(t *testing.T) {
 	// Define the Ascend handler function
 	ascendHandler := func(key []byte, pos *wal.ChunkPosition) (bool, error) {
 		if prevKey != "" && bytes.Compare([]byte(prevKey), key) >= 0 {
-			return false, fmt.Errorf("items are not in ascending order")
+			return false, errors.New("items are not in ascending order")
 		}
 		expectedPos := positionMap[string(key)]
 		if expectedPos.ChunkOffset != pos.ChunkOffset {
@@ -111,7 +112,7 @@ func TestMemoryBTree_Ascend_Descend(t *testing.T) {
 	// Define the Descend handler function
 	descendHandler := func(key []byte, pos *wal.ChunkPosition) (bool, error) {
 		if bytes.Compare([]byte(prevKey), key) <= 0 {
-			return false, fmt.Errorf("items are not in descending order")
+			return false, errors.New("items are not in descending order")
 		}
 		expectedPos := positionMap[string(key)]
 		if expectedPos.ChunkOffset != pos.ChunkOffset {
