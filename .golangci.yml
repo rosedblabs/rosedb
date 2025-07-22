@@ -26,6 +26,7 @@ linters:
     - staticcheck
     - govet
     - gocritic
+    - unconvert
 
   # See: https://golangci-lint.run/usage/false-positives/
   # exclusion:

@@ -32,11 +32,11 @@ func main() {
 
 	// write some data
 	for i := 0; i < 100000; i++ {
-		_ = db.Put([]byte(utils.GetTestKey(i)), utils.RandomValue(128))
+		_ = db.Put(utils.GetTestKey(i), utils.RandomValue(128))
 	}
 	// delete some data
 	for i := 0; i < 100000/2; i++ {
-		_ = db.Delete([]byte(utils.GetTestKey(i)))
+		_ = db.Delete(utils.GetTestKey(i))
 	}
 
 	// then merge the data files
