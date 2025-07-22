@@ -64,7 +64,7 @@ func (db *DB) NewBatch(options BatchOptions) *Batch {
 	return batch
 }
 
-func newBatch() interface{} {
+func newBatch() any {
 	node, err := snowflake.NewNode(1)
 	if err != nil {
 		panic(fmt.Sprintf("snowflake.NewNode(1) failed: %v", err))
@@ -75,7 +75,7 @@ func newBatch() interface{} {
 	}
 }
 
-func newRecord() interface{} {
+func newRecord() any {
 	return &LogRecord{}
 }
 
