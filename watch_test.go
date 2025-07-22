@@ -65,7 +65,6 @@ func TestWatch_Rotate_Insert_Scan(t *testing.T) {
 		assert.Equal(t, value, e.Value)
 		sub = (sub + 1) % capacity
 	}
-
 }
 
 func TestWatch_Put_Watch(t *testing.T) {

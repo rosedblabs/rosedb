@@ -2,6 +2,7 @@ package rosedb
 
 import (
 	"encoding/binary"
+
 	"github.com/rosedblabs/wal"
 	"github.com/valyala/bytebufferpool"
 )
@@ -55,7 +56,7 @@ type IndexRecord struct {
 //	1 byte	      varint(max 10) varint(max 5)  varint(max 5) varint(max 10)  varint      varint
 func encodeLogRecord(logRecord *LogRecord, header []byte, buf *bytebufferpool.ByteBuffer) []byte {
 	header[0] = logRecord.Type
-	var index = 1
+	index := 1
 
 	// batch id
 	index += binary.PutUvarint(header[index:], logRecord.BatchId)
@@ -106,8 +107,10 @@ func decodeLogRecord(buf []byte) *LogRecord {
 	value := make([]byte, valueSize)
 	copy(value[:], buf[index:index+uint32(valueSize)])
 
-	return &LogRecord{Key: key, Value: value, Expire: expire,
-		BatchId: batchId, Type: recordType}
+	return &LogRecord{
+		Key: key, Value: value, Expire: expire,
+		BatchId: batchId, Type: recordType,
+	}
 }
 
 func encodeHintRecord(key []byte, pos *wal.ChunkPosition) []byte {
@@ -115,7 +118,7 @@ func encodeHintRecord(key []byte, pos *wal.ChunkPosition) []byte {
 	//    5          5           10          5      =    25
 	// see binary.MaxVarintLen64 and binary.MaxVarintLen32
 	buf := make([]byte, 25)
-	var idx = 0
+	idx := 0
 
 	// SegmentId
 	idx += binary.PutUvarint(buf[idx:], uint64(pos.SegmentId))
@@ -134,7 +137,7 @@ func encodeHintRecord(key []byte, pos *wal.ChunkPosition) []byte {
 }
 
 func decodeHintRecord(buf []byte) ([]byte, *wal.ChunkPosition) {
-	var idx = 0
+	idx := 0
 	// SegmentId
 	segmentId, n := binary.Uvarint(buf[idx:])
 	idx += n

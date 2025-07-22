@@ -1,9 +1,10 @@
 package utils
 
 import (
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDirSize(t *testing.T) {

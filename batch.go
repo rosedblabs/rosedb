@@ -116,7 +116,7 @@ func (b *Batch) unlock() {
 }
 
 // Put adds a key-value pair to the batch for writing.
-func (b *Batch) Put(key []byte, value []byte) error {
+func (b *Batch) Put(key, value []byte) error {
 	if len(key) == 0 {
 		return ErrKeyIsEmpty
 	}
@@ -129,7 +129,7 @@ func (b *Batch) Put(key []byte, value []byte) error {
 
 	b.mu.Lock()
 	// write to pendingWrites
-	var record = b.lookupPendingWrites(key)
+	record := b.lookupPendingWrites(key)
 	if record == nil {
 		// if the key does not exist in pendingWrites, write a new record
 		// the record will be put back to the pool when the batch is committed or rollbacked
@@ -145,7 +145,7 @@ func (b *Batch) Put(key []byte, value []byte) error {
 }
 
 // PutWithTTL adds a key-value pair with ttl to the batch for writing.
-func (b *Batch) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
+func (b *Batch) PutWithTTL(key, value []byte, ttl time.Duration) error {
 	if len(key) == 0 {
 		return ErrKeyIsEmpty
 	}
@@ -158,7 +158,7 @@ func (b *Batch) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
 
 	b.mu.Lock()
 	// write to pendingWrites
-	var record = b.lookupPendingWrites(key)
+	record := b.lookupPendingWrites(key)
 	if record == nil {
 		// if the key does not exist in pendingWrites, write a new record
 		// the record will be put back to the pool when the batch is committed or rollbacked
@@ -185,7 +185,7 @@ func (b *Batch) Get(key []byte) ([]byte, error) {
 	now := time.Now().UnixNano()
 	// get from pendingWrites
 	b.mu.RLock()
-	var record = b.lookupPendingWrites(key)
+	record := b.lookupPendingWrites(key)
 	b.mu.RUnlock()
 
 	// if the record is in pendingWrites, return the value directly
@@ -233,7 +233,7 @@ func (b *Batch) Delete(key []byte) error {
 	b.mu.Lock()
 	// only need key and type when deleting a value.
 	var exist bool
-	var record = b.lookupPendingWrites(key)
+	record := b.lookupPendingWrites(key)
 	if record != nil {
 		record.Type = LogRecordDeleted
 		record.Value = nil
@@ -264,7 +264,7 @@ func (b *Batch) Exist(key []byte) (bool, error) {
 	now := time.Now().UnixNano()
 	// check if the key exists in pendingWrites
 	b.mu.RLock()
-	var record = b.lookupPendingWrites(key)
+	record := b.lookupPendingWrites(key)
 	b.mu.RUnlock()
 
 	if record != nil {
@@ -306,7 +306,7 @@ func (b *Batch) Expire(key []byte, ttl time.Duration) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	var record = b.lookupPendingWrites(key)
+	record := b.lookupPendingWrites(key)
 
 	// if the key exists in pendingWrites, update the expiry time directly
 	if record != nil {
@@ -356,7 +356,7 @@ func (b *Batch) TTL(key []byte) (time.Duration, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	var record = b.lookupPendingWrites(key)
+	record := b.lookupPendingWrites(key)
 	if record != nil {
 		if record.Expire == 0 {
 			return -1, nil
@@ -413,7 +413,7 @@ func (b *Batch) Persist(key []byte) error {
 	defer b.mu.Unlock()
 
 	// if the key exists in pendingWrites, update the expiry time directly
-	var record = b.lookupPendingWrites(key)
+	record := b.lookupPendingWrites(key)
 	if record != nil {
 		if record.Type == LogRecordDeleted && record.IsExpired(time.Now().UnixNano()) {
 			return ErrKeyNotFound

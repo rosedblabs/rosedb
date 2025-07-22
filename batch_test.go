@@ -140,14 +140,14 @@ func TestBatch_Exist_Normal(t *testing.T) {
 	assertKeyExistOrNot(t, db2, utils.GetTestKey(99), true)
 }
 
-func generateData(t *testing.T, db *DB, start, end int, valueLen int) {
+func generateData(t *testing.T, db *DB, start, end, valueLen int) {
 	for ; start < end; start++ {
 		err := db.Put(utils.GetTestKey(start), utils.RandomValue(valueLen))
 		assert.Nil(t, err)
 	}
 }
 
-func batchPutAndIterate(t *testing.T, segmentSize int64, size int, valueLen int) {
+func batchPutAndIterate(t *testing.T, segmentSize int64, size, valueLen int) {
 	options := DefaultOptions
 	options.SegmentSize = segmentSize
 	db, err := Open(options)

@@ -1,9 +1,10 @@
 package main
 
 import (
+	"runtime"
+
 	"github.com/rosedblabs/rosedb/v2"
 	"github.com/rosedblabs/rosedb/v2/utils"
-	"runtime"
 )
 
 // this file shows how to use the Merge feature of rosedb.

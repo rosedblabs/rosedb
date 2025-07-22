@@ -47,7 +47,7 @@ func dbIteratorExample(db *rosedb.DB) {
 	})
 
 	// iterate all keys and values in order
-	db.Ascend(func(k []byte, v []byte) (bool, error) {
+	db.Ascend(func(k, v []byte) (bool, error) {
 		fmt.Printf("key = %s, value = %s\n", string(k), string(v))
 		return true, nil
 	})
@@ -59,7 +59,7 @@ func dbIteratorExample(db *rosedb.DB) {
 	})
 
 	// iterate all keys and values in reverse order
-	db.Descend(func(k []byte, v []byte) (bool, error) {
+	db.Descend(func(k, v []byte) (bool, error) {
 		fmt.Printf("key = %s, value = %s\n", string(k), string(v))
 		return true, nil
 	})

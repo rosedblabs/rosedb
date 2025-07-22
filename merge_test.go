@@ -301,5 +301,4 @@ func TestDB_Merge_Concurrent_Put(t *testing.T) {
 		return true
 	})
 	assert.Equal(t, count, db.index.Size())
-
 }

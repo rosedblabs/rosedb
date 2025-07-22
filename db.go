@@ -251,7 +251,7 @@ func (db *DB) Stat() *Stat {
 // Put a key-value pair into the database.
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one Put operation.
-func (db *DB) Put(key []byte, value []byte) error {
+func (db *DB) Put(key, value []byte) error {
 	batch := db.batchPool.Get().(*Batch)
 	defer func() {
 		batch.reset()
@@ -271,7 +271,7 @@ func (db *DB) Put(key []byte, value []byte) error {
 // PutWithTTL a key-value pair into the database, with a ttl.
 // Actually, it will open a new batch and commit it.
 // You can think the batch has only one PutWithTTL operation.
-func (db *DB) PutWithTTL(key []byte, value []byte, ttl time.Duration) error {
+func (db *DB) PutWithTTL(key, value []byte, ttl time.Duration) error {
 	batch := db.batchPool.Get().(*Batch)
 	defer func() {
 		batch.reset()
@@ -393,7 +393,7 @@ func (db *DB) Watch() (<-chan *Event, error) {
 }
 
 // Ascend calls handleFn for each key/value pair in the db in ascending order.
-func (db *DB) Ascend(handleFn func(k []byte, v []byte) (bool, error)) {
+func (db *DB) Ascend(handleFn func(k, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -410,7 +410,7 @@ func (db *DB) Ascend(handleFn func(k []byte, v []byte) (bool, error)) {
 }
 
 // AscendRange calls handleFn for each key/value pair in the db within the range [startKey, endKey] in ascending order.
-func (db *DB) AscendRange(startKey, endKey []byte, handleFn func(k []byte, v []byte) (bool, error)) {
+func (db *DB) AscendRange(startKey, endKey []byte, handleFn func(k, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -427,7 +427,7 @@ func (db *DB) AscendRange(startKey, endKey []byte, handleFn func(k []byte, v []b
 }
 
 // AscendGreaterOrEqual calls handleFn for each key/value pair in the db with keys greater than or equal to the given key.
-func (db *DB) AscendGreaterOrEqual(key []byte, handleFn func(k []byte, v []byte) (bool, error)) {
+func (db *DB) AscendGreaterOrEqual(key []byte, handleFn func(k, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -514,7 +514,7 @@ func (db *DB) AscendKeysRange(startKey, endKey, pattern []byte, filterExpired bo
 }
 
 // Descend calls handleFn for each key/value pair in the db in descending order.
-func (db *DB) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
+func (db *DB) Descend(handleFn func(k, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -531,7 +531,7 @@ func (db *DB) Descend(handleFn func(k []byte, v []byte) (bool, error)) {
 }
 
 // DescendRange calls handleFn for each key/value pair in the db within the range [startKey, endKey] in descending order.
-func (db *DB) DescendRange(startKey, endKey []byte, handleFn func(k []byte, v []byte) (bool, error)) {
+func (db *DB) DescendRange(startKey, endKey []byte, handleFn func(k, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
@@ -548,7 +548,7 @@ func (db *DB) DescendRange(startKey, endKey []byte, handleFn func(k []byte, v []
 }
 
 // DescendLessOrEqual calls handleFn for each key/value pair in the db with keys less than or equal to the given key.
-func (db *DB) DescendLessOrEqual(key []byte, handleFn func(k []byte, v []byte) (bool, error)) {
+func (db *DB) DescendLessOrEqual(key []byte, handleFn func(k, v []byte) (bool, error)) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 

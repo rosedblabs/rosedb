@@ -131,7 +131,7 @@ func TestDB_Concurrent_Get(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		go func() {
 			defer wg.Done()
-			db.Ascend(func(key []byte, value []byte) (bool, error) {
+			db.Ascend(func(key, value []byte) (bool, error) {
 				assert.NotNil(t, key)
 				assert.NotNil(t, value)
 				return true, nil
@@ -166,7 +166,7 @@ func TestDB_Ascend(t *testing.T) {
 
 	// Test Ascend function
 	var result []string
-	db.Ascend(func(k []byte, v []byte) (bool, error) {
+	db.Ascend(func(k, v []byte) (bool, error) {
 		result = append(result, string(k))
 		return true, nil // No error here
 	})
@@ -212,7 +212,7 @@ func TestDB_Descend(t *testing.T) {
 
 	// Test Descend function
 	var result []string
-	db.Descend(func(k []byte, v []byte) (bool, error) {
+	db.Descend(func(k, v []byte) (bool, error) {
 		result = append(result, string(k))
 		return true, nil
 	})
@@ -261,7 +261,7 @@ func TestDB_AscendRange(t *testing.T) {
 
 	// Test AscendRange
 	var resultAscendRange []string
-	db.AscendRange([]byte("banana"), []byte("grape"), func(k []byte, v []byte) (bool, error) {
+	db.AscendRange([]byte("banana"), []byte("grape"), func(k, v []byte) (bool, error) {
 		resultAscendRange = append(resultAscendRange, string(k))
 		return true, nil
 	})
@@ -296,7 +296,7 @@ func TestDB_DescendRange(t *testing.T) {
 
 	// Test DescendRange
 	var resultDescendRange []string
-	db.DescendRange([]byte("grape"), []byte("cherry"), func(k []byte, v []byte) (bool, error) {
+	db.DescendRange([]byte("grape"), []byte("cherry"), func(k, v []byte) (bool, error) {
 		resultDescendRange = append(resultDescendRange, string(k))
 		return true, nil
 	})
@@ -331,7 +331,7 @@ func TestDB_AscendGreaterOrEqual(t *testing.T) {
 
 	// Test AscendGreaterOrEqual
 	var resultAscendGreaterOrEqual []string
-	db.AscendGreaterOrEqual([]byte("date"), func(k []byte, v []byte) (bool, error) {
+	db.AscendGreaterOrEqual([]byte("date"), func(k, v []byte) (bool, error) {
 		resultAscendGreaterOrEqual = append(resultAscendGreaterOrEqual, string(k))
 		return true, nil
 	})
@@ -366,7 +366,7 @@ func TestDB_DescendLessOrEqual(t *testing.T) {
 
 	// Test DescendLessOrEqual
 	var resultDescendLessOrEqual []string
-	db.DescendLessOrEqual([]byte("grape"), func(k []byte, v []byte) (bool, error) {
+	db.DescendLessOrEqual([]byte("grape"), func(k, v []byte) (bool, error) {
 		resultDescendLessOrEqual = append(resultDescendLessOrEqual, string(k))
 		return true, nil
 	})
@@ -761,7 +761,6 @@ func TestDB_DeleteExpiredKeys(t *testing.T) {
 	err = db.DeleteExpiredKeys(time.Second * 2)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, db.Stat().KeysNum)
-
 }
 
 func TestDB_Multi_DeleteExpiredKeys(t *testing.T) {

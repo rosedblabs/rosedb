@@ -3,8 +3,9 @@ package index
 import (
 	"bytes"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/rosedblabs/wal"
 )

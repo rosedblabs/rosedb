@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/rosedblabs/rosedb/v2"
 	"runtime"
+
+	"github.com/rosedblabs/rosedb/v2"
 )
 
 // this file shows how to use the batch operations of rosedb
