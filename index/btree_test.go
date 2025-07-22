@@ -201,7 +201,7 @@ func TestMemoryBTree_Iterator(t *testing.T) {
 	mt := newBTree()
 	// Test iterator for empty tree
 	it1 := mt.Iterator(false)
-	assert.Equal(t, false, it1.Valid())
+	assert.False(t, it1.Valid())
 
 	// Build test data
 	testData := map[string]*wal.ChunkPosition{
@@ -226,7 +226,7 @@ func TestMemoryBTree_Iterator(t *testing.T) {
 
 		// Verify key order
 		if prevKey != "" {
-			assert.True(t, currKey > prevKey)
+			assert.Greater(t, currKey, prevKey)
 		}
 
 		// Verify value correctness
@@ -248,7 +248,7 @@ func TestMemoryBTree_Iterator(t *testing.T) {
 
 		// Verify key order
 		if prevKey != "" {
-			assert.True(t, currKey < prevKey)
+			assert.Less(t, currKey, prevKey)
 		}
 
 		// Verify value correctness

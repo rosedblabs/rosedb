@@ -36,6 +36,7 @@ linters:
     - godot
     - copyloopvar
     - perfsprint
+    - testifylint
 
   # See: https://golangci-lint.run/usage/false-positives/
   # exclusion:

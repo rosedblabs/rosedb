@@ -71,16 +71,16 @@ func TestWatch_Put_Watch(t *testing.T) {
 	options := DefaultOptions
 	options.WatchQueueSize = 10
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	w, err := db.Watch()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	for i := 0; i < 50; i++ {
 		key := utils.GetTestKey(rand.Int())
 		value := utils.RandomValue(128)
 		err = db.Put(key, value)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		event := <-w
 		assert.Equal(t, WatchActionPut, event.Action)
 		assert.Equal(t, key, event.Key)
@@ -92,18 +92,18 @@ func TestWatch_Put_Delete_Watch(t *testing.T) {
 	options := DefaultOptions
 	options.WatchQueueSize = 10
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	w, err := db.Watch()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	key := utils.GetTestKey(rand.Int())
 	value := utils.RandomValue(128)
 	err = db.Put(key, value)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = db.Delete(key)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	for i := 0; i < 2; i++ {
 		event := <-w
@@ -112,7 +112,7 @@ func TestWatch_Put_Delete_Watch(t *testing.T) {
 		case WatchActionPut:
 			assert.Equal(t, value, event.Value)
 		case WatchActionDelete:
-			assert.Equal(t, 0, len(event.Value))
+			assert.Empty(t, event.Value)
 		}
 	}
 }
@@ -121,20 +121,20 @@ func TestWatch_Batch_Put_Watch(t *testing.T) {
 	options := DefaultOptions
 	options.WatchQueueSize = 1000
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	w, err := db.Watch()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	times := 100
 	batch := db.NewBatch(DefaultBatchOptions)
 	for i := 0; i < times; i++ {
 		err = batch.Put(utils.GetTestKey(rand.Int()), utils.RandomValue(128))
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 	err = batch.Commit()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	var batchId uint64
 	for i := 0; i < times; i++ {

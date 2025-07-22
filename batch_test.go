@@ -28,7 +28,7 @@ func TestBatch_Put_IncrSegmentFile(t *testing.T) {
 	options := DefaultOptions
 	options.SegmentSize = 64 * MB
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	generateData(t, db, 1, 2000, 32*KB)
@@ -37,23 +37,23 @@ func TestBatch_Put_IncrSegmentFile(t *testing.T) {
 	batch := db.NewBatch(DefaultBatchOptions)
 	for i := 0; i < 1000; i++ {
 		err := batch.Put(utils.GetTestKey(i*100), utils.RandomValue(32*KB))
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 	err = batch.Commit()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestBatch_Get_Normal(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	batch1 := db.NewBatch(DefaultBatchOptions)
 	err = batch1.Put(utils.GetTestKey(12), utils.RandomValue(128))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	val1, err := batch1.Get(utils.GetTestKey(12))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, val1)
 	_ = batch1.Commit()
 
@@ -61,7 +61,7 @@ func TestBatch_Get_Normal(t *testing.T) {
 
 	batch2 := db.NewBatch(DefaultBatchOptions)
 	err = batch2.Delete(utils.GetTestKey(450))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	val, err := batch2.Get(utils.GetTestKey(450))
 	assert.Nil(t, val)
 	assert.Equal(t, ErrKeyNotFound, err)
@@ -70,7 +70,7 @@ func TestBatch_Get_Normal(t *testing.T) {
 	// reopen
 	_ = db.Close()
 	db2, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer func() {
 		_ = db2.Close()
 	}()
@@ -81,34 +81,34 @@ func TestBatch_Get_Normal(t *testing.T) {
 func TestBatch_Delete_Normal(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	err = db.Delete([]byte("not exist"))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	generateData(t, db, 1, 100, 128)
 	err = db.Delete(utils.GetTestKey(99))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	exist, err := db.Exist(utils.GetTestKey(99))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.False(t, exist)
 
 	batch := db.NewBatch(DefaultBatchOptions)
 	err = batch.Put(utils.GetTestKey(200), utils.RandomValue(100))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = batch.Delete(utils.GetTestKey(200))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	exist1, err := batch.Exist(utils.GetTestKey(200))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.False(t, exist1)
 	_ = batch.Commit()
 
 	// reopen
 	_ = db.Close()
 	db2, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer func() {
 		_ = db2.Close()
 	}()
@@ -118,22 +118,22 @@ func TestBatch_Delete_Normal(t *testing.T) {
 func TestBatch_Exist_Normal(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	generateData(t, db, 1, 100, 128)
 	batch := db.NewBatch(DefaultBatchOptions)
 	ok1, err := batch.Exist(utils.GetTestKey(99))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, ok1)
 	ok2, err := batch.Exist(utils.GetTestKey(5000))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.False(t, ok2)
 	_ = batch.Commit()
 
 	_ = db.Close()
 	db2, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer func() {
 		_ = db2.Close()
 	}()
@@ -143,7 +143,7 @@ func TestBatch_Exist_Normal(t *testing.T) {
 func generateData(t *testing.T, db *DB, start, end, valueLen int) {
 	for ; start < end; start++ {
 		err := db.Put(utils.GetTestKey(start), utils.RandomValue(valueLen))
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 }
 
@@ -151,42 +151,42 @@ func batchPutAndIterate(t *testing.T, segmentSize int64, size, valueLen int) {
 	options := DefaultOptions
 	options.SegmentSize = segmentSize
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	batch := db.NewBatch(BatchOptions{})
 
 	for i := 0; i < size; i++ {
 		err := batch.Put(utils.GetTestKey(i), utils.RandomValue(valueLen))
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 	err = batch.Commit()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	for i := 0; i < size; i++ {
 		value, err := db.Get(utils.GetTestKey(i))
-		assert.Nil(t, err)
-		assert.Equal(t, len(utils.RandomValue(valueLen)), len(value))
+		assert.NoError(t, err)
+		assert.Len(t, value, len(utils.RandomValue(valueLen)))
 	}
 
 	// reopen
 	_ = db.Close()
 	db2, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer func() {
 		_ = db2.Close()
 	}()
 	for i := 0; i < size; i++ {
 		value, err := db2.Get(utils.GetTestKey(i))
-		assert.Nil(t, err)
-		assert.Equal(t, len(utils.RandomValue(valueLen)), len(value))
+		assert.NoError(t, err)
+		assert.Len(t, value, len(utils.RandomValue(valueLen)))
 	}
 }
 
 func assertKeyExistOrNot(t *testing.T, db *DB, key []byte, exist bool) {
 	val, err := db.Get(key)
 	if exist {
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.NotNil(t, val)
 	} else {
 		assert.Nil(t, val)
@@ -197,7 +197,7 @@ func assertKeyExistOrNot(t *testing.T, db *DB, key []byte, exist bool) {
 func TestBatch_Rollback(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	key := []byte("rosedb")
@@ -205,10 +205,10 @@ func TestBatch_Rollback(t *testing.T) {
 
 	batcher := db.NewBatch(DefaultBatchOptions)
 	err = batcher.Put(key, value)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	err = batcher.Rollback()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	resp, err := db.Get(key)
 	assert.Equal(t, ErrKeyNotFound, err)
@@ -218,7 +218,7 @@ func TestBatch_Rollback(t *testing.T) {
 func TestBatch_SetTwice(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	batch := db.NewBatch(DefaultBatchOptions)
@@ -229,11 +229,11 @@ func TestBatch_SetTwice(t *testing.T) {
 	_ = batch.Put(key, value2)
 
 	res, err := batch.Get(key)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, res, value2)
 
 	_ = batch.Commit()
 	res2, err := db.Get(key)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, res2, value2)
 }
