@@ -38,6 +38,7 @@ linters:
     - perfsprint
     - testifylint
     - thelper
+    - nilerr
 
   # See: https://golangci-lint.run/usage/false-positives/
   # exclusion:

@@ -722,7 +722,7 @@ func TestDB_Expire(t *testing.T) {
 func TestDB_Expire2(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer destroyDB(db)
 
 	// expire an expired key
@@ -735,7 +735,7 @@ func TestDB_Expire2(t *testing.T) {
 	_ = db.Close()
 
 	db2, err := Open(options)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer func() {
 		_ = db2.Close()
 	}()
