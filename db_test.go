@@ -691,14 +691,14 @@ func TestDB_Expire(t *testing.T) {
 	assert.NoError(t, err)
 	tt1, err := db.TTL(utils.GetTestKey(1))
 	assert.NoError(t, err)
-	assert.Greater(t, tt1.Seconds(), 90)
+	assert.Greater(t, tt1.Seconds(), float64(90))
 
 	err = db.PutWithTTL(utils.GetTestKey(2), utils.RandomValue(10), time.Second*1)
 	assert.NoError(t, err)
 
 	tt2, err := db.TTL(utils.GetTestKey(2))
 	assert.NoError(t, err)
-	assert.Greater(t, tt2.Microseconds(), 500)
+	assert.Greater(t, tt2.Microseconds(), int64(500))
 
 	err = db.Close()
 	assert.NoError(t, err)
@@ -711,7 +711,7 @@ func TestDB_Expire(t *testing.T) {
 
 	tt3, err := db2.TTL(utils.GetTestKey(1))
 	assert.NoError(t, err)
-	assert.Greater(t, tt3.Seconds(), 90)
+	assert.Greater(t, tt3.Seconds(), float64(90))
 
 	time.Sleep(time.Second)
 	tt4, err := db2.TTL(utils.GetTestKey(2))

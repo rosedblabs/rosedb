@@ -6,6 +6,7 @@ import (
 
 	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWatch_Insert_Scan(t *testing.T) {
@@ -121,11 +122,11 @@ func TestWatch_Batch_Put_Watch(t *testing.T) {
 	options := DefaultOptions
 	options.WatchQueueSize = 1000
 	db, err := Open(options)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer destroyDB(db)
 
 	w, err := db.Watch()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	times := 100
 	batch := db.NewBatch(DefaultBatchOptions)
