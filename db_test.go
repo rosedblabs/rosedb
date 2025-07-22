@@ -11,6 +11,7 @@ import (
 
 	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDB_Put_Normal(t *testing.T) {
@@ -766,7 +767,7 @@ func TestDB_DeleteExpiredKeys(t *testing.T) {
 func TestDB_Multi_DeleteExpiredKeys(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer destroyDB(db)
 
 	for i := 0; i < 3; i++ {

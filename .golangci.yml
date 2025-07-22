@@ -37,6 +37,7 @@ linters:
     - copyloopvar
     - perfsprint
     - testifylint
+    - thelper
 
   # See: https://golangci-lint.run/usage/false-positives/
   # exclusion:

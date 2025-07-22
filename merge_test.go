@@ -8,6 +8,7 @@ import (
 
 	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDB_Merge_1_Empty(t *testing.T) {
@@ -80,7 +81,7 @@ func TestDB_Merge_3_All_Valid(t *testing.T) {
 func TestDB_Merge_4_Twice(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer destroyDB(db)
 
 	for i := 0; i < 100000; i++ {

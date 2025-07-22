@@ -141,6 +141,7 @@ func TestBatch_Exist_Normal(t *testing.T) {
 }
 
 func generateData(t *testing.T, db *DB, start, end, valueLen int) {
+	t.Helper()
 	for ; start < end; start++ {
 		err := db.Put(utils.GetTestKey(start), utils.RandomValue(valueLen))
 		assert.NoError(t, err)
@@ -148,6 +149,7 @@ func generateData(t *testing.T, db *DB, start, end, valueLen int) {
 }
 
 func batchPutAndIterate(t *testing.T, segmentSize int64, size, valueLen int) {
+	t.Helper()
 	options := DefaultOptions
 	options.SegmentSize = segmentSize
 	db, err := Open(options)
@@ -184,6 +186,7 @@ func batchPutAndIterate(t *testing.T, segmentSize int64, size, valueLen int) {
 }
 
 func assertKeyExistOrNot(t *testing.T, db *DB, key []byte, exist bool) {
+	t.Helper()
 	val, err := db.Get(key)
 	if exist {
 		assert.NoError(t, err)
