@@ -31,6 +31,10 @@ linters:
     - mirror
     - unused
     - usestdlibvars
+    - loggercheck
+    - exptostd
+    - godot
+    - copyloopvar
     - perfsprint
 
   # See: https://golangci-lint.run/usage/false-positives/
@@ -38,4 +42,6 @@ linters:
   #   paths:
   #   rules:
 
-  # settings:
+  settings:
+    godot:
+      period: false
