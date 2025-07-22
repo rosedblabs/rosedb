@@ -27,6 +27,10 @@ linters:
     - govet
     - gocritic
     - unconvert
+    - ineffassign
+    - mirror
+    - unused
+    - usestdlibvars
 
   # See: https://golangci-lint.run/usage/false-positives/
   # exclusion:
