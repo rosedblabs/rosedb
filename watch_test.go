@@ -108,9 +108,10 @@ func TestWatch_Put_Delete_Watch(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		event := <-w
 		assert.Equal(t, key, event.Key)
-		if event.Action == WatchActionPut {
+		switch event.Action {
+		case WatchActionPut:
 			assert.Equal(t, value, event.Value)
-		} else if event.Action == WatchActionDelete {
+		case WatchActionDelete:
 			assert.Equal(t, 0, len(event.Value))
 		}
 	}
