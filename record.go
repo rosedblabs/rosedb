@@ -100,12 +100,12 @@ func decodeLogRecord(buf []byte) *LogRecord {
 
 	// copy key
 	key := make([]byte, keySize)
-	copy(key[:], buf[index:index+uint32(keySize)])
+	copy(key, buf[index:index+uint32(keySize)])
 	index += uint32(keySize)
 
 	// copy value
 	value := make([]byte, valueSize)
-	copy(value[:], buf[index:index+uint32(valueSize)])
+	copy(value, buf[index:index+uint32(valueSize)])
 
 	return &LogRecord{
 		Key: key, Value: value, Expire: expire,
