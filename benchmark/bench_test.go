@@ -57,7 +57,7 @@ func benchmarkPut(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		err := db.Put(utils.GetTestKey(i), utils.RandomValue(1024))
-		assert.Nil(b, err)
+		assert.NoError(b, err)
 	}
 }
 
@@ -71,14 +71,14 @@ func benchmarkBatchPut(b *testing.B) {
 	}()
 	for i := 0; i < b.N; i++ {
 		err := batch.Put(utils.GetTestKey(i), utils.RandomValue(1024))
-		assert.Nil(b, err)
+		assert.NoError(b, err)
 	}
 }
 
 func benchmarkBatchGet(b *testing.B) {
 	for i := 0; i < 10000; i++ {
 		err := db.Put(utils.GetTestKey(i), utils.RandomValue(1024))
-		assert.Nil(b, err)
+		assert.NoError(b, err)
 	}
 
 	b.ResetTimer()
@@ -98,7 +98,7 @@ func benchmarkBatchGet(b *testing.B) {
 func bencharkGet(b *testing.B) {
 	for i := 0; i < 10000; i++ {
 		err := db.Put(utils.GetTestKey(i), utils.RandomValue(1024))
-		assert.Nil(b, err)
+		assert.NoError(b, err)
 	}
 
 	b.ResetTimer()

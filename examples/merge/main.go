@@ -1,9 +1,10 @@
 package main
 
 import (
+	"runtime"
+
 	"github.com/rosedblabs/rosedb/v2"
 	"github.com/rosedblabs/rosedb/v2/utils"
-	"runtime"
 )
 
 // this file shows how to use the Merge feature of rosedb.
@@ -31,11 +32,11 @@ func main() {
 
 	// write some data
 	for i := 0; i < 100000; i++ {
-		_ = db.Put([]byte(utils.GetTestKey(i)), utils.RandomValue(128))
+		_ = db.Put(utils.GetTestKey(i), utils.RandomValue(128))
 	}
 	// delete some data
 	for i := 0; i < 100000/2; i++ {
-		_ = db.Delete([]byte(utils.GetTestKey(i)))
+		_ = db.Delete(utils.GetTestKey(i))
 	}
 
 	// then merge the data files

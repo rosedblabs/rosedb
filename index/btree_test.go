@@ -2,9 +2,11 @@ package index
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/rosedblabs/wal"
 )
@@ -95,7 +97,7 @@ func TestMemoryBTree_Ascend_Descend(t *testing.T) {
 	// Define the Ascend handler function
 	ascendHandler := func(key []byte, pos *wal.ChunkPosition) (bool, error) {
 		if prevKey != "" && bytes.Compare([]byte(prevKey), key) >= 0 {
-			return false, fmt.Errorf("items are not in ascending order")
+			return false, errors.New("items are not in ascending order")
 		}
 		expectedPos := positionMap[string(key)]
 		if expectedPos.ChunkOffset != pos.ChunkOffset {
@@ -110,7 +112,7 @@ func TestMemoryBTree_Ascend_Descend(t *testing.T) {
 	// Define the Descend handler function
 	descendHandler := func(key []byte, pos *wal.ChunkPosition) (bool, error) {
 		if bytes.Compare([]byte(prevKey), key) <= 0 {
-			return false, fmt.Errorf("items are not in descending order")
+			return false, errors.New("items are not in descending order")
 		}
 		expectedPos := positionMap[string(key)]
 		if expectedPos.ChunkOffset != pos.ChunkOffset {
@@ -199,7 +201,7 @@ func TestMemoryBTree_Iterator(t *testing.T) {
 	mt := newBTree()
 	// Test iterator for empty tree
 	it1 := mt.Iterator(false)
-	assert.Equal(t, false, it1.Valid())
+	assert.False(t, it1.Valid())
 
 	// Build test data
 	testData := map[string]*wal.ChunkPosition{
@@ -224,7 +226,7 @@ func TestMemoryBTree_Iterator(t *testing.T) {
 
 		// Verify key order
 		if prevKey != "" {
-			assert.True(t, currKey > prevKey)
+			assert.Greater(t, currKey, prevKey)
 		}
 
 		// Verify value correctness
@@ -246,7 +248,7 @@ func TestMemoryBTree_Iterator(t *testing.T) {
 
 		// Verify key order
 		if prevKey != "" {
-			assert.True(t, currKey < prevKey)
+			assert.Less(t, currKey, prevKey)
 		}
 
 		// Verify value correctness

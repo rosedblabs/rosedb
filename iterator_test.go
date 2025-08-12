@@ -13,7 +13,7 @@ func TestIterator_Basic(t *testing.T) {
 	options := DefaultOptions
 	options.DirPath = filepath.Join(options.DirPath, "iterator_basic")
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	// Test empty database
@@ -40,7 +40,7 @@ func TestIterator_Basic(t *testing.T) {
 
 	for i := 0; i < len(keys); i++ {
 		err := db.Put(keys[i], values[i])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 
 	// Test forward iteration
@@ -75,7 +75,7 @@ func TestIterator_Basic(t *testing.T) {
 func TestIterator_Seek(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	// Put some key-value pairs
@@ -96,7 +96,7 @@ func TestIterator_Seek(t *testing.T) {
 
 	for i := 0; i < len(keys); i++ {
 		err := db.Put(keys[i], values[i])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 
 	iteratorOptions := DefaultIteratorOptions
@@ -127,7 +127,7 @@ func TestIterator_Seek(t *testing.T) {
 func TestIterator_Prefix(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	// Put some key-value pairs with different prefixes
@@ -148,7 +148,7 @@ func TestIterator_Prefix(t *testing.T) {
 
 	for i := 0; i < len(keys); i++ {
 		err := db.Put(keys[i], values[i])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 
 	iteratorOptions := DefaultIteratorOptions
@@ -173,15 +173,15 @@ func TestIterator_Prefix(t *testing.T) {
 func TestIterator_Expired(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	// Put a key-value pair with TTL
 	err = db.PutWithTTL([]byte("key1"), []byte("value1"), time.Millisecond*10)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	// Put a normal key-value pair
 	err = db.Put([]byte("key2"), []byte("value2"))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	// Wait for the first key to expire
 	time.Sleep(time.Millisecond * 20)
@@ -203,7 +203,7 @@ func TestIterator_Expired(t *testing.T) {
 func TestIterator_Error(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	// Put some key-value pairs
@@ -220,7 +220,7 @@ func TestIterator_Error(t *testing.T) {
 
 	for i := 0; i < len(keys); i++ {
 		err := db.Put(keys[i], values[i])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 
 	// Corrupt the data file to simulate read errors
@@ -233,7 +233,7 @@ func TestIterator_Error(t *testing.T) {
 
 	// Should continue iteration despite errors
 	iter.Rewind()
-	assert.NotNil(t, iter.Err())
+	assert.Error(t, iter.Err())
 	iter.Close()
 
 	// Test with ContinueOnError = false
@@ -242,7 +242,7 @@ func TestIterator_Error(t *testing.T) {
 
 	// Should stop iteration on first error
 	iter.Rewind()
-	assert.NotNil(t, iter.Err())
+	assert.Error(t, iter.Err())
 	assert.False(t, iter.Valid())
 	iter.Close()
 }
@@ -250,7 +250,7 @@ func TestIterator_Error(t *testing.T) {
 func TestIterator_UseTwice(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	db.Put([]byte("aceds"), []byte("value1"))
@@ -269,7 +269,7 @@ func TestIterator_UseTwice(t *testing.T) {
 
 	// rewind and iterate again
 	iter.Rewind()
-	assert.Equal(t, iter.Valid(), true)
+	assert.True(t, iter.Valid())
 	for iter.Seek([]byte("bbe")); iter.Valid(); iter.Next() {
 		item := iter.Item()
 		assert.NotNil(t, item)
@@ -279,7 +279,7 @@ func TestIterator_UseTwice(t *testing.T) {
 func TestIterator_UseAfterClose(t *testing.T) {
 	options := DefaultOptions
 	db, err := Open(options)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer destroyDB(db)
 
 	db.Put([]byte("aceds"), []byte("value1"))
@@ -294,5 +294,5 @@ func TestIterator_UseAfterClose(t *testing.T) {
 	}
 
 	iter.Close()
-	assert.Equal(t, iter.Valid(), false)
+	assert.False(t, iter.Valid())
 }

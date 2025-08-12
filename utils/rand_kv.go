@@ -15,7 +15,7 @@ var (
 
 // GetTestKey get formatted key, for test only
 func GetTestKey(i int) []byte {
-	return []byte(fmt.Sprintf("rosedb-test-key-%09d", i))
+	return fmt.Appendf(nil, "rosedb-test-key-%09d", i)
 }
 
 // RandomValue generate random value, for test only

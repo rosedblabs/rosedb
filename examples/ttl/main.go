@@ -41,7 +41,7 @@ func main() {
 	println(ttl.String())
 
 	_ = db.Put([]byte("name2"), []byte("rosedb2"))
-	//and you can also set the ttl of the key after you put it.
+	// and you can also set the ttl of the key after you put it.
 	err = db.Expire([]byte("name2"), time.Second*2)
 	if err != nil {
 		panic(err)
