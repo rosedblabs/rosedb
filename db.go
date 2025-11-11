@@ -695,7 +695,8 @@ func (db *DB) loadIndexFromWAL() error {
 
 		// if we get the end of a batch,
 		// all records in this batch are ready to be indexed.
-		if record.Type == LogRecordBatchFinished {
+		switch record.Type {
+		case LogRecordBatchFinished:
 			batchId, err := snowflake.ParseBytes(record.Key)
 			if err != nil {
 				return err
@@ -710,12 +711,18 @@ func (db *DB) loadIndexFromWAL() error {
 			}
 			// delete indexRecords according to batchId after indexing
 			delete(indexRecords, uint64(batchId))
-		} else if record.Type == LogRecordNormal && record.BatchId == mergeFinishedBatchID {
+
+		case LogRecordNormal:
 			// if the record is a normal record and the batch id is 0,
 			// it means that the record is involved in the merge operation.
 			// so put the record into index directly.
-			db.index.Put(record.Key, position)
-		} else {
+			if record.BatchId == mergeFinishedBatchID {
+				db.index.Put(record.Key, position)
+				break
+			}
+			fallthrough
+
+		default:
 			// expired records should not be indexed
 			if record.IsExpired(now) {
 				db.index.Delete(record.Key)
