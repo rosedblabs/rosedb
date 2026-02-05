@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bwmarrin/snowflake"
@@ -183,6 +184,16 @@ func (db *DB) loadIndex() error {
 // Set the closed flag to true.
 // The DB instance cannot be used after closing.
 func (db *DB) Close() error {
+	// close auto merge cron scheduler first to prevent new merge from starting
+	if db.cronScheduler != nil {
+		db.cronScheduler.Stop()
+	}
+
+	// wait for any running merge operation to complete
+	for atomic.LoadUint32(&db.mergeRunning) == 1 {
+		time.Sleep(time.Millisecond * 100)
+	}
+
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -195,14 +206,10 @@ func (db *DB) Close() error {
 		return err
 	}
 
-	// close watch channel
+	// close watcher first, then close watch channel
 	if db.options.WatchQueueSize > 0 {
+		db.watcher.Close()
 		close(db.watchCh)
-	}
-
-	// close auto merge cron scheduler
-	if db.cronScheduler != nil {
-		db.cronScheduler.Stop()
 	}
 
 	db.closed = true
@@ -741,11 +748,11 @@ func (db *DB) DeleteExpiredKeys(timeout time.Duration) error {
 	// set timeout
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	done := make(chan struct{}, 1)
+	// use channel to pass error safely without race condition
+	errCh := make(chan error, 1)
 
-	var innerErr error
 	now := time.Now().UnixNano()
-	go func(ctx context.Context) {
+	go func() {
 		db.mu.Lock()
 		defer db.mu.Unlock()
 		for {
@@ -762,7 +769,7 @@ func (db *DB) DeleteExpiredKeys(timeout time.Duration) error {
 			// If keys in the db.index has been traversed, len(positions) will be 0.
 			if len(positions) == 0 {
 				db.expiredCursorKey = nil
-				done <- struct{}{}
+				errCh <- nil
 				return
 			}
 
@@ -770,8 +777,7 @@ func (db *DB) DeleteExpiredKeys(timeout time.Duration) error {
 			for _, pos := range positions {
 				chunk, err := db.dataFiles.Read(pos)
 				if err != nil {
-					innerErr = err
-					done <- struct{}{}
+					errCh <- err
 					return
 				}
 				record := decodeLogRecord(chunk)
@@ -781,12 +787,14 @@ func (db *DB) DeleteExpiredKeys(timeout time.Duration) error {
 				db.expiredCursorKey = record.Key
 			}
 		}
-	}(ctx)
+	}()
 
 	select {
 	case <-ctx.Done():
-		return innerErr
-	case <-done:
-		return innerErr
+		// Timeout occurred, return nil as this is expected behavior.
+		// The goroutine will continue running in background until completion.
+		return nil
+	case err := <-errCh:
+		return err
 	}
 }

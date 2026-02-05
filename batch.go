@@ -415,7 +415,7 @@ func (b *Batch) Persist(key []byte) error {
 	// if the key exists in pendingWrites, update the expiry time directly
 	record := b.lookupPendingWrites(key)
 	if record != nil {
-		if record.Type == LogRecordDeleted && record.IsExpired(time.Now().UnixNano()) {
+		if record.Type == LogRecordDeleted || record.IsExpired(time.Now().UnixNano()) {
 			return ErrKeyNotFound
 		}
 		record.Expire = 0

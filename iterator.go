@@ -19,10 +19,11 @@ type Item struct {
 // It wraps the index iterator and adds functionality to
 // retrieve the actual values from the database.
 type Iterator struct {
-	indexIter index.IndexIterator // index iterator for traversing keys
-	db        *DB                 // database instance for retrieving values
-	options   IteratorOptions     // user-defined configuration options
-	lastError error               // stores the last error encountered during iteration
+	indexIter   index.IndexIterator // index iterator for traversing keys
+	db          *DB                 // database instance for retrieving values
+	options     IteratorOptions     // user-defined configuration options
+	lastError   error               // stores the last error encountered during iteration
+	currentItem *Item               // cached current item to avoid side effects in Item()
 }
 
 // NewIterator initializes and returns a new database iterator with the specified options.
@@ -34,7 +35,7 @@ func (db *DB) NewIterator(opts IteratorOptions) *Iterator {
 		indexIter: indexIter,
 		options:   opts,
 	}
-	_ = iterator.skipToNext()
+	iterator.skipToNext()
 	return iterator
 }
 
@@ -45,6 +46,7 @@ func (it *Iterator) Rewind() {
 		return
 	}
 	it.indexIter.Rewind()
+	it.skipToNext()
 }
 
 // Seek positions the iterator at a specific key in the database.
@@ -54,6 +56,7 @@ func (it *Iterator) Seek(key []byte) {
 		return
 	}
 	it.indexIter.Seek(key)
+	it.skipToNext()
 }
 
 // Next advances the iterator to the next valid entry in the database.
@@ -62,7 +65,7 @@ func (it *Iterator) Next() {
 		return
 	}
 	it.indexIter.Next()
-	_ = it.skipToNext()
+	it.skipToNext()
 }
 
 // Valid checks if the iterator is currently positioned at a valid entry.
@@ -74,19 +77,10 @@ func (it *Iterator) Valid() bool {
 }
 
 // Item retrieves the current key-value pair as an Item.
+// This method is idempotent and can be called multiple times
+// without advancing the iterator.
 func (it *Iterator) Item() *Item {
-	if it.db == nil || it.indexIter == nil || !it.Valid() {
-		return nil
-	}
-
-	record := it.skipToNext()
-	if record == nil {
-		return nil
-	}
-	return &Item{
-		Key:   record.Key,
-		Value: record.Value,
-	}
+	return it.currentItem
 }
 
 // Close releases all resources associated with the iterator.
@@ -109,8 +103,9 @@ func (it *Iterator) Err() error {
 // - Matches the prefix filter if one is specified
 // - Has not expired
 // - Has not been marked for deletion
-// Returns the LogRecord of the valid entry or an error if no valid entry is found.
-func (it *Iterator) skipToNext() *LogRecord {
+// It updates the currentItem cache with the valid entry found.
+func (it *Iterator) skipToNext() {
+	it.currentItem = nil
 	prefixLen := len(it.options.Prefix)
 
 	for it.indexIter.Valid() {
@@ -135,7 +130,7 @@ func (it *Iterator) skipToNext() *LogRecord {
 			it.lastError = err
 			if !it.options.ContinueOnError {
 				it.Close()
-				return nil
+				return
 			}
 			log.Printf("Error reading data file at key %q: %v", key, err)
 			it.indexIter.Next()
@@ -150,7 +145,10 @@ func (it *Iterator) skipToNext() *LogRecord {
 			continue
 		}
 
-		return record
+		it.currentItem = &Item{
+			Key:   record.Key,
+			Value: record.Value,
+		}
+		return
 	}
-	return nil
 }
