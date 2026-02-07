@@ -28,7 +28,8 @@ type Event struct {
 // even if event hasn't been read yet.
 type Watcher struct {
 	queue eventQueue
-	mu    sync.RWMutex
+	mu    sync.Mutex
+	done  chan struct{}
 }
 
 func NewWatcher(capacity uint64) *Watcher {
@@ -37,6 +38,7 @@ func NewWatcher(capacity uint64) *Watcher {
 			Events:   make([]*Event, capacity),
 			Capacity: capacity,
 		},
+		done: make(chan struct{}),
 	}
 }
 
@@ -51,24 +53,39 @@ func (w *Watcher) putEvent(e *Event) {
 
 // getEvent if queue is empty, it will return nil.
 func (w *Watcher) getEvent() *Event {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	if w.queue.isEmpty() {
 		return nil
 	}
 	return w.queue.pop()
 }
 
-// sendEvent send events to DB's watch
+// sendEvent send events to DB's watch.
+// It will return when the watcher is closed.
 func (w *Watcher) sendEvent(c chan *Event) {
 	for {
-		event := w.getEvent()
-		if event == nil {
-			time.Sleep(100 * time.Millisecond)
-			continue
+		select {
+		case <-w.done:
+			return
+		default:
+			event := w.getEvent()
+			if event == nil {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			select {
+			case c <- event:
+			case <-w.done:
+				return
+			}
 		}
-		c <- event
 	}
+}
+
+// Close stops the watcher goroutine.
+func (w *Watcher) Close() {
+	close(w.done)
 }
 
 type eventQueue struct {

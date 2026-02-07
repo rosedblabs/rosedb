@@ -917,9 +917,18 @@ func TestDB_Auto_Merge(t *testing.T) {
 		options.AutoMergeCronExpr = "* * * * * *" // every second
 		db2, err := Open(options)
 		assert.NoError(t, err)
+
+		// wait for auto merge to complete
+		<-time.After(time.Second * 2)
+		// close the db to stop cron scheduler and ensure merge is done
+		_ = db2.Close()
+
+		// reopen without auto merge to safely read data
+		options.AutoMergeCronExpr = ""
+		db3, err := Open(options)
+		assert.NoError(t, err)
 		{
-			<-time.After(time.Second * 2)
-			reader := db2.dataFiles.NewReader()
+			reader := db3.dataFiles.NewReader()
 			var keyCnt int
 			for {
 				if _, _, err := reader.Next(); errors.Is(err, io.EOF) {
@@ -930,6 +939,6 @@ func TestDB_Auto_Merge(t *testing.T) {
 			// after merge records are only valid data, so totally is 2000
 			assert.Equal(t, 2000, keyCnt)
 		}
-		_ = db2.Close()
+		_ = db3.Close()
 	}
 }
