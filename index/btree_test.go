@@ -286,3 +286,135 @@ func TestMemoryBTree_Iterator(t *testing.T) {
 		}
 	}
 }
+
+func TestNewIndexer(t *testing.T) {
+	indexer := NewIndexer()
+	assert.NotNil(t, indexer)
+	assert.Equal(t, 0, indexer.Size())
+
+	// Test basic operations
+	pos := &wal.ChunkPosition{SegmentId: 1, BlockNumber: 0, ChunkOffset: 0, ChunkSize: 100}
+	oldPos := indexer.Put([]byte("key1"), pos)
+	assert.Nil(t, oldPos)
+	assert.Equal(t, 1, indexer.Size())
+
+	gotPos := indexer.Get([]byte("key1"))
+	assert.Equal(t, pos, gotPos)
+}
+
+func TestMemoryBTree_Iterator_Close(t *testing.T) {
+	mt := newBTree()
+
+	// Build test data
+	testData := map[string]*wal.ChunkPosition{
+		"key1": {SegmentId: 1, BlockNumber: 0, ChunkOffset: 0, ChunkSize: 100},
+		"key2": {SegmentId: 1, BlockNumber: 0, ChunkOffset: 100, ChunkSize: 100},
+		"key3": {SegmentId: 1, BlockNumber: 0, ChunkOffset: 200, ChunkSize: 100},
+	}
+
+	for k, v := range testData {
+		mt.Put([]byte(k), v)
+	}
+
+	// Create iterator and close it
+	iter := mt.Iterator(false)
+	assert.NotNil(t, iter)
+	assert.True(t, iter.Valid())
+
+	// Close the iterator
+	iter.Close()
+	assert.False(t, iter.Valid())
+	assert.Nil(t, iter.Key())
+	assert.Nil(t, iter.Value())
+}
+
+func TestMemoryBTree_DescendRange_Full(t *testing.T) {
+	mt := newBTree()
+
+	// Build test data
+	keys := []string{"apple", "banana", "cherry", "date", "elderberry"}
+	for i, k := range keys {
+		pos := &wal.ChunkPosition{SegmentId: 1, BlockNumber: 0, ChunkOffset: int64(i * 100), ChunkSize: 100}
+		mt.Put([]byte(k), pos)
+	}
+
+	// Test DescendRange with valid range
+	var result []string
+	mt.DescendRange([]byte("elderberry"), []byte("banana"), func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		result = append(result, string(key))
+		return true, nil
+	})
+	// DescendRange iterates from startKey down to endKey (exclusive of endKey based on btree behavior)
+	assert.Contains(t, result, "elderberry")
+	assert.Contains(t, result, "date")
+	assert.Contains(t, result, "cherry")
+	assert.True(t, len(result) >= 3)
+
+	// Test DescendRange with error in handler
+	result = nil
+	mt.DescendRange([]byte("elderberry"), []byte("apple"), func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		result = append(result, string(key))
+		return false, errors.New("stop iteration")
+	})
+	assert.Equal(t, 1, len(result))
+
+	// Test DescendRange with early stop (return false)
+	result = nil
+	count := 0
+	mt.DescendRange([]byte("elderberry"), []byte("apple"), func(key []byte, pos *wal.ChunkPosition) (bool, error) {
+		result = append(result, string(key))
+		count++
+		return count < 2, nil // stop after 2 items
+	})
+	assert.Equal(t, 2, len(result))
+}
+
+func TestMemoryBTree_Iterator_Seek_Reverse(t *testing.T) {
+	mt := newBTree()
+
+	// Build test data
+	keys := []string{"apple", "banana", "cherry", "date", "elderberry"}
+	for i, k := range keys {
+		pos := &wal.ChunkPosition{SegmentId: 1, BlockNumber: 0, ChunkOffset: int64(i * 100), ChunkSize: 100}
+		mt.Put([]byte(k), pos)
+	}
+
+	// Test Seek in reverse mode
+	iter := mt.Iterator(true)
+	assert.True(t, iter.Valid())
+	assert.Equal(t, "elderberry", string(iter.Key()))
+
+	iter.Seek([]byte("cherry"))
+	assert.True(t, iter.Valid())
+	// In reverse mode, Seek should find the key or the largest key less than it
+	key := string(iter.Key())
+	assert.True(t, key <= "cherry")
+
+	// Test Seek to non-existent key
+	iter.Seek([]byte("zzz"))
+	// Should be invalid or at the smallest key
+}
+
+func TestMemoryBTree_Key_Value_Invalid(t *testing.T) {
+	mt := newBTree()
+
+	// Test on empty tree - returns iterator with valid=false
+	iter := mt.Iterator(false)
+	assert.NotNil(t, iter)
+	assert.False(t, iter.Valid())
+	assert.Nil(t, iter.Key())
+	assert.Nil(t, iter.Value())
+
+	// Add data and test valid iterator
+	mt.Put([]byte("key1"), &wal.ChunkPosition{SegmentId: 1, BlockNumber: 0, ChunkOffset: 0, ChunkSize: 100})
+
+	iter = mt.Iterator(false)
+	assert.NotNil(t, iter)
+	assert.True(t, iter.Valid())
+
+	// Move past the end
+	iter.Next()
+	assert.False(t, iter.Valid())
+	assert.Nil(t, iter.Key())
+	assert.Nil(t, iter.Value())
+}
