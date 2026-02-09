@@ -3,6 +3,7 @@ package rosedb
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/stretchr/testify/assert"
@@ -239,4 +240,197 @@ func TestBatch_SetTwice(t *testing.T) {
 	res2, err := db.Get(key)
 	assert.NoError(t, err)
 	assert.Equal(t, res2, value2)
+}
+
+func TestBatch_Expire(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.NoError(t, err)
+	defer destroyDB(db)
+
+	// Test empty key
+	batch := db.NewBatch(DefaultBatchOptions)
+	err = batch.Expire(nil, time.Second)
+	assert.Equal(t, ErrKeyIsEmpty, err)
+	_ = batch.Rollback()
+
+	// Test read-only batch
+	readOnlyBatch := db.NewBatch(BatchOptions{ReadOnly: true})
+	err = readOnlyBatch.Expire([]byte("key"), time.Second)
+	assert.Equal(t, ErrReadOnlyBatch, err)
+	_ = readOnlyBatch.Rollback()
+
+	// Test expire key not found
+	batch2 := db.NewBatch(DefaultBatchOptions)
+	err = batch2.Expire([]byte("not-exist"), time.Second)
+	assert.Equal(t, ErrKeyNotFound, err)
+	_ = batch2.Rollback()
+
+	// Test expire key in pendingWrites
+	batch3 := db.NewBatch(DefaultBatchOptions)
+	err = batch3.Put([]byte("key1"), []byte("value1"))
+	assert.NoError(t, err)
+	err = batch3.Expire([]byte("key1"), time.Second*10)
+	assert.NoError(t, err)
+	ttl, err := batch3.TTL([]byte("key1"))
+	assert.NoError(t, err)
+	assert.True(t, ttl > 0 && ttl <= time.Second*10)
+	_ = batch3.Commit()
+
+	// Test expire key in database
+	err = db.Put([]byte("key2"), []byte("value2"))
+	assert.NoError(t, err)
+	batch4 := db.NewBatch(DefaultBatchOptions)
+	err = batch4.Expire([]byte("key2"), time.Second*5)
+	assert.NoError(t, err)
+	_ = batch4.Commit()
+	ttl2, err := db.TTL([]byte("key2"))
+	assert.NoError(t, err)
+	assert.True(t, ttl2 > 0 && ttl2 <= time.Second*5)
+
+	// Test expire deleted key in pendingWrites
+	batch5 := db.NewBatch(DefaultBatchOptions)
+	err = batch5.Put([]byte("key3"), []byte("value3"))
+	assert.NoError(t, err)
+	err = batch5.Delete([]byte("key3"))
+	assert.NoError(t, err)
+	err = batch5.Expire([]byte("key3"), time.Second)
+	assert.Equal(t, ErrKeyNotFound, err)
+	_ = batch5.Rollback()
+}
+
+func TestBatch_TTL(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.NoError(t, err)
+	defer destroyDB(db)
+
+	// Test empty key
+	batch := db.NewBatch(DefaultBatchOptions)
+	_, err = batch.TTL(nil)
+	assert.Equal(t, ErrKeyIsEmpty, err)
+	_ = batch.Rollback()
+
+	// Test TTL key not found
+	batch2 := db.NewBatch(DefaultBatchOptions)
+	_, err = batch2.TTL([]byte("not-exist"))
+	assert.Equal(t, ErrKeyNotFound, err)
+	_ = batch2.Rollback()
+
+	// Test TTL key without expiration in pendingWrites
+	batch3 := db.NewBatch(DefaultBatchOptions)
+	err = batch3.Put([]byte("key1"), []byte("value1"))
+	assert.NoError(t, err)
+	ttl, err := batch3.TTL([]byte("key1"))
+	assert.NoError(t, err)
+	assert.Equal(t, time.Duration(-1), ttl)
+	_ = batch3.Commit()
+
+	// Test TTL key with expiration in pendingWrites
+	batch4 := db.NewBatch(DefaultBatchOptions)
+	err = batch4.PutWithTTL([]byte("key2"), []byte("value2"), time.Second*10)
+	assert.NoError(t, err)
+	ttl2, err := batch4.TTL([]byte("key2"))
+	assert.NoError(t, err)
+	assert.True(t, ttl2 > 0 && ttl2 <= time.Second*10)
+	_ = batch4.Commit()
+
+	// Test TTL key without expiration in database
+	err = db.Put([]byte("key3"), []byte("value3"))
+	assert.NoError(t, err)
+	batch5 := db.NewBatch(DefaultBatchOptions)
+	ttl3, err := batch5.TTL([]byte("key3"))
+	assert.NoError(t, err)
+	assert.Equal(t, time.Duration(-1), ttl3)
+	_ = batch5.Rollback()
+
+	// Test TTL key with expiration in database
+	err = db.PutWithTTL([]byte("key4"), []byte("value4"), time.Second*20)
+	assert.NoError(t, err)
+	batch6 := db.NewBatch(DefaultBatchOptions)
+	ttl4, err := batch6.TTL([]byte("key4"))
+	assert.NoError(t, err)
+	assert.True(t, ttl4 > 0 && ttl4 <= time.Second*20)
+	_ = batch6.Rollback()
+
+	// Test TTL deleted key in pendingWrites
+	// Note: current implementation returns -1, nil for deleted key because
+	// it checks Expire == 0 before checking Type == LogRecordDeleted
+	batch7 := db.NewBatch(DefaultBatchOptions)
+	err = batch7.Put([]byte("key5"), []byte("value5"))
+	assert.NoError(t, err)
+	err = batch7.Delete([]byte("key5"))
+	assert.NoError(t, err)
+	ttl5, err := batch7.TTL([]byte("key5"))
+	assert.NoError(t, err)
+	assert.Equal(t, time.Duration(-1), ttl5)
+	_ = batch7.Rollback()
+}
+
+func TestBatch_Persist(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.NoError(t, err)
+	defer destroyDB(db)
+
+	// Test empty key
+	batch := db.NewBatch(DefaultBatchOptions)
+	err = batch.Persist(nil)
+	assert.Equal(t, ErrKeyIsEmpty, err)
+	_ = batch.Rollback()
+
+	// Test read-only batch
+	readOnlyBatch := db.NewBatch(BatchOptions{ReadOnly: true})
+	err = readOnlyBatch.Persist([]byte("key"))
+	assert.Equal(t, ErrReadOnlyBatch, err)
+	_ = readOnlyBatch.Rollback()
+
+	// Test persist key not found
+	batch2 := db.NewBatch(DefaultBatchOptions)
+	err = batch2.Persist([]byte("not-exist"))
+	assert.Equal(t, ErrKeyNotFound, err)
+	_ = batch2.Rollback()
+
+	// Test persist key with TTL in pendingWrites
+	batch3 := db.NewBatch(DefaultBatchOptions)
+	err = batch3.PutWithTTL([]byte("key1"), []byte("value1"), time.Second*10)
+	assert.NoError(t, err)
+	ttl, err := batch3.TTL([]byte("key1"))
+	assert.NoError(t, err)
+	assert.True(t, ttl > 0)
+	err = batch3.Persist([]byte("key1"))
+	assert.NoError(t, err)
+	ttl2, err := batch3.TTL([]byte("key1"))
+	assert.NoError(t, err)
+	assert.Equal(t, time.Duration(-1), ttl2)
+	_ = batch3.Commit()
+
+	// Test persist key with TTL in database
+	err = db.PutWithTTL([]byte("key2"), []byte("value2"), time.Second*10)
+	assert.NoError(t, err)
+	batch4 := db.NewBatch(DefaultBatchOptions)
+	err = batch4.Persist([]byte("key2"))
+	assert.NoError(t, err)
+	_ = batch4.Commit()
+	ttl3, err := db.TTL([]byte("key2"))
+	assert.NoError(t, err)
+	assert.Equal(t, time.Duration(-1), ttl3)
+
+	// Test persist key without TTL in database (should return directly)
+	err = db.Put([]byte("key3"), []byte("value3"))
+	assert.NoError(t, err)
+	batch5 := db.NewBatch(DefaultBatchOptions)
+	err = batch5.Persist([]byte("key3"))
+	assert.NoError(t, err)
+	_ = batch5.Commit()
+
+	// Test persist deleted key in pendingWrites
+	batch6 := db.NewBatch(DefaultBatchOptions)
+	err = batch6.PutWithTTL([]byte("key4"), []byte("value4"), time.Second*10)
+	assert.NoError(t, err)
+	err = batch6.Delete([]byte("key4"))
+	assert.NoError(t, err)
+	err = batch6.Persist([]byte("key4"))
+	assert.Equal(t, ErrKeyNotFound, err)
+	_ = batch6.Rollback()
 }

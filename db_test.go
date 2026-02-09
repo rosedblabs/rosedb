@@ -942,3 +942,258 @@ func TestDB_Auto_Merge(t *testing.T) {
 		_ = db3.Close()
 	}
 }
+
+func TestDB_Empty_Key(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.NoError(t, err)
+	defer destroyDB(db)
+
+	// Test Put with empty key
+	err = db.Put(nil, []byte("value"))
+	assert.Equal(t, ErrKeyIsEmpty, err)
+	err = db.Put([]byte{}, []byte("value"))
+	assert.Equal(t, ErrKeyIsEmpty, err)
+
+	// Test Get with empty key
+	_, err = db.Get(nil)
+	assert.Equal(t, ErrKeyIsEmpty, err)
+
+	// Test Delete with empty key
+	err = db.Delete(nil)
+	assert.Equal(t, ErrKeyIsEmpty, err)
+
+	// Test Exist with empty key
+	_, err = db.Exist(nil)
+	assert.Equal(t, ErrKeyIsEmpty, err)
+
+	// Test TTL with empty key
+	_, err = db.TTL(nil)
+	assert.Equal(t, ErrKeyIsEmpty, err)
+
+	// Test Expire with empty key
+	err = db.Expire(nil, time.Second)
+	assert.Equal(t, ErrKeyIsEmpty, err)
+}
+
+func TestDB_Large_Value(t *testing.T) {
+	options := DefaultOptions
+	options.SegmentSize = 64 * MB
+	db, err := Open(options)
+	assert.NoError(t, err)
+	defer destroyDB(db)
+
+	// Test with 1MB value
+	largeValue1MB := utils.RandomValue(MB)
+	err = db.Put([]byte("large-key-1mb"), largeValue1MB)
+	assert.NoError(t, err)
+
+	val, err := db.Get([]byte("large-key-1mb"))
+	assert.NoError(t, err)
+	assert.Equal(t, len(largeValue1MB), len(val))
+
+	// Test with 5MB value
+	largeValue5MB := utils.RandomValue(5 * MB)
+	err = db.Put([]byte("large-key-5mb"), largeValue5MB)
+	assert.NoError(t, err)
+
+	val2, err := db.Get([]byte("large-key-5mb"))
+	assert.NoError(t, err)
+	assert.Equal(t, len(largeValue5MB), len(val2))
+
+	// Reopen and verify
+	_ = db.Close()
+	db2, err := Open(options)
+	assert.NoError(t, err)
+	defer func() { _ = db2.Close() }()
+
+	val3, err := db2.Get([]byte("large-key-1mb"))
+	assert.NoError(t, err)
+	assert.Equal(t, len(largeValue1MB), len(val3))
+
+	val4, err := db2.Get([]byte("large-key-5mb"))
+	assert.NoError(t, err)
+	assert.Equal(t, len(largeValue5MB), len(val4))
+}
+
+func TestDB_Empty_Iterator(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.NoError(t, err)
+	defer destroyDB(db)
+
+	// Test iterator on empty database
+	iter := db.NewIterator(DefaultIteratorOptions)
+	assert.NotNil(t, iter)
+	assert.False(t, iter.Valid())
+	assert.Nil(t, iter.Item())
+	iter.Close()
+
+	// Test Ascend on empty database
+	count := 0
+	db.Ascend(func(k, v []byte) (bool, error) {
+		count++
+		return true, nil
+	})
+	assert.Equal(t, 0, count)
+
+	// Test Descend on empty database
+	count = 0
+	db.Descend(func(k, v []byte) (bool, error) {
+		count++
+		return true, nil
+	})
+	assert.Equal(t, 0, count)
+
+	// Test AscendKeys on empty database
+	keys := make([][]byte, 0)
+	db.AscendKeys(nil, false, func(k []byte) (bool, error) {
+		keys = append(keys, k)
+		return true, nil
+	})
+	assert.Equal(t, 0, len(keys))
+}
+
+func TestDB_Concurrent_Batch(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.NoError(t, err)
+	defer destroyDB(db)
+
+	// Generate initial data
+	generateData(t, db, 0, 100, 128)
+
+	// Concurrent batch operations
+	var wg sync.WaitGroup
+	numGoroutines := 10
+	opsPerGoroutine := 50
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < opsPerGoroutine; j++ {
+				batch := db.NewBatch(DefaultBatchOptions)
+				key := utils.GetTestKey(id*1000 + j)
+				err := batch.Put(key, utils.RandomValue(128))
+				assert.NoError(t, err)
+
+				val, err := batch.Get(key)
+				assert.NoError(t, err)
+				assert.NotNil(t, val)
+
+				err = batch.Commit()
+				assert.NoError(t, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Verify all data
+	for i := 0; i < numGoroutines; i++ {
+		for j := 0; j < opsPerGoroutine; j++ {
+			key := utils.GetTestKey(i*1000 + j)
+			val, err := db.Get(key)
+			assert.NoError(t, err)
+			assert.NotNil(t, val)
+		}
+	}
+}
+
+func TestDB_Concurrent_ReadWrite(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.NoError(t, err)
+	defer destroyDB(db)
+
+	// Generate initial data
+	generateData(t, db, 0, 1000, 128)
+
+	var wg sync.WaitGroup
+
+	// Writers
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				key := utils.GetTestKey(id*10000 + j)
+				err := db.Put(key, utils.RandomValue(128))
+				assert.NoError(t, err)
+			}
+		}(i)
+	}
+
+	// Readers
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				key := utils.GetTestKey(rand.Intn(1000))
+				_, _ = db.Get(key)
+			}
+		}()
+	}
+
+	// Iterators
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			iter := db.NewIterator(DefaultIteratorOptions)
+			count := 0
+			for iter.Rewind(); iter.Valid() && count < 100; iter.Next() {
+				_ = iter.Item()
+				count++
+			}
+			iter.Close()
+		}()
+	}
+
+	wg.Wait()
+}
+
+func TestDB_Reopen_With_Data(t *testing.T) {
+	options := DefaultOptions
+	db, err := Open(options)
+	assert.NoError(t, err)
+
+	// Write data
+	for i := 0; i < 1000; i++ {
+		err := db.Put(utils.GetTestKey(i), utils.RandomValue(128))
+		assert.NoError(t, err)
+	}
+
+	// Delete some data
+	for i := 0; i < 500; i++ {
+		err := db.Delete(utils.GetTestKey(i))
+		assert.NoError(t, err)
+	}
+
+	// Get stats before close
+	stat := db.Stat()
+	assert.Equal(t, 500, stat.KeysNum)
+
+	_ = db.Close()
+
+	// Reopen
+	db2, err := Open(options)
+	assert.NoError(t, err)
+	defer destroyDB(db2)
+
+	// Verify stats after reopen
+	stat2 := db2.Stat()
+	assert.Equal(t, 500, stat2.KeysNum)
+
+	// Verify data
+	for i := 0; i < 500; i++ {
+		_, err := db2.Get(utils.GetTestKey(i))
+		assert.Equal(t, ErrKeyNotFound, err)
+	}
+	for i := 500; i < 1000; i++ {
+		val, err := db2.Get(utils.GetTestKey(i))
+		assert.NoError(t, err)
+		assert.NotNil(t, val)
+	}
+}
