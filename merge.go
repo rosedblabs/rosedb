@@ -43,6 +43,13 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 	// close current files
 	_ = db.closeFiles()
 
+	// For B+Tree index, delete the old index file so it will be rebuilt from hint file.
+	// The old index contains stale positions that point to the pre-merge data locations.
+	if db.options.IndexType == index.BPTree {
+		bptreeIndexPath := filepath.Join(db.options.DirPath, "bptree.index")
+		_ = os.Remove(bptreeIndexPath)
+	}
+
 	// replace original file
 	err := loadMergeFiles(db.options.DirPath)
 	if err != nil {
@@ -54,8 +61,10 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 		return err
 	}
 
-	// discard the old index first.
-	db.index = index.NewIndexer()
+	// reopen index
+	if err = db.openIndex(); err != nil {
+		return err
+	}
 	// rebuild index
 	if err = db.loadIndex(); err != nil {
 		return err
@@ -293,6 +302,11 @@ func loadMergeFiles(dirPath string) error {
 	// the same as the hint file.
 	copyFile(mergeFinNameSuffix, 1, true)
 	copyFile(hintFileNameSuffix, 1, true)
+
+	// Delete B+Tree index file if it exists, because its positions will be stale
+	// after the data files are replaced. The index will be rebuilt from the hint file.
+	bptreeIndexPath := filepath.Join(dirPath, "bptree.index")
+	_ = os.Remove(bptreeIndexPath)
 
 	return nil
 }

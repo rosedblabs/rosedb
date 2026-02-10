@@ -152,8 +152,9 @@ func (mt *MemoryBTree) Iterator(reverse bool) IndexIterator {
 	if mt.tree == nil {
 		return nil
 	}
-	mt.lock.RLock()
-	defer mt.lock.RUnlock()
+	// Use write lock because tree.Clone() modifies the original tree's COW state
+	mt.lock.Lock()
+	defer mt.lock.Unlock()
 
 	return newMemoryBTreeIterator(mt.tree, reverse)
 }

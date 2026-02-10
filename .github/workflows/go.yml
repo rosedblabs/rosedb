@@ -10,17 +10,19 @@ jobs:
 
   ubuntu-test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        index-type: [BTree, BPTree]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.19
+          go-version: '1.21'
 
       - name: Run Go Vet
-        run: |
-          go vet ./...
+        run: go vet ./...
 
       - name: Run Go Fmt
         run: |
@@ -34,8 +36,15 @@ jobs:
       - name: Build
         run: go build -v
 
-      - name: Run Unit Test
-        run: go test -count 1 -v ./...
+      - name: Set Index Type to ${{ matrix.index-type }}
+        run: |
+          if [ "${{ matrix.index-type }}" == "BPTree" ]; then
+            sed -i 's/IndexType:.*index\.BTree/IndexType:         index.BPTree/' options.go
+          fi
+          grep "IndexType:" options.go
+
+      - name: Run Unit Test (${{ matrix.index-type }})
+        run: go test -race -count 1 -v ./...
 
       - name: Run Benchmark Test
         working-directory: ./benchmark
@@ -43,23 +52,33 @@ jobs:
 
   windows-test:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        index-type: [BTree, BPTree]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.19
+          go-version: '1.21'
 
       - name: Run Go Vet
-        run: |
-          go vet ./...
+        run: go vet ./...
 
       - name: Build
         run: go build -v
 
-      - name: Run Unit Test
-        run: go test -count 1 -v ./...
+      - name: Set Index Type to ${{ matrix.index-type }}
+        shell: pwsh
+        run: |
+          if ("${{ matrix.index-type }}" -eq "BPTree") {
+            (Get-Content options.go) -replace 'IndexType:.*index\.BTree', 'IndexType:         index.BPTree' | Set-Content options.go
+          }
+          Select-String -Path options.go -Pattern "IndexType:"
+
+      - name: Run Unit Test (${{ matrix.index-type }})
+        run: go test -race -count 1 -v ./...
 
       - name: Run Benchmark Test
         working-directory: ./benchmark

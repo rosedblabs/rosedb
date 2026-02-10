@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/rosedblabs/rosedb/v2/index"
 )
 
 // Options specifies the options for opening a database.
@@ -43,6 +45,11 @@ type Options struct {
 	// do not set this shecule too frequently, it will affect the performance.
 	// refer to https://en.wikipedia.org/wiki/Cron
 	AutoMergeCronExpr string
+
+	// IndexType specifies the type of index to use.
+	// Default is BTree (in-memory), which requires rebuilding on startup.
+	// BPTree (disk-based B+Tree) provides persistence and faster startup.
+	IndexType index.IndexerType
 }
 
 // BatchOptions specifies the options for creating a batch.
@@ -83,6 +90,7 @@ var DefaultOptions = Options{
 	BytesPerSync:      0,
 	WatchQueueSize:    0,
 	AutoMergeCronExpr: "",
+	IndexType:         index.BTree, // default to in-memory BTree
 }
 
 var DefaultBatchOptions = BatchOptions{

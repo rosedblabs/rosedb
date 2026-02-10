@@ -50,7 +50,8 @@ type Indexer interface {
 type IndexerType = byte
 
 const (
-	BTree IndexerType = iota
+	BTree  IndexerType = iota
+	BPTree             // B+Tree disk-based index
 )
 
 // Change the index type as you implement.
@@ -63,6 +64,15 @@ func NewIndexer() Indexer {
 	default:
 		panic("unexpected index type")
 	}
+}
+
+// PersistentIndexer is an interface for indexers that support persistence.
+type PersistentIndexer interface {
+	Indexer
+	// Close closes the indexer and releases resources.
+	Close() error
+	// Sync flushes all dirty data to disk.
+	Sync() error
 }
 
 // IndexIterator represents a generic index iterator interface.
