@@ -33,6 +33,10 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 	if err := db.doMerge(); err != nil {
 		return err
 	}
+	// Reset mergeRunning after the entire Merge operation completes (including reopen),
+	// not just after doMerge, to prevent concurrent merges during the reopen phase.
+	defer atomic.StoreUint32(&db.mergeRunning, 0)
+
 	if !reopenAfterDone {
 		return nil
 	}
@@ -42,6 +46,13 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 
 	// close current files
 	_ = db.closeFiles()
+
+	// For B+Tree index, delete the old index file so it will be rebuilt from hint file.
+	// The old index contains stale positions that point to the pre-merge data locations.
+	if db.options.IndexType == index.BPTree {
+		bptreeIndexPath := filepath.Join(db.options.DirPath, "bptree.index")
+		_ = os.Remove(bptreeIndexPath)
+	}
 
 	// replace original file
 	err := loadMergeFiles(db.options.DirPath)
@@ -54,8 +65,10 @@ func (db *DB) Merge(reopenAfterDone bool) error {
 		return err
 	}
 
-	// discard the old index first.
-	db.index = index.NewIndexer()
+	// reopen index
+	if err = db.openIndex(); err != nil {
+		return err
+	}
 	// rebuild index
 	if err = db.loadIndex(); err != nil {
 		return err
@@ -82,9 +95,15 @@ func (db *DB) doMerge() error {
 		return ErrMergeRunning
 	}
 	// set the mergeRunning flag to true
+	// it will be reset by Merge() when the entire operation completes
 	atomic.StoreUint32(&db.mergeRunning, 1)
-	// set the mergeRunning flag to false when the merge operation is completed
-	defer atomic.StoreUint32(&db.mergeRunning, 0)
+	// reset mergeRunning only if doMerge fails; on success, Merge() handles the reset
+	mergeSuccess := false
+	defer func() {
+		if !mergeSuccess {
+			atomic.StoreUint32(&db.mergeRunning, 0)
+		}
+	}()
 
 	prevActiveSegId := db.dataFiles.ActiveSegmentID()
 	// rotate the write-ahead log, create a new active segment file.
@@ -168,7 +187,8 @@ func (db *DB) doMerge() error {
 		return err
 	}
 
-	// all done successfully, return nil
+	// all done successfully, keep mergeRunning=1 so Merge() can reset it
+	mergeSuccess = true
 	return nil
 }
 
@@ -293,6 +313,11 @@ func loadMergeFiles(dirPath string) error {
 	// the same as the hint file.
 	copyFile(mergeFinNameSuffix, 1, true)
 	copyFile(hintFileNameSuffix, 1, true)
+
+	// Delete B+Tree index file if it exists, because its positions will be stale
+	// after the data files are replaced. The index will be rebuilt from the hint file.
+	bptreeIndexPath := filepath.Join(dirPath, "bptree.index")
+	_ = os.Remove(bptreeIndexPath)
 
 	return nil
 }
