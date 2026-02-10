@@ -16,6 +16,7 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/robfig/cron/v3"
 	"github.com/rosedblabs/rosedb/v2/index"
+	"github.com/rosedblabs/rosedb/v2/index/bptree"
 	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/rosedblabs/wal"
 )
@@ -104,7 +105,6 @@ func Open(options Options) (*DB, error) {
 
 	// init DB instance
 	db := &DB{
-		index:        index.NewIndexer(),
 		options:      options,
 		fileLock:     fileLock,
 		batchPool:    sync.Pool{New: newBatch},
@@ -117,7 +117,12 @@ func Open(options Options) (*DB, error) {
 		return nil, err
 	}
 
-	// load index
+	// create index based on index type
+	if err = db.openIndex(); err != nil {
+		return nil, err
+	}
+
+	// load index from WAL (only for in-memory index)
 	if err = db.loadIndex(); err != nil {
 		return nil, err
 	}
@@ -168,12 +173,37 @@ func (db *DB) openWalFiles() (*wal.WAL, error) {
 	return walFiles, nil
 }
 
+// openIndex creates the index based on the index type.
+func (db *DB) openIndex() error {
+	switch db.options.IndexType {
+	case index.BPTree:
+		// Open disk-based B+Tree index
+		bptreeIndex, err := bptree.NewBPTreeIndexer(db.options.DirPath, bptree.DefaultOptions)
+		if err != nil {
+			return err
+		}
+		db.index = bptreeIndex
+	default:
+		// Default to in-memory BTree
+		db.index = index.NewIndexer()
+	}
+	return nil
+}
+
 func (db *DB) loadIndex() error {
-	// load index from hint file
+	// For B+Tree index, we still need to load incremental data from WAL
+	// that was written after the last index sync.
+	// But for simplicity, if using B+Tree, we only load from WAL if index is empty
+	// (which means it's a fresh index or we need to rebuild).
+	if db.options.IndexType == index.BPTree && db.index.Size() > 0 {
+		// B+Tree index already has data, no need to load from WAL
+		return nil
+	}
+
+	// For in-memory index or empty B+Tree, load from hint file and WAL
 	if err := db.loadIndexFromHintFile(); err != nil {
 		return err
 	}
-	// load index from data files
 	if err := db.loadIndexFromWAL(); err != nil {
 		return err
 	}
@@ -228,6 +258,12 @@ func (db *DB) closeFiles() error {
 			return err
 		}
 	}
+	// close B+Tree index if it's a persistent indexer
+	if persistentIdx, ok := db.index.(index.PersistentIndexer); ok {
+		if err := persistentIdx.Close(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -236,7 +272,16 @@ func (db *DB) Sync() error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	return db.dataFiles.Sync()
+	if err := db.dataFiles.Sync(); err != nil {
+		return err
+	}
+	// sync B+Tree index if it's a persistent indexer
+	if persistentIdx, ok := db.index.(index.PersistentIndexer); ok {
+		if err := persistentIdx.Sync(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Stat returns the statistics of the database.

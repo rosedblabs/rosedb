@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rosedblabs/rosedb/v2/index"
 	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1196,4 +1197,120 @@ func TestDB_Reopen_With_Data(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, val)
 	}
+}
+
+func TestDB_BPTree_Index(t *testing.T) {
+	options := DefaultOptions
+	options.IndexType = index.BPTree
+	db, err := Open(options)
+	assert.NoError(t, err)
+	defer destroyDB(db)
+
+	// Test basic operations
+	for i := 0; i < 100; i++ {
+		err := db.Put(utils.GetTestKey(i), utils.RandomValue(128))
+		assert.NoError(t, err)
+	}
+
+	// Verify data
+	for i := 0; i < 100; i++ {
+		val, err := db.Get(utils.GetTestKey(i))
+		assert.NoError(t, err)
+		assert.NotNil(t, val)
+	}
+
+	// Test delete
+	for i := 0; i < 50; i++ {
+		err := db.Delete(utils.GetTestKey(i))
+		assert.NoError(t, err)
+	}
+
+	// Verify deleted
+	for i := 0; i < 50; i++ {
+		_, err := db.Get(utils.GetTestKey(i))
+		assert.Equal(t, ErrKeyNotFound, err)
+	}
+
+	// Verify remaining
+	for i := 50; i < 100; i++ {
+		val, err := db.Get(utils.GetTestKey(i))
+		assert.NoError(t, err)
+		assert.NotNil(t, val)
+	}
+
+	assert.Equal(t, 50, db.Stat().KeysNum)
+}
+
+func TestDB_BPTree_Persistence(t *testing.T) {
+	options := DefaultOptions
+	options.IndexType = index.BPTree
+	db, err := Open(options)
+	assert.NoError(t, err)
+
+	// Write data
+	for i := 0; i < 100; i++ {
+		err := db.Put(utils.GetTestKey(i), utils.RandomValue(128))
+		assert.NoError(t, err)
+	}
+
+	// Sync to ensure data is persisted
+	err = db.Sync()
+	assert.NoError(t, err)
+
+	// Close
+	err = db.Close()
+	assert.NoError(t, err)
+
+	// Reopen with same options
+	db2, err := Open(options)
+	assert.NoError(t, err)
+	defer destroyDB(db2)
+
+	// Verify data persisted
+	assert.Equal(t, 100, db2.Stat().KeysNum)
+
+	for i := 0; i < 100; i++ {
+		val, err := db2.Get(utils.GetTestKey(i))
+		assert.NoError(t, err)
+		assert.NotNil(t, val)
+	}
+}
+
+func TestDB_BPTree_Iterator(t *testing.T) {
+	options := DefaultOptions
+	options.IndexType = index.BPTree
+	db, err := Open(options)
+	assert.NoError(t, err)
+	defer destroyDB(db)
+
+	// Insert keys
+	keys := []string{"apple", "banana", "cherry", "date", "elderberry"}
+	for _, key := range keys {
+		err := db.Put([]byte(key), []byte("value-"+key))
+		assert.NoError(t, err)
+	}
+
+	// Test Ascend
+	var result []string
+	db.Ascend(func(k, v []byte) (bool, error) {
+		result = append(result, string(k))
+		return true, nil
+	})
+	assert.Equal(t, []string{"apple", "banana", "cherry", "date", "elderberry"}, result)
+
+	// Test Descend
+	result = nil
+	db.Descend(func(k, v []byte) (bool, error) {
+		result = append(result, string(k))
+		return true, nil
+	})
+	assert.Equal(t, []string{"elderberry", "date", "cherry", "banana", "apple"}, result)
+
+	// Test AscendRange
+	result = nil
+	db.AscendRange([]byte("banana"), []byte("elderberry"), func(k, v []byte) (bool, error) {
+		result = append(result, string(k))
+		return true, nil
+	})
+	assert.Equal(t, []string{"banana", "cherry", "date"}, result)
 }
