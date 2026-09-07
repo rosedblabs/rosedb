@@ -2,7 +2,6 @@ package rosedb
 
 import (
 	"sync"
-	"time"
 )
 
 type WatchActionType = byte
@@ -30,6 +29,10 @@ type Watcher struct {
 	queue eventQueue
 	mu    sync.Mutex
 	done  chan struct{}
+	// notify is a signal channel with capacity 1, it wakes up the
+	// sending goroutine immediately when a new event is put into
+	// the queue, avoiding polling the queue periodically.
+	notify chan struct{}
 }
 
 func NewWatcher(capacity uint64) *Watcher {
@@ -38,7 +41,8 @@ func NewWatcher(capacity uint64) *Watcher {
 			Events:   make([]*Event, capacity),
 			Capacity: capacity,
 		},
-		done: make(chan struct{}),
+		done:   make(chan struct{}),
+		notify: make(chan struct{}, 1),
 	}
 }
 
@@ -49,6 +53,12 @@ func (w *Watcher) putEvent(e *Event) {
 		w.queue.frontTakeAStep()
 	}
 	w.mu.Unlock()
+	// signal the sending goroutine, non-blocking because the channel
+	// has capacity 1 and a pending signal already covers all queued events.
+	select {
+	case w.notify <- struct{}{}:
+	default:
+	}
 }
 
 // getEvent if queue is empty, it will return nil.
@@ -62,17 +72,19 @@ func (w *Watcher) getEvent() *Event {
 }
 
 // sendEvent send events to DB's watch.
-// It will return when the watcher is closed.
+// It waits on the notify channel and returns when the watcher is closed.
 func (w *Watcher) sendEvent(c chan *Event) {
 	for {
 		select {
 		case <-w.done:
 			return
-		default:
+		case <-w.notify:
+		}
+		// drain all the events currently in the queue
+		for {
 			event := w.getEvent()
 			if event == nil {
-				time.Sleep(100 * time.Millisecond)
-				continue
+				break
 			}
 			select {
 			case c <- event:
