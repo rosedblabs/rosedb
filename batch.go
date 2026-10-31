@@ -509,7 +509,7 @@ func (b *Batch) Commit() error {
 	}
 
 	// flush wal if necessary
-	if b.options.Sync && !b.db.options.Sync {
+	if b.options.Sync || b.db.options.Sync {
 		if err := b.db.dataFiles.Sync(); err != nil {
 			return err
 		}
