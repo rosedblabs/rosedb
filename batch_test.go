@@ -434,3 +434,83 @@ func TestBatch_Persist(t *testing.T) {
 	assert.Equal(t, ErrKeyNotFound, err)
 	_ = batch6.Rollback()
 }
+
+func TestBatch_Commit_SyncOption(t *testing.T) {
+	testCases := []struct {
+		name      string
+		dbSync    bool
+		batchSync bool
+	}{
+		{
+			name:      "dbSync=false, batchSync=false",
+			dbSync:    false,
+			batchSync: false,
+		},
+		{
+			name:      "dbSync=false, batchSync=true",
+			dbSync:    false,
+			batchSync: true,
+		},
+		{
+			name:      "dbSync=true, batchSync=false",
+			dbSync:    true,
+			batchSync: false,
+		},
+		{
+			name:      "dbSync=true, batchSync=true",
+			dbSync:    true,
+			batchSync: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := DefaultOptions
+			opts.Sync = tc.dbSync
+			db, err := Open(opts)
+			assert.NoError(t, err)
+			defer destroyDB(db)
+
+			// Single operation (uses batch with batchSync=false internally)
+			err = db.Put([]byte("key-single"), []byte("val-single"))
+			assert.NoError(t, err)
+
+			val, err := db.Get([]byte("key-single"))
+			assert.NoError(t, err)
+			assert.Equal(t, []byte("val-single"), val)
+
+			// Batch operation with explicit Sync setting
+			batch := db.NewBatch(BatchOptions{Sync: tc.batchSync})
+			err = batch.Put([]byte("key-batch-1"), []byte("val-1"))
+			assert.NoError(t, err)
+			err = batch.Put([]byte("key-batch-2"), []byte("val-2"))
+			assert.NoError(t, err)
+			err = batch.Commit()
+			assert.NoError(t, err)
+
+			// Reopen database and verify persisted data
+			dir := db.options.DirPath
+			err = db.Close()
+			assert.NoError(t, err)
+
+			opts2 := DefaultOptions
+			opts2.DirPath = dir
+			opts2.Sync = tc.dbSync
+			db2, err := Open(opts2)
+			assert.NoError(t, err)
+			defer destroyDB(db2)
+
+			valSingle, err := db2.Get([]byte("key-single"))
+			assert.NoError(t, err)
+			assert.Equal(t, []byte("val-single"), valSingle)
+
+			valB1, err := db2.Get([]byte("key-batch-1"))
+			assert.NoError(t, err)
+			assert.Equal(t, []byte("val-1"), valB1)
+
+			valB2, err := db2.Get([]byte("key-batch-2"))
+			assert.NoError(t, err)
+			assert.Equal(t, []byte("val-2"), valB2)
+		})
+	}
+}
