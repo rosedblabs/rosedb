@@ -3,6 +3,7 @@ package rosedb
 import (
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/rosedblabs/rosedb/v2/utils"
 	"github.com/stretchr/testify/assert"
@@ -86,6 +87,29 @@ func TestWatch_Put_Watch(t *testing.T) {
 		assert.Equal(t, WatchActionPut, event.Action)
 		assert.Equal(t, key, event.Key)
 		assert.Equal(t, value, event.Value)
+	}
+}
+
+func TestWatch_EventDeliveredWithoutDelay(t *testing.T) {
+	options := DefaultOptions
+	options.WatchQueueSize = 10
+	db, err := Open(options)
+	require.NoError(t, err)
+	defer destroyDB(db)
+
+	w, err := db.Watch()
+	require.NoError(t, err)
+
+	start := time.Now()
+	require.NoError(t, db.Put(utils.GetTestKey(rand.Int()), utils.RandomValue(128)))
+	select {
+	case event := <-w:
+		// the event should be delivered immediately after the put,
+		// not on the next polling tick.
+		assert.Less(t, time.Since(start), 50*time.Millisecond)
+		assert.Equal(t, WatchActionPut, event.Action)
+	case <-time.After(time.Second):
+		t.Fatal("no event received within one second")
 	}
 }
 
