@@ -8,15 +8,34 @@ on:
 
 jobs:
 
+  lint:
+    # Run only on pull requests: only-new-issues needs a PR diff, and a full
+    # run on main would report the existing backlog of issues.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.1
+          only-new-issues: true
+
   ubuntu-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.19
+          go-version: '1.21'
 
       - name: Run Go Vet
         run: |
@@ -32,7 +51,7 @@ jobs:
           fi
 
       - name: Build
-        run: go build -v
+        run: go build -v ./...
 
       - name: Run Unit Test
         run: go test -count 1 -v ./...
@@ -44,19 +63,19 @@ jobs:
   windows-test:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.19
+          go-version: '1.21'
 
       - name: Run Go Vet
         run: |
           go vet ./...
 
       - name: Build
-        run: go build -v
+        run: go build -v ./...
 
       - name: Run Unit Test
         run: go test -count 1 -v ./...
