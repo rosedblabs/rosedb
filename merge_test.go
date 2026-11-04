@@ -343,7 +343,13 @@ func TestDB_Merge_InterruptedInstall(t *testing.T) {
 			options.SegmentSize = 64 * KB
 			db, err := Open(options)
 			require.NoError(t, err)
-			defer destroyDB(db)
+			// db is reassigned below, so close whichever instance is open at
+			// the end. Windows cannot remove the temp dir while a file is open.
+			defer func() {
+				if db != nil {
+					destroyDB(db)
+				}
+			}()
 
 			kvs := make(map[string][]byte)
 			for i := 0; i < 2000; i++ {
@@ -358,6 +364,7 @@ func TestDB_Merge_InterruptedInstall(t *testing.T) {
 			}
 			require.NoError(t, db.Merge(false))
 			require.NoError(t, db.Close())
+			db = nil
 
 			mergeFinSegmentId, err := getMergeFinSegmentId(mergeDirPath(options.DirPath))
 			require.NoError(t, err)
