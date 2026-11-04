@@ -265,6 +265,10 @@ func loadMergeFiles(dirPath string) error {
 	if err != nil {
 		return err
 	}
+	// Delete the hint and merge files, even if the later Rename process is interrupted,
+	// Let loadIndexFromHintFile also return nil because the fin file is not found,
+	_ = os.Remove(wal.SegmentFileName(dirPath, mergeFinNameSuffix, 1))
+	_ = os.Remove(wal.SegmentFileName(dirPath, hintFileNameSuffix, 1))
 	// now we get the merge finished segment id, so all the segment id less than the merge finished segment id
 	// should be moved to the original data directory, and the original data files should be deleted.
 	for fileId := uint32(1); fileId <= mergeFinSegmentId; fileId++ {
@@ -320,6 +324,12 @@ func getMergeFinSegmentId(mergePath string) (wal.SegmentID, error) {
 }
 
 func (db *DB) loadIndexFromHintFile() error {
+	// If there is no finish file in the data folder,
+	// it means that the hint file is not legal and should be skipped
+	finSegmentId, err := getMergeFinSegmentId(db.options.DirPath)
+	if finSegmentId == 0 || err != nil {
+		return nil
+	}
 	hintFile, err := wal.Open(wal.Options{
 		DirPath: db.options.DirPath,
 		// we don't need to rotate the hint file, just write all data to the same file.
