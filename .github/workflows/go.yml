@@ -9,6 +9,9 @@ on:
 jobs:
 
   lint:
+    # Run only on pull requests: only-new-issues needs a PR diff, and a full
+    # run on main would report the existing backlog of issues.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +25,7 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.1
+          only-new-issues: true
 
   ubuntu-test:
     runs-on: ubuntu-latest
