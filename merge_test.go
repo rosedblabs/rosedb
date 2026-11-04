@@ -3,10 +3,12 @@ package rosedb
 import (
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
 	"github.com/rosedblabs/rosedb/v2/utils"
+	"github.com/rosedblabs/wal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -302,4 +304,80 @@ func TestDB_Merge_Concurrent_Put(t *testing.T) {
 		return true
 	})
 	assert.Equal(t, count, db.index.Size())
+}
+
+// TestDB_Merge_InterruptedInstall reopens the database after loadMergeFiles was
+// interrupted, as by a crash, part way through installing the merged files.
+// Opening the database runs loadMergeFiles again; it must not remove merged
+// segments that the interrupted run already put in place.
+func TestDB_Merge_InterruptedInstall(t *testing.T) {
+	// installSegments performs the first n steps of the segment loop of
+	// loadMergeFiles, the way it moves the files.
+	installSegments := func(t *testing.T, dirPath string, n uint32) {
+		t.Helper()
+		mergeDir := mergeDirPath(dirPath)
+		for fileId := uint32(1); fileId <= n; fileId++ {
+			src := wal.SegmentFileName(mergeDir, dataFileNameSuffix, fileId)
+			dest := wal.SegmentFileName(dirPath, dataFileNameSuffix, fileId)
+			if stat, err := os.Stat(src); err == nil && stat.Size() > 0 {
+				require.NoError(t, os.Rename(src, dest))
+				continue
+			}
+			_ = os.Remove(dest)
+			_ = os.Remove(src)
+		}
+	}
+
+	tests := []struct {
+		name string
+		// steps is the number of segment ids installed before the interruption.
+		steps func(mergeFinSegmentId uint32) uint32
+	}{
+		{"first segment installed", func(uint32) uint32 { return 1 }},
+		{"all segments installed", func(id uint32) uint32 { return id }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			options := DefaultOptions
+			options.DirPath = filepath.Join(t.TempDir(), "rosedb")
+			options.SegmentSize = 64 * KB
+			db, err := Open(options)
+			require.NoError(t, err)
+			defer destroyDB(db)
+
+			kvs := make(map[string][]byte)
+			for i := 0; i < 2000; i++ {
+				key, value := utils.GetTestKey(i), utils.RandomValue(128)
+				require.NoError(t, db.Put(key, value))
+				kvs[string(key)] = value
+			}
+			for i := 0; i < 1000; i++ {
+				key := utils.GetTestKey(i)
+				require.NoError(t, db.Delete(key))
+				delete(kvs, string(key))
+			}
+			require.NoError(t, db.Merge(false))
+			require.NoError(t, db.Close())
+
+			mergeFinSegmentId, err := getMergeFinSegmentId(mergeDirPath(options.DirPath))
+			require.NoError(t, err)
+			// the test needs more than one merged segment.
+			_, err = os.Stat(wal.SegmentFileName(mergeDirPath(options.DirPath), dataFileNameSuffix, 2))
+			require.NoError(t, err)
+			installSegments(t, options.DirPath, tt.steps(mergeFinSegmentId))
+
+			db, err = Open(options)
+			require.NoError(t, err)
+			for key, value := range kvs {
+				v, err := db.Get([]byte(key))
+				require.NoError(t, err, "key %s", key)
+				require.Equal(t, value, v)
+			}
+			for i := 0; i < 1000; i++ {
+				_, err := db.Get(utils.GetTestKey(i))
+				require.ErrorIs(t, err, ErrKeyNotFound)
+			}
+			require.Equal(t, len(kvs), db.index.Size())
+		})
+	}
 }
