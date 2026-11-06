@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="rosedb avatar">
+  <title>rosedb</title>
+  <rect width="512" height="512" fill="#E11D48"/>
+  <g transform="translate(256,254) scale(1.7)" fill="none" stroke-width="13" stroke-linejoin="round" stroke-linecap="round">
+    <g transform="translate(0,7)" stroke="#9F1239"><path transform="rotate(0)" d="M0 -6 C-5 -34 -5 -60 0 -88 C38 -88 40 -34 0 -6 Z"/><path transform="rotate(120)" d="M0 -6 C-5 -34 -5 -60 0 -88 C38 -88 40 -34 0 -6 Z"/><path transform="rotate(240)" d="M0 -6 C-5 -34 -5 -60 0 -88 C38 -88 40 -34 0 -6 Z"/></g>
+    <g stroke="#ffffff"><path transform="rotate(0)" d="M0 -6 C-5 -34 -5 -60 0 -88 C38 -88 40 -34 0 -6 Z"/><path transform="rotate(120)" d="M0 -6 C-5 -34 -5 -60 0 -88 C38 -88 40 -34 0 -6 Z"/><path transform="rotate(240)" d="M0 -6 C-5 -34 -5 -60 0 -88 C38 -88 40 -34 0 -6 Z"/></g>
+  </g>
+</svg>

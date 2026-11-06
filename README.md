@@ -1,4 +1,8 @@
 <div align="center">
+<img src="docs/imgs/logo/png/rosedb-logo-740.png" alt="rosedb" width="440">
+</div>
+
+<div align="center">
 <strong>
 <samp>
 

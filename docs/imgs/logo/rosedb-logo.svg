@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 232" width="740" height="232" role="img" aria-label="rosedb logo">
+  <title>rosedb</title>
+  <g transform="translate(120,113) scale(0.82)" fill="none" stroke-width="13" stroke-linejoin="round" stroke-linecap="round">
+    <g transform="translate(0,7)" stroke="#1E293B"><path transform="rotate(0)" d="M0 -6 C-5 -34 -5 -60 0 -88 C38 -88 40 -34 0 -6 Z"/><path transform="rotate(120)" d="M0 -6 C-5 -34 -5 -60 0 -88 C38 -88 40 -34 0 -6 Z"/><path transform="rotate(240)" d="M0 -6 C-5 -34 -5 -60 0 -88 C38 -88 40 -34 0 -6 Z"/></g>
+    <g stroke="#E11D48"><path transform="rotate(0)" d="M0 -6 C-5 -34 -5 -60 0 -88 C38 -88 40 -34 0 -6 Z"/><path transform="rotate(120)" d="M0 -6 C-5 -34 -5 -60 0 -88 C38 -88 40 -34 0 -6 Z"/><path transform="rotate(240)" d="M0 -6 C-5 -34 -5 -60 0 -88 C38 -88 40 -34 0 -6 Z"/></g>
+  </g>
+  <text x="236" y="146" font-family="'Inter','Helvetica Neue',Arial,sans-serif" font-size="128" font-weight="800" letter-spacing="-5">
+    <tspan fill="#E11D48">rose</tspan><tspan fill="#1E293B">db</tspan>
+  </text>
+</svg>
