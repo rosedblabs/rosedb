@@ -265,27 +265,47 @@ func loadMergeFiles(dirPath string) error {
 	if err != nil {
 		return err
 	}
+
+	// The merge database always creates its first segment file, so it is
+	// present until this function installs it. If it is gone, an earlier call
+	// was interrupted after installing some of the merged segments, and a merged
+	// segment that is missing from the merge directory is already in place in
+	// the data directory: it must not be removed again.
+	_, err = os.Stat(wal.SegmentFileName(mergeDirPath, dataFileNameSuffix, 1))
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	resumed := os.IsNotExist(err)
+
 	// now we get the merge finished segment id, so all the segment id less than the merge finished segment id
 	// should be moved to the original data directory, and the original data files should be deleted.
 	for fileId := uint32(1); fileId <= mergeFinSegmentId; fileId++ {
+		srcFile := wal.SegmentFileName(mergeDirPath, dataFileNameSuffix, fileId)
 		destFile := wal.SegmentFileName(dirPath, dataFileNameSuffix, fileId)
-		// will have bug here if continue, check it later.todo
 
-		// If we call Merge multiple times, some segment files will be deleted earlier, so just skip them.
-		// if _, err = os.Stat(destFile); os.IsNotExist(err) {
-		// 	continue
-		// } else if err != nil {
-		// 	return err
-		// }
-
-		// remove the original data file
-		if _, err = os.Stat(destFile); err == nil {
-			if err = os.Remove(destFile); err != nil {
+		stat, err := os.Stat(srcFile)
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		switch {
+		case err == nil && stat.Size() > 0:
+			// the rename replaces the original data file, if any.
+			if err = os.Rename(srcFile, destFile); err != nil {
+				return err
+			}
+		case err == nil || !resumed:
+			// There is no merged data for this segment id, so the original
+			// data file is obsolete. An empty merged file is removed as well,
+			// so that it is not taken as pending if this is interrupted.
+			// If we call Merge multiple times, some segment files will be
+			// deleted earlier, so a missing original file is fine.
+			if err = os.Remove(destFile); err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			if err = os.Remove(srcFile); err != nil && !os.IsNotExist(err) {
 				return err
 			}
 		}
-		// move the merge data file to the original data directory
-		copyFile(dataFileNameSuffix, fileId, false)
 	}
 
 	// copy MERGEFINISHED and HINT files to the original data directory
